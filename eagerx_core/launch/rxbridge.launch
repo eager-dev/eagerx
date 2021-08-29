@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="name" doc="The environment name."/>
+    <group ns="$(arg name)">
+        <node name="rxbridge" pkg="eagerx_core" type="rxbridge" output="screen"/>
+    </group>
+</launch>

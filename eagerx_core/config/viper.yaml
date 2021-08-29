@@ -1,0 +1,58 @@
+default:
+  sensors: [pos_sensors]
+  actuators: [ref_vel]
+  states: [position, orientation]
+  position: [0, 0, 0]
+  orientation: [0, 0, 0]
+
+sensors: # Outputs of simulators
+  pos_sensors:
+    rate: 8
+    msg_type: UInt64
+    msg_module: std_msg.msg
+
+actuators: # Inputs of simulators
+  ref_pos:
+    rate: 1
+    msg_type: UInt64
+    msg_module: std_msg.msg
+    # Add converter module if used directly as action_space: UInt64_to_space(**converter_args)
+    # Add converter arguments:
+  ref_vel:
+    rate: 1
+    msg_type: UInt64
+    msg_module: std_msg.msg
+
+states: # Outputs of simulators
+  position:
+    rate: 1
+    msg_type: UInt64
+    msg_module: std_msg.msg
+  orientation:
+    rate: 1
+    msg_type: UInt64
+    msg_module: std_msg.msg
+
+bridge:
+  urdf: 'path/to/urdf.urdf'
+  sensors:
+    pos_sensors:
+      node_type: SimSensorNode
+      module: eagerx_core.params
+
+  actuators:  # Inputs as defined above
+    ref_pos:
+      node_type: SimActuatorNode
+      module: eagerx_core.params
+      inputs: [P5]
+      inputs_address: [N5/P5]
+
+  states:
+    position:
+      node_type: SimStateNode
+      module: eagerx_core.params
+    orientation:
+      node_type: SimStateNode
+      module: eagerx_core.params
+      inputs: [pos_sensors]
+      inputs_address: [obj/sensors/pos_sensors]
