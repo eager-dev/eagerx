@@ -3,7 +3,7 @@ import rospy, rosparam
 from std_msgs.msg import UInt64, String
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module
+from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking
 import eagerx_core
 
 # Memory usage
@@ -13,10 +13,10 @@ import numpy as np
 
 
 class StateNode(object):
-    def __init__(self, name):
+    def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
-        self.params = rospy.get_param(self.name)
+        self.params = get_param_with_blocking(self.name)
 
         # Append states on rosparam server that are reset by this node
         sim_pub = rospy.Publisher(self.ns + '/resettable/sim', String, queue_size=0)
@@ -99,7 +99,7 @@ class RealResetNode(object):
     def __init__(self, name):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
-        self.params = rospy.get_param(self.name)
+        self.params = get_param_with_blocking(self.name)
 
         # Append states on rosparam server that are reset by this node
         real_pub = rospy.Publisher(self.ns + '/resettable/real', String, queue_size=0)
@@ -188,12 +188,12 @@ class RealResetNode(object):
 
 
 class ProcessNode(object):
-    def __init__(self, name):
+    def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
 
         # Message counter
-        self.params = rospy.get_param(self.name)
+        self.params = get_param_with_blocking(self.name)
         self.num_ticks = 0
         self.num_resets = 0
         self.dt = 1 / self.params['rate']
@@ -261,7 +261,7 @@ class ProcessNode(object):
 
 
 class RxNode(object):
-    def __init__(self, name, message_broker, scheduler=None):
+    def __init__(self, name, message_broker, scheduler=None, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.mb = message_broker
@@ -269,7 +269,7 @@ class RxNode(object):
 
         # Prepare input & output topics
         # todo: pass rx_objects to message_broker
-        dt, topics_in, topics_out, feedthrough_in, states_in, node = self._prepare_io_topics(self.name)
+        dt, topics_in, topics_out, feedthrough_in, states_in, node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
         # todo: pass rx_objects to message_broker
@@ -287,14 +287,14 @@ class RxNode(object):
             rospy.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
-    def _prepare_io_topics(self, name):
+    def _prepare_io_topics(self, name, **kwargs):
         params = rospy.get_param(name)
         rate = params['rate']
         dt = 1 / rate
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name)
+        node = node_cls(name, **kwargs)
 
         # Prepare input topics
         for i in params['topics_in']:

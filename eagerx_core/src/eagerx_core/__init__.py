@@ -20,6 +20,8 @@ from rx.internal.utils import add_ref
 from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable
 from rx.subject import Subject, BehaviorSubject, ReplaySubject
 from rx.scheduler import ThreadPoolScheduler, CurrentThreadScheduler, ImmediateScheduler, EventLoopScheduler
+from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking
+
 
 only_node = ['/rx/N1', '/rx/N3', '/rx/obj/nodes/states/orientation', '/rx/obj/nodes/sensors/pos_sensors', '/rx/bridge']
 
@@ -197,6 +199,12 @@ def push_to_Nc(Nc, Rn):
         return rx.create(subscribe)
 
     return _push_to_Nc
+
+
+def combine_dict(acc, x):
+    for key, item in acc.items():
+         item += x[key]
+    return acc
 
 
 def from_topic(topic_type: Any, topic_name: str) -> Observable:
@@ -696,16 +704,6 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
             done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=UInt64, msg=D, msg_pub=done_pub)
             state_outputs.append(done_output)
 
-    # # Prepare set_state topics (used by StateNode)
-    # for i in set_states:
-    #     # Initialize desired state message
-    #     S = Subject()
-    #     i['msg'] = S
-    #
-    #     # Initialize done flag for desired state
-    #     D = Subject()
-    #     i['done'] = D
-
     # Flags
     flags = []
     for i in inputs + feedthrough:
@@ -823,7 +821,69 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, DF, RR, done_fla
     return {'Rn': Rn, 'dispose': dispose}
 
 
-def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs, node_name='', scheduler=''):
+def get_object_params(msg):
+    obj_name = msg.data
+
+    obj_params = get_param_with_blocking(obj_name)
+    if obj_params is None:
+        rospy.logwarn('Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered.' % (msg.data, msg.data))
+        return None
+
+    # Get parameters from ROS param server
+    params = []
+    for node_name in obj_params['node_names']:
+        node_params = get_param_with_blocking(node_name)
+        params.append(node_params)
+    return params
+
+
+# todo: launch node with bridge.register() callback
+def extract_topics_in_reactive_proxy(obj_params, sp_nodes, launch_nodes):
+    inputs = []
+    reactive_proxy = []
+    for node_params in obj_params:
+        name = node_params['name']
+
+        for i in node_params['topics_out']:
+            assert not node_params['single_process'] or (node_params['single_process'] and i['converter'] == 'identity'), 'Node "%s" has a non-identity output converter (%s) that is not supported if launching remotely.' % (name, i['converter'])
+
+            # Convert to classes
+            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+
+            # Initialize rx objects
+            i['msg'] = Subject()  # Ir
+            i['reset'] = Subject()  # Is
+
+            # Create a new input topic for each SimNode output topic
+            new_input = dict()
+            new_input.update(i)
+            new_input.pop('rate')
+            new_input['is_reactive'] = True
+            new_input['repeat'] = 'empty'
+            inputs.append(new_input)
+
+        for i in node_params['topics_in']:
+            if not i['is_reactive']:
+                # Convert to classes
+                i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+                i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+
+                # Initialize rx reset output for reactive input
+                i['reset'] = Subject()
+                i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0)
+
+                # Create a new output topic for each SimNode reactive input (bridge sends reset msg)
+                # todo: reactive inputs must have a rate defined
+                new_out = dict()
+                new_out.update(i)
+                new_out.pop('repeat')
+                reactive_proxy.append(new_out)
+
+    return dict(inputs=inputs, reactive_proxy=reactive_proxy, sp_nodes=sp_nodes, launch_nodes=launch_nodes)
+
+
+def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_object, inputs, outputs, message_broker, node_name='', scheduler=''):
     # todo: Have message_broker as input.
     #  0) Before calling RR, ensure that all objects & custom nodes have been registered & Initialized (before connect_io is called).
     #  1) Somewhere in the rxbridge reset procedure, call mb.connect_io().
@@ -845,17 +905,19 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs,
         event_scheduler = EventLoopScheduler()
         thread_pool_scheduler = event_scheduler
 
+    # Prepare input topics
+    for i in inputs:
+        # Subscribe to input topic
+        Ir = Subject()
+        i['msg'] = Ir
+
+        # Subscribe to input reset topic
+        Is = Subject()
+        i['reset'] = Is
+
     # Track node I/O
     node_inputs = []
     node_outputs = []
-
-    # Resettable real states (to dynamically add state/done flags to DF for RR)
-    RRS = ReplaySubject()  #todo: Replay needed?
-    resettable_real = dict()
-    resettable_real['address'] = ns + '/resettable/real'
-    resettable_real['msg'] = RRS
-    resettable_real['msg_type'] = String
-    node_inputs.append(resettable_real)
 
     # Object register (to dynamically add input reset flags to F for reset)
     OR = Subject()
@@ -864,6 +926,40 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs,
     object_registry['msg'] = OR
     object_registry['msg_type'] = String
     node_inputs.append(object_registry)
+
+    # Object registry pipeline
+    # todo: call message_broker.connect_io()
+    DF = BehaviorSubject(None)
+    params_nodes = OR.pipe(ops.map(get_object_params),
+                           ops.filter(lambda params: params is not None),
+                           ops.map(lambda params: (params,) + cb_register_object(params)))
+    rx_objects = params_nodes.pipe(ops.map(lambda i: extract_topics_in_reactive_proxy(*i)),
+                                   ops.map(lambda i: (i, message_broker.add_rx_objects(node_name, inputs=i['inputs'], reactive_proxy=i['reactive_proxy']))),
+                                   ops.map(lambda i: i[0]),
+                                   ops.scan(combine_dict, dict(inputs=inputs, reactive_proxy=[], sp_nodes=[], launch_nodes=[])), ops.share())
+
+    # todo: output reactive/reset
+    reactive_out = rx_objects.pipe(ops.pluck('reactive_out'))
+
+    # Zip initial input flags
+    # todo: how to verify that we have switched?
+    # todo: currently, F_init will not receive anything if no objects are registered i.e. it will block.
+    # todo: After having switched, and have updated "with_latest(inputs),
+    F_init_ho = Subject()
+    F_init = F_init_ho.pipe(ops.switch_latest(), ops.first(), ops.merge(rx.never()), spy('F_init', node_name))
+    inputs = rx_objects.pipe(ops.pluck('inputs'))
+    inputs.pipe(ops.map(lambda inputs: rx.zip(*[i['reset'] for i in inputs]))).subscribe(F_init_ho)
+    F = Subject()
+    f = rx.merge(F, F_init)
+
+    # Resettable real states (to dynamically add state/done flags to DF for RR)
+    # todo: track state_done flags for RR --> make sure to pass them to message_broker...
+    RRS = ReplaySubject()  #todo: Replay needed?
+    resettable_real = dict()
+    resettable_real['address'] = ns + '/resettable/real'
+    resettable_real['msg'] = RRS
+    resettable_real['msg_type'] = String
+    node_inputs.append(resettable_real)
 
     # Prepare start_reset input
     SR = Subject()
@@ -881,7 +977,6 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs,
     real_reset_output['msg_type'] = UInt64
     real_reset_output['msg_pub'] = rospy.Publisher(real_reset_output['address'], real_reset_output['msg_type'], queue_size=0)
     node_outputs.append(real_reset_output)
-    # node_inputs.append(real_reset_output)
 
     # Prepare reset output
     reset_output = dict()
@@ -905,7 +1000,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs,
     # Real reset routine
     # todo: cut-off tick cb when RRr is received, instead of Rr
     done_flags = dict()
-    DF = BehaviorSubject(None)
+    # DF = BehaviorSubject(None)
     RRn_ho = BehaviorSubject(BehaviorSubject((0, 0, True)))
     RRn = RRn_ho.pipe(ops.switch_latest())
     RRr = RR.pipe(ops.map(lambda x: True))
@@ -927,20 +1022,6 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs,
     Rr = R.pipe(ops.map(lambda x: True))
 
     # Flags
-    # todo: PROBABLY CHANGE! ONLY '/rx/bridge/tick' currently included. Resolve with reactive registry pipeline.
-    flags = []
-    for i in inputs:
-        flag = i['reset'].pipe(ops.map(lambda x: x.data), ops.first(), ops.merge(rx.never()))
-        flags.append(flag)
-    F_init = rx.zip(*flags)
-
-    # Reset flags
-    # F = BehaviorSubject(None)
-    F = Subject()  # todo: test
-    # todo: This is a problem, to be resolved with reactive registry pipeline.
-    #  Now, F_init consists of all input flags for first reset. However, at this point in time (bridge initialization),
-    #  the input list only contains 'rx/bridge/tick'. Hence, we do not wait with reset before other nodes.
-    f = rx.merge(F, F_init)
     reset_obs = rx.zip(f.pipe(spy('F', node_name)),
                        Rr.pipe(spy('Rr', node_name))
                        ).pipe(ops.map(lambda x: init_bridge_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, DF, RR, done_flags, node_name=node_name, event_scheduler=event_scheduler, thread_pool_scheduler=thread_pool_scheduler)),
@@ -959,7 +1040,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, inputs, outputs,
                                ops.share()).subscribe(lambda x: None)
 
     # node_inputs = (real_reset_input,)
-    rx_objects = dict(inputs=inputs, outputs=outputs, node_inputs=node_inputs, node_outputs=node_outputs)
+    rx_objects = dict(inputs=[], outputs=outputs, node_inputs=node_inputs, node_outputs=node_outputs)
     return rx_objects
 
 
@@ -994,50 +1075,67 @@ class RxMessageBroker(object):
             attr = thread_safe_wrapper(attr, self.cond)
         return attr
 
-    def add_rx_objects(self, node_name, node, inputs=tuple(), outputs=tuple(), feedthrough=tuple(),
-                      state_inputs=tuple(), state_outputs=tuple(), node_inputs=tuple(), node_outputs=tuple()):
+    def add_rx_objects(self, node_name, node=None, inputs=tuple(), outputs=tuple(), feedthrough=tuple(),
+                       state_inputs=tuple(), state_outputs=tuple(), node_inputs=tuple(), node_outputs=tuple(),
+                       reactive_proxy=tuple()):
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
             assert i['address'] not in self.rx_connectable, 'Non-unique output (%s). All output names must be unique.' % i['address']
-            self.rx_connectable[i['address']] = dict(rx=i['msg'], source=i, node_name=node_name)
+            self.rx_connectable[i['address']] = dict(rx=i['msg'], source=i, node_name=node_name, rate=i['rate'])
 
         # Register all I/O of node
-        # todo: add other 'node_outputs' (e.g. '/rx/reset', '/rx/resettable/real', '/rx/resettable/sim').
-        # todo: add '/rx/register', '/rx/resettable/real', '/rx/resettable/sim', '/rx/input/non_reactive'
+        # todo: add other 'node_outputs' (e.g. '/rx/resettable/sim').
         if node_name not in self.node_io:
-            self.node_io[node_name] = dict(node=node, inputs={}, outputs={}, feedthrough={}, state_inputs={}, state_outputs={}, node_inputs={}, node_outputs={})
-        n = self.node_io[node_name]
+            assert node is not None, 'No reference to Node "%s" was provided, during the first attempt to register it.'
+            # Prepare io dictionaries
+            self.node_io[node_name] = dict(node=node, inputs={}, outputs={}, feedthrough={}, state_inputs={}, state_outputs={}, node_inputs={}, node_outputs={}, reactive_proxy={})
+            self.disconnected[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, node_inputs={})
+            self.connected_ros[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, node_inputs={})
+            self.connected_rx[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, node_inputs={})
+        n = dict(inputs={}, outputs={}, feedthrough={}, state_inputs={}, state_outputs={}, node_inputs={}, node_outputs={}, reactive_proxy={})
         for i in inputs:
             address = i['address']
+            assert address not in self.node_io[node_name]['inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'inputs')
             n['inputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'repeat': i['repeat'], 'status': 'disconnected'}
             n['inputs'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in outputs:
             address = i['address']
-            n['outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'status': ''}
+            assert address not in self.node_io[node_name]['outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'outputs')
+            n['outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'rate': i['rate'], 'converter': i['converter'], 'status': ''}
             n['outputs'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': ''}
         for i in feedthrough:
             address = i['address']
+            assert address not in self.node_io[node_name]['feedthrough'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'feedthrough')
             n['feedthrough'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'repeat': i['repeat'], 'status': 'disconnected'}
             n['feedthrough'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in state_outputs:
             address = i['address']
+            assert address not in self.node_io[node_name]['state_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'state_outputs')
             n['state_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
         for i in state_inputs:
             address = i['address']
+            assert address not in self.node_io[node_name]['state_inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'state_inputs')
             n['state_inputs'][address + '/set'] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'status': 'disconnected'}
             if address + '/done' not in n['state_outputs'].keys():
                 n['state_inputs'][address + '/done'] = {'rx': i['done'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in node_inputs:
             address = i['address']
+            assert address not in self.node_io[node_name]['node_inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_inputs')
             n['node_inputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': 'disconnected'}
         for i in node_outputs:
             address = i['address']
+            assert address not in self.node_io[node_name]['node_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_outputs')
             n['node_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
+        for i in reactive_proxy:
+            address = i['address']
+            assert address not in self.node_io[node_name]['reactive_proxy'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'reactive_proxy')
+            n['reactive_proxy'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i,  'msg_type': UInt64, 'rate': i['rate'], 'status': ''}
 
-        # Prepare io dictionaries
-        self.disconnected[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, node_inputs={})
-        self.connected_ros[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, node_inputs={})
-        self.connected_rx[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, node_inputs={})
+        # Add new addresses to already registered I/Os
+        for key in n.keys():
+            self.node_io[node_name][key].update(n[key])
+
+        # Add new addresses to disconnected
         for key in ('inputs', 'feedthrough', 'state_inputs', 'node_inputs'):
             self.disconnected[node_name][key] = n[key].copy()
 
@@ -1052,12 +1150,12 @@ class RxMessageBroker(object):
         # Print status
         for node_name in node_names:
             cprint(('OWNER "%s"' % self.owner).ljust(15, ' ') + ('| OVERVIEW NODE "%s" ' % node_name).ljust(140, " "), attrs=['bold', 'underline'])
-            for key in ('inputs', 'feedthrough', 'state_inputs', 'node_inputs', 'outputs', 'state_outputs', 'node_outputs'):
+            for key in ('inputs', 'feedthrough', 'state_inputs', 'node_inputs', 'outputs', 'state_outputs', 'node_outputs', 'reactive_proxy'):
                 if len(self.node_io[node_name][key]) == 0:
                     continue
                 for address in self.node_io[node_name][key].keys():
                     color = None
-                    if key in ('outputs', 'node_outputs', 'state_outputs'):
+                    if key in ('outputs', 'node_outputs', 'state_outputs', 'reactive_proxy'):
                         color = 'cyan'
                     else:
                         if address in self.disconnected[node_name][key]:
@@ -1080,12 +1178,16 @@ class RxMessageBroker(object):
                     else:
                         converter_str = ('| %s ' % '').ljust(17, ' ')
                     if 'repeat' in entry:
-                        repeat_str = ('| %s ' % entry['repeat']).ljust(7, ' ')
+                        repeat_str = ('| %s ' % entry['repeat']).ljust(8, ' ')
                     else:
-                        repeat_str = ('| %s ' % '').ljust(7, ' ')
+                        repeat_str = ('| %s ' % '').ljust(8, ' ')
+                    if 'rate' in entry:
+                        rate_str = '|' + ('%s' % entry['rate']).center(3, ' ')
+                    else:
+                        rate_str = '|' + ''.center(3, ' ')
                     status_str = ('| %s' % status).ljust(60, ' ')
 
-                    log_msg = key_str + address_str + msg_type_str + converter_str + repeat_str + status_str
+                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + repeat_str + status_str
                     cprint(log_msg, color)
             print(' '.center(140, " "))
 
@@ -1107,7 +1209,8 @@ class RxMessageBroker(object):
                     assert address not in self.connected_ros[node_name][key], 'Address (%s) of this node (%s) already connected via ROS.' % (address, node_name)
                     if address in self.rx_connectable.keys():
                         color = 'green'
-                        status = 'rx'.ljust(4, ' ')
+                        status = 'Rx'.ljust(4, ' ')
+                        rate_str = '|' + ('%s' % self.rx_connectable[address]['rate']).center(3, ' ')
                         node_str = ('| %s' % self.rx_connectable[address]['node_name']).ljust(12, ' ')
                         msg_type_str = ('| %s' % self.rx_connectable[address]['source']['msg_type'].__name__).ljust(12, ' ')
                         converter_str = ('| %s' % self.rx_connectable[address]['source']['converter'].__name__).ljust(12, ' ')
@@ -1117,6 +1220,7 @@ class RxMessageBroker(object):
                     else:
                         color = 'blue'
                         status = 'ROS |'.ljust(5, ' ')
+                        rate_str = '|' + ''.center(3, ' ')
                         msg_type = entry['msg_type']
                         self.connected_ros[node_name][key][address] = entry
                         O = from_topic(msg_type, address)
@@ -1136,11 +1240,11 @@ class RxMessageBroker(object):
                     else:
                         converter_str = ('| %s ' % '').ljust(17, ' ')
                     if 'repeat' in entry:
-                        repeat_str = ('| %s ' % entry['repeat']).ljust(7, ' ')
+                        repeat_str = ('| %s ' % entry['repeat']).ljust(8, ' ')
                     else:
-                        repeat_str = ('| %s ' % '').ljust(7, ' ')
+                        repeat_str = ('| %s ' % '').ljust(8, ' ')
 
-                    log_msg = key_str + address_str + msg_type_str + converter_str + repeat_str + status_str
+                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + repeat_str + status_str
                     print_status and cprint(log_msg, color)
 
                     # Remove address from disconnected

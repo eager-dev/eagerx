@@ -18,10 +18,16 @@ class RxInput(Params):
                  converter: str = 'identity',
                  converter_module: str = 'eagerx_core',
                  is_reactive: bool = True,
+                 rate=None
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
+        if is_reactive:
+            del rate
+        else:
+            assert rate is not None, 'Input (%s) is not reactive, so the rate must be defined.' % address
+
         kwargs = locals().copy()
         kwargs.pop('self')
         super(RxInput, self).__init__(**kwargs)
@@ -29,6 +35,7 @@ class RxInput(Params):
         # Calculate other parameters based on previously defined attributes.
 
         # Error check the parameters here.
+
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()

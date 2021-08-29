@@ -7,6 +7,7 @@ import rospy
 import rospkg
 import rosparam
 from six import raise_from
+import time
 
 
 def substitute_xml_args(param):
@@ -66,16 +67,23 @@ def load_yaml(package_name, object_name):
     return params
 
 
-def get_param_with_blocking(name):
+def get_param_with_blocking(name, timeout=5):
     params = None
+    start = time.time()
+    it = 0
     while params is None:
+
         try:
             params = rospy.get_param(name)
-        except Error:
+        except (Error, KeyError):
             sleep_time = 0.01
-            rospy.loginfo('Parameters under namespace "%s" not (yet) uploaded on parameter server. Retry with small pause (%s s).' % (name, sleep_time))
+            if it % 20 == 0:
+                rospy.loginfo('Parameters under namespace "%s" not (yet) uploaded on parameter server. Retry with small pause (%s s).' % (name, sleep_time))
             rospy.sleep(sleep_time)
             pass
+        if time.time() - start > timeout:
+            break
+        it += 1
     return params
 
 

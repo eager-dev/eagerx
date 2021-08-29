@@ -206,6 +206,7 @@ class Env(object):
 
             # Initialize single process communication
             self.mb.connect_io(print_status=True)
+            # self.mb.print_io_status()
 
             rospy.loginfo('Nodes initialized.')
 
