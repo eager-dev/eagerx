@@ -220,6 +220,7 @@ class RxBridgeParams(Params):
     def get_params(self, ns=''):
         bridge_params = self.__dict__.copy()
 
+        # IMPORTANT! Ensure that first output topic is 'tick'.
         bridge = RxNodeParams(name=self.name, node_type=self.node_type, module=self.module,
                               topics_in=[RxInput('tick', 'bridge/tick', 'UInt64')],
                               topics_out=[RxOutput('tick', 'bridge/tick', 'UInt64', rate=self.rate)])

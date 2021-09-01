@@ -41,9 +41,6 @@ class StateNode(object):
 
     def reset(self, ticks):
         # todo: differentiate between real_reset and sim_reset states. Use rosparam server?
-        # Reset node state
-        rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_reset', ticks))
-
         self.num_resets += 1
         if True:
             if self.num_resets % self.print_iter == 0:
@@ -62,7 +59,7 @@ class StateNode(object):
                     self.iter_ticks = 0
                 self.iter_start = time.time()
         self.num_ticks = 0
-        return None
+        return ticks
 
     def callback(self, topics_in):
         # Verify that # of ticks equals internal counter
@@ -72,15 +69,16 @@ class StateNode(object):
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
-        for topic in self.params['topics_in']:
-            if topic in topics_in:
-                t_i = topics_in[topic]['t_i']
+        for i in self.params['topics_in']:
+            name = i['name']
+            if name in topics_in:
+                t_i = topics_in[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
-                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, topic))
+                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 
         # Perform callback (simply print input)
-        if self.name in [self.ns + '/N3']:
-            rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_node', topics_in))
+        # if self.name in [self.ns + '/N3']:
+        # rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_node', topics_in))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -96,17 +94,19 @@ class StateNode(object):
 
 
 class RealResetNode(object):
-    def __init__(self, name):
+    def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
+        if 'node_args' in self.params.keys():
+            self.node_args = self.params['node_args']
 
         # Append states on rosparam server that are reset by this node
-        real_pub = rospy.Publisher(self.ns + '/resettable/real', String, queue_size=0)
+        # real_pub = rospy.Publisher(self.ns + '/resettable/real', String, queue_size=0)
         real_reset = dict()
         for i in self.params['states_in']:
             address = i['address']
-            real_pub.publish(String(address))
+            # real_pub.publish(String(address))
             real_reset[address.replace('/', '.')] = True
         rosparam.upload_params(self.ns, {'real_reset': real_reset})
         rosparam.upload_params(self.ns, {'states': real_reset})  # Also upload it to states that are available
@@ -123,9 +123,6 @@ class RealResetNode(object):
         self.print_iter = 20
 
     def reset(self, ticks):
-        # Reset node state
-        rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_reset', ticks))
-
         self.num_resets += 1
         if True:
             if self.num_resets % self.print_iter == 0:
@@ -144,7 +141,7 @@ class RealResetNode(object):
                     self.iter_ticks = 0
                 self.iter_start = time.time()
         self.num_ticks = 0
-        return None
+        return ticks
 
     def callback(self, cb_input_states):
         cb_input = cb_input_states[0]
@@ -159,10 +156,6 @@ class RealResetNode(object):
                 t_i = cb_input[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-
-        # Perform callback (simply print input)
-        if self.name in [self.ns + '/N3']:
-            rospy.loginfo('[%s][%s][%s] %s: %s, states: %s' % (os.getpid(), current_thread().name, self.name, 'cb_real', cb_input, cb_states))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -205,9 +198,6 @@ class ProcessNode(object):
         self.print_iter = 20
 
     def reset(self, ticks):
-        # Reset node state
-        rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_reset', ticks))
-
         self.num_resets += 1
         if True:
             if self.num_resets % self.print_iter == 0:
@@ -226,7 +216,7 @@ class ProcessNode(object):
                     self.iter_ticks = 0
                 self.iter_start = time.time()
         self.num_ticks = 0
-        return None
+        return ticks
 
     def callback(self, topics_in):
         # Verify that # of ticks equals internal counter
@@ -242,10 +232,6 @@ class ProcessNode(object):
                 t_i = topics_in[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-
-        # Perform callback (simply print input)
-        if self.name in [self.ns + '/N3']:
-            rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_node', topics_in))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()

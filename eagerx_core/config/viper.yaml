@@ -1,18 +1,18 @@
 default:
-  sensors: [pos_sensors]
+  sensors: [N6]
   actuators: [ref_vel]
-  states: [position, orientation]
+  states: [N8, N9]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
 
 sensors: # Outputs of simulators
-  pos_sensors:
-    rate: 8
+  N6:
+    rate: 1
     msg_type: UInt64
     msg_module: std_msg.msg
 
 actuators: # Inputs of simulators
-  ref_pos:
+  N7:
     rate: 1
     msg_type: UInt64
     msg_module: std_msg.msg
@@ -24,11 +24,11 @@ actuators: # Inputs of simulators
     msg_module: std_msg.msg
 
 states: # Outputs of simulators
-  position:
+  N8:
     rate: 1
     msg_type: UInt64
     msg_module: std_msg.msg
-  orientation:
+  N9:
     rate: 1
     msg_type: UInt64
     msg_module: std_msg.msg
@@ -36,23 +36,23 @@ states: # Outputs of simulators
 bridge:
   urdf: 'path/to/urdf.urdf'
   sensors:
-    pos_sensors:
+    N6:
       node_type: SimSensorNode
       module: eagerx_core.params
 
   actuators:  # Inputs as defined above
-    ref_pos:
+    N7:
       node_type: SimActuatorNode
       module: eagerx_core.params
       inputs: [P5]
       inputs_address: [N5/P5]
 
   states:
-    position:
+    N8:
       node_type: SimStateNode
       module: eagerx_core.params
-    orientation:
+    N9:
       node_type: SimStateNode
       module: eagerx_core.params
-      inputs: [pos_sensors]
-      inputs_address: [obj/sensors/pos_sensors]
+      inputs: [N6]
+      inputs_address: [obj/sensors/N6]

@@ -42,12 +42,13 @@ class Env(object):
         self.mb = RxMessageBroker(owner=self.ns + '/env')
         self.is_initialized = dict()
         self._sp_nodes = dict()
-        self._init_bridge(bridge)
+        # self._init_bridge(bridge)
         self._init_nodes(nodes)
 
         # Initialize reset topics
-        self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
-        # self.reset_pub = rospy.Publisher(self.ns + '/real_reset', UInt64, queue_size=0, latch=True)
+        # self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True) # todo: bridge
+        self.reset_pub_v2 = rospy.Publisher(self.ns + '/reset', UInt64, queue_size=0, latch=True) # todo: bridge
+        self.reset_pub = rospy.Publisher(self.ns + '/real_reset', UInt64, queue_size=0, latch=True)
         rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
 
         # Initialize state topics
@@ -59,16 +60,19 @@ class Env(object):
         self.num_ticks = 0
 
         # Required for testing
-        self.done = None
+        self.done = None  # todo: bridge
+        rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler) # todo: bridge
         self.obs_recv = None
         rospy.Subscriber(self.ns + '/reset', UInt64, lambda msg: self.__reset_handler(msg))
         self.cond_done = Condition()
         self.cond_obs = Condition()
 
         # Initialize waiting for observations & reset topics of inputs and states
-        self.state_name = 'obj/states/position'
-        rospy.Subscriber(self.ns + '/obj/actuators/ref_pos/applied/reset', UInt64, lambda msg: self.event.set())
-        rospy.Subscriber(self.ns + '/obj/actuators/ref_pos/applied', UInt64, self.__obs_handler)
+        self.state_name = 'obj/states/N8'
+        rospy.Subscriber(self.ns + '/N5/P5/reset', UInt64, self.__end_reset_handler)
+        # rospy.Subscriber(self.ns + '/bridge/tick', UInt64, self.__end_reset_handler) # todo: bridge
+        # rospy.Subscriber(self.ns + '/obj/actuators/N7/applied', UInt64, self.__obs_handler) # todo: bridge
+        rospy.Subscriber(self.ns + '/N5/P5', UInt64, self.__obs_handler)
         self.event = multiprocessing.Event()
 
     def _init_env(self, actions: List[RxOutput], observations: List[RxInput]):
@@ -215,16 +219,14 @@ class Env(object):
             rospy.sleep(0.01)
 
             # Send reset msg
-            self.reset_pub.publish(UInt64())
+            self.reset_pub.publish(UInt64())  # todo: bridge
+            self.reset_pub_v2.publish(UInt64())
+            self.__reset_handler(None)  # todo: bridge
 
             # After env receives '/rx/reset', we send '/rx/env/Pe/reset' via self.__reset_handler(msg)
-            # Block until we receive '/N5/P5/reset'
-            # todo: temporary, make dependent on env inputs
-            # todo: currently blocking here because we send '/rx/start_reset' instead of '/rx/real_reset'
             self.event.wait()
-
-            self.initialized = True
             rospy.loginfo("Pipelines initialized.")
+            self.initialized = True
 
     def register_object(self, object: RxObjectParams):
         # todo: There might be timing issues... Currently solved with condition.
@@ -258,12 +260,14 @@ class Env(object):
         assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .step().'
 
         self.obs_recv = 0
+        print('start_step')
         with self.cond_obs:
             for key, value in self._act_pub.items():
                 msg = UInt64()
                 msg.data = self.num_ticks
                 value.publish(msg)
                 self.cond_obs.wait()
+        print('end_step')
         self.num_ticks += 1
         return None
 
@@ -280,6 +284,9 @@ class Env(object):
         msg.data = self.num_ticks
         self.reset_pub.publish(msg)
         self._reset({self.state_name: msg})
+
+        # TODO: REMOVE!
+        # self.mb.print_io_status()
 
         while not self.done:
             with self.cond_done:
@@ -306,7 +313,7 @@ class Env(object):
     def __obs_handler(self, msg):
         self.obs_recv += 1
         with self.cond_obs:
-            if self.obs_recv == 8:
+            if self.obs_recv == 1:
                 self.cond_obs.notify_all()
 
     def __reset_handler(self, msg):
@@ -346,6 +353,7 @@ class Env(object):
     def _register_states(self,  msg, warn=False):
         state_address = msg.data
 
+        # todo: set with state message type
         if state_address not in self.states_reset.keys():
             self.states_reset[state_address] = {'name': state_address,
                                                 'pub_set': rospy.Publisher(state_address + '/set', UInt64,
@@ -355,8 +363,17 @@ class Env(object):
 
             if warn:
                 # If not yet registered, create publishers for the state.
-                rospy.logwarn(
-                    'State "%s" was not yet registered in environment "%s". Registered the publishers and paused '
-                    'for a short moment (0.1 s). It is advisable to pre-register states to avoid a pause.' % (
-                    state_address, self.name))
+                rospy.logwarn('State "%s" was not yet registered in environment "%s". Registered the publishers and paused '
+                              'for a short moment (0.1 s). It is advisable to pre-register states to avoid a pause.' % (
+                              state_address, self.name))
                 rospy.sleep(0.1)
+
+    def __end_reset_handler(self, msg):
+        # if msg.data == 0: # todo: bridge
+        self.event.set()
+
+    def __done_handler(self, msg):
+        if msg.data > 0:
+            with self.cond_done:
+                self.done = True
+                self.reset_pub_v2.publish(UInt64())
