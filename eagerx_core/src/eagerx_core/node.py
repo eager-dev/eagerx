@@ -65,7 +65,7 @@ class StateNode(object):
         # Verify that # of ticks equals internal counter
         node_tick = topics_in['node_tick']
         if not self.num_ticks == node_tick:
-            print('[%s]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
+            print('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
@@ -75,10 +75,6 @@ class StateNode(object):
                 t_i = topics_in[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-
-        # Perform callback (simply print input)
-        # if self.name in [self.ns + '/N3']:
-        # rospy.loginfo('[%s][%s][%s] %s: %s' % (os.getpid(), current_thread().name, self.name, 'cb_node', topics_in))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -222,7 +218,7 @@ class ProcessNode(object):
         # Verify that # of ticks equals internal counter
         node_tick = topics_in['node_tick']
         if not self.num_ticks == node_tick:
-            print('[%s]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
+            print('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
@@ -274,7 +270,8 @@ class RxNode(object):
         self.initialized = True
 
     def _prepare_io_topics(self, name, **kwargs):
-        params = rospy.get_param(name)
+        # params = rospy.get_param(name)
+        params = get_param_with_blocking(name)
         rate = params['rate']
         dt = 1 / rate
 

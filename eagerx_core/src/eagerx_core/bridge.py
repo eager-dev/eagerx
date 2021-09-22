@@ -77,6 +77,7 @@ class BridgeNode(object):
 
     def post_reset(self):
         # todo:
+        self.num_ticks = 0
         return 'POST RESET RETURN VALUE'
 
     def callback(self, topics_in):
@@ -141,7 +142,8 @@ class RxBridge(object):
                 self.initialized = True
 
     def _prepare_io_topics(self, name):
-        params = rospy.get_param(name)
+        # params = rospy.get_param(name)
+        params = get_param_with_blocking(name)
         rate = params['rate']
         dt = 1 / rate
 

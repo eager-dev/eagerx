@@ -42,13 +42,14 @@ class Env(object):
         self.mb = RxMessageBroker(owner=self.ns + '/env')
         self.is_initialized = dict()
         self._sp_nodes = dict()
-        # self._init_bridge(bridge)
+        self._init_bridge(bridge)
         self._init_nodes(nodes)
 
         # Initialize reset topics
-        # self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True) # todo: bridge
-        self.reset_pub_v2 = rospy.Publisher(self.ns + '/reset', UInt64, queue_size=0, latch=True) # todo: bridge
-        self.reset_pub = rospy.Publisher(self.ns + '/real_reset', UInt64, queue_size=0, latch=True)
+        self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
+        self.reset_sub = rospy.Subscriber(self.ns + '/end_reset', UInt64, self.__end_reset_handler)
+        self.start_pub = rospy.Publisher(self.ns + '/bridge/tick', UInt64, queue_size=0)
+
         rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
 
         # Initialize state topics
@@ -60,19 +61,23 @@ class Env(object):
         self.num_ticks = 0
 
         # Required for testing
-        self.done = None  # todo: bridge
-        rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler) # todo: bridge
+        self.done = None
+        rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler)
+        # self.reset_pub_v2 = rospy.Publisher(self.ns + '/reset', UInt64, queue_size=0, latch=True)  # todo: bridge
+        # self.reset_pub = rospy.Publisher(self.ns + '/real_reset', UInt64, queue_size=0, latch=True) # todo: bridge
+        # rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler)  # todo: bridge
+        # rospy.Subscriber(self.ns + '/N5/P5/reset', UInt64, self.__end_reset_handler)  # todo: bridge
+        # rospy.Subscriber(self.ns + '/N5/P5', UInt64, self.__obs_handler)  # todo: bridge
         self.obs_recv = None
         rospy.Subscriber(self.ns + '/reset', UInt64, lambda msg: self.__reset_handler(msg))
         self.cond_done = Condition()
         self.cond_obs = Condition()
 
         # Initialize waiting for observations & reset topics of inputs and states
+        # rospy.Subscriber(self.ns + '/bridge/tick', UInt64, self.__end_reset_handler)
         self.state_name = 'obj/states/N8'
-        rospy.Subscriber(self.ns + '/N5/P5/reset', UInt64, self.__end_reset_handler)
-        # rospy.Subscriber(self.ns + '/bridge/tick', UInt64, self.__end_reset_handler) # todo: bridge
-        # rospy.Subscriber(self.ns + '/obj/actuators/N7/applied', UInt64, self.__obs_handler) # todo: bridge
-        rospy.Subscriber(self.ns + '/N5/P5', UInt64, self.__obs_handler)
+        rospy.Subscriber(self.ns + '/obj/actuators/N7/applied', UInt64, self.__obs_handler)
+
         self.event = multiprocessing.Event()
 
     def _init_env(self, actions: List[RxOutput], observations: List[RxInput]):
@@ -219,9 +224,9 @@ class Env(object):
             rospy.sleep(0.01)
 
             # Send reset msg
-            self.reset_pub.publish(UInt64())  # todo: bridge
-            self.reset_pub_v2.publish(UInt64())
-            self.__reset_handler(None)  # todo: bridge
+            self.reset_pub.publish(UInt64())
+            # self.reset_pub_v2.publish(UInt64())
+            # self.__reset_handler(None)  # todo: bridge
 
             # After env receives '/rx/reset', we send '/rx/env/Pe/reset' via self.__reset_handler(msg)
             self.event.wait()
@@ -260,15 +265,16 @@ class Env(object):
         assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .step().'
 
         self.obs_recv = 0
-        print('start_step')
+        # print('start_step')
         with self.cond_obs:
+            self.num_ticks += 1  # todo: can cause blocks if
             for key, value in self._act_pub.items():
                 msg = UInt64()
                 msg.data = self.num_ticks
                 value.publish(msg)
                 self.cond_obs.wait()
-        print('end_step')
-        self.num_ticks += 1
+        # print('end_step')
+        # self.num_ticks += 1
         return None
 
     def reset(self):
@@ -285,17 +291,16 @@ class Env(object):
         self.reset_pub.publish(msg)
         self._reset({self.state_name: msg})
 
-        # TODO: REMOVE!
         # self.mb.print_io_status()
 
-        while not self.done:
+        while not self.done:  # /rx/obj/states/N8/done
             with self.cond_done:
                 if self.done:
                     break
                 self.step()
             rospy.sleep(0.0001)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
 
-        # Block until it receives '/N5/P5/reset'
+        # Block until we receive '/bridge/tick'=0, to indicate start of new episode
         self.event.wait()
         self.num_ticks = 0
         rospy.loginfo("Reset performed")
@@ -317,10 +322,14 @@ class Env(object):
                 self.cond_obs.notify_all()
 
     def __reset_handler(self, msg):
-        for key, value in self._act_pub_reset.items():
-                        msg = UInt64()
-                        msg.data = self.num_ticks
-                        value.publish(msg)
+        with self.cond_obs:
+            self.cond_obs.notify_all()
+            print('gave up lock in __reset_handler!')
+            # rospy.sleep(0.3)   # todo: required?
+            for key, value in self._act_pub_reset.items():
+                            msg = UInt64()
+                            msg.data = self.num_ticks
+                            value.publish(msg)
 
     def _reset(self, states):
         # Append namespace to names in states
@@ -369,11 +378,11 @@ class Env(object):
                 rospy.sleep(0.1)
 
     def __end_reset_handler(self, msg):
-        # if msg.data == 0: # todo: bridge
+        self.start_pub.publish(msg)
         self.event.set()
 
     def __done_handler(self, msg):
         if msg.data > 0:
             with self.cond_done:
                 self.done = True
-                self.reset_pub_v2.publish(UInt64())
+                # self.reset_pub_v2.publish(UInt64())  # todo: bridge

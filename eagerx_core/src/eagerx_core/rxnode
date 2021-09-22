@@ -3,14 +3,14 @@
 from __future__ import print_function
 
 import rospy
-import rxeager
-from rxeager.node import RxNode
+import eagerx_core
+from eagerx_core.node import RxNode
 
 if __name__ == '__main__':
 
     rospy.init_node('process')
 
-    message_broker = rxeager.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxNode(name=rospy.get_name(), message_broker=message_broker)
 

@@ -2,6 +2,6 @@
 <launch>
     <arg name="name" doc="The environment name."/>
     <group ns="$(arg name)">
-        <node name="rxbridge" pkg="eagerx_core" type="rxbridge" output="screen"/>
+        <node name="bridge" pkg="eagerx_core" type="rxbridge" output="screen"/>
     </group>
 </launch>

@@ -3,14 +3,14 @@
 from __future__ import print_function
 
 import rospy
-import rxeager
-from rxeager.bridge import RxBridge
+import eagerx_core
+from eagerx_core.bridge import RxBridge
 
 if __name__ == '__main__':
 
     rospy.init_node('bridge', log_level=rospy.INFO)
 
-    message_broker = rxeager.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxBridge(name=rospy.get_name(), message_broker=message_broker)
 
