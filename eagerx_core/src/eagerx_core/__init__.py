@@ -478,10 +478,85 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
                    ops.start_with(0),
                    # spy('Ir_%s' % name, node_name, only_node='/rx/obj/nodes/actuators/N7'),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+                   # spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
                    # spy('Ir_Is_%s' % name, node_name, only_node='/rx/obj/nodes/actuators/N7'),
                    ops.filter(lambda value: value[0] == value[1]),
                    ops.map(lambda x: {name: x[0]})
                    )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
+    return channel, flag
+
+
+def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
+    if is_feedthrough:
+        name = inpt['feedthrough_to']
+    else:
+        name = inpt['name']
+
+    # Readable format
+    if name == 'tick':
+        Is = inpt['reset']#.pipe(ops.observe_on(scheduler))
+        Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
+                              ops.map(inpt['converter']), ops.share(),
+                              ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
+                              spy('Ir_1_%s' % name, node_name, only_node=['/rx/bridge']),
+                              ops.share(),
+                              )
+    else:
+        Is = inpt['reset']
+        Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
+                              ops.map(inpt['converter']), ops.share(),
+                              ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
+                              ops.share() # todo: new
+                              # spy('Ir_1_%s' % name, node_name, only_node=['/rx/bridge']),
+                              )
+
+    # Get rate from rosparam server
+    try:
+        dt_i = 1 / rospy.get_param(inpt['address'] + '/rate')
+    except Exception as e:
+        print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
+        print(e)
+
+    # Create input channel
+    num_msgs = Nc.pipe(ops.observe_on(scheduler),
+                       ops.start_with(0),  # todo: ADDED FOR DYNAMIC BRIDGE PIPELINE
+                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n)}))  # todo: expected_inputs(i-1, dt_i, dt_n)})
+    msg = num_msgs.pipe(gen_msg(Ir))
+    channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
+                            ops.with_latest_from(msg),
+                            ops.share(),
+                            ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
+                            ops.merge(msg),
+                            regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
+                            # ops.map(lambda x: (x, rospy.sleep(3))),
+                            # ops.map(lambda x: x[0]),
+                            # spy('msg [%s]' % name, node_name, only_node=['/rx/bridge']),
+                            ops.share())
+
+    # Create reset flag
+    # todo: debug
+    if name == 'tick':
+        flag = Ir.pipe(#ops.observe_on(scheduler), # todo: remove
+                       spy('Ir_2_%s' % name, node_name, only_node='/rx/bridge'),
+                       # ops.filter(lambda x: x[1].data > 0),
+                       ops.map(lambda val: val[0] + 1),
+                       ops.start_with(0),
+                       spy('Ir_3_%s' % name, node_name, only_node='/rx/bridge'),
+                       ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+                       spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
+                       ops.filter(lambda value: value[0] == value[1]),
+                       ops.map(lambda x: {name: x[0]})
+                       )
+    else:
+        flag = Ir.pipe(# ops.observe_on(scheduler),
+                       ops.map(lambda val: val[0] + 1),
+                       ops.start_with(0),
+                       # spy('Ir_%s' % name, node_name, only_node='/rx/bridge'),
+                       ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+                       spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
+                       ops.filter(lambda value: value[0] == value[1]),
+                       ops.map(lambda x: {name: x[0]})
+                       )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
     return channel, flag
 
 
@@ -490,7 +565,10 @@ def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_na
     channels = []
     flags = []
     for i in inputs:
-        channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
+        if node_name == '/rx/bridge':
+            channel, flag = create_channel_bridge(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
+        else:
+            channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
         channels.append(channel)
         if node_name in selected_nodes:
             if is_feedthrough:
@@ -918,13 +996,11 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
 
 def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF, RRn_ho, node_name='', event_scheduler=None, thread_pool_scheduler=None):
     # Node ticks
-    # RRn = ReplaySubject()  # Reset flag for the node (Nc=Ns and r_signal)
-    # Nc = BehaviorSubject(0)  # Number completed callbacks (i.e. send Topics): initialized at zero to kick of chain reaction
     RRn = Subject()
     RRn_ho.on_next(RRn)
-    Nc = Subject()  # Number completed callbacks (i.e. send Topics): initialized at zero to kick of chain reaction # todo: CHANGED TO Subject() FOR DYNAMIC BRIDGE PIPELINE
-    Nc_ho.on_next(Nc)  # todo: check.
+    Nc = Subject()  # Number completed callbacks (i.e. send Topics): initialized at zero to kick of chain reaction
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
+    Nc_ho.on_next(Nc)
 
     # Create a tuple with None, to be consistent with feedthrough pipeline of init_node_pipeline
     zipped_channels = zipped_channels.pipe(ops.map(lambda i: (i, None)))
@@ -980,6 +1056,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
         thread_pool_scheduler = event_scheduler
 
     # Prepare output topics
+    tick = outputs[0]
     for i in outputs:
         # Prepare output topic
         i['msg'] = Subject()
@@ -1151,7 +1228,8 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
                    trace_observable('cb_post_reset', node_name),
                    ops.map(lambda x: UInt64(data=0)),
                    ops.share(),
-                   publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])
+                   # publisher_to_topic(end_reset['msg_pub']), publisher_to_topic(tick['msg_pub'])).subscribe(tick['msg'])
+                   publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])  # todo: uncomment if tick not send by bridge
 
     rx_objects = dict(inputs=inputs_init, outputs=outputs, node_inputs=node_inputs, node_outputs=node_outputs)
     return rx_objects
@@ -1193,7 +1271,7 @@ class RxMessageBroker(object):
                        reactive_proxy=tuple()):
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
-            if i['address'] == '/rx/bridge/tick': continue
+            if i['address'] == '/rx/bridge/tick': continue  # todo: uncomment if tick not send by bridge
             assert i['address'] not in self.rx_connectable, 'Non-unique output (%s). All output names must be unique.' % i['address']
             self.rx_connectable[i['address']] = dict(rx=i['msg'], source=i, node_name=node_name, rate=i['rate'])
 

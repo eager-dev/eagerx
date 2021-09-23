@@ -166,7 +166,7 @@ class RealResetNode(object):
         for i in self.params['states_in']:
             name = i['name']
             msg = UInt64()
-            if self.num_ticks > 10:
+            if self.num_ticks > 2:
                 msg.data = 1
             else:
                 msg.data = 0

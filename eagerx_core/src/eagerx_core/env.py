@@ -324,7 +324,7 @@ class Env(object):
     def __reset_handler(self, msg):
         with self.cond_obs:
             self.cond_obs.notify_all()
-            print('gave up lock in __reset_handler!')
+            # print('gave up lock in __reset_handler!')
             # rospy.sleep(0.3)   # todo: required?
             for key, value in self._act_pub_reset.items():
                             msg = UInt64()
@@ -378,7 +378,7 @@ class Env(object):
                 rospy.sleep(0.1)
 
     def __end_reset_handler(self, msg):
-        self.start_pub.publish(msg)
+        self.start_pub.publish(msg)  # todo: uncomment if tick not send by bridge
         self.event.set()
 
     def __done_handler(self, msg):

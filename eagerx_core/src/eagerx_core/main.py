@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(5):
+        for i in range(3):
             env.step()
         env.reset()
     print('\n[Finished]')
