@@ -19,7 +19,7 @@ from rx.core import Observable
 from rx.internal.utils import add_ref
 from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable
 from rx.subject import Subject, BehaviorSubject, ReplaySubject
-from rx.scheduler import ThreadPoolScheduler, EventLoopScheduler
+from rx.scheduler import ThreadPoolScheduler, EventLoopScheduler, ImmediateScheduler
 from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking
 
 selected_nodes = ['/rx/bridge',
@@ -486,29 +486,21 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     return channel, flag
 
 
-def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
+def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name='', im_scheduler=None):
+    if im_scheduler is None:
+        im_scheduler = scheduler
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
         name = inpt['name']
 
     # Readable format
-    if name == 'tick':
-        Is = inpt['reset']#.pipe(ops.observe_on(scheduler))
-        Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                              ops.map(inpt['converter']), ops.share(),
-                              ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                              spy('Ir_1_%s' % name, node_name, only_node=['/rx/bridge']),
-                              ops.share(),
-                              )
-    else:
-        Is = inpt['reset']
-        Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                              ops.map(inpt['converter']), ops.share(),
-                              ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                              ops.share() # todo: new
-                              # spy('Ir_1_%s' % name, node_name, only_node=['/rx/bridge']),
-                              )
+    Is = inpt['reset']
+    Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
+                          ops.map(inpt['converter']), ops.share(),
+                          ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
+                          ops.share()
+                          )
 
     # Get rate from rosparam server
     try:
@@ -519,7 +511,7 @@ def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_na
 
     # Create input channel
     num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                       ops.start_with(0),  # todo: ADDED FOR DYNAMIC BRIDGE PIPELINE
+                       ops.start_with(0),
                        ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n)}))  # todo: expected_inputs(i-1, dt_i, dt_n)})
     msg = num_msgs.pipe(gen_msg(Ir))
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
@@ -528,45 +520,30 @@ def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_na
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
-                            # ops.map(lambda x: (x, rospy.sleep(3))),
-                            # ops.map(lambda x: x[0]),
-                            # spy('msg [%s]' % name, node_name, only_node=['/rx/bridge']),
                             ops.share())
 
     # Create reset flag
-    # todo: debug
-    if name == 'tick':
-        flag = Ir.pipe(#ops.observe_on(scheduler), # todo: remove
-                       spy('Ir_2_%s' % name, node_name, only_node='/rx/bridge'),
-                       # ops.filter(lambda x: x[1].data > 0),
-                       ops.map(lambda val: val[0] + 1),
-                       ops.start_with(0),
-                       spy('Ir_3_%s' % name, node_name, only_node='/rx/bridge'),
-                       ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                       spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
-                       ops.filter(lambda value: value[0] == value[1]),
-                       ops.map(lambda x: {name: x[0]})
-                       )
-    else:
-        flag = Ir.pipe(# ops.observe_on(scheduler),
-                       ops.map(lambda val: val[0] + 1),
-                       ops.start_with(0),
-                       # spy('Ir_%s' % name, node_name, only_node='/rx/bridge'),
-                       ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                       spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
-                       ops.filter(lambda value: value[0] == value[1]),
-                       ops.map(lambda x: {name: x[0]})
-                       )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
+    flag = Ir.pipe(# ops.observe_on(scheduler),
+                   ops.map(lambda val: val[0] + 1),
+                   ops.start_with(0),
+                   # spy('Ir_%s' % name, node_name, only_node='/rx/bridge'),
+                   ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+                   spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
+                   ops.filter(lambda value: value[0] == value[1]),
+                   ops.map(lambda x: {name: x[0]})
+                   )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
     return channel, flag
 
 
-def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_name=''):
+def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_name='', im_scheduler=None):
+    if im_scheduler is None:
+        im_scheduler = scheduler
     # Create channels
     channels = []
     flags = []
     for i in inputs:
         if node_name == '/rx/bridge':
-            channel, flag = create_channel_bridge(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
+            channel, flag = create_channel_bridge(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name, im_scheduler=im_scheduler)
         else:
             channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
         channels.append(channel)
@@ -676,7 +653,8 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, state_inputs,
     else:
         output_stream = stream.pipe(ops.filter(lambda x: x[1][1] is None),
                                     ops.map(lambda x: x[1][0]),
-                                    spy('CB_TICK', node_name, only_node=['/rx/bridge']),
+                                    spy('CB_TICK', node_name),
+                                    # spy('CB_TICK', node_name, only_node=['/rx/bridge']),
                                     ops.map(lambda val: cb_tick(val)),
                                     ops.share())
 
@@ -1031,6 +1009,7 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF,
     d_Nc = Nc_obs.subscribe(Nc, scheduler=thread_pool_scheduler)
     d_RRn = Nc_obs.pipe(ops.start_with(0),  # added to simulated first zero from BS(0) of Nc
                         ops.combine_latest(Ns, RRr),
+                        spy('RRn pre-filter', node_name),
                         ops.filter(lambda value: value[0] == value[1]),
                         ops.take(1),
                         ops.merge(rx.never()),
@@ -1050,13 +1029,15 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     # Prepare scheduler
     if scheduler is not None:
         event_scheduler = scheduler
+        im_scheduler = scheduler
         thread_pool_scheduler = event_scheduler
     else:
         event_scheduler = EventLoopScheduler()
+        im_scheduler = ImmediateScheduler()
         thread_pool_scheduler = event_scheduler
 
     # Prepare output topics
-    tick = outputs[0]
+    tick_out = outputs[0]
     for i in outputs:
         # Prepare output topic
         i['msg'] = Subject()
@@ -1117,7 +1098,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     rx_objects = params_nodes.pipe(ops.map(lambda i: extract_topics_in_reactive_proxy(*i)),
                                    ops.map(lambda i: (i, message_broker.add_rx_objects(node_name, inputs=i['inputs'], reactive_proxy=i['reactive_proxy']))),
                                    ops.map(lambda i: i[0]),
-                                   ops.scan(combine_dict, dict(inputs=inputs_init, reactive_proxy=[], sp_nodes=[], launch_nodes=[])), ops.share())
+                                   ops.scan(combine_dict, dict(inputs=[], reactive_proxy=[], sp_nodes=[], launch_nodes=[])), ops.share())
 
     ###########################################################################
     # Start reset #############################################################
@@ -1140,7 +1121,9 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     # Zip initial input flags
     check_F_init, F_init, F_init_ho = switch_with_check_pipeline()
     F_init = F_init.pipe(ops.first(), ops.merge(rx.never()))
+    # todo: blocks: flags received, but not zipped
     inputs.pipe(ops.map(lambda inputs: rx.zip(*[i['reset'].pipe(flag_dict(i['name'])) for i in inputs]).pipe(ops.map(lambda x: merge_dicts({}, x)), ops.start_with(None)))).subscribe(F_init_ho)
+    # inputs.pipe(ops.map(lambda inputs: rx.zip(*[i['reset'].pipe(flag_dict(i['name'])) for i in inputs]).pipe(ops.map(lambda x: merge_dicts({}, x)), ops.start_with(None)))).subscribe(F_init_ho, scheduler=im_scheduler)
     F = Subject()
     f = rx.merge(F.pipe(spy('F', node_name)), F_init)
 
@@ -1191,7 +1174,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     check_Nc, Nc, Nc_ho = switch_with_check_pipeline()
     inputs_flags = inputs.pipe(ops.zip(reset_trigger),
                                ops.map(lambda i: i[0]),
-                               ops.map(lambda inputs: init_channels(ns, Nc, dt_n, inputs, node_name=node_name, scheduler=thread_pool_scheduler)),
+                               ops.map(lambda inputs: init_channels(ns, Nc, dt_n, inputs, node_name=node_name, scheduler=thread_pool_scheduler, im_scheduler=im_scheduler)),
                                # spy('inputs_flags', node_name),
                                ops.share())
 
@@ -1228,7 +1211,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
                    trace_observable('cb_post_reset', node_name),
                    ops.map(lambda x: UInt64(data=0)),
                    ops.share(),
-                   # publisher_to_topic(end_reset['msg_pub']), publisher_to_topic(tick['msg_pub'])).subscribe(tick['msg'])
+                   # publisher_to_topic(end_reset['msg_pub']), publisher_to_topic(tick_out['msg_pub'])).subscribe(tick_out['msg'])
                    publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])  # todo: uncomment if tick not send by bridge
 
     rx_objects = dict(inputs=inputs_init, outputs=outputs, node_inputs=node_inputs, node_outputs=node_outputs)

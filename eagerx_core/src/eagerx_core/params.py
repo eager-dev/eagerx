@@ -196,7 +196,7 @@ class RxBridgeParams(Params):
                  rate: float = 10,
                  num_substeps: int = 10,
                  launch_locally: bool = True,
-                 single_process: bool = True,
+                 single_process: bool = False,
                  ):
         # Only define variables (locally) you wish to store on the parameter server (done in baseclass constructor).
         name = 'bridge'
@@ -371,7 +371,7 @@ class ProcessNode(RxNodeParams):
                  outputs_address: List,
                  rate: int,
                  launch_locally: bool = True,
-                 single_process: bool = True,
+                 single_process: bool = False,
                  inputs_converter: List = None,
                  inputs_converter_module: List = None,
                  outputs_converter: List = None,
@@ -422,7 +422,7 @@ class RealResetNode(RxNodeParams):
                  feedthrough_to: List,
                  rate: int,
                  launch_locally: bool = True,
-                 single_process: bool = True,
+                 single_process: bool = False,
                  inputs_converter: List = None,
                  inputs_converter_module: List = None,
                  outputs_converter: List = None,

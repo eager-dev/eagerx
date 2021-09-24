@@ -45,8 +45,8 @@ bridge:
       node_type: SimActuatorNode
       module: eagerx_core.params
       inputs: [P5]
-      inputs_address: [env/Pe]
-#      inputs_address: [N5/P5]
+#      inputs_address: [env/Pe]
+      inputs_address: [N5/P5]
 
   states:
     N8:

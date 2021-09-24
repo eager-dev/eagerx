@@ -48,6 +48,7 @@ class Env(object):
         # Initialize reset topics
         self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
         self.reset_sub = rospy.Subscriber(self.ns + '/end_reset', UInt64, self.__end_reset_handler)
+
         self.start_pub = rospy.Publisher(self.ns + '/bridge/tick', UInt64, queue_size=0)
 
         rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
@@ -62,6 +63,7 @@ class Env(object):
 
         # Required for testing
         self.done = None
+        # rospy.Subscriber(self.ns + '/reset', UInt64, self.__resolve_obs_handler)
         rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler)
         # self.reset_pub_v2 = rospy.Publisher(self.ns + '/reset', UInt64, queue_size=0, latch=True)  # todo: bridge
         # self.reset_pub = rospy.Publisher(self.ns + '/real_reset', UInt64, queue_size=0, latch=True) # todo: bridge
@@ -232,6 +234,8 @@ class Env(object):
             self.event.wait()
             rospy.loginfo("Pipelines initialized.")
             self.initialized = True
+            self.start_pub.publish(UInt64(data=1))
+            print('First tick published!')
 
     def register_object(self, object: RxObjectParams):
         # todo: There might be timing issues... Currently solved with condition.
@@ -265,7 +269,7 @@ class Env(object):
         assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .step().'
 
         self.obs_recv = 0
-        # print('start_step')
+        print('start_step')
         with self.cond_obs:
             self.num_ticks += 1  # todo: can cause blocks if
             for key, value in self._act_pub.items():
@@ -273,7 +277,7 @@ class Env(object):
                 msg.data = self.num_ticks
                 value.publish(msg)
                 self.cond_obs.wait()
-        # print('end_step')
+        print('end_step')
         # self.num_ticks += 1
         return None
 
@@ -296,24 +300,19 @@ class Env(object):
         while not self.done:  # /rx/obj/states/N8/done
             with self.cond_done:
                 if self.done:
+                    print('Leaving done!')
                     break
                 self.step()
-            rospy.sleep(0.0001)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
+            # rospy.sleep(0.0001)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
+            rospy.sleep(0.01)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
 
         # Block until we receive '/bridge/tick'=0, to indicate start of new episode
+        print('Wait for first tick!')
         self.event.wait()
         self.num_ticks = 0
         rospy.loginfo("Reset performed")
-        return None
-
-    def close(self):
-        for name in self._launch_nodes:
-            self._launch_nodes[name].shutdown()
-        try:
-            rosparam.delete_param('/')
-            rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
-        except:
-            pass
+        self.start_pub.publish(msg)
+        print('First tick published!')
 
     def __obs_handler(self, msg):
         self.obs_recv += 1
@@ -321,15 +320,36 @@ class Env(object):
             if self.obs_recv == 1:
                 self.cond_obs.notify_all()
 
+    def __resolve_obs_handler(self, msg):
+        with self.cond_obs:
+            print('gave up lock in __resolve_obs_handler!')
+            self.cond_obs.notify_all()
+
     def __reset_handler(self, msg):
         with self.cond_obs:
             self.cond_obs.notify_all()
-            # print('gave up lock in __reset_handler!')
+            print('gave up lock in __reset_handler!')
             # rospy.sleep(0.3)   # todo: required?
             for key, value in self._act_pub_reset.items():
                             msg = UInt64()
                             msg.data = self.num_ticks
                             value.publish(msg)
+
+    def __end_reset_handler(self, msg):
+        print('Received end_reset!')
+        self.event.set()
+        # with self.cond_obs:
+        #     print('gave up lock in __end_reset_handler!')
+        #     self.cond_obs.notify_all()
+
+    def __done_handler(self, msg):
+        if msg.data > 0:
+            with self.cond_done:
+                self.done = True
+                with self.cond_obs:
+                    print('gave up lock in __done_handler!')
+                    self.cond_obs.notify_all()
+                # self.reset_pub_v2.publish(UInt64())  # todo: bridge
 
     def _reset(self, states):
         # Append namespace to names in states
@@ -377,12 +397,11 @@ class Env(object):
                               state_address, self.name))
                 rospy.sleep(0.1)
 
-    def __end_reset_handler(self, msg):
-        self.start_pub.publish(msg)  # todo: uncomment if tick not send by bridge
-        self.event.set()
-
-    def __done_handler(self, msg):
-        if msg.data > 0:
-            with self.cond_done:
-                self.done = True
-                # self.reset_pub_v2.publish(UInt64())  # todo: bridge
+    def close(self):
+        for name in self._launch_nodes:
+            self._launch_nodes[name].shutdown()
+        try:
+            rosparam.delete_param('/')
+            rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
+        except:
+            pass
