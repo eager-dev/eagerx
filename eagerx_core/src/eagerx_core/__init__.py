@@ -446,6 +446,7 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
                           ops.map(inpt['converter']), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
+                          # ops.share(),  # todo: add? perhaps efficient and worked kind-off with create_channel_bridge
                           # spy('data [%s]' % name, node_name, only_node=['/rx/bridge']),
                           )
 
@@ -463,13 +464,10 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     msg = num_msgs.pipe(gen_msg(Ir))
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
-                            ops.share(),
+                            ops.share(),  # todo: really needed with share at the end here?
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
-                            # ops.map(lambda x: (x, rospy.sleep(3))),
-                            # ops.map(lambda x: x[0]),
-                            # spy('msg [%s]' % name, node_name, only_node=['/rx/bridge']),
                             ops.share())
 
     # Create reset flag
@@ -516,7 +514,7 @@ def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_na
     msg = num_msgs.pipe(gen_msg(Ir))
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
-                            ops.share(),
+                            ops.share(),  # todo: really needed with share at the end here?
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
@@ -542,10 +540,10 @@ def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_na
     channels = []
     flags = []
     for i in inputs:
-        if node_name == '/rx/bridge':
-            channel, flag = create_channel_bridge(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name, im_scheduler=im_scheduler)
-        else:
-            channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
+        # if node_name == '/rx/bridge':
+        #     channel, flag = create_channel_bridge(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name, im_scheduler=im_scheduler)
+        # else:
+        channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
         channels.append(channel)
         if node_name in selected_nodes:
             if is_feedthrough:
@@ -1007,7 +1005,8 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF,
 
     # Increase ticks
     d_Nc = Nc_obs.subscribe(Nc, scheduler=thread_pool_scheduler)
-    d_RRn = Nc_obs.pipe(ops.start_with(0),  # added to simulated first zero from BS(0) of Nc
+    d_RRn = Nc_obs.pipe(spy('Nc_obs', node_name),
+                        ops.start_with(0),  # added to simulated first zero from BS(0) of Nc
                         ops.combine_latest(Ns, RRr),
                         spy('RRn pre-filter', node_name),
                         ops.filter(lambda value: value[0] == value[1]),
