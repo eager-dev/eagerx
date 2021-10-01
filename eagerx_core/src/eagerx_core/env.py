@@ -6,7 +6,7 @@ from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait
 from eagerx_core.node import RxNode
 from eagerx_core.bridge import RxBridge
 from eagerx_core import RxMessageBroker
-from eagerx_core.params import RxNodeParams
+from eagerx_core.params import RxNodeParamsOld as RxNodeParams
 
 from typing import List
 from functools import partial
@@ -48,7 +48,6 @@ class Env(object):
         # Initialize reset topics
         self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
         self.reset_sub = rospy.Subscriber(self.ns + '/end_reset', UInt64, self.__end_reset_handler)
-
         self.start_pub = rospy.Publisher(self.ns + '/bridge/tick', UInt64, queue_size=0)
 
         rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
@@ -63,20 +62,13 @@ class Env(object):
 
         # Required for testing
         self.done = None
-        # rospy.Subscriber(self.ns + '/reset', UInt64, self.__resolve_obs_handler)
         rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler)
-        # self.reset_pub_v2 = rospy.Publisher(self.ns + '/reset', UInt64, queue_size=0, latch=True)  # todo: bridge
-        # self.reset_pub = rospy.Publisher(self.ns + '/real_reset', UInt64, queue_size=0, latch=True) # todo: bridge
-        # rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler)  # todo: bridge
-        # rospy.Subscriber(self.ns + '/N5/P5/reset', UInt64, self.__end_reset_handler)  # todo: bridge
-        # rospy.Subscriber(self.ns + '/N5/P5', UInt64, self.__obs_handler)  # todo: bridge
         self.obs_recv = None
         rospy.Subscriber(self.ns + '/reset', UInt64, lambda msg: self.__reset_handler(msg))
         self.cond_done = Condition()
         self.cond_obs = Condition()
 
         # Initialize waiting for observations & reset topics of inputs and states
-        # rospy.Subscriber(self.ns + '/bridge/tick', UInt64, self.__end_reset_handler)
         self.state_name = 'obj/states/N8'
         rospy.Subscriber(self.ns + '/obj/actuators/N7/applied', UInt64, self.__obs_handler)
 
@@ -185,10 +177,8 @@ class Env(object):
 
         # Initialize nodes
         subs = []
-        # thread_count = multiprocessing.cpu_count()
-        # thread_pool_scheduler = ThreadPoolScheduler(thread_count)
         for node in nodes_params:
-            params = node.__dict__
+            params = node.params['default']
             name = params['name']
             launch_file = params['launch_file']
             launch_locally = params['launch_locally']
@@ -227,13 +217,13 @@ class Env(object):
 
             # Send reset msg
             self.reset_pub.publish(UInt64())
-            # self.reset_pub_v2.publish(UInt64())
-            # self.__reset_handler(None)  # todo: bridge
 
             # After env receives '/rx/reset', we send '/rx/env/Pe/reset' via self.__reset_handler(msg)
             self.event.wait()
-            rospy.loginfo("Pipelines initialized.")
             self.initialized = True
+            rospy.loginfo("Pipelines initialized.")
+
+            # First tick. Necessary, otherwise we cannot start reset.
             self.start_pub.publish(UInt64(data=1))
             print('First tick published!')
 
@@ -244,7 +234,7 @@ class Env(object):
 
         # Check if object name is unique
         obj_name = list(params.keys())[0]
-        assert rospy.get_param(self.ns + '/' + obj_name, None) is None, 'Object name "%s" already exists. Object names must be unique.' % self.ns + '/' + obj_name
+        assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, 'Object name "%s" already exists. Object names must be unique.' % self.ns + '/' + obj_name
 
         # Upload object params to rosparam server
         rosparam.upload_params(self.ns, params)
@@ -307,7 +297,7 @@ class Env(object):
             rospy.sleep(0.01)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
 
         # Block until we receive '/bridge/tick'=0, to indicate start of new episode
-        print('Wait for first tick!')
+        print('Wait for end reset!')
         self.event.wait()
         self.num_ticks = 0
         rospy.loginfo("Reset performed")
@@ -320,16 +310,10 @@ class Env(object):
             if self.obs_recv == 1:
                 self.cond_obs.notify_all()
 
-    def __resolve_obs_handler(self, msg):
-        with self.cond_obs:
-            print('gave up lock in __resolve_obs_handler!')
-            self.cond_obs.notify_all()
-
     def __reset_handler(self, msg):
         with self.cond_obs:
             self.cond_obs.notify_all()
             print('gave up lock in __reset_handler!')
-            # rospy.sleep(0.3)   # todo: required?
             for key, value in self._act_pub_reset.items():
                             msg = UInt64()
                             msg.data = self.num_ticks
@@ -338,9 +322,6 @@ class Env(object):
     def __end_reset_handler(self, msg):
         print('Received end_reset!')
         self.event.set()
-        # with self.cond_obs:
-        #     print('gave up lock in __end_reset_handler!')
-        #     self.cond_obs.notify_all()
 
     def __done_handler(self, msg):
         if msg.data > 0:
@@ -349,7 +330,6 @@ class Env(object):
                 with self.cond_obs:
                     print('gave up lock in __done_handler!')
                     self.cond_obs.notify_all()
-                # self.reset_pub_v2.publish(UInt64())  # todo: bridge
 
     def _reset(self, states):
         # Append namespace to names in states

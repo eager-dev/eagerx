@@ -252,7 +252,7 @@ def publisher_to_topic(publisher):
 
 
 def publish_to_topic(topic_type: Any, topic_name: str) -> Callable[[Observable], Observable]:
-    """
+    """+
     The to_topic operator will take each message from the stream and publish it to a specific ROS topic.
     :param topic_type: The type of the observable data elements.
     :param topic_name: The name of the ROS2 topic to publish the messages to.
@@ -484,9 +484,7 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     return channel, flag
 
 
-def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name='', im_scheduler=None):
-    if im_scheduler is None:
-        im_scheduler = scheduler
+def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
@@ -533,16 +531,11 @@ def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_na
     return channel, flag
 
 
-def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_name='', im_scheduler=None):
-    if im_scheduler is None:
-        im_scheduler = scheduler
+def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_name=''):
     # Create channels
     channels = []
     flags = []
     for i in inputs:
-        # if node_name == '/rx/bridge':
-        #     channel, flag = create_channel_bridge(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name, im_scheduler=im_scheduler)
-        # else:
         channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
         channels.append(channel)
         if node_name in selected_nodes:
@@ -555,7 +548,6 @@ def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_na
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
     zipped_channels = rx.zip(*channels).pipe(regroup_inputs(dt_n=dt_n, node_name=node_name), ops.share())
     return zipped_channels, zipped_flags
-    # return zipped_channels, flags
 
 
 def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_name=''):
@@ -1017,8 +1009,6 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF,
     # Dispose
     dispose = [RRn, Nc, Ns, d_RRn, d_Nc, d_Ns] + d_msg
     return {'dispose': dispose}
-    # dispose = [RRn, Nc, Ns, d_RRn, d_Nc, d_Ns] + d_msg
-    # return {'RRn': RRn, 'dispose': dispose}
 
 
 def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_object, inputs_init, outputs, message_broker, node_name='', scheduler=''):
@@ -1028,15 +1018,12 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     # Prepare scheduler
     if scheduler is not None:
         event_scheduler = scheduler
-        im_scheduler = scheduler
         thread_pool_scheduler = event_scheduler
     else:
         event_scheduler = EventLoopScheduler()
-        im_scheduler = ImmediateScheduler()
         thread_pool_scheduler = event_scheduler
 
     # Prepare output topics
-    tick_out = outputs[0]
     for i in outputs:
         # Prepare output topic
         i['msg'] = Subject()
@@ -1122,7 +1109,6 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     F_init = F_init.pipe(ops.first(), ops.merge(rx.never()))
     # todo: blocks: flags received, but not zipped
     inputs.pipe(ops.map(lambda inputs: rx.zip(*[i['reset'].pipe(flag_dict(i['name'])) for i in inputs]).pipe(ops.map(lambda x: merge_dicts({}, x)), ops.start_with(None)))).subscribe(F_init_ho)
-    # inputs.pipe(ops.map(lambda inputs: rx.zip(*[i['reset'].pipe(flag_dict(i['name'])) for i in inputs]).pipe(ops.map(lambda x: merge_dicts({}, x)), ops.start_with(None)))).subscribe(F_init_ho, scheduler=im_scheduler)
     F = Subject()
     f = rx.merge(F.pipe(spy('F', node_name)), F_init)
 
@@ -1173,7 +1159,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     check_Nc, Nc, Nc_ho = switch_with_check_pipeline()
     inputs_flags = inputs.pipe(ops.zip(reset_trigger),
                                ops.map(lambda i: i[0]),
-                               ops.map(lambda inputs: init_channels(ns, Nc, dt_n, inputs, node_name=node_name, scheduler=thread_pool_scheduler, im_scheduler=im_scheduler)),
+                               ops.map(lambda inputs: init_channels(ns, Nc, dt_n, inputs, node_name=node_name, scheduler=thread_pool_scheduler)),
                                # spy('inputs_flags', node_name),
                                ops.share())
 
@@ -1210,8 +1196,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
                    trace_observable('cb_post_reset', node_name),
                    ops.map(lambda x: UInt64(data=0)),
                    ops.share(),
-                   # publisher_to_topic(end_reset['msg_pub']), publisher_to_topic(tick_out['msg_pub'])).subscribe(tick_out['msg'])
-                   publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])  # todo: uncomment if tick not send by bridge
+                   publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])
 
     rx_objects = dict(inputs=inputs_init, outputs=outputs, node_inputs=node_inputs, node_outputs=node_outputs)
     return rx_objects
@@ -1253,7 +1238,7 @@ class RxMessageBroker(object):
                        reactive_proxy=tuple()):
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
-            if i['address'] == '/rx/bridge/tick': continue  # todo: uncomment if tick not send by bridge
+            if i['address'] == '/rx/bridge/tick': continue
             assert i['address'] not in self.rx_connectable, 'Non-unique output (%s). All output names must be unique.' % i['address']
             self.rx_connectable[i['address']] = dict(rx=i['msg'], source=i, node_name=node_name, rate=i['rate'])
 

@@ -94,7 +94,7 @@ class RealResetNode(object):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
-        if 'node_args' in self.params.keys():
+        if 'node_args' in self.params.keys():  # todo: remove?
             self.node_args = self.params['node_args']
 
         # Append states on rosparam server that are reset by this node

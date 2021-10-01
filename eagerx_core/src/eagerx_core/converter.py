@@ -1,0 +1,13 @@
+
+class SpaceUInt64Converter(object):
+    def __init__(self, low, high, shape=None, dtype=None):
+        ...
+
+    def get_space(self):
+        ...
+
+    def to_space(self, msg):
+        ...
+
+    def from_space(self, msg):
+        ...

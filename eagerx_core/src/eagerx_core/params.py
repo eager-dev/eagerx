@@ -1,10 +1,12 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from eagerx_core.utils.utils import load_yaml, get_attribute_from_module
+
 
 class Params(object):
     def __init__(self, **kwargs):
         # Iterates over provided arguments and sets the provided arguments as class properties
         for key, value in kwargs.items():
+            if key == '__class__': continue   # Skip if __class__ type
             setattr(self, key, value)
 
 
@@ -18,11 +20,16 @@ class RxInput(Params):
                  converter: str = 'identity',
                  converter_module: str = 'eagerx_core',
                  is_reactive: bool = True,
-                 rate=None
+                 rate: int = None,
+                 gym_space: Dict = None,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
+        # If gym_space undefined, remove it
+        if not gym_space:
+            del gym_space
+
         if is_reactive:
             del rate
         else:
@@ -35,7 +42,6 @@ class RxInput(Params):
         # Calculate other parameters based on previously defined attributes.
 
         # Error check the parameters here.
-
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
@@ -52,10 +58,14 @@ class RxOutput(Params):
                  msg_module: str = 'std_msgs.msg',
                  converter: str = 'identity',
                  converter_module: str = 'eagerx_core',
+                 gym_space: Dict = None,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
+        # If gym_space undefined, remove it
+        if not gym_space:
+            del gym_space
         kwargs = locals().copy()
         kwargs.pop('self')
         super(RxOutput, self).__init__(**kwargs)
@@ -81,10 +91,14 @@ class RxFeedthrough(Params):
                  converter: str = 'identity',
                  converter_module: str = 'eagerx_core',
                  is_reactive: bool = True,
+                 gym_space: Dict = None,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
+        # If gym_space undefined, remove it
+        if not gym_space:
+            del gym_space
         kwargs = locals().copy()
         kwargs.pop('self')
         super(RxFeedthrough, self).__init__(**kwargs)
@@ -107,11 +121,15 @@ class RxState(Params):
                  msg_type: str,
                  msg_module: str = 'std_msgs.msg',
                  converter: str = 'identity',
-                 converter_module: str = 'eagerx_core'
+                 converter_module: str = 'eagerx_core',
+                 gym_space: Dict = None,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
+        # If gym_space undefined, remove it
+        if not gym_space:
+            del gym_space
         kwargs = locals().copy()
         kwargs.pop('self')
         super(RxState, self).__init__(**kwargs)
@@ -129,18 +147,9 @@ class RxState(Params):
 class RxNodeParams(Params):
     def __init__(self,
                  name: str,
-                 node_type: str,
-                 module: str,
-                 topics_out: List[RxOutput],
-                 topics_in: List[RxInput],
-                 feedthrough_in: List[RxFeedthrough] = [],
-                 states_in: List[RxState] = [],
-                 # set_states_in: List[RxState] = [],
-                 launch_locally: bool = True,
-                 single_process: bool = True,
-                 **node_args):
+                 params: Dict,
+                 ):
         # Only define variables (locally) you wish to store on the parameter server (done in baseclass constructor).
-        launch_file = '$(find eagerx_core)/launch/rxnode.launch'
 
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -150,45 +159,129 @@ class RxNodeParams(Params):
         super(RxNodeParams, self).__init__(**kwargs)
 
         # Check that node has at least one input.
-        if len(topics_in) == 0:
-            raise ValueError('Nodes must have at least one input. Node "%s" does not have inputs' % name)
+        assert len(params['inputs']) > 0, 'Nodes must have at least one input. Node "%s" does not have inputs.' % name
 
-        # Check that output rates are the same
-        rates = []
-        for o in topics_out:
-            rates.append(o.rate)
-        if len(set(rates)) > 1:
-            raise ValueError('Nodes can only have outputs with the same rate. Check the output rates of node "%s".' % name)
+    @classmethod
+    def create(cls, name: str, package_name: str, config_name: str, **kwargs):
 
-        # Calculate other parameters based on previously defined attributes.
-        self.rate = topics_out[0].rate
+        # Load yaml from config file
+        params = load_yaml(package_name, config_name)
+
+        # Replace default arguments
+        for key, item in kwargs.items():
+            assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
+            params['default'][key] = item
+
+        # Check if all arguments are specified
+        for key, value in params['default'].items():
+            assert value is not None, 'Missing argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (key, config_name, package_name)
+
+        # Check reserved keywords
+        assert 'name' not in params['default'], 'Argument name "name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        assert 'package_name' not in params['default'], 'Argument name "package_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        assert 'config_name' not in params['default'], 'Argument name "config_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        params['default']['name'] = name
+        params['default']['package_name'] = package_name
+        params['default']['config_name'] = config_name
+        return cls(name, params)
 
     def get_params(self, ns=''):
-        params = self.__dict__.copy()
+        params = self.params.copy()
+        default = params['default'].copy()
+        name = self.name
+        package_name = default['package_name']
+        config_name = default['config_name']
+        default['module'], default['node_type'] = params['node_type'].split('/')
+
+        # Process inputs
+        topics_in = []
+        for key, value in default['inputs'].items():
+            assert key in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', key, 'inputs', config_name, package_name)
+            p_in = params['inputs'][key]
+            args = dict()
+            args['name'], args['address'] = key, value
+            args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
+            args['repeat'] = p_in['repeat']
+            if 'rate' in p_in:
+                args['rate'], args['is_reactive'] = p_in['rate'], False
+            else:
+                args['is_reactive'] = True
+            if 'converter_type' in p_in:
+                args['converter_module'], args['converter'] = p_in['converter_type'].split('/')
+            if 'gym_space' in p_in:
+                args['gym_space'] = p_in['gym_space']
+            n = RxInput(**args)
+            topics_in.append(n)
+        del default['inputs']
+
+        # Process outputs
+        topics_out = []
+        if 'outputs' in default:
+            for key, value in default['outputs'].items():
+                assert key in params['outputs'], ('Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('output', key, 'outputs', config_name, package_name))
+                p_in = params['outputs'][key]
+                args = dict()
+                args['name'], args['address'] = key, value
+                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
+                args['rate'] = default['rate']
+                if 'converter_type' in p_in:
+                    args['converter_module'], args['converter'] = p_in['converter_type'].split('/')
+                if 'gym_space' in p_in:
+                    args['gym_space'] = p_in['gym_space']
+                n = RxOutput(**args)
+                topics_out.append(n)
+            del default['outputs']
+
+        feedthrough_in = []
+        if 'feedthroughs' in default:
+            for key, value in default['feedthroughs'].items():
+                assert key in params['feedthroughs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('feedthrough', key, 'feedthroughs', config_name, package_name)
+                p_in = params['feedthroughs'][key]
+                args = dict()
+                args['feedthrough_to'], args['address'] = key, value
+                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
+                args['is_reactive'] = True
+                if 'converter_type' in p_in:
+                    args['converter_module'], args['converter'] = p_in['converter_type'].split('/')
+                n = RxFeedthrough(**args)
+                feedthrough_in.append(n)
+            del default['feedthroughs']
+
+        states_in = []
+        if 'states' in default:
+            for key, value in default['states'].items():
+                assert key in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', key, 'states', config_name, package_name)
+                p_in = params['states'][key]
+                args = dict()
+                args['name'], args['address'] = key, value
+                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
+                if 'converter_type' in p_in:
+                    args['converter_module'], args['converter'] = p_in['converter_type'].split('/')
+                n = RxState(**args)
+                states_in.append(n)
+            del default['states']
 
         # Calculate properties
-        params['topics_out'] = [i.get_params(ns=ns) for i in params['topics_out']]
-        params['topics_in'] = [i.get_params(ns=ns) for i in params['topics_in']]
-        params['feedthrough_in'] = [i.get_params(ns=ns) for i in params['feedthrough_in']]
-        params['states_in'] = [i.get_params(ns=ns) for i in params['states_in']]
-        # params['set_states_in'] = [i.get_params(ns=ns) for i in params['set_states_in']]
+        default['topics_out'] = [i.get_params(ns=ns) for i in topics_out]
+        default['topics_in'] = [i.get_params(ns=ns) for i in topics_in]
+        default['feedthrough_in'] = [i.get_params(ns=ns) for i in feedthrough_in]
+        default['states_in'] = [i.get_params(ns=ns) for i in states_in]
 
-        # Get rate dictionary
+        # Create rate dictionary with outputs
         chars_ns = len(ns)+1
         rate_dict = dict()
-        for i in params['topics_out']:
+        for i in default['topics_out']:
             address = i['address'][chars_ns:]
             rate_dict[address] = {'rate': i['rate']}
+        assert name not in rate_dict, 'Cannot use the same output topic name for a node (%s).' % name
 
         # Put parameters in node namespace
         # TODO: WATCH OUT, ORDER OF DICT KEY MATTERS!
-        params = {self.name: params}
-        if self.name in rate_dict.keys():
-            raise ValueError('Cannot use the same output topic name for a node (%s).' % self.name)
+        node_params = {name: default}
 
         # Add output rates in separate namespace
-        params.update(rate_dict)
-        return params
+        node_params.update(rate_dict)
+        return node_params
 
 
 class RxBridgeParams(Params):
@@ -221,9 +314,9 @@ class RxBridgeParams(Params):
         bridge_params = self.__dict__.copy()
 
         # IMPORTANT! Ensure that first output topic is 'tick'.
-        bridge = RxNodeParams(name=self.name, node_type=self.node_type, module=self.module,
-                              topics_in=[RxInput('tick', 'bridge/tick', 'UInt64')],
-                              topics_out=[RxOutput('tick', 'bridge/tick', 'UInt64', rate=self.rate)])
+        bridge = RxNodeParamsOld(name=self.name, node_type=self.node_type, module=self.module,
+                                 topics_in=[RxInput('tick', 'bridge/tick', 'UInt64')],
+                                 topics_out=[RxOutput('tick', 'bridge/tick', 'UInt64', rate=self.rate)])
 
         params = bridge.get_params(ns=ns)
         params[self.name].update(bridge_params)
@@ -248,76 +341,172 @@ class RxObjectParams(Params):
 
         # Error check the parameters here.
 
+    @classmethod
+    def create(cls, name: str, package_name: str, object_name: str, **kwargs):
+
+        # Load yaml from config file
+        params = load_yaml(package_name, object_name)
+
+        # Replace default arguments
+        for key, item in kwargs.items():
+            if key in params['default'].keys():
+                params['default'][key] = item
+        return cls(name, params)
+
+    def get_component(self, component, cname=None):
+        name = self.name
+
+        # If no cname is provided, add all components
+        if cname is None:
+            cname = self.params[component].keys()
+        else:
+            if not isinstance(cname, list):
+                assert cname in self.params['default'][
+                    component], '"%s" not included in the %s of object "%s".' % (cname, component, name)
+                cname = [cname]
+            else:
+                for i in cname:
+                    assert i in self.params['default'][
+                        component], '"%s" not included in the %s of object "%s".' % (i, component, name)
+
+        # Loop over components
+        cdict = dict()
+        cdict[name] = dict()
+        for i in cname:
+            params = self.params[component][i].copy()
+
+            # Create converter
+            gym_space = params['gym_space']
+            args = params['gym_space'].copy()
+            del args['converter_type']
+            converter_cls = get_attribute_from_module(*gym_space['converter_type'].split('/'))
+            converter = converter_cls(**args)
+
+            # Create rxobject
+            # # todo: distinguish between RxOutput & RxInput
+            args = dict()
+            args['name'], args['address'] = ('%s' % i, '%s/%s/%s' % (name, component, i))
+            args['msg_module'], args['msg_type'] = params['msg_type'].split('/')
+            args['rate'] = None  # todo: CHANGE TO environment rate
+            # todo: Test if converter is string, then do not reload converter_cls when initializing rxpipeline
+            args['converter'] = converter.from_space
+            rxobject = RxOutput(**args)
+
+            # Define component
+            cdict[name][i] = (None, rxobject, converter)
+
+        return cdict
+
+    def get_action(self, cname=None):
+        return self.get_component('actuators', cname)
+
+    def get_observation(self, cname=None):
+        return self.get_component('sensors', cname)
+
+    def get_state(self, cname=None):
+        return self.get_component('states', cname)
+
     def get_params(self, ns, bridge):
         params = self.params.copy()
         name = self.name
 
         # Check if the bridge name is not contained in the config's (.yaml) default parameters
-        if bridge in params['default']:
-            raise ValueError('Cannot have a bridge (%s) as a default object parameter int the config (.yaml) of object (%s).' % (bridge, self.name))
-        if 'node_names' in params['default']:
-            raise ValueError('Cannot have a keyword (%s) as a default object parameter int the config (.yaml) of object (%s).' % ('node_names', self.name))
-        if bridge not in params:
-            raise ValueError('The config (.yaml) of object (%s) does not provide support for the selected bridge (%s).' % (self.name, bridge))
+        assert bridge not in params['default'], 'Cannot have a bridge (%s) as a default object parameter int the config (.yaml) of object (%s).' % (bridge, self.name)
+        assert 'node_names' not in params['default'], 'Cannot have a keyword (%s) as a default object parameter int the config (.yaml) of object (%s).' % ('node_names', self.name)
+        assert bridge in params, 'The config (.yaml) of object (%s) does not provide support for the selected bridge (%s).' % (self.name, bridge)
 
         # Create sensors
         component = 'sensors'
         sensors = []
         for i in params['default'][component]:
-            if i not in params[bridge][component]:
-                raise ValueError('%s not defined for bridge %s and component "%s".' % (i, bridge, component))
+            assert i in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (i, bridge, component)
             p_env = params[component][i]
             p_bridge = params[bridge][component][i]
 
             # Prepare node arguments
+            node_name = '%s/nodes/%s/%s' % (name, component, i)
+            package, config_name = p_bridge['node_config'].split('/')
             args = p_bridge.copy()
-            del args['node_type'], args['module']
-            args['outputs'], args['outputs_address'] = ['%s' % i], ['%s/%s/%s' % (name, component, i)]
-            args['name'], args['rate'] = '%s/nodes/%s/%s' % (name, component, i), p_env['rate']
+            args.pop('node_config')
+            args['rate'] = p_env['rate']
 
-            # Get node param class
-            node_cls = get_attribute_from_module(p_bridge['module'], p_bridge['node_type'])
-            node = node_cls(**args)
+            # Define node outputs mapping
+            for key, val in args['outputs'].items():
+                args['outputs'][key] = '%s/%s' % (name, val)
+
+            # Define node inputs mapping
+            args['inputs'] = {'tick': 'bridge/tick'}
+            if 'inputs' in p_bridge:
+                # First, prepend node name to inputs
+                for key, val in p_bridge['inputs'].items():
+                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
+                args['inputs'].update(p_bridge['inputs'])
+
+            # Create node
+            node = RxNodeParams.create(node_name, package, config_name, **args)
             sensors.append(node)
 
         # Create actuators
         component = 'actuators'
         actuators = []
         for i in params['default'][component]:
-            if i not in params[bridge][component]:
-                raise ValueError('%s not defined for bridge %s and component "%s".' % (i, bridge, component))
+            assert i in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (i, bridge, component)
             p_env = params[component][i]
             p_bridge = params[bridge][component][i]
 
             # Prepare node arguments
+            node_name = '%s/nodes/%s/%s' % (name, component, i)
+            package, config_name = p_bridge['node_config'].split('/')
             args = p_bridge.copy()
-            del args['node_type'], args['module']
-            args['outputs'], args['outputs_address'] = ['%s' % i], ['%s/%s/%s/applied' % (name, component, i)]
-            args['name'], args['rate'] = '%s/nodes/%s/%s' % (name, component, i), p_env['rate']
+            args.pop('node_config')
+            args['rate'] = p_env['rate']
 
-            # Get node param class
-            node_cls = get_attribute_from_module(p_bridge['module'], p_bridge['node_type'])
-            node = node_cls(**args)
+            # Define node outputs mapping
+            args['outputs'] = dict()
+            for key, val in args['inputs'].items():
+                args['outputs'][key] = '%s/%s/applied' % (name, val)
+
+            # Define node inputs mapping
+            args['inputs'] = {'tick': 'bridge/tick'}
+            if 'inputs' in p_bridge:
+                # First, prepend node name to inputs
+                for key, val in p_bridge['inputs'].items():
+                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
+                args['inputs'].update(p_bridge['inputs'])
+
+            # Create node
+            node = RxNodeParams.create(node_name, package, config_name, **args)
             actuators.append(node)
 
-        # Create states
+        # Create sensors
         component = 'states'
         states = []
         for i in params['default'][component]:
-            if i not in params[bridge][component]:
-                raise ValueError('%s not defined for bridge %s and component "%s".' % (i, bridge, component))
+            assert i in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (i, bridge, component)
             p_env = params[component][i]
             p_bridge = params[bridge][component][i]
 
             # Prepare node arguments
+            node_name = '%s/nodes/%s/%s' % (name, component, i)
+            package, config_name = p_bridge['node_config'].split('/')
             args = p_bridge.copy()
-            del args['node_type'], args['module']
-            args['outputs'], args['outputs_address'] = ['%s' % i], ['%s/%s/%s' % (name, component, i)]
-            args['name'], args['rate'] = '%s/nodes/%s/%s' % (name, component, i), p_env['rate']
+            args.pop('node_config')
+            args['rate'] = p_env['rate']
 
-            # Get node param class
-            node_cls = get_attribute_from_module(p_bridge['module'], p_bridge['node_type'])
-            node = node_cls(**args)
+            # Define node outputs mapping
+            for key, val in args['outputs'].items():
+                args['outputs'][key] = '%s/%s' % (name, val)
+
+            # Define node inputs mapping
+            args['inputs'] = {'tick': 'bridge/tick'}
+            if 'inputs' in p_bridge:
+                # First, prepend node name to inputs
+                for key, val in p_bridge['inputs'].items():
+                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
+                args['inputs'].update(p_bridge['inputs'])
+
+            # Create node
+            node = RxNodeParams.create(node_name, package, config_name, **args)
             states.append(node)
 
         nodes = sensors + actuators + states
@@ -342,40 +531,83 @@ class RxObjectParams(Params):
 
         return {self.name: obj_params}, nodes
 
-    @classmethod
-    def create(cls,
-               name: str,
-               package_name: str,
-               object_name: str,
-               **kwargs):
-
-        # Load yaml from config file
-        params = load_yaml(package_name, object_name)
-
-        # Replace default arguments
-        for key, item in kwargs.items():
-            if key in params['default'].keys():
-                params['default'][key] = item
-        return cls(name, params)
-
 
 ######## NODE IMPLEMENTATIONS ########
 
 
-class ProcessNode(RxNodeParams):
+class RxNodeParamsOld(Params):
+    def __init__(self,
+                 name: str,
+                 node_type: str,
+                 module: str,
+                 topics_out: List[RxOutput],
+                 topics_in: List[RxInput],
+                 feedthrough_in: List[RxFeedthrough] = [],
+                 states_in: List[RxState] = [],
+                 launch_locally: bool = True,
+                 single_process: bool = True,
+                 **node_args):
+        # Only define variables (locally) you wish to store on the parameter server (done in baseclass constructor).
+        launch_file = '$(find eagerx_core)/launch/rxnode.launch'
+
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxNodeParamsOld, self).__init__(**kwargs)
+
+        # Check that node has at least one input.
+        if len(topics_in) == 0:
+            raise ValueError('Nodes must have at least one input. Node "%s" does not have inputs' % name)
+
+        # Check that output rates are the same
+        rates = []
+        for o in topics_out:
+            rates.append(o.rate)
+        if len(set(rates)) > 1:
+            raise ValueError('Nodes can only have outputs with the same rate. Check the output rates of node "%s".' % name)
+
+        # Calculate other parameters based on previously defined attributes.
+        self.rate = topics_out[0].rate
+
+    def get_params(self, ns=''):
+        params = self.__dict__.copy()
+
+        # Calculate properties
+        params['topics_out'] = [i.get_params(ns=ns) for i in params['topics_out']]
+        params['topics_in'] = [i.get_params(ns=ns) for i in params['topics_in']]
+        params['feedthrough_in'] = [i.get_params(ns=ns) for i in params['feedthrough_in']]
+        params['states_in'] = [i.get_params(ns=ns) for i in params['states_in']]
+
+        # Get rate dictionary
+        chars_ns = len(ns)+1
+        rate_dict = dict()
+        for i in params['topics_out']:
+            address = i['address'][chars_ns:]
+            rate_dict[address] = {'rate': i['rate']}
+
+        # Put parameters in node namespace
+        # TODO: WATCH OUT, ORDER OF DICT KEY MATTERS!
+        params = {self.name: params}
+        if self.name in rate_dict.keys():
+            raise ValueError('Cannot use the same output topic name for a node (%s).' % self.name)
+
+        # Add output rates in separate namespace
+        params.update(rate_dict)
+        return params
+
+
+class ProcessNode(RxNodeParamsOld):
     def __init__(self,
                  name: str,
                  inputs: List,
-                 inputs_address: List,
                  outputs: List,
-                 outputs_address: List,
                  rate: int,
                  launch_locally: bool = True,
                  single_process: bool = False,
                  inputs_converter: List = None,
-                 inputs_converter_module: List = None,
                  outputs_converter: List = None,
-                 outputs_converter_module: List = None,
                  ):
         node_type = 'ProcessNode'
         module = 'eagerx_core.node'
@@ -384,11 +616,11 @@ class ProcessNode(RxNodeParams):
         topics_in = []
         for i in range(len(inputs)):
             args = dict()
-            args['name'], args['address'] = inputs[i], inputs_address[i]
+            args['name'], args['address'] = inputs[i].split('/')[-1], inputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['repeat'], args['is_reactive'] = 'all', 'True'
             if inputs_converter:
-                args['converter'], args['converter_module'] = inputs_converter[i], inputs_converter_module[i]
+                args['converter_module'], args['converter'] = inputs_converter[i].split('/')
             n = RxInput(**args)
             topics_in.append(n)
 
@@ -396,11 +628,11 @@ class ProcessNode(RxNodeParams):
         topics_out = []
         for i in range(len(outputs)):
             args = dict()
-            args['name'], args['address'] = outputs[i], outputs_address[i]
+            args['name'], args['address'] = outputs[i].split('/')[-1], outputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['rate'] = rate
             if outputs_converter:
-                args['converter'], args['converter_module'] = outputs_converter[i], outputs_converter_module[i]
+                args['converter_module'], args['converter'] = outputs_converter[i].split('/')
             n = RxOutput(**args)
             topics_out.append(n)
 
@@ -408,29 +640,55 @@ class ProcessNode(RxNodeParams):
                                           launch_locally=launch_locally, single_process=single_process,
                                           topics_in=topics_in, topics_out=topics_out)
 
+    def get_action(self, cname=None):
+        component = 'input'
+        params = self.__dict__.copy()
+        name = self.name
 
-class RealResetNode(RxNodeParams):
+        # Collect all input names & addresses
+        cnames = []
+        addresses = []
+        for i in params['topics_in']:
+            cnames.append(i.name)
+            addresses.append(i.address)
+
+        # If no cname is provided, add all components
+        if cname is None:
+            cname = cnames
+        else:
+            if not isinstance(cname, list):
+                assert cname in cnames, '"%s" not included as %s of node "%s".' % (cname, component, name)
+                cname = [cname]
+            else:
+                for i in cname:
+                    assert i in cnames, '"%s" not included as %s of node "%s".' % (i, component, name)
+
+        # Loop over components
+        cdict = dict()
+        cdict[name] = dict()
+        # for id, i in enumerate(cname):
+        #     # Create converter
+        #     gym_space = params['gym_space']
+        #     args = params['gym_space'].copy()
+        #     del args['converter_type']
+        #     converter_cls = get_attribute_from_module(*gym_space['converter_type'].split('/'))
+        #     converter = converter_cls(**args)
+
+
+class RealResetNode(RxNodeParamsOld):
     def __init__(self,
                  name: str,
-                 inputs: List,
-                 inputs_address: List,
-                 outputs: List,
-                 outputs_address: List,
-                 states: List,
-                 states_address: List,
-                 feedthrough_address: List,
-                 feedthrough_to: List,
+                 inputs: List[Tuple],
+                 outputs: List[Tuple],
+                 states: List[Tuple],
+                 feedthrough: List[Tuple],
                  rate: int,
                  launch_locally: bool = True,
                  single_process: bool = False,
                  inputs_converter: List = None,
-                 inputs_converter_module: List = None,
                  outputs_converter: List = None,
-                 outputs_converter_module: List = None,
                  states_converter: List = None,
-                 states_converter_module: List = None,
                  feedthrough_converter: List = None,
-                 feedthrough_converter_module: List = None,
                  **kwargs):
         node_type = 'RealResetNode'
         module = 'eagerx_core.node'
@@ -439,11 +697,11 @@ class RealResetNode(RxNodeParams):
         topics_in = []
         for i in range(len(inputs)):
             args = dict()
-            args['name'], args['address'] = inputs[i], inputs_address[i]
+            args['name'], args['address'] = inputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['repeat'], args['is_reactive'] = 'all', 'True'
             if inputs_converter:
-                args['converter'], args['converter_module'] = inputs_converter[i], inputs_converter_module[i]
+                args['converter_module'], args['converter'] = inputs_converter[i].split('/')
             n = RxInput(**args)
             topics_in.append(n)
 
@@ -451,25 +709,24 @@ class RealResetNode(RxNodeParams):
         topics_out = []
         for i in range(len(outputs)):
             args = dict()
-            args['name'], args['address'] = outputs[i], outputs_address[i]
+            args['name'], args['address'] = outputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['rate'] = rate
             if outputs_converter:
-                args['converter'], args['converter_module'] = outputs_converter[i], outputs_converter_module[i]
+                args['converter_module'], args['converter'] = outputs_converter[i].split('/')
             n = RxOutput(**args)
             topics_out.append(n)
 
         # Create feedthrough_in
         feedthrough_in = []
-        for i in range(len(feedthrough_address)):
+        for i in range(len(feedthrough)):
             args = dict()
-            if feedthrough_to[i] not in outputs[i]:
-                raise ValueError('The output (%s) we feedthrough to address (%s) is not defined.' % (feedthrough_to[i], feedthrough_address[i]))
-            args['address'], args['feedthrough_to'] = feedthrough_address[i], feedthrough_to[i]
+            args['address'], args['feedthrough_to'] = feedthrough[i]
+            assert args['feedthrough_to'] in outputs[i], 'The output (%s) we feedthrough to address (%s) is not defined.' % (args['feedthrough_to'], args['address'])
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['is_reactive'] = True
             if feedthrough_converter:
-                args['converter'], args['converter_module'] = feedthrough_converter[i], feedthrough_converter_module[i]
+                args['converter_module'], args['converter'] = feedthrough_converter[i].split('/')
             n = RxFeedthrough(**args)
             feedthrough_in.append(n)
 
@@ -477,10 +734,10 @@ class RealResetNode(RxNodeParams):
         states_in = []
         for i in range(len(states)):
             args = dict()
-            args['name'], args['address'] = states[i], states_address[i]
+            args['name'], args['address'] = states[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             if states_converter:
-                args['converter'], args['converter_module'] = states_converter[i], states_converter_module[i]
+                args['converter_module'], args['converter'] = states_converter[i].split('/')
             n = RxState(**args)
             states_in.append(n)
 
@@ -490,18 +747,14 @@ class RealResetNode(RxNodeParams):
                                             states_in=states_in, **kwargs)
 
 
-class SimActuatorNode(RxNodeParams):
+class SimActuatorNode(RxNodeParamsOld):
     def __init__(self,
                  name: str,
-                 outputs: List,
-                 outputs_address: List,
+                 outputs: List[Tuple],
                  rate: int,
-                 inputs: List = None,
-                 inputs_address: List = None,
+                 inputs: List[Tuple] = None,
                  inputs_converter: List = None,
-                 inputs_converter_module: List = None,
                  outputs_converter: List = None,
-                 outputs_converter_module: List = None,
                  ):
         node_type = 'ProcessNode'
         module = 'eagerx_core.node'
@@ -512,11 +765,11 @@ class SimActuatorNode(RxNodeParams):
         topics_in = [RxInput('tick', 'bridge/tick', 'UInt64')]
         for i in range(len(inputs)):
             args = dict()
-            args['name'], args['address'] = inputs[i], inputs_address[i]
+            args['name'], args['address'] = inputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['repeat'], args['is_reactive'] = 'all', 'True'
             if inputs_converter:
-                args['converter'], args['converter_module'] = inputs_converter[i], inputs_converter_module[i]
+                args['converter_module'], args['converter'] = inputs_converter[i].split('/')
             n = RxInput(**args)
             topics_in.append(n)
 
@@ -524,11 +777,11 @@ class SimActuatorNode(RxNodeParams):
         topics_out = []
         for i in range(len(outputs)):
             args = dict()
-            args['name'], args['address'] = outputs[i], outputs_address[i]
+            args['name'], args['address'] = outputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['rate'] = rate
             if outputs_converter:
-                args['converter'], args['converter_module'] = outputs_converter[i], outputs_converter_module[i]
+                args['converter_module'], args['converter'] = outputs_converter[i].split('/')
             n = RxOutput(**args)
             topics_out.append(n)
 
@@ -537,18 +790,14 @@ class SimActuatorNode(RxNodeParams):
                                               topics_in=topics_in, topics_out=topics_out)
 
 
-class SimSensorNode(RxNodeParams):
+class SimSensorNode(RxNodeParamsOld):
     def __init__(self,
                  name: str,
                  outputs: List,
-                 outputs_address: List,
                  rate: int,
                  inputs: List = None,
-                 inputs_address: List = None,
                  inputs_converter: List = None,
-                 inputs_converter_module: List = None,
                  outputs_converter: List = None,
-                 outputs_converter_module: List = None,
                  ):
         node_type = 'ProcessNode'
         module = 'eagerx_core.node'
@@ -560,11 +809,11 @@ class SimSensorNode(RxNodeParams):
         if inputs:
             for i in range(len(inputs)):
                 args = dict()
-                args['name'], args['address'] = inputs[i], inputs_address[i]
+                args['name'], args['address'] = inputs[i]
                 args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
                 args['repeat'], args['is_reactive'] = 'all', 'True'
                 if inputs_converter:
-                    args['converter'], args['converter_module'] = inputs_converter[i], inputs_converter_module[i]
+                    args['converter_module'], args['converter'] = inputs_converter[i].split('/')
                 n = RxInput(**args)
                 topics_in.append(n)
 
@@ -572,11 +821,11 @@ class SimSensorNode(RxNodeParams):
         topics_out = []
         for i in range(len(outputs)):
             args = dict()
-            args['name'], args['address'] = outputs[i], outputs_address[i]
+            args['name'], args['address'] = outputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['rate'] = rate
             if outputs_converter:
-                args['converter'], args['converter_module'] = outputs_converter[i], outputs_converter_module[i]
+                args['converter_module'], args['converter'] = outputs_converter[i].split('/')
             n = RxOutput(**args)
             topics_out.append(n)
 
@@ -585,20 +834,15 @@ class SimSensorNode(RxNodeParams):
                                             topics_in=topics_in, topics_out=topics_out)
 
 
-class SimStateNode(RxNodeParams):
+class SimStateNode(RxNodeParamsOld):
     def __init__(self,
                  name: str,
                  outputs: List,
-                 outputs_address: List,
                  rate: int,
                  inputs: List = None,
-                 inputs_address: List = None,
                  inputs_converter: List = None,
-                 inputs_converter_module: List = None,
                  outputs_converter: List = None,
-                 outputs_converter_module: List = None,
                  states_converter: List = None,
-                 states_converter_module: List = None,
                  ):
         node_type = 'StateNode'
         module = 'eagerx_core.node'
@@ -610,11 +854,11 @@ class SimStateNode(RxNodeParams):
         if inputs:
             for i in range(len(inputs)):
                 args = dict()
-                args['name'], args['address'] = inputs[i], inputs_address[i]
+                args['name'], args['address'] = inputs[i]
                 args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
                 args['repeat'], args['is_reactive'] = 'all', 'True'
                 if inputs_converter:
-                    args['converter'], args['converter_module'] = inputs_converter[i], inputs_converter_module[i]
+                    args['converter_module'], args['converter'] = inputs_converter[i].split('/')
                 n = RxInput(**args)
                 topics_in.append(n)
 
@@ -622,11 +866,11 @@ class SimStateNode(RxNodeParams):
         topics_out = []
         for i in range(len(outputs)):
             args = dict()
-            args['name'], args['address'] = outputs[i], outputs_address[i]
+            args['name'], args['address'] = outputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             args['rate'] = rate
             if outputs_converter:
-                args['converter'], args['converter_module'] = outputs_converter[i], outputs_converter_module[i]
+                args['converter_module'], args['converter'] = outputs_converter[i].split('/')
             n = RxOutput(**args)
             topics_out.append(n)
 
@@ -634,10 +878,10 @@ class SimStateNode(RxNodeParams):
         states_in = []
         for i in range(len(outputs)):
             args = dict()
-            args['name'], args['address'] = outputs[i], outputs_address[i]
+            args['name'], args['address'] = outputs[i]
             args['msg_type'], args['msg_module'] = 'UInt64', 'std_msgs.msg'
             if states_converter:
-                args['converter'], args['converter_module'] = states_converter[i], states_converter_module[i]
+                args['converter_module'], args['converter'] = states_converter[i].split('/')
             n = RxState(**args)
             states_in.append(n)
 

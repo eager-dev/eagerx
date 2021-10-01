@@ -5,55 +5,83 @@ default:
   position: [0, 0, 0]
   orientation: [0, 0, 0]
 
-sensors: # Outputs of simulators
+#########################
+## Agnostic definition ##
+#########################
+sensors: # inputs of env
   N6:
     rate: 2
-    msg_type: UInt64
-    msg_module: std_msg.msg
+    msg_type: std_msg.msg/UInt64
+    gym_space:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: boxu64
+      low: [0]
+      high: [100]
 
-actuators: # Inputs of simulators
+actuators: # outputs of env
   N7:
     rate: 1
-    msg_type: UInt64
-    msg_module: std_msg.msg
-    # Add converter module if used directly as action_space: UInt64_to_space(**converter_args)
-    # Add converter arguments:
+    msg_type: std_msg.msg/UInt64
+    gym_space:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: boxu64
+      low: 0
+      high: 100
+      shape: (1,)  # optional
   ref_vel:
     rate: 1
-    msg_type: UInt64
-    msg_module: std_msg.msg
+    msg_type: std_msg.msg/UInt64
+    gym_space:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: boxu64
+      low: [0]
+      high: [100]
 
-states: # Outputs of simulators
+states: # inputs/outputs of env
   N8:
     rate: 2
-    msg_type: UInt64
-    msg_module: std_msg.msg
+    msg_type: std_msg.msg/UInt64
+    gym_space:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: boxu64
+      low: [0]
+      high: [100]
   N9:
     rate: 2
-    msg_type: UInt64
-    msg_module: std_msg.msg
+    msg_type: std_msg.msg/UInt64
+    gym_space:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: boxu64
+      low: [0]
+      high: [100]
 
+
+#########################
+### Engine definition ###
+#########################
+# todo: how can node arguments be specified?
+# todo: how to define actuator inputs?
 bridge:
   urdf: 'path/to/urdf.urdf'
   sensors:
     N6:
-      node_type: SimSensorNode
-      module: eagerx_core.params
+      node_config: eagerx_core/sim_sensor
+      outputs: {'out_1': 'sensors/N6'}
+      test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
     N7:
-      node_type: SimActuatorNode
-      module: eagerx_core.params
-      inputs: [P5]
-#      inputs_address: [env/Pe]
-      inputs_address: [N5/P5]
+      node_config: eagerx_core/sim_actuator
+      inputs: {'action_1': 'actuators/N7'}
+      test_arg: 'CHANGED ARGUMENT'
 
   states:
     N8:
-      node_type: SimStateNode
-      module: eagerx_core.params
+      node_config: eagerx_core/sim_sensor
+      outputs: {'out_1': 'states/N8'}
+      test_arg: 'CHANGED ARGUMENT'
     N9:
-      node_type: SimStateNode
-      module: eagerx_core.params
-      inputs: [N6]
-      inputs_address: [obj/sensors/N6]
+      node_config: eagerx_core/sim_sensor
+      inputs: {'in_1': 'sensors/N6'}
+      outputs: {'out_1': 'states/N9'}
+      test_arg: 'CHANGED ARGUMENT'
