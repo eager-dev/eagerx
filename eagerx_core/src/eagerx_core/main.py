@@ -15,7 +15,7 @@ if __name__ == '__main__':
     N1 = RxNodeParams.create('N1', 'eagerx_core', 'process', rate=1, inputs={'in_1': 'env/Pe'},
                              outputs={'out_1': 'N1/P1', 'out_2': 'N2/P2'})
     N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1, inputs={'in_1': 'N1/P1'}, outputs={'out_1': 'N3/P3'},
-                             states={'state_1': 'obj/states/N8'}, feedthroughs={'ft_1': 'N2/P2'})
+                             states={'state_1': 'obj/states/N8'}, feedthroughs={'out_1': 'N2/P2'})
     N4 = RxNodeParams.create('N4', 'eagerx_core', 'process', rate=4, inputs={'in_1': 'N3/P3'}, outputs={'out_1': 'N4/P4'})
     N5 = RxNodeParams.create('N5', 'eagerx_core', 'process', rate=8, inputs={'in_1': 'N4/P4'}, outputs={'out_1': 'obj/actuators/N7'})
 
