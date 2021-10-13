@@ -69,8 +69,6 @@ if __name__ == '__main__':
     # todo: replace rospy.sleep(..) with time.sleep(..)
     # todo: state_address/set uses UInt64, but must use msg_type from config.
     # todo; How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
-    # todo: msg keys in output streams must be unique for bridge inputs. (i.e., SimNodes cannot use the same name shadow for their address).
-    #  Or, we don't care because the bridge does not perform any computation with the inputs. Create a "null" converter?
 
     for j in range(20000):
         print('\n[Episode %s]' % j)

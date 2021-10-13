@@ -701,6 +701,7 @@ def extract_topics_in_reactive_proxy(obj_params, sp_nodes, launch_nodes):
             new_input.pop('rate')
             new_input['is_reactive'] = True
             new_input['repeat'] = 'all'
+            new_input['name'] = new_input['address']
             inputs.append(new_input)
 
         for i in node_params['topics_in']:

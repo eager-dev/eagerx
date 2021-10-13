@@ -62,7 +62,7 @@ class BridgeNode(object):
             # Initialize node (with reference to simulator)
             if single_process:  # Initialize inside this process
                 sp_nodes[self.ns + '/' + name] = RxNode(name=self.ns + '/' + name, message_broker=self.mb,
-                                                              scheduler=None, simulator=self.simulator)
+                                                        scheduler=None, simulator=self.simulator)
             else:  # Not yet supported, because we cannot pass a reference to the simulator here.
                 if launch_locally and launch_file:  # Launch node as separate process
                     launch_nodes[self.ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name, 'name:=' + self.ns])
