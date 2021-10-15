@@ -12,7 +12,6 @@ inputs:
   in_1:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-    converter_type: eagerx_core/identity
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -21,7 +20,6 @@ inputs:
   in_2:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-    converter_type: eagerx_core/identity
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -31,7 +29,6 @@ inputs:
 outputs:
   out_1:
     msg_type: std_msgs.msg/UInt64
-    converter_type: eagerx_core/identity
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -39,7 +36,6 @@ outputs:
       high: [100]
   out_2:
     msg_type: std_msgs.msg/UInt64
-    converter_type: eagerx_core/identity
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64

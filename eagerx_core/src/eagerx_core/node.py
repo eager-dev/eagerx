@@ -3,7 +3,8 @@ import rospy, rosparam
 from std_msgs.msg import UInt64, String
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking
+from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.converter import IdentityConverter
 import eagerx_core
 
 # Memory usage
@@ -250,11 +251,9 @@ class RxNode(object):
         self.initialized = False
 
         # Prepare input & output topics
-        # todo: pass rx_objects to message_broker
         dt, topics_in, topics_out, feedthrough_in, states_in, node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
-        # todo: pass rx_objects to message_broker
         rx_objects = eagerx_core.init_node(self.ns, dt, node.callback, node.reset, topics_in, topics_out,
                                            feedthrough=feedthrough_in, state_inputs=states_in,
                                            node_name=self.name, scheduler=scheduler)
@@ -282,22 +281,34 @@ class RxNode(object):
         # Prepare input topics
         for i in params['topics_in']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
         # Prepare output topics
         for i in params['topics_out']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
         # Prepare action topics
         for i in params['feedthrough_in']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
         # Prepare state topics
         for i in params['states_in']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
         return dt, tuple(params['topics_in']), tuple(params['topics_out']), tuple(params['feedthrough_in']),\
                tuple(params['states_in']), node

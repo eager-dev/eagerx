@@ -1,14 +1,14 @@
 # ROS packages required
 import rospy, rosparam
 from std_msgs.msg import UInt64, String
-from eagerx_core.params import RxNodeParams, RxInput, RxOutput, RxBridgeParams, RxObjectParams
+from eagerx_core.params import RxNodeParams, RxInput, RxOutput, RxObjectParams
 from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization
 from eagerx_core.node import RxNode
 from eagerx_core.bridge import RxBridge
 from eagerx_core import RxMessageBroker
-from eagerx_core.params import RxNodeParamsOld as RxNodeParams
+from eagerx_core.params import RxNodeParamsOld
 
-from typing import List
+from typing import List, Mapping
 from functools import partial
 import multiprocessing
 from threading import Condition
@@ -16,16 +16,17 @@ from rosgraph.masterapi import Error
 from rx.scheduler import ThreadPoolScheduler
 
 class Env(object):
-    def __init__(self, name: str,
-                 observations: List[RxInput],
-                 actions: List[RxOutput],
-                 bridge: RxBridgeParams,
+    def __init__(self, name: str, rate: int,
+                 observations: Mapping[str, Mapping[str, RxInput]],
+                 actions: Mapping[str, Mapping[str, RxOutput]],
+                 bridge: RxNodeParams,
                  nodes: List[RxNodeParams]) -> None:
         self.name = name
+        self.rate = rate
+        self._dt = 1 / rate
         self.ns = '/' + name
         self.bridge = bridge.name
         self.initialized = False
-        self._dt = None
         self._params = None
         self._topics_in = None
         self._topics_out = None
@@ -74,16 +75,19 @@ class Env(object):
 
         self.event = multiprocessing.Event()
 
-    def _init_env(self, actions: List[RxOutput], observations: List[RxInput]):
+    def _init_env(self, actions: Mapping[str, Mapping[str, RxOutput]], observations: Mapping[str, Mapping[str, RxInput]]):
+        # Check that all action addresses are unique
+        address_lst = [o[1].get_params()['address'] for _, cnames in actions.items() for _, o in cnames.items()]
+        assert len(set(address_lst)) == len(address_lst), 'Duplicate actions found: %s. Make sure to only have unique actions' % (set([x for x in address_lst if address_lst.count(x) > 1]))
+
         # Check that env has at least one input.
         assert len(observations) > 0, 'Environment "%s" must have at least one input.' % self.name
         assert len(actions) > 0, 'Environment "%s" must have at least one output.' % self.name
 
-        # Check that output rates are the same
-        rates = []
-        for o in actions:
-            rates.append(o.rate)
-        assert len(set(rates)) == 1, 'Environment "%s" can only have outputs with the same rate. Check the output rate.' % self.name
+        # Set all action rates to the environment rate
+        for _, cnames in actions.items():
+            for _, o in cnames.items():
+                o[1].rate = self.rate
 
         # Delete pre-existing parameters
         try:
@@ -93,19 +97,20 @@ class Env(object):
             pass
 
         # Define RxNodeParams for environment
-        env = RxNodeParams(name='env', node_type='', module='', topics_in=observations, topics_out=actions)
-        params = env.get_params(ns=self.ns)
         name = 'env'
+        topics_out = [o[1] for _, cnames in actions.items() for _, o in cnames.items()]
+        topics_in = [o[1] for _, cnames in observations.items() for _, o in cnames.items()]
+        # todo: replace with RxNodeParams
+        env = RxNodeParamsOld(name=name, node_type='', module='', topics_in=topics_in, topics_out=topics_out)
+        params = env.get_params(ns=self.ns)
         del params[name]['module'], params[name]['node_type'], params[name]['feedthrough_in'], params[name]['states_in']
         del params[name]['launch_locally'], params[name]['single_process']
+        # todo: TEMPORARY, REMOVE DEL!!!!!
+        # del params['env']['topics_in'][0]['converter'], params['env']['topics_out'][0]['converter']
         rosparam.upload_params(self.ns, params)
 
-        # Calculate properties
-        self._params = params[name]
-        rate = self._params['rate']
-        self._dt = 1 / rate
-
         # Initialize topics
+        self._params = params[name]
         self._init_actions(self._params['topics_out'])
         self._init_observations(self._params['topics_in'])
 
@@ -128,7 +133,7 @@ class Env(object):
             msg_type = get_attribute_from_module(msg_module, msg_type)
             # self._obs_sub[name] = rospy.Subscriber(address, msg_type, partial(self.__obs_handler, name_topic))
 
-    def _init_bridge(self, bridge_params: RxBridgeParams):
+    def _init_bridge(self, bridge_params: RxNodeParams):
         # Prepare params
         params = bridge_params.get_params(ns=self.ns)
         name = params[list(params.keys())[0]]['name']

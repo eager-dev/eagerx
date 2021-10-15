@@ -11,7 +11,7 @@ default:
 sensors: # inputs of env
   N6:
     rate: 2
-    msg_type: std_msg.msg/UInt64
+    msg_type: std_msgs.msg/UInt64
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -21,7 +21,7 @@ sensors: # inputs of env
 actuators: # outputs of env
   N7:
     rate: 1
-    msg_type: std_msg.msg/UInt64
+    msg_type: std_msgs.msg/UInt64
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -30,7 +30,7 @@ actuators: # outputs of env
       shape: (1,)  # optional
   ref_vel:
     rate: 1
-    msg_type: std_msg.msg/UInt64
+    msg_type: std_msgs.msg/UInt64
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -40,7 +40,7 @@ actuators: # outputs of env
 states: # inputs/outputs of env
   N8:
     rate: 2
-    msg_type: std_msg.msg/UInt64
+    msg_type: std_msgs.msg/UInt64
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -48,7 +48,7 @@ states: # inputs/outputs of env
       high: [100]
   N9:
     rate: 2
-    msg_type: std_msg.msg/UInt64
+    msg_type: std_msgs.msg/UInt64
     gym_space:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: boxu64
@@ -59,29 +59,30 @@ states: # inputs/outputs of env
 #########################
 ### Engine definition ###
 #########################
-# todo: how can node arguments be specified?
-# todo: how to define actuator inputs?
 bridge:
   urdf: 'path/to/urdf.urdf'
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor
-      outputs: {'out_1': 'sensors/N6'}
+      outputs: {out_1: sensors/N6}
       test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
     N7:
       node_config: eagerx_core/sim_actuator
-      inputs: {'action_1': 'actuators/N7'}
+      inputs: {action_1: actuators/N7}
+#      input_converters:
+#        converter_type: eagerx_core.converter/SpaceUInt64Converter
+#        test_arg: 'test'
       test_arg: 'CHANGED ARGUMENT'
 
   states:
     N8:
       node_config: eagerx_core/sim_sensor
-      outputs: {'out_1': 'states/N8'}
+      outputs: {out_1: states/N8}
       test_arg: 'CHANGED ARGUMENT'
     N9:
       node_config: eagerx_core/sim_sensor
-      inputs: {'in_1': 'sensors/N6'}
-      outputs: {'out_1': 'states/N9'}
+      inputs: {in_1: sensors/N6}
+      outputs: {out_1: states/N9}
       test_arg: 'CHANGED ARGUMENT'

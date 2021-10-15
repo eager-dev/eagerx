@@ -12,13 +12,10 @@ inputs:
   tick:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-    converter_type: eagerx_core/identity
   in_1:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-    converter_type: eagerx_core/identity
 
 outputs:
   out_1:
     msg_type: std_msgs.msg/UInt64
-    converter_type: eagerx_core/identity

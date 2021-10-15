@@ -98,3 +98,9 @@ def launch_roscore():
         rospy.logwarn('Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore.')
         pass
     return roscore
+
+
+def initialize_converter(args):
+    converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
+    del args['converter_type']
+    return converter_cls(**args)

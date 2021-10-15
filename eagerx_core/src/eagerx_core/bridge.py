@@ -3,7 +3,8 @@ from std_msgs.msg import UInt64, String
 
 # Rx imports
 from eagerx_core.node import RxNode
-from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking
+from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking, initialize_converter
+from eagerx_core.converter import IdentityConverter
 import eagerx_core
 
 # Memory usage
@@ -142,7 +143,6 @@ class RxBridge(object):
                 self.initialized = True
 
     def _prepare_io_topics(self, name):
-        # params = rospy.get_param(name)
         params = get_param_with_blocking(name)
         rate = params['rate']
         dt = 1 / rate
@@ -154,12 +154,18 @@ class RxBridge(object):
         # Prepare input topics
         for i in params['topics_in']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
         # Prepare output topics
         for i in params['topics_out']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
         return dt, params['topics_in'], tuple(params['topics_out']), node
 

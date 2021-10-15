@@ -20,7 +20,10 @@ from rx.internal.utils import add_ref
 from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable
 from rx.subject import Subject, BehaviorSubject, ReplaySubject
 from rx.scheduler import ThreadPoolScheduler, EventLoopScheduler, ImmediateScheduler
-from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking
+
+# IMPORT eagerx
+from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking,initialize_converter
+from eagerx_core.converter import IdentityConverter
 
 selected_nodes = ['/rx/bridge',
                   '/rx/N1',
@@ -444,61 +447,13 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     # Readable format
     Is = inpt['reset']
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                          ops.map(inpt['converter']), ops.share(),
+                          ops.map(inpt['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                           # ops.share(),  # todo: add? perhaps efficient and worked kind-off with create_channel_bridge
-                          # spy('data [%s]' % name, node_name, only_node=['/rx/bridge']),
                           )
 
     # Get rate from rosparam server
-    try:
-        dt_i = 1 / rospy.get_param(inpt['address'] + '/rate')
-    except Exception as e:
-        print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
-        print(e)
-
-    # Create input channel
-    num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                       ops.start_with(0),  # todo: ADDED FOR DYNAMIC BRIDGE PIPELINE
-                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n)}))  # todo: expected_inputs(i-1, dt_i, dt_n)})
-    msg = num_msgs.pipe(gen_msg(Ir))
-    channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
-                            ops.with_latest_from(msg),
-                            ops.share(),  # todo: really needed with share at the end here?
-                            ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
-                            ops.merge(msg),
-                            regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
-                            ops.share())
-
-    # Create reset flag
-    flag = Ir.pipe(# ops.observe_on(scheduler),
-                   ops.map(lambda val: val[0] + 1),
-                   ops.start_with(0),
-                   # spy('Ir_%s' % name, node_name, only_node='/rx/obj/nodes/actuators/N7'),
-                   ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   # spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
-                   # spy('Ir_Is_%s' % name, node_name, only_node='/rx/obj/nodes/actuators/N7'),
-                   ops.filter(lambda value: value[0] == value[1]),
-                   ops.map(lambda x: {name: x[0]})
-                   )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
-    return channel, flag
-
-
-def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
-    if is_feedthrough:
-        name = inpt['feedthrough_to']
-    else:
-        name = inpt['name']
-
-    # Readable format
-    Is = inpt['reset']
-    Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                          ops.map(inpt['converter']), ops.share(),
-                          ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                          ops.share()
-                          )
-
-    # Get rate from rosparam server
+    # todo: change to get_param util function that blocks until it finds the parameter
     try:
         dt_i = 1 / rospy.get_param(inpt['address'] + '/rate')
     except Exception as e:
@@ -522,13 +477,60 @@ def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_na
     flag = Ir.pipe(# ops.observe_on(scheduler),
                    ops.map(lambda val: val[0] + 1),
                    ops.start_with(0),
-                   # spy('Ir_%s' % name, node_name, only_node='/rx/bridge'),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
+                   # spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
+                   # spy('Ir_Is_%s' % name, node_name, only_node='/rx/obj/nodes/actuators/N7'),
                    ops.filter(lambda value: value[0] == value[1]),
                    ops.map(lambda x: {name: x[0]})
-                   )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
+                   )
     return channel, flag
+
+
+# def create_channel_bridge(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
+#     if is_feedthrough:
+#         name = inpt['feedthrough_to']
+#     else:
+#         name = inpt['name']
+#
+#     # Readable format
+#     Is = inpt['reset']
+#     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
+#                           ops.map(inpt['converter']), ops.share(),
+#                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
+#                           ops.share()
+#                           )
+#
+#     # Get rate from rosparam server
+#     try:
+#         dt_i = 1 / rospy.get_param(inpt['address'] + '/rate')
+#     except Exception as e:
+#         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
+#         print(e)
+#
+#     # Create input channel
+#     num_msgs = Nc.pipe(ops.observe_on(scheduler),
+#                        ops.start_with(0),
+#                        ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n)}))  # todo: expected_inputs(i-1, dt_i, dt_n)})
+#     msg = num_msgs.pipe(gen_msg(Ir))
+#     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
+#                             ops.with_latest_from(msg),
+#                             ops.share(),  # todo: really needed with share at the end here?
+#                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
+#                             ops.merge(msg),
+#                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
+#                             ops.share())
+#
+#     # Create reset flag
+#     flag = Ir.pipe(# ops.observe_on(scheduler),
+#                    ops.map(lambda val: val[0] + 1),
+#                    ops.start_with(0),
+#                    # spy('Ir_%s' % name, node_name, only_node='/rx/bridge'),
+#                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+#                    spy('Ir_Is_%s' % name, node_name, only_node='/rx/bridge'),
+#                    ops.filter(lambda value: value[0] == value[1]),
+#                    ops.map(lambda x: {name: x[0]})
+#                    )  # .subscribe(flag, scheduler=scheduler)  # todo: scheduler change
+#     return channel, flag
 
 
 def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_name=''):
@@ -581,7 +583,7 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_n
 def init_state_channel(states, scheduler, node_name=''):
     channels = []
     for s in states:
-        c = s['msg'].pipe(ops.map(s['converter']), ops.share(),
+        c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                           ops.map(lambda val: dict(msg=val)),
                           regroup_msgs(s['name']),)
@@ -602,7 +604,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node_name=''):
     for s in state_inputs:
         d = s['done'].pipe(ops.map(lambda msg: bool(msg.data)),
                            ops.scan(lambda acc, x: x if x else acc, False))
-        c = s['msg'].pipe(ops.map(s['converter']), ops.share(),
+        c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                           ops.map(lambda val: dict(msg=val)),
                           regroup_msgs(s['name']),
@@ -651,7 +653,7 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, state_inputs,
     # Publish output msg as ROS topic and to subjects if single process
     for o in outputs:
         d = output_stream.pipe(ops.pluck(o['name']),
-                               ops.map(o['converter']), ops.share(),
+                               ops.map(o['converter'].convert), ops.share(),
                                publisher_to_topic(o['msg_pub']),
                                ops.share(),
                                ).subscribe(o['msg'])
@@ -685,11 +687,14 @@ def extract_topics_in_reactive_proxy(obj_params, sp_nodes, launch_nodes):
         name = node_params['name']
 
         for i in node_params['topics_out']:
-            assert not node_params['single_process'] or (node_params['single_process'] and i['converter'] == 'identity'), 'Node "%s" has a non-identity output converter (%s) that is not supported if launching remotely.' % (name, i['converter'])
+            assert not node_params['single_process'] or (node_params['single_process'] and 'converter' not in i), 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
 
             # Convert to classes
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
 
             # Initialize rx objects
             i['msg'] = Subject()  # Ir
@@ -708,7 +713,10 @@ def extract_topics_in_reactive_proxy(obj_params, sp_nodes, launch_nodes):
             if not i['is_reactive']:
                 # Convert to classes
                 i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-                i['converter'] = get_attribute_from_module(i['converter_module'], i['converter'])
+                if 'converter' in i:
+                    i['converter'] = initialize_converter(i['converter'])
+                else:
+                    i['converter'] = IdentityConverter()
 
                 # Initialize rx reset output for reactive input
                 i['reset'] = Subject()
@@ -1335,9 +1343,9 @@ class RxMessageBroker(object):
                     address_str = ('| %s ' % address).ljust(50, ' ')
                     msg_type_str = ('| %s ' % entry['msg_type'].__name__).ljust(10, ' ')
                     if 'converter' in entry:
-                        converter_str = ('| %s ' % entry['converter'].__name__).ljust(17, ' ')
+                        converter_str = ('| %s ' % entry['converter'].__class__.__name__).ljust(23, ' ')
                     else:
-                        converter_str = ('| %s ' % '').ljust(17, ' ')
+                        converter_str = ('| %s ' % '').ljust(23, ' ')
                     if 'repeat' in entry:
                         repeat_str = ('| %s ' % entry['repeat']).ljust(8, ' ')
                     else:
@@ -1375,7 +1383,7 @@ class RxMessageBroker(object):
                         rate_str = '|' + ('%s' % entry['rate']).center(3, ' ')
                         node_str = ('| %s' % self.rx_connectable[address]['node_name']).ljust(40, ' ')
                         msg_type_str = ('| %s' % self.rx_connectable[address]['source']['msg_type'].__name__).ljust(12, ' ')
-                        converter_str = ('| %s' % self.rx_connectable[address]['source']['converter'].__name__).ljust(12, ' ')
+                        converter_str = ('| %s' % self.rx_connectable[address]['source']['converter'].__class__.__name__).ljust(12, ' ')
                         status += node_str + msg_type_str + converter_str
                         self.connected_rx[node_name][key][address] = entry
                         O = self.rx_connectable[address]['rx']
@@ -1398,9 +1406,9 @@ class RxMessageBroker(object):
                     status_str = ('| Connected via %s' % status).ljust(60, ' ')
 
                     if 'converter' in entry:
-                        converter_str = ('| %s ' % entry['converter'].__name__).ljust(17, ' ')
+                        converter_str = ('| %s ' % entry['converter'].__class__.__name__).ljust(23, ' ')
                     else:
-                        converter_str = ('| %s ' % '').ljust(17, ' ')
+                        converter_str = ('| %s ' % '').ljust(23, ' ')
                     if 'repeat' in entry:
                         repeat_str = ('| %s ' % entry['repeat']).ljust(8, ' ')
                     else:
