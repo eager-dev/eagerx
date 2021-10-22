@@ -40,12 +40,12 @@ class IdentityConverter(object):
 
 
 class SpaceUInt64Converter(SpaceConverter):
-    MSG_TYPE_A = Box
+    MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = UInt64
 
-    def __init__(self, low, high, shape=None, dtype=np.float32):
-        self.low = low
-        self.high = high
+    def __init__(self, low, high, shape=None, dtype='uint64'):
+        self.low = np.array(low)
+        self.high = np.array(high)
         self.shape = shape
         self.dtype = dtype
 

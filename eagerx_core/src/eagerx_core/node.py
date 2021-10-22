@@ -1,11 +1,15 @@
 # ROS imports
-import rospy, rosparam
+import rospy
+import rosparam
 from std_msgs.msg import UInt64, String
 
 # Rx imports
 from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
+
+# OTHER
+from threading import Event
 
 # Memory usage
 from threading import current_thread
@@ -23,7 +27,7 @@ class StateNode(object):
         sim_pub = rospy.Publisher(self.ns + '/resettable/sim', String, queue_size=0)
         rospy.sleep(0.1)
         states = dict()
-        for i in self.params['states_in']:
+        for i in self.params['states']:
             address = i['address']
             sim_pub.publish(String(address))
             states[address.replace('/', '.')] = True
@@ -62,25 +66,25 @@ class StateNode(object):
         self.num_ticks = 0
         return ticks
 
-    def callback(self, topics_in):
+    def callback(self, inputs):
         # Verify that # of ticks equals internal counter
-        node_tick = topics_in['node_tick']
+        node_tick = inputs['node_tick']
         if not self.num_ticks == node_tick:
             print('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
-        for i in self.params['topics_in']:
+        for i in self.params['inputs']:
             name = i['name']
-            if name in topics_in:
-                t_i = topics_in[name]['t_i']
+            if name in inputs:
+                t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
         Nc = self.num_ticks
-        for i in self.params['topics_out']:
+        for i in self.params['outputs']:
             name = i['name']
             msg = UInt64()
             msg.data = Nc
@@ -101,7 +105,7 @@ class RealResetNode(object):
         # Append states on rosparam server that are reset by this node
         # real_pub = rospy.Publisher(self.ns + '/resettable/real', String, queue_size=0)
         real_reset = dict()
-        for i in self.params['states_in']:
+        for i in self.params['states']:
             address = i['address']
             # real_pub.publish(String(address))
             real_reset[address.replace('/', '.')] = True
@@ -147,7 +151,7 @@ class RealResetNode(object):
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
-        for i in self.params['topics_in']:
+        for i in self.params['inputs']:
             name = i['name']
             if name in cb_input:
                 t_i = cb_input[name]['t_i']
@@ -157,14 +161,14 @@ class RealResetNode(object):
         # Fill output msg with number of node ticks
         output_msgs = dict()
         Nc = self.num_ticks
-        for i in self.params['topics_out']:
+        for i in self.params['outputs']:
             name = i['name']
             msg = UInt64()
             msg.data = Nc
             output_msgs[name] = msg
 
         # Fill state done msg with number of node ticks
-        for i in self.params['states_in']:
+        for i in self.params['states']:
             name = i['name']
             msg = UInt64()
             if self.num_ticks > 2:
@@ -215,31 +219,91 @@ class ProcessNode(object):
         self.num_ticks = 0
         return ticks
 
-    def callback(self, topics_in):
+    def callback(self, inputs):
         # Verify that # of ticks equals internal counter
-        node_tick = topics_in['node_tick']
+        node_tick = inputs['node_tick']
         if not self.num_ticks == node_tick:
             print('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
-        for i in self.params['topics_in']:
+        for i in self.params['inputs']:
             name = i['name']
-            if name in topics_in:
-                t_i = topics_in[name]['t_i']
+            if name in inputs:
+                t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
         Nc = self.num_ticks
-        for i in self.params['topics_out']:
+        for i in self.params['outputs']:
             name = i['name']
             msg = UInt64()
             msg.data = Nc
             output_msgs[name] = msg
         self.num_ticks += 1
         self.iter_ticks += 1
+        return output_msgs
+
+
+class ObservationsNode(object):
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.ns = '/'.join(name.split('/')[:2])
+        self.params = get_param_with_blocking(self.name)
+
+        # Define action/observation buffers
+        self.observation_buffer = dict()
+        for i in self.params['inputs']:
+            if 'converter' in i:
+                converter = initialize_converter(i['converter'])
+            else:
+                converter = None
+            self.observation_buffer[i['name']] = {'msg': None, 'converter': converter}
+
+    def reset(self, ticks):
+        # Set all messages to None
+        for name, buffer in self.observation_buffer.items():
+            buffer['msg'] = None
+        return ticks
+
+    def callback(self, inputs):
+        # Set all observations to messages in inputs
+        for name, buffer in self.observation_buffer.items():
+            buffer['msg'] = inputs[name]['msg']
+
+        # Send output_msg
+        output_msgs = dict(observations_set=UInt64())
+        return output_msgs
+
+
+class ActionsNode(object):
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.ns = '/'.join(name.split('/')[:2])
+        self.params = get_param_with_blocking(self.name)
+
+        # Define action/observation buffers
+        self.action_buffer = dict()
+        for i in self.params['outputs']:
+            if 'converter' in i:
+                converter = initialize_converter(i['converter'])
+            else:
+                converter = None
+            self.action_buffer[i['name']] = {'msg': None, 'converter': converter}
+
+    def reset(self, ticks):
+        # Set all messages to None
+        for name, buffer in self.action_buffer.items():
+            buffer['msg'] = None
+        return ticks
+
+    def callback(self, inputs):
+        # Fill output_msg with buffered actions
+        output_msgs = dict()
+        for name, buffer in self.action_buffer.items():
+            output_msgs[name] = buffer['msg']
         return output_msgs
 
 
@@ -251,11 +315,11 @@ class RxNode(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, topics_in, topics_out, feedthrough_in, states_in, node = self._prepare_io_topics(self.name, **kwargs)
+        dt, inputs, outputs, feedthroughs, states, self.node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx_core.init_node(self.ns, dt, node.callback, node.reset, topics_in, topics_out,
-                                           feedthrough=feedthrough_in, state_inputs=states_in,
+        rx_objects = eagerx_core.init_node(self.ns, dt, self.node.callback, self.node.reset, inputs, outputs,
+                                           feedthrough=feedthroughs, state_inputs=states,
                                            node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -269,7 +333,6 @@ class RxNode(object):
         self.initialized = True
 
     def _prepare_io_topics(self, name, **kwargs):
-        # params = rospy.get_param(name)
         params = get_param_with_blocking(name)
         rate = params['rate']
         dt = 1 / rate
@@ -279,7 +342,7 @@ class RxNode(object):
         node = node_cls(name, **kwargs)
 
         # Prepare input topics
-        for i in params['topics_in']:
+        for i in params['inputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i:
                 i['converter'] = initialize_converter(i['converter'])
@@ -287,7 +350,7 @@ class RxNode(object):
                 i['converter'] = IdentityConverter()
 
         # Prepare output topics
-        for i in params['topics_out']:
+        for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i:
                 i['converter'] = initialize_converter(i['converter'])
@@ -295,7 +358,7 @@ class RxNode(object):
                 i['converter'] = IdentityConverter()
 
         # Prepare action topics
-        for i in params['feedthrough_in']:
+        for i in params['feedthroughs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i:
                 i['converter'] = initialize_converter(i['converter'])
@@ -303,13 +366,13 @@ class RxNode(object):
                 i['converter'] = IdentityConverter()
 
         # Prepare state topics
-        for i in params['states_in']:
+        for i in params['states']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i:
                 i['converter'] = initialize_converter(i['converter'])
             else:
                 i['converter'] = IdentityConverter()
 
-        return dt, tuple(params['topics_in']), tuple(params['topics_out']), tuple(params['feedthrough_in']),\
-               tuple(params['states_in']), node
+        return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']),\
+               tuple(params['states']), node
 

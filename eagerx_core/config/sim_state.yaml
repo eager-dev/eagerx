@@ -3,6 +3,7 @@ default:
   rate:
   inputs:
   outputs:
+  states:
   single_process: True
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
@@ -18,4 +19,8 @@ inputs:
 
 outputs:
   out_1:
+    msg_type: std_msgs.msg/UInt64
+
+states:
+  state_1:
     msg_type: std_msgs.msg/UInt64

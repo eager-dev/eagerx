@@ -1,17 +1,11 @@
 node_type: eagerx_core.bridge/BridgeNode
 default:
   rate:
-  inputs: {tick: bridge/tick}
   outputs: {tick: bridge/tick}
   num_substeps: 10
   single_process: False
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
-
-inputs:
-  tick:
-    msg_type: std_msgs.msg/UInt64
-    repeat: all
 
 outputs:
   tick:

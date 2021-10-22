@@ -15,6 +15,9 @@ inputs:
   action_1:
     msg_type: std_msgs.msg/UInt64
     repeat: all
+  action_2:
+    msg_type: std_msgs.msg/UInt64
+    repeat: all
 
 outputs:
   action_1:

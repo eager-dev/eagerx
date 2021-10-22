@@ -1,93 +1,180 @@
 # ROS packages required
-import rospy, rosparam
-from std_msgs.msg import UInt64, String
-from eagerx_core.params import RxNodeParams, RxInput, RxOutput, RxObjectParams
-from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization
-from eagerx_core.node import RxNode
-from eagerx_core.bridge import RxBridge
-from eagerx_core import RxMessageBroker
-from eagerx_core.params import RxNodeParamsOld
-
-from typing import List, Mapping
-from functools import partial
-import multiprocessing
-from threading import Condition
+import rospy
+import rosparam
 from rosgraph.masterapi import Error
-from rx.scheduler import ThreadPoolScheduler
+from std_msgs.msg import UInt64, String
+
+# EAGERX
+from eagerx_core.params import RxNodeParams, RxObjectParams
+from eagerx_core.utils.utils import merge_dicts
+from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
+from eagerx_core.node import RxNode
+from eagerx_core.rxenv import RxEnvironment
+from eagerx_core import RxMessageBroker
+
+# OTHER IMPORTS
+import gym
+from typing import List, Dict
+import multiprocessing
+
 
 class Env(object):
+    @staticmethod
+    def define_actions(new=True):
+        actions = dict(default=dict(inputs={}, outputs={}, output_converters={}), inputs={}, outputs={})
+
+        # Add step as input
+        if new:
+            actions['node_type'] = 'eagerx_core.node/ActionsNode'
+            actions['default']['single_process'] = True
+            actions['default']['launch_locally'] = True
+            actions['default']['name'] = 'env/actions'
+            actions['default']['package_name'] = 'n/a'
+            actions['default']['config_name'] = 'n/a'
+
+            # Add step as input
+            cname = 'step'
+            address = 'step'
+            actions['default']['inputs'][cname] = address
+            actions['inputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64', 'repeat': 'all'}
+
+            # Add observations/set as input
+            cname = 'observations_set'
+            address = 'env/observations/set'
+            actions['default']['inputs'][cname] = address
+            actions['inputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64', 'repeat': 'all'}
+        return actions
+
+    @staticmethod
+    def define_observations(new=True):
+        observations = dict(default=dict(inputs={}, input_converters={}, outputs={}), inputs={}, outputs={})
+
+        # Add step as input
+        if new:
+            observations['node_type'] = 'eagerx_core.node/ObservationsNode'
+            observations['default']['single_process'] = True
+            observations['default']['launch_locally'] = True
+            observations['default']['name'] = 'env/observations'
+            observations['default']['package_name'] = 'n/a'
+            observations['default']['config_name'] = 'n/a'
+
+            # Add 'observations/set' as output
+            cname = 'observations_set'
+            address = 'env/observations/set'
+            observations['default']['outputs'][cname] = address
+            observations['outputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64'}
+        return observations
+
+    @staticmethod
+    def define_states(new=True):
+        states = dict(default=dict(states={}, state_converters={}), states={})
+
+        if new:
+            states['node_type'] = 'eagerx_core.rxenv/EnvironmentNode'
+            states['default']['single_process'] = True
+            states['default']['launch_locally'] = True
+            states['default']['name'] = 'env/supervisor'
+            states['default']['package_name'] = 'n/a'
+            states['default']['config_name'] = 'n/a'
+        return states
+
     def __init__(self, name: str, rate: int,
-                 observations: Mapping[str, Mapping[str, RxInput]],
-                 actions: Mapping[str, Mapping[str, RxOutput]],
+                 observations: Dict,
+                 actions: Dict,
+                 states: Dict,
                  bridge: RxNodeParams,
                  nodes: List[RxNodeParams]) -> None:
         self.name = name
-        self.rate = rate
-        self._dt = 1 / rate
         self.ns = '/' + name
-        self.bridge = bridge.name
+        self.rate = rate
         self.initialized = False
-        self._params = None
-        self._topics_in = None
-        self._topics_out = None
+        self._bridge_name = bridge.name
+        self._is_initialized = dict()
         self._launch_nodes = dict()
-        self._act_pub = dict()
-        self._act_pub_reset = dict()
-        self._obs_sub = dict()
-        self._init_env(actions, observations)
+        self._sp_nodes = dict()
+        self._event = multiprocessing.Event()
 
-        # Initialize register topic
-        self.register_pub = rospy.Publisher(self.ns + '/register', String, queue_size=0)
+        # Initialize environment
+        self.act_node, self.obs_node, self.env_node, self.rx_nodes, self.mb = self._init_env(actions, observations, states)
+
+        # Initialize bridge
+        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes)
+        wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
         # Initialize nodes
-        self.mb = RxMessageBroker(owner=self.ns + '/env')
-        self.is_initialized = dict()
-        self._sp_nodes = dict()
-        self._init_bridge(bridge)
-        self._init_nodes(nodes)
+        initialize_nodes(nodes, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes)
 
-        # Initialize reset topics
-        self.reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
-        self.reset_sub = rospy.Subscriber(self.ns + '/end_reset', UInt64, self.__end_reset_handler)
-        self.start_pub = rospy.Publisher(self.ns + '/bridge/tick', UInt64, queue_size=0)
-
-        rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
+        # Initialize ROS topics
+        # self.register_pub = rospy.Publisher(self.ns + '/register', String, queue_size=0)
+        # self._step_pub = {'step':  rospy.Publisher(self.ns + '/step', UInt64, queue_size=0, latch=True),
+        #                   'reset': rospy.Publisher(self.ns + '/step/reset', UInt64, queue_size=0, latch=True),
+        #                   'counter': 0}
+        # self._reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
+        # self._start_pub = rospy.Publisher(self.ns + '/bridge/tick', UInt64, queue_size=0)
+        # self._reset_sub = rospy.Subscriber(self.ns + '/end_reset', UInt64, self.__end_reset_handler)
+        # rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
 
         # Initialize state topics
-        self.sim_pub = rospy.Subscriber(self.ns + '/resettable/sim', String, self._register_states)
-        self.real_pub = rospy.Subscriber(self.ns + '/resettable/real', String, self._register_states)
-        self.states_reset = dict()
+        # self._resettable_states = dict()
+        # self._sim_sub = rospy.Subscriber(self.ns + '/resettable/sim', String, self._register_states)
+        # self._real_sub = rospy.Subscriber(self.ns + '/resettable/real', String, self._register_states)
 
-        # Message counter
-        self.num_ticks = 0
+    @property
+    def observation_space(self):
+        observation_space = dict()
+        for name, buffer in self.obs_node.observation_buffer.items():
+            observation_space[name] = buffer['converter'].get_space()
+        return gym.spaces.Dict(spaces=observation_space)
 
-        # Required for testing
-        self.done = None
-        rospy.Subscriber(self.ns + '/obj/states/N8/done', UInt64, self.__done_handler)
-        self.obs_recv = None
-        rospy.Subscriber(self.ns + '/reset', UInt64, lambda msg: self.__reset_handler(msg))
-        self.cond_done = Condition()
-        self.cond_obs = Condition()
+    @property
+    def action_space(self):
+        action_space = dict()
+        for name, buffer in self.act_node.action_buffer.items():
+            action_space[name] = buffer['converter'].get_space()
+        return gym.spaces.Dict(spaces=action_space)
 
-        # Initialize waiting for observations & reset topics of inputs and states
-        self.state_name = 'obj/states/N8'
-        rospy.Subscriber(self.ns + '/obj/actuators/N7/applied', UInt64, self.__obs_handler)
+    @property
+    def state_space(self):
+        state_space = dict()
+        for name, buffer in self.env_node.state_buffer.items():
+            state_space[name] = buffer['converter'].get_space()
+        return gym.spaces.Dict(spaces=state_space)
 
-        self.event = multiprocessing.Event()
+    def _set_action(self, action):
+        # Set actions in buffer
+        for name, buffer in self.act_node.action_buffer.items():
+            assert name in action, 'Action "%s" not specified. Must specify all actions in action_space.' % name
+            buffer['msg'] = action[name]
 
-    def _init_env(self, actions: Mapping[str, Mapping[str, RxOutput]], observations: Mapping[str, Mapping[str, RxInput]]):
-        # Check that all action addresses are unique
-        address_lst = [o[1].get_params()['address'] for _, cnames in actions.items() for _, o in cnames.items()]
-        assert len(set(address_lst)) == len(address_lst), 'Duplicate actions found: %s. Make sure to only have unique actions' % (set([x for x in address_lst if address_lst.count(x) > 1]))
+    def _set_state(self, state):
+        # Set states in buffer
+        for name, msg in state.items():
+            assert name in self.env_node.state_buffer, 'Cannot set unknown state "%s".' % name
+            self.env_node.state_buffer[name]['msg'] = msg
 
+    def _get_observation(self):
+        # Get observations from buffer
+        observation = dict()
+        for name, buffer in self.obs_node.observation_buffer.items():
+            observation[name] = buffer['msg']
+        return observation
+
+    def _step(self):
+        self.env_node.step()
+        return self._get_observation()
+
+    def _init_env(self, actions: Dict, observations: Dict, states: Dict):
         # Check that env has at least one input.
-        assert len(observations) > 0, 'Environment "%s" must have at least one input.' % self.name
-        assert len(actions) > 0, 'Environment "%s" must have at least one output.' % self.name
+        assert len(observations['default']['inputs']) > 0, 'Environment "%s" must have at least one input (i.e. input).' % self.name
+        assert len(actions['default']['outputs']) > 0, 'Environment "%s" must have at least one action (i.e. output).' % self.name
 
-        # Set all action rates to the environment rate
-        for _, cnames in actions.items():
-            for _, o in cnames.items():
-                o[1].rate = self.rate
+        # Check that all action/observation addresses are unique
+        addresses_obs = [address for cname, address in observations['default']['inputs'].items()]
+        addresses_act = [address for cname, address in actions['default']['outputs'].items()]
+        addresses_ste = [address for cname, address in states['default']['states'].items()]
+        len(set(addresses_obs)) == len(addresses_obs), 'Duplicate observations found: %s. Make sure to only have unique observations' % (set([x for x in addresses_obs if addresses_obs.count(x) > 1]))
+        len(set(addresses_act)) == len(addresses_act), 'Duplicate actions found: %s. Make sure to only have unique actions.' % (set([x for x in addresses_act if addresses_act.count(x) > 1]))
+        len(set(addresses_ste)) == len(addresses_ste), 'Duplicate states found: %s. Make sure to only have unique states.' % (set([x for x in addresses_act if addresses_act.count(x) > 1]))
 
         # Delete pre-existing parameters
         try:
@@ -96,291 +183,103 @@ class Env(object):
         except Error:
             pass
 
-        # Define RxNodeParams for environment
-        name = 'env'
-        topics_out = [o[1] for _, cnames in actions.items() for _, o in cnames.items()]
-        topics_in = [o[1] for _, cnames in observations.items() for _, o in cnames.items()]
-        # todo: replace with RxNodeParams
-        env = RxNodeParamsOld(name=name, node_type='', module='', topics_in=topics_in, topics_out=topics_out)
-        params = env.get_params(ns=self.ns)
-        del params[name]['module'], params[name]['node_type'], params[name]['feedthrough_in'], params[name]['states_in']
-        del params[name]['launch_locally'], params[name]['single_process']
-        # todo: TEMPORARY, REMOVE DEL!!!!!
-        # del params['env']['topics_in'][0]['converter'], params['env']['topics_out'][0]['converter']
-        rosparam.upload_params(self.ns, params)
+        # Initialize message broker
+        mb = RxMessageBroker(owner='%s/%s' % (self.ns, 'env'))
 
-        # Initialize topics
-        self._params = params[name]
-        self._init_actions(self._params['topics_out'])
-        self._init_observations(self._params['topics_in'])
+        # Upload rate of '/step' to rosparam server
+        step_params = dict(step={'rate': self.rate})
+        rosparam.upload_params(self.ns, step_params)
 
-    def _init_actions(self, topics_out):
-        for i in topics_out:
-            name = i['name']
-            address = i['address']
-            msg_type = i['msg_type']
-            msg_module = i['msg_module']
-            msg_type = get_attribute_from_module(msg_module, msg_type)
-            self._act_pub[name] = rospy.Publisher(address, msg_type, queue_size=0)
-            self._act_pub_reset[name] = rospy.Publisher(address + '/reset', UInt64, queue_size=0)
+        # Create observation node
+        obs_name = observations['default']['name']
+        obs_params = merge_dicts(dict(), [dict(default={'rate': self.rate}), observations])
+        obs_params = RxNodeParams(obs_name, obs_params)
+        obs_params = obs_params.get_params(ns=self.ns)
+        rosparam.upload_params(self.ns, obs_params)
+        rx_obs = RxNode(name='%s/%s' % (self.ns, obs_name), message_broker=mb, scheduler=None)
+        rx_obs.node_initialized()
 
-    def _init_observations(self, topics_in):
-        for i in topics_in:
-            name = i['name']
-            address = i['address']
-            msg_type = i['msg_type']
-            msg_module = i['msg_module']
-            msg_type = get_attribute_from_module(msg_module, msg_type)
-            # self._obs_sub[name] = rospy.Subscriber(address, msg_type, partial(self.__obs_handler, name_topic))
+        # Create action node
+        act_name = actions['default']['name']
+        act_params = merge_dicts(dict(), [dict(default={'rate': self.rate}), actions])
+        act_params = RxNodeParams(act_name, act_params)
+        act_params = act_params.get_params(ns=self.ns)
+        rosparam.upload_params(self.ns, act_params)
+        rx_act = RxNode(name='%s/%s' % (self.ns, act_name), message_broker=mb, scheduler=None)
+        rx_act.node_initialized()
 
-    def _init_bridge(self, bridge_params: RxNodeParams):
-        # Prepare params
-        params = bridge_params.get_params(ns=self.ns)
-        name = params[list(params.keys())[0]]['name']
-        launch_file = params[name]['launch_file']
-        launch_locally = params[name]['launch_locally']
-        single_process = params[name]['single_process']
+        # Create env node
+        ste_name = states['default']['name']
+        ste_params = merge_dicts(dict(), [dict(default={'rate': self.rate}), states])
+        ste_params = RxNodeParams(ste_name, ste_params)
+        ste_params = ste_params.get_params(ns=self.ns)
+        rosparam.upload_params(self.ns, ste_params)
+        rx_env = RxEnvironment(name='%s/%s' % (self.ns, ste_name), message_broker=mb, scheduler=None)
+        rx_env.node_initialized()
 
-        # Check if node name is unique
-        assert rospy.get_param(self.ns + '/' + name, None) is None, 'Bridge name "%s" already exists. Node names must be unique.' % self.ns + '/' + name
+        # Store nodes into object
+        rx_nodes = {'actions': rx_act, 'observations': rx_obs, 'env': rx_env}
+        return rx_act.node, rx_obs.node, rx_env.node, rx_nodes, mb
 
-        # Upload params to rosparam server
-        rosparam.upload_params(self.ns, params)
+    def _initialize(self):
+        assert not self.initialized, 'Environment already initialized. Cannot re-initialize pipelines. '
 
-        # Block env until bridge is initialized
-        event = multiprocessing.Event()
-        rospy.loginfo('Waiting for node "%s" to be initialized.' % (self.ns + '/' + name))
-        rospy.Subscriber(self.ns + '/bridge/initialized', UInt64, lambda msg: event.set())
+        # Wait for nodes to be initialized
+        [node.node_initialized() for name, node in self._sp_nodes.items()]
+        wait_for_node_initialization(self._is_initialized)
 
-        # Initialize node
-        if single_process:  # Initialize inside this process
-            self._sp_nodes[self.ns + '/' + name] = RxBridge(name=self.ns + '/' + name, message_broker=self.mb, scheduler=None)
-            self._sp_nodes[self.ns + '/' + name].node_initialized()
-        else:
-            if launch_locally and launch_file:  # Launch node as separate process
-                self._launch_nodes[self.ns + '/' + name] = launch_node(launch_file, args=['name:=' + self.name])
-                self._launch_nodes[self.ns + '/' + name].start()
+        # Initialize single process communication
+        self.mb.connect_io(print_status=True)
+        rospy.loginfo('Nodes initialized.')
 
-        # Wait for bridge to be initialized
-        event.wait()
+        # Perform first reset
+        # todo: perhaps states are sometimes not registered yet, so that it blocks here?
+        _ = self._reset()
 
-    def _init_nodes(self, nodes_params: List[RxNodeParams]):
-        # Upload parameters to ROS param server
-        for node in nodes_params:
-            params = node.get_params(ns=self.ns)
-            #todo: how to robustly grasp node_name
-            name = params[list(params.keys())[0]]['name']
+        # Nodes initialized
+        self.initialized = True
+        rospy.loginfo("Pipelines initialized.")
 
-            # Check if node name is unique
-            assert rospy.get_param(self.ns + '/' + name, None) is None, 'Node name "%s" already exists. Node names must be unique.' % self.ns + '/' + name
-
-            # Flag to check if node is initialized
-            self.is_initialized[name] = False
-
-            # Upload params to rosparam server
-            rosparam.upload_params(self.ns, params)
-
-        # Initialize nodes
-        subs = []
-        for node in nodes_params:
-            params = node.params['default']
-            name = params['name']
-            launch_file = params['launch_file']
-            launch_locally = params['launch_locally']
-            single_process = params['single_process']
-
-            # Block env until all nodes are initialized
-            def initialized(msg, name):
-                self.is_initialized[name] = True
-            sub = rospy.Subscriber(self.ns + '/' + name + '/initialized', UInt64, partial(initialized, name=name))
-            subs.append(sub)
-
-            # Initialize node
-            if single_process:  # Initialize inside this process
-                self._sp_nodes[self.ns + '/' + name] = RxNode(name=self.ns + '/' + name, message_broker=self.mb, scheduler=None)
-            else:
-                if launch_locally and launch_file:  # Launch node as separate process
-                    self._launch_nodes[self.ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name,
-                                                                                              'name:=' + self.name])
-                    self._launch_nodes[self.ns + '/' + name].start()
-
-    def initialize_node_pipelines(self):
-        if not self.initialized:
-            # Wait for nodes to be initialized
-            [node.node_initialized() for name, node in self._sp_nodes.items()]
-            wait_for_node_initialization(self.is_initialized)
-
-            # Initialize single process communication
-            self.mb.connect_io(print_status=True)
-            # self.mb.print_io_status()
-
-            rospy.loginfo('Nodes initialized.')
-
-            # Clear event, so that this thread is blocked until it receives '/N5/P5/reset'
-            self.event.clear()
-            rospy.sleep(0.01)
-
-            # Send reset msg
-            self.reset_pub.publish(UInt64())
-
-            # After env receives '/rx/reset', we send '/rx/env/Pe/reset' via self.__reset_handler(msg)
-            self.event.wait()
-            self.initialized = True
-            rospy.loginfo("Pipelines initialized.")
-
-            # First tick. Necessary, otherwise we cannot start reset.
-            self.start_pub.publish(UInt64(data=1))
-            print('First tick published!')
+    def _reset(self):
+        self.env_node.reset()
+        return self._get_observation()
 
     def register_object(self, object: RxObjectParams):
         # todo: There might be timing issues... Currently solved with condition.
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
-        params, nodes = object.get_params(ns=self.ns, bridge=self.bridge)
+        self.env_node.register_object(object, self._bridge_name)
 
-        # Check if object name is unique
-        obj_name = list(params.keys())[0]
-        assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, 'Object name "%s" already exists. Object names must be unique.' % self.ns + '/' + obj_name
+    def reset(self):
+        # Initialize environment
+        if not self.initialized:
+            self._initialize()
 
-        # Upload object params to rosparam server
-        rosparam.upload_params(self.ns, params)
+            # todo: remove this sleep & connect
+            rospy.sleep(1.0)
+            self.mb.connect_io()
+            self.mb.print_io_status()
 
-        # Upload parameters to ROS param server
-        for node in nodes:
-            params = node.get_params(ns=self.ns)
-            # todo: how to robustly grasp node_name
-            node_name = params[list(params.keys())[0]]['name']
+        # Set desired reset states
+        # self._set_state(self.state_space.sample())
+        self._set_state({'N8': UInt64()})
 
-            # Check if node name is unique
-            assert rospy.get_param(self.ns + '/' + node_name, None) is None, 'Node name "%s" already exists. Node names must be unique.' % self.ns + '/' + node_name
+        # Perform reset
+        observation = self._reset()
+        return observation
 
-            # Upload params to rosparam server
-            rosparam.upload_params(self.ns, params)
-
-        # Send register object request
-        self.register_pub.publish(String(self.ns + '/' + obj_name))
-
-    def step(self):
+    def step(self, action):
         # Check that nodes were previously initialized.
         assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .step().'
 
-        self.obs_recv = 0
-        print('start_step')
-        with self.cond_obs:
-            self.num_ticks += 1  # todo: can cause blocks if
-            for key, value in self._act_pub.items():
-                msg = UInt64()
-                msg.data = self.num_ticks
-                value.publish(msg)
-                self.cond_obs.wait()
-        print('end_step')
-        # self.num_ticks += 1
-        return None
+        # Set actions in buffer
+        self._set_action(action)
 
-    def reset(self):
-        # Check that nodes were previously initialized.
-        assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .reset().'
-
-        # Set done flag to False, to wait for real reset
-        self.done = False
-        self.event.clear()
-
-        # Send state and real reset messages
-        msg = UInt64()
-        msg.data = self.num_ticks
-        self.reset_pub.publish(msg)
-        self._reset({self.state_name: msg})
-
-        # self.mb.print_io_status()
-
-        while not self.done:  # /rx/obj/states/N8/done
-            with self.cond_done:
-                if self.done:
-                    print('Leaving done!')
-                    break
-                self.step()
-            # rospy.sleep(0.0001)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
-            rospy.sleep(0.01)  # todo: 0.001 blocks single_process=True, because we are still stepping in env while done callback is running
-
-        # Block until we receive '/bridge/tick'=0, to indicate start of new episode
-        print('Wait for end reset!')
-        self.event.wait()
-        self.num_ticks = 0
-        rospy.loginfo("Reset performed")
-        self.start_pub.publish(msg)
-        print('First tick published!')
-
-    def __obs_handler(self, msg):
-        self.obs_recv += 1
-        with self.cond_obs:
-            if self.obs_recv == 1:
-                self.cond_obs.notify_all()
-
-    def __reset_handler(self, msg):
-        with self.cond_obs:
-            self.cond_obs.notify_all()
-            print('gave up lock in __reset_handler!')
-            for key, value in self._act_pub_reset.items():
-                            msg = UInt64()
-                            msg.data = self.num_ticks
-                            value.publish(msg)
-
-    def __end_reset_handler(self, msg):
-        print('Received end_reset!')
-        self.event.set()
-
-    def __done_handler(self, msg):
-        if msg.data > 0:
-            with self.cond_done:
-                self.done = True
-                with self.cond_obs:
-                    print('gave up lock in __done_handler!')
-                    self.cond_obs.notify_all()
-
-    def _reset(self, states):
-        # Append namespace to names in states
-        keys = list(states.keys())
-        for key in keys:
-            new_key = self.ns + '/' + key
-            states[new_key] = states.pop(key)
-
-        # Check if desired states were provided that cannot be reset (no corresponding node initialized)
-        not_registered = [s for s in states.keys() if s not in self.states_reset.keys()]
-        for s in not_registered:
-            rospy.logwarn('State "%s" cannot be set as there is no (state)node initialized to reset it.' % s)
-
-        # Check if desired states were provided for StateNodes that are initialized
-        not_provided = [s for s in self.states_reset.keys() if s not in states.keys()]
-        for s in not_provided:
-            # Send True flag for states that were not provided
-            msg = UInt64(data=1)
-            self.states_reset[s]['pub_done'].publish(msg)
-
-        provided = [s for s in self.states_reset.keys() if s in states.keys()]
-        for s in provided:
-            # Send desired state
-            self.states_reset[s]['pub_set'].publish(states[s])
-
-            # Send False flag for states that were not provided
-            msg = UInt64(data=0)
-            self.states_reset[s]['pub_done'].publish(msg)
-
-    def _register_states(self,  msg, warn=False):
-        state_address = msg.data
-
-        # todo: set with state message type
-        if state_address not in self.states_reset.keys():
-            self.states_reset[state_address] = {'name': state_address,
-                                                'pub_set': rospy.Publisher(state_address + '/set', UInt64,
-                                                                           queue_size=0),
-                                                'pub_done': rospy.Publisher(state_address + '/done', UInt64,
-                                                                            queue_size=0)}
-
-            if warn:
-                # If not yet registered, create publishers for the state.
-                rospy.logwarn('State "%s" was not yet registered in environment "%s". Registered the publishers and paused '
-                              'for a short moment (0.1 s). It is advisable to pre-register states to avoid a pause.' % (
-                              state_address, self.name))
-                rospy.sleep(0.1)
+        # Send actions and wait for observations
+        observation = self._step()
+        reward = None
+        is_done = False
+        info = {}
+        return observation, reward, is_done, info
 
     def close(self):
         for name in self._launch_nodes:

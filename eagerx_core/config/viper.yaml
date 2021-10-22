@@ -1,7 +1,7 @@
 default:
   sensors: [N6]
   actuators: [ref_vel]
-  states: [N8, N9]
+  states: [N8]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
 
@@ -12,9 +12,9 @@ sensors: # inputs of env
   N6:
     rate: 2
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
 
@@ -22,18 +22,18 @@ actuators: # outputs of env
   N7:
     rate: 1
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: 0
       high: 100
       shape: (1,)  # optional
   ref_vel:
     rate: 1
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
 
@@ -41,17 +41,17 @@ states: # inputs/outputs of env
   N8:
     rate: 2
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
   N9:
     rate: 2
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
 
@@ -64,25 +64,26 @@ bridge:
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor
-      outputs: {out_1: sensors/N6}
       test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
     N7:
       node_config: eagerx_core/sim_actuator
-      inputs: {action_1: actuators/N7}
-#      input_converters:
-#        converter_type: eagerx_core.converter/SpaceUInt64Converter
-#        test_arg: 'test'
+      actuator_input: action_1  # input name from outside object (inside node_config .yaml)
+      inputs: {action_2: sensors/N6}
+#      input_converters:  # can only contain converters for inputs other than "actuator_input"
+#        action_2:
+#          converter_type: eagerx_core.converter/SpaceUInt64Converter
+#          test_arg: 'test'
       test_arg: 'CHANGED ARGUMENT'
 
   states:
     N8:
-      node_config: eagerx_core/sim_sensor
-      outputs: {out_1: states/N8}
+      node_config: eagerx_core/sim_state
+      state_input: state_1 # state name from outside object (inside node_config .yaml)
       test_arg: 'CHANGED ARGUMENT'
     N9:
-      node_config: eagerx_core/sim_sensor
+      node_config: eagerx_core/sim_state
+      state_input: state_1 # state name from outside object (inside node_config .yaml)
       inputs: {in_1: sensors/N6}
-      outputs: {out_1: states/N9}
       test_arg: 'CHANGED ARGUMENT'

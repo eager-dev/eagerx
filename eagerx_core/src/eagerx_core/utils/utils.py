@@ -1,12 +1,17 @@
-from roslaunch.substitution_args import resolve_args
-from roslaunch.core import RLException
-from rosgraph.masterapi import Error
-import importlib
+# ROS SPECIFIC
 import roslaunch
 import rospy
 import rospkg
 import rosparam
+from roslaunch.substitution_args import resolve_args
+from roslaunch.core import RLException
+from rosgraph.masterapi import Error
+
+# OTHER
+from functools import reduce
+import importlib
 from six import raise_from
+import inspect
 import time
 
 
@@ -31,30 +36,6 @@ def get_attribute_from_module(module, attribute):
     module = importlib.import_module(module)
     attribute = getattr(module, attribute)
     return attribute
-
-
-def launch_node(launch_file, args):
-    cli_args = [substitute_xml_args(launch_file)] + args
-    roslaunch_args = cli_args[1:]
-    roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
-    uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-    roslaunch.configure_logging(uuid)
-    launch = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
-    return launch
-
-
-def wait_for_node_initialization(is_initialized):
-    # Wait for nodes to be initialized
-    while True:
-        rospy.sleep(1.0)
-        not_init = []
-        for name, flag in is_initialized.items():
-            if not flag:
-                not_init.append(name)
-        if len(not_init) > 0:
-            rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
-        else:
-            break
 
 
 def load_yaml(package_name, object_name):
@@ -104,3 +85,50 @@ def initialize_converter(args):
     converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
     del args['converter_type']
     return converter_cls(**args)
+
+
+def get_opposite_msg_cls(msg_type, args):
+    if isinstance(msg_type, str):
+        msg_type = get_attribute_from_module(*msg_type.split('/'))
+    converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
+    if msg_type == converter_cls.MSG_TYPE_A:
+        return converter_cls.MSG_TYPE_B
+    elif msg_type == converter_cls.MSG_TYPE_B:
+        return converter_cls.MSG_TYPE_A
+    else:
+        raise ValueError(
+            'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
+            (msg_type, converter_cls.MSG_TYPE_A, converter_cls.MSG_TYPE_B))
+
+
+def get_module_type_string(cls):
+    module = inspect.getmodule(cls).__name__
+    return '%s/%s' % (module, cls.__name__)
+
+
+def get_cls_from_string(cls_string):
+    return get_attribute_from_module(*cls_string.split('/'))
+
+
+def merge_dicts(a, b):
+    if isinstance(b, list):
+        b.insert(0, a)
+        return reduce(merge, b)
+    else:
+        return merge(a, b)
+
+
+def merge(a, b, path=None):
+    "merges b into a"
+    if path is None: path = []
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge(a[key], b[key], path + [str(key)])
+            elif a[key] == b[key]:
+                pass  # same leaf value
+            else:
+                raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
+        else:
+            a[key] = b[key]
+    return a

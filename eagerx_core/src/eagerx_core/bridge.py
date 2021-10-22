@@ -1,15 +1,14 @@
 import rospy
-from std_msgs.msg import UInt64, String
+from std_msgs.msg import UInt64
 
 # Rx imports
-from eagerx_core.node import RxNode
-from eagerx_core.utils.utils import get_attribute_from_module, launch_node, wait_for_node_initialization, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
 
 # Memory usage
-from functools import partial
-from threading import current_thread, Condition
+from threading import Condition
 import os, psutil
 
 
@@ -39,67 +38,43 @@ class BridgeNode(object):
         self.iter_ticks = 0
         self.print_iter = 20
 
-    def register_object(self, obj_params):
+    def register_object(self, obj_params, node_params):
+        # Use obj_params to initialize object in simulator
+        obj_params
+
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        subs = []
-        for node_params in obj_params:
-            name = node_params['name']
-            launch_file = node_params['launch_file']
-            launch_locally = node_params['launch_locally']
-            single_process = node_params['single_process']
-            assert single_process, 'Only single_process simulation nodes are supported.'
-
-            # Flag to check if node is initialized
-            self.is_initialized[name] = False
-
-            # Block env until all nodes are initialized
-            def initialized(msg, name):
-                self.is_initialized[name] = True
-            sub = rospy.Subscriber(self.ns + '/' + name + '/initialized', UInt64, partial(initialized, name=name))
-            subs.append(sub)
-
-            # Initialize node (with reference to simulator)
-            if single_process:  # Initialize inside this process
-                sp_nodes[self.ns + '/' + name] = RxNode(name=self.ns + '/' + name, message_broker=self.mb,
-                                                        scheduler=None, simulator=self.simulator)
-            else:  # Not yet supported, because we cannot pass a reference to the simulator here.
-                if launch_locally and launch_file:  # Launch node as separate process
-                    launch_nodes[self.ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name, 'name:=' + self.ns])
-                    launch_nodes[self.ns + '/' + name].start()
-
+        initialize_nodes(node_params, self.ns, self.name, self.mb, self.is_initialized, sp_nodes, launch_nodes)
         [node.node_initialized() for name, node in sp_nodes.items()]
         return sp_nodes, launch_nodes
 
     def pre_reset(self, ticks):
-        # todo:
         return 'PRE RESET RETURN VALUE'
 
     def post_reset(self):
-        # todo:
         self.num_ticks = 0
         return 'POST RESET RETURN VALUE'
 
-    def callback(self, topics_in):
+    def callback(self, inputs):
         # Verify that # of ticks equals internal counter
-        node_tick = topics_in['node_tick']
+        node_tick = inputs['node_tick']
         if not self.num_ticks == node_tick:
             print('[%s]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * self.dt
-        for i in self.params['topics_in']:
+        for i in self.params['inputs']:
             name = i['name']
-            if name in topics_in:
-                t_i = topics_in[name]['t_i']
+            if name in inputs:
+                t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
         Nc = self.num_ticks + 1
-        for i in self.params['topics_out']:
+        for i in self.params['outputs']:
             name = i['name']
             msg = UInt64()
             msg.data = Nc
@@ -117,15 +92,15 @@ class RxBridge(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, topics_in, topics_out, self.bridge = self._prepare_io_topics(self.name)
+        dt, inputs, outputs, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
         rx_objects = eagerx_core.init_bridge(self.ns, dt, self.bridge.callback, self.bridge.pre_reset,
                                              self.bridge.post_reset, self.bridge.register_object,
-                                             topics_in, topics_out, self.mb, node_name=self.name, scheduler=scheduler)
+                                             inputs, outputs, self.mb, node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
         self.mb.connect_io()
-        self.cond_reg = Condition()
+        self.cond_reg = Condition() # todo: remove?
 
         # Prepare closing routine
         rospy.on_shutdown(self._close)
@@ -152,7 +127,7 @@ class RxBridge(object):
         node = node_cls(name, self.mb)
 
         # Prepare input topics
-        for i in params['topics_in']:
+        for i in params['inputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i:
                 i['converter'] = initialize_converter(i['converter'])
@@ -160,14 +135,14 @@ class RxBridge(object):
                 i['converter'] = IdentityConverter()
 
         # Prepare output topics
-        for i in params['topics_out']:
+        for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i:
                 i['converter'] = initialize_converter(i['converter'])
             else:
                 i['converter'] = IdentityConverter()
 
-        return dt, params['topics_in'], tuple(params['topics_out']), node
+        return dt, params['inputs'], tuple(params['outputs']), node
 
     def _close(self):
         return True

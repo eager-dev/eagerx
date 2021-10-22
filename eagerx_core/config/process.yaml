@@ -3,6 +3,7 @@ default:
   rate:
   inputs:
   outputs:
+  states:
   single_process: False
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
@@ -12,32 +13,48 @@ inputs:
   in_1:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
   in_2:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
 
 outputs:
   out_1:
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
       low: [0]
       high: [100]
   out_2:
     msg_type: std_msgs.msg/UInt64
-    gym_space:
+    space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: boxu64
+      dtype: uint64
+      low: [0]
+      high: [100]
+
+states:
+  state_1:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]
+  state_2:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: uint64
       low: [0]
       high: [100]
