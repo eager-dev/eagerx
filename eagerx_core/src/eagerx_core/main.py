@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
-    # Define converter
+    # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
 
     # Define nodes
@@ -52,12 +52,11 @@ if __name__ == '__main__':
               observations=observations,
               states=states,
               bridge=bridge,
-              nodes=[N1, N3, N4, N5])
-
-    # Register objects
-    env.register_object(object=viper)
+              nodes=[N1, N3, N4, N5],
+              objects=[viper])
 
     # First reset
+    # todo: how to be sure that all sim-nodes have been initialized?
     obs = env.reset()
     for j in range(20000):
         print('\n[Episode %s]' % j)
@@ -71,23 +70,27 @@ if __name__ == '__main__':
     # todo: CheckEnv(env): i/o correct, fully connected when RealReset without Env
     # todo: Visualize and perform checks on DAGs (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
     # todo: Make graph gui (https://towardsdatascience.com/visualizing-networks-in-python-d70f4cbeb259)
+    # todo: How to combine GUI with custom env?
     # todo: Verify DAG properties in case of a real reset
 
     # todo: implement env rx pipeline
     # todo: implement real_time rx pipeline
 
-    # todo: HINT: check-out old version of env.py on desktop for flow of events for a reset.
     # todo: are states still passed to simstate node (or, nodes in general)?
-    # todo: pre-define (reset_)states (similar to actions & observations), with converter and state_space
-    # todo: state_address/set uses UInt64, but must use msg_type from config.
     # todo: Also add states as input to reset(..) of realreset node --> separate to states & reset_states
 
     # todo: how can the converter infer msg_type when providing string as "from"?
     # todo: how to define action/observation when providing string as "from"?
     # todo: resolve the "sleep" & "connect" in env.reset()
 
+    # todo: make more publishers latched?
+    # todo: change rate type to float (instead of int)
+    # todo: make sim_state node only have reset functionality.
+    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
+    # todo: How to implement a KF: return init_msg from reset_callback() that is send after receiving '/end_reset', while increasing msg send counter
     # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
     # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
+    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
     # todo: print statements of callback inside ProcessNode: color specified as additional argument
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: differentiate between real_reset and sim_reset states in StateNode.reset(...)

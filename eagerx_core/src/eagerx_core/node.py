@@ -95,6 +95,9 @@ class StateNode(object):
 
 
 class RealResetNode(object):
+    # MSG_TYPE = {'in_1': 'std_msgs.msg/UInt64',
+    #             'in_2': 'std_msgs.msg/UInt64',}
+
     def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
@@ -217,6 +220,8 @@ class ProcessNode(object):
                     self.iter_ticks = 0
                 self.iter_start = time.time()
         self.num_ticks = 0
+
+        # return {'init_output': MSG}
         return ticks
 
     def callback(self, inputs):
@@ -339,7 +344,11 @@ class RxNode(object):
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name, **kwargs)
+        node = node_cls(name)
+
+        # Set message broker
+        if hasattr(node, 'set_message_broker'):
+            node.set_message_broker(self.mb)
 
         # Prepare input topics
         for i in params['inputs']:

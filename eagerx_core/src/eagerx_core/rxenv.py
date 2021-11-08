@@ -34,11 +34,12 @@ class EnvironmentNode(object):
             self.state_buffer[i['name']] = {'msg': None, 'converter': converter}
 
         # Required for reset
-        self.return_event = Event()
-        self.observation_event = Event()
-        self.step_counter = 0
+        self._reset_event = Event()
+        self._obs_event = Event()
+        # self._observation_event = Event()
+        self._step_counter = 0
 
-    def set_subjects(self, subjects):
+    def _set_subjects(self, subjects):
         self.subjects = subjects
 
     def register_object(self, object: RxObjectParams, bridge_name: str):
@@ -67,52 +68,50 @@ class EnvironmentNode(object):
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states
-        state_msgs = dict()
-        done_msgs = dict()
+        msgs = dict()
         for name, buffer in self.state_buffer.items():
             if buffer['msg'] is None:
-                done_msgs[name] = UInt64(data=1)
+                msgs[name + '/done'] = UInt64(data=1)
             else:
-                done_msgs[name] = UInt64(data=0)
-                state_msgs[name] = buffer['msg']
+                msgs[name + '/done'] = UInt64(data=0)
+                msgs[name] = buffer['msg']
                 buffer['msg'] = None  # After sending state, set msg to None
-        return dict(state=state_msgs, done=done_msgs)
+        return msgs
 
-    def _observations_clear(self, msg):
-        self.observation_event.clear()
+    def _clear_obs_event(self, msg):
+        self._obs_event.clear()
         return msg
 
-    def _observations_wait(self, msg):
-        self.observation_event.wait()
+    def _set_obs_event(self, msg):
+        self._obs_event.set()
         return msg
 
-    def _observations_set(self, msg):
-        self.observation_event.set()
+    # def _clear_reset_event(self, msg):
+    #     self._reset_event.clear()
+    #     return msg
+
+    def _set_reset_event(self, msg):
+        self._reset_event.set()
         return msg
 
-    def _return_clear(self, msg):
-        self.return_event.clear()
-        return msg
-
-    def _return_wait(self, msg):
-        self.return_event.wait()
-        return msg
-
-    def _return_set(self, msg):
-        self.return_event.set()
-        return msg
+    def _get_step_counter_msg(self):
+        return UInt64(data=self._step_counter)
 
     def reset(self):
-        self.return_event.clear()
-        self.subjects['reset'].on_next(True)
-        self.step_counter = 0
-        return self.return_event.wait()
+        self._reset_event.clear()
+        self.subjects['start_reset'].on_next(self._get_step_counter_msg())
+        self._step_counter = 0
+        self._reset_event.wait()
+        print('RESET END')
+        self._obs_event.wait()
+        print('FIRST OBS RECEIVED!')
 
     def step(self):
-        self.return_event.clear()
-        self.subjects['step'].on_next(True)
-        self.step_counter += 1
-        return self.return_event.wait()
+        self._obs_event.clear()
+        self.subjects['step'].on_next(self._get_step_counter_msg())
+        self._step_counter += 1
+        self._obs_event.wait()
+        print('STEP END')
 
 
 class RxEnvironment(object):
@@ -123,11 +122,11 @@ class RxEnvironment(object):
         self.initialized = False
 
         # Prepare input & output topics
-        states, self.node = self._prepare_io_topics(self.name, **kwargs)
+        outputs, states, self.node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx_core.init_env_reset(self.ns, state_inputs=states, node_name=self.name, scheduler=scheduler)
-        self.node.set_subjects(env_subjects)
+        rx_objects, env_subjects = eagerx_core.init_environment(self.ns, self.node, outputs=outputs, state_outputs=states, node_name=self.name, scheduler=scheduler)
+        self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
     def node_initialized(self):
@@ -146,6 +145,14 @@ class RxEnvironment(object):
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
         node = node_cls(name, **kwargs)
 
+        # Prepare output topics
+        for i in params['outputs']:
+            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
+
         # Prepare state topics
         for i in params['states']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
@@ -154,7 +161,7 @@ class RxEnvironment(object):
             else:
                 i['converter'] = IdentityConverter()
 
-        return tuple(params['states']), node
+        return tuple(params['outputs']), tuple(params['states']), node
 
 
 if __name__ == '__main__':

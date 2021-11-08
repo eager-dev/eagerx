@@ -13,10 +13,10 @@ import os, psutil
 
 
 class BridgeNode(object):
-    def __init__(self, name, message_broker):
+    def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
-        self.mb = message_broker
+        self.mb = None
         self.params = get_param_with_blocking(self.name)
 
         # Initialize any simulator here, that can be used in each node
@@ -38,7 +38,12 @@ class BridgeNode(object):
         self.iter_ticks = 0
         self.print_iter = 20
 
+    def set_message_broker(self, message_broker):
+        self.mb = message_broker
+
     def register_object(self, obj_params, node_params):
+        assert self.mb is not None, 'Message broker for this bridge (%s) was not set. Must be set, before an object can be registered.'
+
         # Use obj_params to initialize object in simulator
         obj_params
 
@@ -100,7 +105,7 @@ class RxBridge(object):
                                              inputs, outputs, self.mb, node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
         self.mb.connect_io()
-        self.cond_reg = Condition() # todo: remove?
+        self.cond_reg = Condition()  # todo: remove?
 
         # Prepare closing routine
         rospy.on_shutdown(self._close)
@@ -117,14 +122,18 @@ class RxBridge(object):
                 rospy.loginfo('Node "%s" initialized.' % self.name)
                 self.initialized = True
 
-    def _prepare_io_topics(self, name):
+    def _prepare_io_topics(self, name, **kwargs):
         params = get_param_with_blocking(name)
         rate = params['rate']
         dt = 1 / rate
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name, self.mb)
+        node = node_cls(name)
+
+        # Set message broker
+        if hasattr(node, 'set_message_broker'):
+            node.set_message_broker(self.mb)
 
         # Prepare input topics
         for i in params['inputs']:

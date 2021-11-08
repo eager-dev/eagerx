@@ -1,7 +1,7 @@
 default:
   sensors: [N6]
   actuators: [ref_vel]
-  states: [N8]
+  states: [N8, N9]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
 
@@ -69,7 +69,7 @@ bridge:
   actuators:  # Inputs as defined above
     N7:
       node_config: eagerx_core/sim_actuator
-      actuator_input: action_1  # input name from outside object (inside node_config .yaml)
+      actuator_input: action_1  # input name from outside object (inside node_config "sim_actuator.yaml")
       inputs: {action_2: sensors/N6}
 #      input_converters:  # can only contain converters for inputs other than "actuator_input"
 #        action_2:
@@ -80,10 +80,10 @@ bridge:
   states:
     N8:
       node_config: eagerx_core/sim_state
-      state_input: state_1 # state name from outside object (inside node_config .yaml)
+      state_input: state_1 # state name from outside object (inside node_config "sim_state.yaml")
       test_arg: 'CHANGED ARGUMENT'
     N9:
       node_config: eagerx_core/sim_state
-      state_input: state_1 # state name from outside object (inside node_config .yaml)
+      state_input: state_1 # state name from outside object (inside node_config "sim_state.yaml")
       inputs: {in_1: sensors/N6}
       test_arg: 'CHANGED ARGUMENT'
