@@ -23,15 +23,8 @@ class StateNode(object):
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
 
-        # Append states on rosparam server that are reset by this node
-        sim_pub = rospy.Publisher(self.ns + '/resettable/sim', String, queue_size=0)
-        rospy.sleep(0.1)
-        states = dict()
-        for i in self.params['states']:
-            address = i['address']
-            sim_pub.publish(String(address))
-            states[address.replace('/', '.')] = True
-        rosparam.upload_params(self.ns, {'states': states})
+        # If node is simulator, we will probably use this in callback & reset
+        self.simulator = None
 
         # Message counter
         self.num_ticks = 0
@@ -44,8 +37,10 @@ class StateNode(object):
         self.iter_ticks = 0
         self.print_iter = 20
 
+    def set_simulator(self, simulator):
+        self.simulator = simulator
+
     def reset(self, ticks):
-        # todo: differentiate between real_reset and sim_reset states. Use rosparam server?
         self.num_resets += 1
         if True:
             if self.num_resets % self.print_iter == 0:
@@ -179,6 +174,9 @@ class ProcessNode(object):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
 
+        # If node is simulator, we will probably use this in callback & reset
+        self.simulator = None
+
         # Message counter
         self.params = get_param_with_blocking(self.name)
         self.num_ticks = 0
@@ -190,6 +188,9 @@ class ProcessNode(object):
         self.iter_start = None
         self.iter_ticks = 0
         self.print_iter = 20
+
+    def set_simulator(self, simulator):
+        self.simulator = simulator
 
     def reset(self, ticks):
         self.num_resets += 1

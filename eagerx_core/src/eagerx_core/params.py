@@ -437,7 +437,7 @@ class RxObjectParams(Params):
         component = 'states'
         states = []
         for i in params['default'][component]:
-            assert i in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (i, bridge, component)
+            assert i in params[bridge][component], '%s not defined for bridge "%s" and component "%s".' % (i, bridge, component)
             p_env = params[component][i]
             p_bridge = params[bridge][component][i]
 
@@ -470,7 +470,6 @@ class RxObjectParams(Params):
             args['states'] = {}
             for key, val in node_yaml['states'].items():
                 args['states'][key] = p_bridge['states'][key]
-                # args['states'][key] = '%s/%s/%s' % (name, component, i)
 
             # Create node
             node = RxNodeParams.create(node_name, package, config_name, **args)

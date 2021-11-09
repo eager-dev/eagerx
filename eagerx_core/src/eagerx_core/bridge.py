@@ -19,9 +19,8 @@ class BridgeNode(object):
         self.mb = None
         self.params = get_param_with_blocking(self.name)
 
-        # Initialize any simulator here, that can be used in each node
-        # todo: Make a ThreadSafe simulator object
-        self.simulator = None
+        # Initialize any simulator here, that is passed as reference to each simnode
+        self.simulator = None  # todo: Make a ThreadSafe simulator object
 
         # Initialized nodes
         self.is_initialized = dict()
@@ -51,7 +50,15 @@ class BridgeNode(object):
         sp_nodes = dict()
         launch_nodes = dict()
         initialize_nodes(node_params, self.ns, self.name, self.mb, self.is_initialized, sp_nodes, launch_nodes)
-        [node.node_initialized() for name, node in sp_nodes.items()]
+        for name, node in sp_nodes.items():
+            # Set object parameters
+            if hasattr(node.node, 'set_object_params'):
+                node.node.set_object_params(obj_params)
+            # Set simulator
+            if hasattr(node.node, 'set_simulator'):
+                node.node.set_simulator(self.simulator)
+            # Initialize
+            node.node_initialized()
         return sp_nodes, launch_nodes
 
     def pre_reset(self, ticks):

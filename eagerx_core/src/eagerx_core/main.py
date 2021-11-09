@@ -20,26 +20,26 @@ if __name__ == '__main__':
     N5 = RxNodeParams.create('N5', 'eagerx_core', 'process',   rate=8, outputs={'out_1': 'N5/P5'}, output_converters={'out_1': IntUInt64Converter})
 
     # Define object
-    viper = RxObjectParams.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N7'])
+    viper = RxObjectParams.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
 
     # Define action/observations/states
     actions, observations, states = Env.define_actions(), Env.define_observations(), Env.define_states()
 
     # Connect nodes
-    connections = [{'source': (viper, 'states', 'N9'),  'target': (observations, 'obs_1', 'all')},
+    connections = [{'source': (viper, 'sensors', 'N7'),  'target': (observations, 'obs_1', 'all')},
                    {'source': (actions, 'act_1'),       'target': (N1, 'inputs', 'in_1')},
                    {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
                    {'source': (N1, 'out_2'),            'target': (N3, 'feedthroughs', 'out_1')},
                    {'source': (N3, 'out_1'),            'target': (N4, 'inputs', 'in_1')},
                    {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
-                   {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N7'), 'converter': IntUInt64Converter},
+                   {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': IntUInt64Converter},
                    {'source': (states, 'N1'),           'target': (N1, 'states', 'state_1')},
                    {'source': (states, 'N3'),           'target': (N3, 'states', 'state_1')},
                    {'source': (states, 'N4'),           'target': (N4, 'states', 'state_1')},
                    {'source': (states, 'N5'),           'target': (N5, 'states', 'state_1')},
-                   {'source': (states, 'N8'),           'target': (viper, 'states', 'N8')},
-                   {'source': (states, 'N8'),           'target': (N3, 'targets', 'target_1')},
                    {'source': (states, 'N9'),           'target': (viper, 'states', 'N9')},
+                   {'source': (states, 'N9'),           'target': (N3, 'targets', 'target_1')},
+                   {'source': (states, 'N10'),          'target': (viper, 'states', 'N10')},
                    ]
     configure_connections(connections)
 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     print('\n[Finished]')
     rospy.sleep(100000)
 
-    # todo: CheckEnv(env): i/o correct, fully connected when RealReset without Env
+    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
     # todo: Visualize and perform checks on DAGs (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
     # todo: Make graph gui (https://towardsdatascience.com/visualizing-networks-in-python-d70f4cbeb259)
     # todo: How to combine GUI with custom env?
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     # todo: implement delay per node input. Output delay (only for simnodes?)
     # todo: how to implement a KF: return init_msg from reset_callback() that is send after receiving '/end_reset', while increasing msg send counter
-    # todo: make sim_state node only have reset functionality --> only a function executed in-between pre-post reset of bridge?
+    # todo: make sim_state node only have reset functionality --> only a function executed in-between pre/post reset of bridge?
 
     # todo: automatically add all states of each node to env. I.e. avoid explicit registry of every state connection.
     #       how to then determine the alias name of each state inside the environment?

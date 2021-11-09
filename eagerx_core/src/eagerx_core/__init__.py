@@ -35,9 +35,10 @@ selected_nodes = ['/rx/bridge',
                   '/rx/N4',
                   '/rx/N5',
                   '/rx/obj/nodes/sensors/N6',
-                  '/rx/obj/nodes/actuators/N7',
-                  '/rx/obj/nodes/states/N8',
+                  '/rx/obj/nodes/sensors/N7',
+                  '/rx/obj/nodes/actuators/N8',
                   '/rx/obj/nodes/states/N9',
+                  '/rx/obj/nodes/states/N10',
                   ]
 
 node_color = {'/rx/bridge': 'magenta',
@@ -49,9 +50,10 @@ node_color = {'/rx/bridge': 'magenta',
               '/rx/N4': 'white',
               '/rx/N5': 'white',
               '/rx/obj/nodes/sensors/N6': 'cyan',
-              '/rx/obj/nodes/actuators/N7': 'green',
+              '/rx/obj/nodes/sensors/N7': 'cyan',
+              '/rx/obj/nodes/actuators/N8': 'green',
               '/rx/obj/nodes/states/N9': 'yellow',
-              '/rx/obj/nodes/states/N8': 'yellow',
+              '/rx/obj/nodes/states/N10': 'yellow',
               }
 
 

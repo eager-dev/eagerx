@@ -217,7 +217,6 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         else:
             params = node
             name = params['name']
-        # name = params[list(params.keys())[0]]['name']  # todo: how to robustly grasp node_name
         launch_file = params['launch_file']
         launch_locally = params['launch_locally']
         single_process = params['single_process']
