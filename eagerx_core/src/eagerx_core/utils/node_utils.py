@@ -53,13 +53,13 @@ def configure_connections(connections):
             msg_cls_A = get_opposite_msg_cls(msg_type_B, space_converter)
             msg_type_A = get_module_type_string(msg_cls_A)
 
-            # Create input entry for action
-            if component == 'states':
+            # Create input entry for action or state
+            # Additional info: addresses & converters must match if a state is also the target of a resetnode. Hence, we check that here.
+            if component in ['states', 'targets']:
                 if env_cname in env_dict['default']['states']:
                     address = env_dict['default']['states'][env_cname]
-                    # assert address == env_dict['default']['states'][env_cname], 'Conflicting %s for state "%s".' % ('addresses', env_cname)
                     assert space_converter == env_dict['default']['state_converters'][env_cname], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
-                    assert msg_type_B == env_dict['states'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
+                    assert msg_type_B == env_dict['states'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('msg_types', env_cname)
                 else:
                     env_dict['default']['states'][env_cname] = address
                     env_dict['default']['state_converters'][env_cname] = space_converter

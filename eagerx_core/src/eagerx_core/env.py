@@ -118,21 +118,6 @@ class Env(object):
         # Register objects
         self.register_objects(objects)
 
-        # Initialize ROS topics
-        # self.register_pub = rospy.Publisher(self.ns + '/register', String, queue_size=0)
-        # self._step_pub = {'step':  rospy.Publisher(self.ns + '/step', UInt64, queue_size=0, latch=True),
-        #                   'reset': rospy.Publisher(self.ns + '/step/reset', UInt64, queue_size=0, latch=True),
-        #                   'counter': 0}
-        # self._reset_pub = rospy.Publisher(self.ns + '/start_reset', UInt64, queue_size=0, latch=True)
-        # self._start_pub = rospy.Publisher(self.ns + '/bridge/tick', UInt64, queue_size=0)
-        # self._reset_sub = rospy.Subscriber(self.ns + '/end_reset', UInt64, self.__end_reset_handler)
-        # rospy.sleep(0.1)  # todo: needed, else publisher might not yet be initialized
-
-        # Initialize state topics
-        # self._resettable_states = dict()
-        # self._sim_sub = rospy.Subscriber(self.ns + '/resettable/sim', String, self._register_states)
-        # self._real_sub = rospy.Subscriber(self.ns + '/resettable/real', String, self._register_states)
-
     def _init_supervisor(self, states: Dict):
         # Check that all action/observation addresses are unique
         addresses_ste = [address for cname, address in states['default']['states'].items()]

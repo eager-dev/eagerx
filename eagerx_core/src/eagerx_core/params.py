@@ -171,13 +171,13 @@ class RxNodeParams(Params):
     @classmethod
     def create(cls, name: str, package_name: str, config_name: str, **kwargs):
         # default arguments, not specified in node_name.yaml
-        nonlisted_yaml_args = ['input_converters', 'output_converters', 'state_converters', 'feedthrough_converters']
-        ignored_yaml_args = ['inputs', 'states', 'feedthroughs']
+        nonlisted_yaml_args = ['input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
+        ignored_yaml_args = ['inputs', 'states', 'feedthroughs', 'targets']
 
         # Load yaml from config file
         params = load_yaml(package_name, config_name)
 
-        # Add output details (msg_type, space_converter0 to feedthroughs
+        # Add output details (msg_type, space_converter, etc...) to feedthroughs
         if 'feedthroughs' in params:
             for key, value in params['feedthroughs'].items():
                 assert key in params['outputs'], 'Feedthrough "%s" must directly correspond to an output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (key, config_name, package_name)
@@ -255,6 +255,34 @@ class RxNodeParams(Params):
                 outputs.append(n)
             del default['outputs']
 
+        states = []
+        if 'states' in default:
+            for key, value in default['states'].items():
+                assert key in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', key, 'states', config_name, package_name)
+                p_in = params['states'][key]
+                args = dict()
+                args['name'], args['address'] = key, value
+                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
+                if 'state_converters' in default and key in default['state_converters']:
+                    args['converter'] = default['state_converters'][key]
+                n = RxState(**args)
+                states.append(n)
+            del default['states']
+
+        targets = []
+        if 'targets' in default:
+            for key, value in default['targets'].items():
+                assert key in params['targets'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('target', key, 'targets', config_name, package_name)
+                p_in = params['targets'][key]
+                args = dict()
+                args['name'], args['address'] = key, value
+                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
+                if 'target_converters' in default and key in default['target_converters']:
+                    args['converter'] = default['target_converters'][key]
+                n = RxState(**args)
+                targets.append(n)
+            del default['targets']
+
         feedthroughs = []
         if 'feedthroughs' in default:
             for key, value in default['feedthroughs'].items():
@@ -270,25 +298,12 @@ class RxNodeParams(Params):
                 feedthroughs.append(n)
             del default['feedthroughs']
 
-        states = []
-        if 'states' in default:
-            for key, value in default['states'].items():
-                assert key in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', key, 'states', config_name, package_name)
-                p_in = params['states'][key]
-                args = dict()
-                args['name'], args['address'] = key, value
-                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
-                if 'state_converters' in default and key in default['state_converters']:
-                    args['converter'] = default['state_converters'][key]
-                n = RxState(**args)
-                states.append(n)
-            del default['states']
-
         # Calculate properties
         default['outputs'] = [i.get_params(ns=ns) for i in outputs]
         default['inputs'] = [i.get_params(ns=ns) for i in inputs]
-        default['feedthroughs'] = [i.get_params(ns=ns) for i in feedthroughs]
         default['states'] = [i.get_params(ns=ns) for i in states]
+        default['targets'] = [i.get_params(ns=ns) for i in targets]
+        default['feedthroughs'] = [i.get_params(ns=ns) for i in feedthroughs]
 
         # Create rate dictionary with outputs
         chars_ns = len(ns)+1

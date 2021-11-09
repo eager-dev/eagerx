@@ -36,7 +36,6 @@ class EnvironmentNode(object):
         # Required for reset
         self._reset_event = Event()
         self._obs_event = Event()
-        # self._observation_event = Event()
         self._step_counter = 0
 
     def _set_subjects(self, subjects):
@@ -85,10 +84,6 @@ class EnvironmentNode(object):
     def _set_obs_event(self, msg):
         self._obs_event.set()
         return msg
-
-    # def _clear_reset_event(self, msg):
-    #     self._reset_event.clear()
-    #     return msg
 
     def _set_reset_event(self, msg):
         self._reset_event.set()

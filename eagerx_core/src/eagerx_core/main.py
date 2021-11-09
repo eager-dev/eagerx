@@ -34,10 +34,11 @@ if __name__ == '__main__':
                    {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
                    {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N7'), 'converter': IntUInt64Converter},
                    {'source': (states, 'N1'),           'target': (N1, 'states', 'state_1')},
+                   {'source': (states, 'N3'),           'target': (N3, 'states', 'state_1')},
                    {'source': (states, 'N4'),           'target': (N4, 'states', 'state_1')},
                    {'source': (states, 'N5'),           'target': (N5, 'states', 'state_1')},
                    {'source': (states, 'N8'),           'target': (viper, 'states', 'N8')},
-                   {'source': (states, 'N8'),           'target': (N3, 'states', 'state_1')},  # todo: meaning of states is different here
+                   {'source': (states, 'N8'),           'target': (N3, 'targets', 'target_1')},
                    {'source': (states, 'N9'),           'target': (viper, 'states', 'N9')},
                    ]
     configure_connections(connections)
@@ -56,7 +57,7 @@ if __name__ == '__main__':
               objects=[viper])
 
     # First reset
-    # todo: how to be sure that all sim-nodes have been initialized?
+    # todo: how to be sure that all sim-nodes have been initialized here?
     obs = env.reset()
     for j in range(20000):
         print('\n[Episode %s]' % j)
@@ -73,27 +74,29 @@ if __name__ == '__main__':
     # todo: How to combine GUI with custom env?
     # todo: Verify DAG properties in case of a real reset
 
-    # todo: implement env rx pipeline
     # todo: implement real_time rx pipeline
 
-    # todo: are states still passed to simstate node (or, nodes in general)?
-    # todo: Also add states as input to reset(..) of realreset node --> separate to states & reset_states
+    # todo: implement delay per node input. Output delay (only for simnodes?)
+    # todo: how to implement a KF: return init_msg from reset_callback() that is send after receiving '/end_reset', while increasing msg send counter
+    # todo: make sim_state node only have reset functionality --> only a function executed in-between pre-post reset of bridge?
 
-    # todo: how can the converter infer msg_type when providing string as "from"?
-    # todo: how to define action/observation when providing string as "from"?
-    # todo: resolve the "sleep" & "connect" in env.reset()
+    # todo: automatically add all states of each node to env. I.e. avoid explicit registry of every state connection.
+    #       how to then determine the alias name of each state inside the environment?
+    #       if an (object)state is connected to a target(state) of a ResetNode, only add state to env once.
+    #       seems to already go correctly when you add add target(state) under the same key as the (object)state
+    #       Make sure that target address is the same as address of node state so that '/state/done' arrives to bridge.
+    # todo: improve registration of real_reset states (static? All targets of resetnodes are already known).
 
-    # todo: make more publishers latched?
-    # todo: change rate type to float (instead of int)
-    # todo: make sim_state node only have reset functionality.
-    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
-    # todo: How to implement a KF: return init_msg from reset_callback() that is send after receiving '/end_reset', while increasing msg send counter
-    # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
-    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
-    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
-    # todo: print statements of callback inside ProcessNode: color specified as additional argument
-    # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
-    # todo: differentiate between real_reset and sim_reset states in StateNode.reset(...)
+    # todo: make all msg_reset publishers latched?
+    # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
+    # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+
+    # todo: CLEAN-UP ACTIONS
     # todo: replace rospy.sleep(..) with time.sleep(..)
     # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
-    # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
+    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
+    # todo: change rate type to float (instead of int)
+    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
+    # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
+    # todo: print statements of callback inside ProcessNode: color specified as additional argument

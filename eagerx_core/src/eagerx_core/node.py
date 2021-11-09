@@ -105,16 +105,6 @@ class RealResetNode(object):
         if 'node_args' in self.params.keys():  # todo: remove?
             self.node_args = self.params['node_args']
 
-        # Append states on rosparam server that are reset by this node
-        # real_pub = rospy.Publisher(self.ns + '/resettable/real', String, queue_size=0)
-        real_reset = dict()
-        for i in self.params['states']:
-            address = i['address']
-            # real_pub.publish(String(address))
-            real_reset[address.replace('/', '.')] = True
-        rosparam.upload_params(self.ns, {'real_reset': real_reset})
-        rosparam.upload_params(self.ns, {'states': real_reset})  # Also upload it to states that are available
-
         # Message counter
         self.num_ticks = 0
         self.num_resets = 0
@@ -147,9 +137,9 @@ class RealResetNode(object):
         self.num_ticks = 0
         return ticks
 
-    def callback(self, cb_input_states):
-        cb_input = cb_input_states[0]
-        cb_states = cb_input_states[1]
+    def callback(self, cb_input_targets):
+        cb_input = cb_input_targets[0]
+        cb_targets = cb_input_targets[1]
         node_tick = cb_input['node_tick']
 
         # Verify that all timestamps are smaller or equal to node time
@@ -171,7 +161,7 @@ class RealResetNode(object):
             output_msgs[name] = msg
 
         # Fill state done msg with number of node ticks
-        for i in self.params['states']:
+        for i in self.params['targets']:
             name = i['name']
             msg = UInt64()
             if self.num_ticks > 2:
@@ -320,11 +310,11 @@ class RxNode(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, inputs, outputs, feedthroughs, states, self.node = self._prepare_io_topics(self.name, **kwargs)
+        dt, inputs, outputs, feedthroughs, states, targets, self.node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
         rx_objects = eagerx_core.init_node(self.ns, dt, self.node.callback, self.node.reset, inputs, outputs,
-                                           feedthrough=feedthroughs, state_inputs=states,
+                                           feedthrough=feedthroughs, state_inputs=states, targets=targets,
                                            node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -366,14 +356,6 @@ class RxNode(object):
             else:
                 i['converter'] = IdentityConverter()
 
-        # Prepare action topics
-        for i in params['feedthroughs']:
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
-                i['converter'] = initialize_converter(i['converter'])
-            else:
-                i['converter'] = IdentityConverter()
-
         # Prepare state topics
         for i in params['states']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
@@ -382,6 +364,22 @@ class RxNode(object):
             else:
                 i['converter'] = IdentityConverter()
 
+        # Prepare target topics
+        for i in params['targets']:
+            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
+
+        # Prepare feedthrough topics
+        for i in params['feedthroughs']:
+            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            if 'converter' in i:
+                i['converter'] = initialize_converter(i['converter'])
+            else:
+                i['converter'] = IdentityConverter()
+
         return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']),\
-               tuple(params['states']), node
+               tuple(params['states']), tuple(params['targets']), node
 
