@@ -263,8 +263,8 @@ class Env(object):
             self._initialize()
 
         # Set desired reset states
-        # self._set_state(self.state_space.sample())
-        self._set_state({'N9': np.array([50], dtype='uint64')})
+        self._set_state(self.state_space.sample())
+        # self._set_state({'N9': np.array([50], dtype='uint64')})
 
         # Perform reset
         observation = self._reset()

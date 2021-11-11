@@ -596,11 +596,14 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node_name=''):
                               ops.filter(lambda x: x[0]['msg'] is not None or x[1]),
                               ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]})))
 
-            rs = trigger.pipe(ops.with_latest_from(c),
-                              ops.map(lambda x: x[1]),
-                              spy('S_[%s]' % s['name'], node_name),
-                              ops.map(lambda x: (x, s['state'].reset(state=x['msg'], done=x['done']))),
-                              ops.map(lambda x: x[0]))
+            done, reset = trigger.pipe(ops.with_latest_from(c),
+                                       ops.map(lambda x: x[1]),
+                                       ops.partition(lambda x: x['done']))
+            reset = reset.pipe(ops.map(lambda x: (x, s['state'].reset(state=x['msg'][0], done=x['done']))),
+                               ops.map(lambda x: x[0]))
+            rs = rx.merge(done.pipe(spy('done [%s]' % s['name'].split('/')[-1][:12].ljust(4), node_name)),
+                          reset.pipe(spy('reset [%s]' % s['name'].split('/')[-1][:12].ljust(4), node_name)))
+
             channels.append(rs)
         return rx.zip(*channels).pipe(regroup_inputs(node_name=node_name), ops.merge(rx.never()))
     else:
@@ -1213,7 +1216,6 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     ss_flags = state_inputs.pipe(ops.zip(SS.pipe(spy('SS', node_name))),
                                  ops.map(lambda i: i[0]),
                                  ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node_name=node_name)),
-                                 spy('state_obs', node_name),
                                  ops.share())
     ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(SS_ho)
 

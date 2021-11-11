@@ -79,10 +79,9 @@ if __name__ == '__main__':
 
     # todo: implement real_time rx pipeline
 
-    # todo: pass (default) args to node_cls(...). Is it done via the paramserver?
     # todo: implement delay per node input. Output delay (only for simnodes?)
     # todo: how to implement a KF: return init_msg from reset_callback() that is send after receiving '/end_reset', while increasing msg send counter
-    # todo: make sim_state node only have reset functionality --> only a function executed in-between pre/post reset of bridge?
+    # todo: Avoid blocking at initialization: make publishers latched? Wait for all simnodes to be initialized.
 
     # todo: automatically add all states of each node to env. I.e. avoid explicit registry of every state connection.
     #       how to then determine the alias name of each state inside the environment?
@@ -90,13 +89,14 @@ if __name__ == '__main__':
     #       seems to already go correctly when you add add target(state) under the same key as the (object)state
     #       Make sure that target address is the same as address of node state so that '/state/done' arrives to bridge.
     # todo: improve registration of real_reset states (static? All targets of resetnodes are already known).
-    # todo: Combine action, observation, supervisor node into a single environment node.
 
     # todo: make all msg_reset publishers latched?
     # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
 
     # todo: CLEAN-UP ACTIONS
+    # todo: Combine action, observation, supervisor node into a single environment node.
+    # todo: pass (default) args to node_cls(...). Now it done via the paramserver? Make explicit in constructor.
     # todo: make baseclasses for bridge, node, simstate
     # todo: replace rospy.sleep(..) with time.sleep(..)
     # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
