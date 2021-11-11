@@ -52,7 +52,18 @@ class EnvironmentNode(object):
         # Upload object params to rosparam server
         rosparam.upload_params(self.ns, params)
 
-        # Upload parameters to ROS param server
+        # Upload state parameters to ROS param server
+        # for s in states:
+        #     params = s.get_params(ns=self.ns)
+        #     state_name = params['name']
+        #
+        #     # Check if state name is unique
+        #     assert rospy.get_param(self.ns + '/' + state_name, None) is None, 'State name "%s" already exists. state names must be unique.' % self.ns + '/' + state_name
+        #
+        #     # Upload params to rosparam server
+        #     rosparam.upload_params(self.ns, params)
+
+        # Upload node parameters to ROS param server
         for node in nodes:
             params = node.get_params(ns=self.ns)
             node_name = node.name

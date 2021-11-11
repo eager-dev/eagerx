@@ -2,7 +2,7 @@ import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter, initialize_state
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
@@ -40,11 +40,17 @@ class BridgeNode(object):
     def set_message_broker(self, message_broker):
         self.mb = message_broker
 
-    def register_object(self, obj_params, node_params):
+    def register_object(self, obj_params, node_params, state_params):
         assert self.mb is not None, 'Message broker for this bridge (%s) was not set. Must be set, before an object can be registered.'
 
         # Use obj_params to initialize object in simulator
         obj_params
+
+        # Initialize states
+        for i in state_params:
+            i['state']['name'] = i['name']
+            i['state']['simulator'] = self.simulator
+            i['state'] = initialize_state(i['state'])
 
         # Initialize nodes
         sp_nodes = dict()
@@ -59,7 +65,7 @@ class BridgeNode(object):
                 node.node.set_simulator(self.simulator)
             # Initialize
             node.node_initialized()
-        return sp_nodes, launch_nodes
+        return state_params, sp_nodes, launch_nodes
 
     def pre_reset(self, ticks):
         return 'PRE RESET RETURN VALUE'
@@ -111,6 +117,10 @@ class RxBridge(object):
                                              self.bridge.post_reset, self.bridge.register_object,
                                              inputs, outputs, self.mb, node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
+
+        # todo: resolve in a clean manner:
+        #  Currently, we add '/realreset' to avoid a namespace clash between done flags used in both real_reset & state_reset
+        self.mb.add_rx_objects(node_name=name + '/realreset', node=self)
         self.mb.connect_io()
         self.cond_reg = Condition()  # todo: remove?
 

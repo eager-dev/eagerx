@@ -87,6 +87,12 @@ def initialize_converter(args):
     return converter_cls(**args)
 
 
+def initialize_state(args):
+    state_cls = get_attribute_from_module(*args['state_type'].split('/'))
+    del args['state_type']
+    return state_cls(**args)
+
+
 def get_opposite_msg_cls(msg_type, args):
     if isinstance(msg_type, str):
         msg_type = get_attribute_from_module(*msg_type.split('/'))

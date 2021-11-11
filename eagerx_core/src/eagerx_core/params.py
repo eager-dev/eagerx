@@ -152,6 +152,39 @@ class RxState(Params):
         return params
 
 
+class RxSimState(Params):
+    def __init__(self,
+                 name: str,
+                 address: str,
+                 state: Dict,
+                 msg_type: str,
+                 msg_module: str = 'std_msgs.msg',
+                 converter: Dict = None,
+                 space_converter: Dict = None
+                 ):
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        # If space_converter undefined, remove it
+        if not converter:
+            del converter
+
+        if not space_converter:
+            del space_converter
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxSimState, self).__init__(**kwargs)
+
+        # Calculate other parameters based on previously defined attributes.
+
+        # Error check the parameters here.
+
+    def get_params(self, ns=''):
+        params = self.__dict__.copy()
+        params['address'] = ns + '/' + params['address']
+        return params
+
+
 class RxNodeParams(Params):
     def __init__(self,
                  name: str,
@@ -363,13 +396,13 @@ class RxObjectParams(Params):
         # Create sensors
         component = 'sensors'
         sensors = []
-        for i in params['default'][component]:
-            assert i in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (i, bridge, component)
-            p_env = params[component][i]
-            p_bridge = params[bridge][component][i]
+        for cname in params['default'][component]:
+            assert cname in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (cname, bridge, component)
+            p_env = params[component][cname]
+            p_bridge = params[bridge][component][cname]
 
             # Prepare node arguments
-            node_name = '%s/nodes/%s/%s' % (name, component, i)
+            node_name = '%s/nodes/%s/%s' % (name, component, cname)
             package, config_name = p_bridge['node_config'].split('/')
             args = p_bridge.copy()
             args.pop('node_config')
@@ -381,7 +414,7 @@ class RxObjectParams(Params):
             # Define node outputs mapping
             args['outputs'] = {}
             for key, val in node_yaml['outputs'].items():
-                args['outputs'][key] = '%s/%s/%s' % (name, component, i)
+                args['outputs'][key] = '%s/%s/%s' % (name, component, cname)
 
             # Define node inputs mapping
             args['inputs'] = {'tick': 'bridge/tick'}
@@ -398,13 +431,13 @@ class RxObjectParams(Params):
         # Create actuators
         component = 'actuators'
         actuators = []
-        for i in params['default'][component]:
-            assert i in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (i, bridge, component)
-            p_env = params[component][i]
-            p_bridge = params[bridge][component][i]
+        for cname in params['default'][component]:
+            assert cname in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (cname, bridge, component)
+            p_env = params[component][cname]
+            p_bridge = params[bridge][component][cname]
 
             # Prepare node arguments
-            node_name = '%s/nodes/%s/%s' % (name, component, i)
+            node_name = '%s/nodes/%s/%s' % (name, component, cname)
             package, config_name = p_bridge['node_config'].split('/')
             actuator_input = p_bridge['actuator_input']
             args = p_bridge.copy()
@@ -412,13 +445,10 @@ class RxObjectParams(Params):
             args.pop('actuator_input')  # Key 'actuator_input' only relevant for object, so remove from node params
             args['rate'] = p_env['rate']
 
-            # Get node yaml
-            # node_yaml = load_yaml(package, config_name)
-
             # Define node outputs mapping
             assert actuator_input in p_bridge['inputs'], 'The address for actuator "%s" of object "%s" has not been specified!'
             args['outputs'] = dict()
-            args['outputs'][actuator_input] = '%s/actuators/%s/applied' % (name, i)
+            args['outputs'][actuator_input] = '%s/actuators/%s/applied' % (name, cname)
 
             # Define node inputs mapping
             args['inputs'] = {'tick': 'bridge/tick'}
@@ -436,56 +466,37 @@ class RxObjectParams(Params):
         # Create states
         component = 'states'
         states = []
-        for i in params['default'][component]:
-            assert i in params[bridge][component], '%s not defined for bridge "%s" and component "%s".' % (i, bridge, component)
-            p_env = params[component][i]
-            p_bridge = params[bridge][component][i]
+        for cname in params['default'][component]:
+            assert cname in params[bridge][component], '%s not defined for bridge "%s" and component "%s".' % (cname, bridge, component)
+            p_env = params[component][cname]
+            p_bridge = params[bridge][component][cname]
 
-            # Prepare node arguments
-            node_name = '%s/nodes/%s/%s' % (name, component, i)
-            package, config_name = p_bridge['node_config'].split('/')
-            state_input = p_bridge['state_input']
-            args = p_bridge.copy()
-            args.pop('node_config')
-            args.pop('state_input')  # Key 'state_input' only relevant for object, so remove from node params
-            args['rate'] = p_env['rate']
+            # Prepare state arguments
+            state = dict()
+            for key, value in p_bridge.items():
+                if key in ['address', 'converter', 'space_converter']: continue
+                state[key] = value
+            args = dict(state=state)
+            args['name'], args['address'] = '%s/%s/%s' % (name, component, cname), p_bridge['address']
+            if 'space_converter' in p_env:
+                args['space_converter'] = p_env['space_converter']
+            args['msg_module'], args['msg_type'] = p_env['msg_type'].split('/')
+            s = RxSimState(**args)
+            states.append(s)
 
-            # Get node yaml
-            node_yaml = load_yaml(package, config_name)
-
-            # Define node outputs mapping
-            args['outputs'] = {}
-            for key, val in node_yaml['outputs'].items():
-                args['outputs'][key] = '%s/%s/%s' % (name, component, i)
-
-            # Define node inputs mapping
-            args['inputs'] = {'tick': 'bridge/tick'}
-            if 'inputs' in p_bridge:
-                # First, prepend node name to inputs
-                for key, val in p_bridge['inputs'].items():
-                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
-                args['inputs'].update(p_bridge['inputs'])
-
-            # Define node states mapping
-            args['states'] = {}
-            for key, val in node_yaml['states'].items():
-                args['states'][key] = p_bridge['states'][key]
-
-            # Create node
-            node = RxNodeParams.create(node_name, package, config_name, **args)
-            states.append(node)
-
-        nodes = sensors + actuators + states
+        nodes = sensors + actuators
 
         # Create obj parameters
         obj_params = dict()
         obj_params.update(params['default'])
 
         # Gather node names
-        sens_names = ['%s/%s/nodes/sensors/%s' % (ns, name, i) for i in obj_params['sensors']]
-        act_names = ['%s/%s/nodes/actuators/%s' % (ns, name, i) for i in obj_params['actuators']]
-        state_names = ['%s/%s/nodes/states/%s' % (ns, name, i) for i in obj_params['states']]
-        obj_params['node_names'] = sens_names + act_names + state_names
+        sens_names = ['%s/%s/nodes/sensors/%s' % (ns, name, cname) for cname in obj_params['sensors']]
+        act_names = ['%s/%s/nodes/actuators/%s' % (ns, name, cname) for cname in obj_params['actuators']]
+        state_names = ['%s/%s/states/%s' % (ns, name, cname) for cname in obj_params['states']]
+        obj_params['node_names'] = sens_names + act_names
+        obj_params['state_names'] = state_names
+        obj_params['states'] = [s.get_params(ns) for s in states]
 
         # Remove clutter from parameters
         obj_params[bridge] = params[bridge].copy()
@@ -493,6 +504,7 @@ class RxObjectParams(Params):
             if c in obj_params[bridge]:
                 del obj_params[bridge][c]
             if c in obj_params:
+                if c == 'states': continue
                 del obj_params[c]
 
         return {self.name: obj_params}, nodes

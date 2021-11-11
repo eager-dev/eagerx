@@ -148,15 +148,10 @@ def configure_connections(connections):
             if component == 'states':
                 for key, bridge_params in obj.params.items():
                     if key in ['default', 'sensors', 'actuators', 'states']: continue
-                    state_input = bridge_params[component][cname]['state_input']
-                    if 'states' not in bridge_params[component][cname]:
-                        bridge_params[component][cname]['states'] = dict()
-                    bridge_params[component][cname]['states'][state_input] = address
+                    bridge_params[component][cname]['address'] = address
 
                     if converter:
-                        if 'state_converters' not in bridge_params[component][cname]:
-                            bridge_params[component][cname]['state_converters'] = dict()
-                        bridge_params[component][cname]['state_converters'][state_input] = converter
+                        bridge_params[component][cname]['converter'] = converter
             elif component == 'actuators':
                 for key, bridge_params in obj.params.items():
                     if key in ['default', 'sensors', 'actuators', 'states']: continue

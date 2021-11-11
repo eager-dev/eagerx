@@ -1,99 +1,94 @@
 # ROS imports
 import rospy
-import rosparam
-from std_msgs.msg import UInt64, String
+from std_msgs.msg import UInt64
 
 # Rx imports
 from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
 
-# OTHER
-from threading import Event
-
 # Memory usage
-from threading import current_thread
 import os, psutil, time
 import numpy as np
 
 
-class StateNode(object):
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.ns = '/'.join(name.split('/')[:2])
-        self.params = get_param_with_blocking(self.name)
-
-        # If node is simulator, we will probably use this in callback & reset
-        self.simulator = None
-
-        # Message counter
-        self.num_ticks = 0
-        self.num_resets = 0
-        self.dt = 1 / self.params['rate']
-
-        # Memory usage
-        self.py = psutil.Process(os.getpid())
-        self.iter_start = None
-        self.iter_ticks = 0
-        self.print_iter = 20
-
-    def set_simulator(self, simulator):
-        self.simulator = simulator
-
-    def reset(self, ticks):
-        self.num_resets += 1
-        if True:
-            if self.num_resets % self.print_iter == 0:
-                if self.iter_start:
-                    iter_stop = time.time()
-                    if self.iter_ticks > 0:
-                        iter_time = float((iter_stop - self.iter_start) / self.iter_ticks)
-                    else:
-                        iter_time = float(iter_stop - self.iter_start)
-                    # Memory usage request
-                    mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
-
-                    rospy.loginfo("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
-                    self.name, self.num_resets, iter_time, mem_use[0], mem_use[1]))
-
-                    self.iter_ticks = 0
-                self.iter_start = time.time()
-        self.num_ticks = 0
-        return ticks
-
-    def callback(self, inputs):
-        # Verify that # of ticks equals internal counter
-        node_tick = inputs['node_tick']
-        if not self.num_ticks == node_tick:
-            print('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
-
-        # Verify that all timestamps are smaller or equal to node time
-        t_n = node_tick * self.dt
-        for i in self.params['inputs']:
-            name = i['name']
-            if name in inputs:
-                t_i = inputs[name]['t_i']
-                if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
-                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-
-        # Fill output msg with number of node ticks
-        output_msgs = dict()
-        Nc = self.num_ticks
-        for i in self.params['outputs']:
-            name = i['name']
-            msg = UInt64()
-            msg.data = Nc
-            output_msgs[name] = msg
-        self.num_ticks += 1
-        self.iter_ticks += 1
-        return output_msgs
+# class StateNode(object):
+#     def __init__(self, name):
+#         self.name = name
+#         self.ns = '/'.join(name.split('/')[:2])
+#         self.params = get_param_with_blocking(self.name)
+#
+#         # If node is simulator, we will probably use this in callback & reset
+#         self.simulator = None
+#
+#         # Message counter
+#         self.num_ticks = 0
+#         self.num_resets = 0
+#         self.dt = 1 / self.params['rate']
+#
+#         # Memory usage
+#         self.py = psutil.Process(os.getpid())
+#         self.iter_start = None
+#         self.iter_ticks = 0
+#         self.print_iter = 20
+#
+#     def set_simulator(self, simulator):
+#         self.simulator = simulator
+#
+#     def reset(self, ticks):
+#         self.num_resets += 1
+#         if True:
+#             if self.num_resets % self.print_iter == 0:
+#                 if self.iter_start:
+#                     iter_stop = time.time()
+#                     if self.iter_ticks > 0:
+#                         iter_time = float((iter_stop - self.iter_start) / self.iter_ticks)
+#                     else:
+#                         iter_time = float(iter_stop - self.iter_start)
+#                     # Memory usage request
+#                     mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
+#
+#                     rospy.loginfo("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
+#                     self.name, self.num_resets, iter_time, mem_use[0], mem_use[1]))
+#
+#                     self.iter_ticks = 0
+#                 self.iter_start = time.time()
+#         self.num_ticks = 0
+#         return ticks
+#
+#     def callback(self, inputs):
+#         # Verify that # of ticks equals internal counter
+#         node_tick = inputs['node_tick']
+#         if not self.num_ticks == node_tick:
+#             print('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
+#
+#         # Verify that all timestamps are smaller or equal to node time
+#         t_n = node_tick * self.dt
+#         for i in self.params['inputs']:
+#             name = i['name']
+#             if name in inputs:
+#                 t_i = inputs[name]['t_i']
+#                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
+#                     print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+#
+#         # Fill output msg with number of node ticks
+#         output_msgs = dict()
+#         Nc = self.num_ticks
+#         for i in self.params['outputs']:
+#             name = i['name']
+#             msg = UInt64()
+#             msg.data = Nc
+#             output_msgs[name] = msg
+#         self.num_ticks += 1
+#         self.iter_ticks += 1
+#         return output_msgs
 
 
 class RealResetNode(object):
     # MSG_TYPE = {'in_1': 'std_msgs.msg/UInt64',
     #             'in_2': 'std_msgs.msg/UInt64',}
 
-    def __init__(self, name, **kwargs):
+    def __init__(self, name):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
@@ -170,7 +165,7 @@ class RealResetNode(object):
 
 
 class ProcessNode(object):
-    def __init__(self, name, **kwargs):
+    def __init__(self, name):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
 
@@ -211,8 +206,6 @@ class ProcessNode(object):
                     self.iter_ticks = 0
                 self.iter_start = time.time()
         self.num_ticks = 0
-
-        # return {'init_output': MSG}
         return ticks
 
     def callback(self, inputs):
@@ -244,7 +237,7 @@ class ProcessNode(object):
 
 
 class ObservationsNode(object):
-    def __init__(self, name, **kwargs):
+    def __init__(self, name):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
@@ -275,7 +268,7 @@ class ObservationsNode(object):
 
 
 class ActionsNode(object):
-    def __init__(self, name, **kwargs):
+    def __init__(self, name):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
@@ -381,6 +374,5 @@ class RxNode(object):
             else:
                 i['converter'] = IdentityConverter()
 
-        return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']),\
-               tuple(params['states']), tuple(params['targets']), node
-
+        return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']), tuple(
+            params['states']), tuple(params['targets']), node

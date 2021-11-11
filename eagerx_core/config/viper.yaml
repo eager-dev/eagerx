@@ -40,9 +40,8 @@ actuators: # outputs of env
       low: [0]
       high: [100]
 
-states: # inputs/outputs of env
+states:  # reset states inside bridge
   N9:
-    rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
@@ -50,7 +49,6 @@ states: # inputs/outputs of env
       low: [0]
       high: [100]
   N10:
-    rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
@@ -85,10 +83,10 @@ bridge:
 
   states:
     N9:
-      node_config: eagerx_core/sim_state
-      state_input: state_1 # state name from outside object (inside node_config "sim_state.yaml")
+      state_type: eagerx_core.simstate/SimState
       test_arg: 'CHANGED ARGUMENT'
+
     N10:
-      node_config: eagerx_core/sim_state
-      state_input: state_1 # state name from outside object (inside node_config "sim_state.yaml")
+      state_type: eagerx_core.simstate/SimState
       test_arg: 'CHANGED ARGUMENT'
+
