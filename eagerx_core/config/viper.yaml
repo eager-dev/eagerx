@@ -1,7 +1,7 @@
 default:
-  sensors: [N6]
+  sensors: [N6, N7]
   actuators: [ref_vel]
-  states: [N8]
+  states: [N9, N10]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
 
@@ -12,6 +12,9 @@ sensors: # inputs of env
   N6:
     rate: 2
     msg_type: std_msgs.msg/UInt64
+  N7:
+    rate: 2
+    msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: uint64
@@ -19,7 +22,7 @@ sensors: # inputs of env
       high: [100]
 
 actuators: # outputs of env
-  N7:
+  N8:
     rate: 1
     msg_type: std_msgs.msg/UInt64
     space_converter:
@@ -37,24 +40,21 @@ actuators: # outputs of env
       low: [0]
       high: [100]
 
-states: # inputs/outputs of env
-  N8:
-    rate: 2
-    msg_type: std_msgs.msg/UInt64
-    space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
-      dtype: uint64
-      low: [0]
-      high: [100]
+states:  # reset states inside bridge
   N9:
-    rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
-
+  N10:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]
 
 #########################
 ### Engine definition ###
@@ -63,13 +63,17 @@ bridge:
   urdf: 'path/to/urdf.urdf'
   sensors:
     N6:
-      node_config: eagerx_core/sim_sensor
+      node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
+      test_arg: 'CHANGED ARGUMENT'
+    N7:
+      node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
+      inputs: {in_1: sensors/N6}
       test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
-    N7:
+    N8:
       node_config: eagerx_core/sim_actuator
-      actuator_input: action_1  # input name from outside object (inside node_config .yaml)
+      actuator_input: action_1  # input name from outside object (inside node_config "sim_actuator.yaml")
       inputs: {action_2: sensors/N6}
 #      input_converters:  # can only contain converters for inputs other than "actuator_input"
 #        action_2:
@@ -78,12 +82,11 @@ bridge:
       test_arg: 'CHANGED ARGUMENT'
 
   states:
-    N8:
-      node_config: eagerx_core/sim_state
-      state_input: state_1 # state name from outside object (inside node_config .yaml)
-      test_arg: 'CHANGED ARGUMENT'
     N9:
-      node_config: eagerx_core/sim_state
-      state_input: state_1 # state name from outside object (inside node_config .yaml)
-      inputs: {in_1: sensors/N6}
+      state_type: eagerx_core.simstate/SimState
       test_arg: 'CHANGED ARGUMENT'
+
+    N10:
+      state_type: eagerx_core.simstate/SimState
+      test_arg: 'CHANGED ARGUMENT'
+

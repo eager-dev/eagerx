@@ -53,13 +53,13 @@ def configure_connections(connections):
             msg_cls_A = get_opposite_msg_cls(msg_type_B, space_converter)
             msg_type_A = get_module_type_string(msg_cls_A)
 
-            # Create input entry for action
-            if component == 'states':
+            # Create input entry for action or state
+            # Additional info: addresses & converters must match if a state is also the target of a resetnode. Hence, we check that here.
+            if component in ['states', 'targets']:
                 if env_cname in env_dict['default']['states']:
                     address = env_dict['default']['states'][env_cname]
-                    # assert address == env_dict['default']['states'][env_cname], 'Conflicting %s for state "%s".' % ('addresses', env_cname)
                     assert space_converter == env_dict['default']['state_converters'][env_cname], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
-                    assert msg_type_B == env_dict['states'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
+                    assert msg_type_B == env_dict['states'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('msg_types', env_cname)
                 else:
                     env_dict['default']['states'][env_cname] = address
                     env_dict['default']['state_converters'][env_cname] = space_converter
@@ -148,15 +148,10 @@ def configure_connections(connections):
             if component == 'states':
                 for key, bridge_params in obj.params.items():
                     if key in ['default', 'sensors', 'actuators', 'states']: continue
-                    state_input = bridge_params[component][cname]['state_input']
-                    if 'states' not in bridge_params[component][cname]:
-                        bridge_params[component][cname]['states'] = dict()
-                    bridge_params[component][cname]['states'][state_input] = address
+                    bridge_params[component][cname]['address'] = address
 
                     if converter:
-                        if 'state_converters' not in bridge_params[component][cname]:
-                            bridge_params[component][cname]['state_converters'] = dict()
-                        bridge_params[component][cname]['state_converters'][state_input] = converter
+                        bridge_params[component][cname]['converter'] = converter
             elif component == 'actuators':
                 for key, bridge_params in obj.params.items():
                     if key in ['default', 'sensors', 'actuators', 'states']: continue
@@ -189,27 +184,14 @@ def launch_node(launch_file, args):
     return launch
 
 
-def wait_for_node_initialization(is_initialized):
-    # Wait for nodes to be initialized
-    while True:
-        rospy.sleep(1.0)
-        not_init = []
-        for name, flag in is_initialized.items():
-            if not flag:
-                not_init.append(name)
-        if len(not_init) > 0:
-            rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
-        else:
-            break
-
-
 def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodeParams, Dict]]],
                      ns: str,
                      owner: str,
                      message_broker: Any,
                      is_initialized: Dict,
                      sp_nodes: Dict,
-                     launch_nodes: Dict):
+                     launch_nodes: Dict,
+                     rxnode_cls: Any = RxNode):
     if isinstance(nodes, RxNodeParams):
         nodes = [nodes]
 
@@ -230,7 +212,6 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         else:
             params = node
             name = params['name']
-        # name = params[list(params.keys())[0]]['name']  # todo: how to robustly grasp node_name
         launch_file = params['launch_file']
         launch_locally = params['launch_locally']
         single_process = params['single_process']
@@ -249,9 +230,24 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
 
         # Initialize node
         if single_process:  # Initialize inside this process
-            sp_nodes[node_address] = RxNode(name=node_address, message_broker=message_broker, scheduler=None)
+            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, scheduler=None)
+            sp_nodes[node_address].node_initialized()
         else:
             if launch_locally and launch_file:  # Launch node as separate process
                 launch_nodes[ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name,
                                                                                'owner:=' + owner])
                 launch_nodes[ns + '/' + name].start()
+
+
+def wait_for_node_initialization(is_initialized):
+    # Wait for nodes to be initialized
+    while True:
+        rospy.sleep(1.0)
+        not_init = []
+        for name, flag in is_initialized.items():
+            if not flag:
+                not_init.append(name)
+        if len(not_init) > 0:
+            rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
+        else:
+            break

@@ -4,6 +4,7 @@ default:
   inputs:
   outputs:
   states:
+  targets:
   feedthroughs:
   single_process: False
   launch_locally: True
@@ -46,6 +47,15 @@ outputs:
 
 states:
   state_1:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]
+
+targets:
+  target_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter

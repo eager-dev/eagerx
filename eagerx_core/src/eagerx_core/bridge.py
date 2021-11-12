@@ -2,7 +2,7 @@ import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter, initialize_state
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
@@ -13,15 +13,14 @@ import os, psutil
 
 
 class BridgeNode(object):
-    def __init__(self, name, message_broker):
+    def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
-        self.mb = message_broker
+        self.mb = None
         self.params = get_param_with_blocking(self.name)
 
-        # Initialize any simulator here, that can be used in each node
-        # todo: Make a ThreadSafe simulator object
-        self.simulator = None
+        # Initialize any simulator here, that is passed as reference to each simnode
+        self.simulator = None  # todo: Make a ThreadSafe simulator object
 
         # Initialized nodes
         self.is_initialized = dict()
@@ -38,16 +37,35 @@ class BridgeNode(object):
         self.iter_ticks = 0
         self.print_iter = 20
 
-    def register_object(self, obj_params, node_params):
+    def set_message_broker(self, message_broker):
+        self.mb = message_broker
+
+    def register_object(self, obj_params, node_params, state_params):
+        assert self.mb is not None, 'Message broker for this bridge (%s) was not set. Must be set, before an object can be registered.'
+
         # Use obj_params to initialize object in simulator
         obj_params
+
+        # Initialize states
+        for i in state_params:
+            i['state']['name'] = i['name']
+            i['state']['simulator'] = self.simulator
+            i['state'] = initialize_state(i['state'])
 
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
         initialize_nodes(node_params, self.ns, self.name, self.mb, self.is_initialized, sp_nodes, launch_nodes)
-        [node.node_initialized() for name, node in sp_nodes.items()]
-        return sp_nodes, launch_nodes
+        for name, node in sp_nodes.items():
+            # Set object parameters
+            if hasattr(node.node, 'set_object_params'):
+                node.node.set_object_params(obj_params)
+            # Set simulator
+            if hasattr(node.node, 'set_simulator'):
+                node.node.set_simulator(self.simulator)
+            # Initialize
+            node.node_initialized()
+        return state_params, sp_nodes, launch_nodes
 
     def pre_reset(self, ticks):
         return 'PRE RESET RETURN VALUE'
@@ -99,8 +117,12 @@ class RxBridge(object):
                                              self.bridge.post_reset, self.bridge.register_object,
                                              inputs, outputs, self.mb, node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
+
+        # todo: resolve in a clean manner:
+        #  Currently, we add '/realreset' to avoid a namespace clash between done flags used in both real_reset & state_reset
+        self.mb.add_rx_objects(node_name=name + '/realreset', node=self)
         self.mb.connect_io()
-        self.cond_reg = Condition() # todo: remove?
+        self.cond_reg = Condition()  # todo: remove?
 
         # Prepare closing routine
         rospy.on_shutdown(self._close)
@@ -117,14 +139,18 @@ class RxBridge(object):
                 rospy.loginfo('Node "%s" initialized.' % self.name)
                 self.initialized = True
 
-    def _prepare_io_topics(self, name):
+    def _prepare_io_topics(self, name, **kwargs):
         params = get_param_with_blocking(name)
         rate = params['rate']
         dt = 1 / rate
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name, self.mb)
+        node = node_cls(name)
+
+        # Set message broker
+        if hasattr(node, 'set_message_broker'):
+            node.set_message_broker(self.mb)
 
         # Prepare input topics
         for i in params['inputs']:
