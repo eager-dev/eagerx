@@ -25,6 +25,7 @@ def configure_connections(connections):
         source = io['source']
         target = io['target']
         converter = io['converter'] if 'converter' in io else None
+        delay = io['delay'] if 'delay' in io else None
 
         # PREPARE OUTPUT
         # Determine source address & msg_type
@@ -103,7 +104,7 @@ def configure_connections(connections):
             repeat = target[2]
 
             # Infer details from target
-            assert converter is None, "Cannot have an input converter when the output is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
+            assert converter is None, "Cannot have an input converter when the source is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
             node = source[0]
             component = source[1]
             cname = source[2]
@@ -117,6 +118,8 @@ def configure_connections(connections):
             observations['default']['inputs'][obs_name] = address
             observations['default']['input_converters'][obs_name] = space_converter
             observations['inputs'][obs_name] = {'msg_type': msg_type_B, 'repeat': repeat}
+            if delay:
+                observations['inputs'][obs_name]['delay'] = delay
         elif isinstance(target, tuple) and isinstance(target[0], RxNodeParams):
             node = target[0]
             component = target[1]
@@ -133,6 +136,12 @@ def configure_connections(connections):
                 if converter_key not in node.params['default']:
                     node.params['default'][converter_key] = dict()
                 node.params['default'][converter_key][cname] = converter
+
+            # Add delay if specified
+            if delay and component == 'inputs':
+                if 'delays' not in node.params['default']:
+                    node.params['default']['delays'] = dict()
+                node.params['default']['delays'][cname] = delay
 
             # Verify that msg_type after converter matches the one specified in the .yaml
             if msg_type_C:
@@ -164,6 +173,12 @@ def configure_connections(connections):
                         if 'input_converters' not in bridge_params[component][cname]:
                             bridge_params[component][cname]['input_converters'] = dict()
                         bridge_params[component][cname]['input_converters'][actuator_input] = converter
+
+                    # Add converter if specified
+                    if delay:
+                        if 'delays' not in bridge_params[component][cname]:
+                            bridge_params[component][cname]['delays'] = dict()
+                        bridge_params[component][cname]['delays'][actuator_input] = delay
 
             # Verify that msg_type after converter matches the one specified in the .yaml
             if msg_type_C:

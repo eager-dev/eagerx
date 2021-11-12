@@ -227,7 +227,7 @@ class Env(object):
         # Initialize single process communication
         self.mb.connect_io(print_status=True)
 
-        rospy.sleep(1.0) # todo:sleep required
+        rospy.sleep(0.2)  # todo:sleep required
         rospy.loginfo('Nodes initialized.')
 
         # Perform first reset

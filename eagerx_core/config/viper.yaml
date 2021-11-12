@@ -23,7 +23,7 @@ sensors: # inputs of env
 
 actuators: # outputs of env
   N8:
-    rate: 1
+    rate: 4
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter

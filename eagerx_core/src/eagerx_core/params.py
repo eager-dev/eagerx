@@ -21,6 +21,7 @@ class RxInput(Params):
                  is_reactive: bool = True,
                  rate: int = None,
                  space_converter: Dict = None,
+                 delay: float = 0.0,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -47,7 +48,7 @@ class RxInput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -80,13 +81,12 @@ class RxOutput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
 class RxFeedthrough(Params):
     def __init__(self,
-                 # name: str,
                  address: str,
                  msg_type: str,
                  feedthrough_to: str,
@@ -95,6 +95,7 @@ class RxFeedthrough(Params):
                  converter: Dict = None,
                  is_reactive: bool = True,
                  space_converter: Dict = None,
+                 delay: float = 0.0
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -115,8 +116,7 @@ class RxFeedthrough(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        # params['feedthrough_to'] = ns + '/' + params['feedthrough_to']
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -148,7 +148,7 @@ class RxState(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -181,7 +181,7 @@ class RxSimState(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -204,7 +204,7 @@ class RxNodeParams(Params):
     @classmethod
     def create(cls, name: str, package_name: str, config_name: str, **kwargs):
         # default arguments, not specified in node_name.yaml
-        nonlisted_yaml_args = ['input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
+        nonlisted_yaml_args = ['delays', 'input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
         ignored_yaml_args = ['inputs', 'states', 'feedthroughs', 'targets']
 
         # Load yaml from config file
@@ -220,7 +220,7 @@ class RxNodeParams(Params):
 
         # Replace default arguments
         for key, item in kwargs.items():
-            if key in nonlisted_yaml_args and key.split('_')[0] + 's' in params:
+            if key in nonlisted_yaml_args: # and key.split('_')[0] + 's' in params:
                 params['default'][key] = item
                 continue
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
@@ -264,6 +264,10 @@ class RxNodeParams(Params):
                     args['is_reactive'] = True
                 if 'input_converters' in default and key in default['input_converters']:
                     args['converter'] = default['input_converters'][key]
+                if 'delays' in default and key in default['delays']:
+                    args['delay'] = default['delays'][key]
+                elif 'delay' in p_in:
+                    args['delay'] = p_in['delay']
                 if 'space_converter' in p_in:
                     args['space_converter'] = p_in['space_converter']
                 n = RxInput(**args)

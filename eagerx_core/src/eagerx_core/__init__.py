@@ -25,6 +25,7 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking,initialize_converter, initialize_state
 from eagerx_core.utils.node_utils import launch_node, wait_for_node_initialization
 from eagerx_core.converter import IdentityConverter
+from eagerx_core.params import RxInput
 
 selected_nodes = ['/rx/bridge',
                   '/rx/env/actions',
@@ -82,14 +83,13 @@ def print_info(node_name, color, id=None, trace_type=None, value=None, date=None
     cprint('[' + node_name.split('/')[-1][:12].ljust(12) + ']', color, end='', attrs=['bold'])
     if id:
         cprint('[' + id.split('/')[-1][:12].ljust(12) + ']', color, end='')
-    cprint((' %s: %s' % (trace_type, value))[:160].ljust(160), color)
+    cprint((' %s: %s' % (trace_type, value)), color)
+    # cprint((' %s: %s' % (trace_type, value))[:160].ljust(160), color)
 
 
 def spy(id='', node_name='', only_node=None, color=None):
     if only_node is None:
         only_node = selected_nodes
-    # else:
-    #     print(id)
     if only_node and not isinstance(only_node, list):
         only_node = [only_node]
     def _spy(source):
@@ -418,14 +418,18 @@ def _window_with_variable_count() -> Callable[[Observable], Observable]:
     return window_with_variable_count
 
 
-def expected_inputs(idx_n, dt_i, dt_n):
-    # todo: world_stepper: elif indx_n < 0: return 0
+def expected_inputs(idx_n, dt_i, dt_n, delay):
     if idx_n == 0:
         return 1
     else:
-        sig_i = int((dt_n * idx_n) / dt_i)
-        sig_ii = int((dt_n * (idx_n - 1)) / dt_i)
-        return sig_i - sig_ii
+        # N = idx_n + 1, because idx_n starts at 0
+        N_t_min_1 = idx_n
+        N_t = idx_n + 1
+        # Note: idx_n=1 after initial tick, corresponding to T=0
+        # Hence, T_t=dt_n * (idx_n-1), T_t+1=dt_n * idx_n
+        sum_t_min_1 = max(0, int((dt_n * (N_t_min_1 - 1) - delay) / dt_i))  # Current timestep
+        sum_t = max(0, int((dt_n * (N_t - 1) - delay) / dt_i))  # Next timestep
+        return sum_t - sum_t_min_1
 
 
 def gen_msg(Ir):
@@ -473,7 +477,7 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     # Create input channel
     num_msgs = Nc.pipe(ops.observe_on(scheduler),
                        ops.start_with(0),
-                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n)}))  # todo: expected_inputs(i-1, dt_i, dt_n)})
+                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
     msg = num_msgs.pipe(gen_msg(Ir))
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
@@ -677,7 +681,7 @@ def get_object_params(msg):
     return obj_params, node_params, state_params
 
 
-def extract_topics_in_reactive_proxy(node_params, state_params, sp_nodes, launch_nodes):
+def extract_topics_in_reactive_proxy(ns, node_params, state_params, sp_nodes, launch_nodes):
     inputs = []
     state_inputs = []
     reactive_proxy = []
@@ -709,24 +713,28 @@ def extract_topics_in_reactive_proxy(node_params, state_params, sp_nodes, launch
         for i in params['outputs']:
             assert not params['single_process'] or (params['single_process'] and 'converter' not in i), 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
 
+            # Create a new input topic for each SimNode output topic
+            n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], msg_module=i['msg_module'],
+                        is_reactive=True, repeat='all').get_params()
+
             # Convert to classes
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            n['msg_type'] = get_attribute_from_module(n['msg_module'], n['msg_type'])
             if 'converter' in i:
-                i['converter'] = initialize_converter(i['converter'])
+                n['converter'] = initialize_converter(n['converter'])
             else:
-                i['converter'] = IdentityConverter()
+                n['converter'] = IdentityConverter()
 
             # Initialize rx objects
-            i['msg'] = Subject()  # Ir
-            i['reset'] = Subject()  # Is
+            n['msg'] = Subject()  # Ir
+            n['reset'] = Subject()  # Is
 
             # Create a new input topic for each SimNode output topic
-            n = dict()
-            n.update(i)
-            n.pop('rate')
-            n['is_reactive'] = True
-            n['repeat'] = 'all'
-            n['name'] = n['address']
+            # n = dict()
+            # n.update(i)
+            # n.pop('rate')
+            # n['is_reactive'] = True
+            # n['repeat'] = 'all'
+            # n['name'] = n['address']
             inputs.append(n)
 
         for i in params['inputs']:
@@ -1115,7 +1123,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     params_nodes = OR.pipe(ops.map(get_object_params),
                            ops.filter(lambda params: params is not None),
                            ops.map(lambda params: (params[1],) + cb_register_object(*params)), ops.share())
-    rx_objects = params_nodes.pipe(ops.map(lambda i: extract_topics_in_reactive_proxy(*i)),
+    rx_objects = params_nodes.pipe(ops.map(lambda i: extract_topics_in_reactive_proxy(ns, *i)),
                                    ops.map(lambda i: (i, message_broker.add_rx_objects(node_name, inputs=i['inputs'], reactive_proxy=i['reactive_proxy'], state_inputs=i['state_inputs']))),
                                    ops.map(lambda i: i[0]),
                                    ops.scan(combine_dict, dict(inputs=inputs_init, reactive_proxy=[], sp_nodes=[], launch_nodes=[], state_inputs=[])), ops.share())
