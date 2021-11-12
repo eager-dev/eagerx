@@ -7,7 +7,8 @@ from pyqtgraph.Point import Point
 import eagerx_core.converter
 
 class Terminal(object):
-    def __init__(self, node, name, io, optional=False, multi=False, pos=None, renamable=False, removable=False, multiable=False, bypass=None, is_state=False):
+    def __init__(self, node, name, io, optional=False, multi=False, pos=None, renamable=False, removable=False,
+                 multiable=False, bypass=None, is_state=False, connectable=True):
         """
         Construct a new terminal. 
         
@@ -40,6 +41,7 @@ class Terminal(object):
         self._bypass = bypass
         self._pos = pos
         self._is_state = is_state
+        self._connectable = connectable
         
         if multi:
             self._value = {}  ## dictionary of terminal:value pairs.
@@ -158,6 +160,9 @@ class Terminal(object):
     def isMultiable(self):
         return self._multiable
 
+    def isConnectable(self):
+        return self._connectable
+
     def name(self):
         return self._name
         
@@ -192,6 +197,8 @@ class Terminal(object):
                 raise Exception('Not connecting terminal to self')
             if term.node() is self.node():
                 raise Exception("Can't connect to terminal on same node.")
+            if not term.isState() == self.isState():
+                raise Exception("Cannot connect different input/output types.")
             for t in [self, term]:
                 if t.isInput() and not t._multi and len(t.connections()) > 0:
                     raise Exception("Cannot connect %s <-> %s: Terminal %s is already connected to %s (and does not allow multiple connections)" % (self, term, t, list(t.connections().keys())))
@@ -225,32 +232,20 @@ class Terminal(object):
         
         self.disconnected(term)
         term.disconnected(self)
-            
-        
+
     def disconnectAll(self):
         for t in list(self._connections.keys()):
             self.disconnectFrom(t)
         
     def recolor(self, color=None, recurse=True):
         if color is None:
-            if not self.isConnected():
-                if self.isState():
+            if self.isState():
+                if self.isConnectable():
                     color = QtGui.QColor(255, 0, 0)
                 else:
-                    color = QtGui.QColor(0, 0, 255)
-            elif self.isInput() and not self.hasInput():   ## input terminal with no connected output terminals 
-                color = QtGui.QColor(200, 200, 0)
-            elif self._value is None or fn.eq(self._value, {}):  ## terminal is connected but has no data (possibly due to processing error) 
-                if self.isState():
-                    color = QtGui.QColor(255, 150, 150)
-                else:
-                    color = QtGui.QColor(150, 150, 250)
-            elif self.valueIsAcceptable() is None:   ## terminal has data, but it is unknown if the data is ok
-                color = QtGui.QColor(200, 200, 0)
-            elif self.valueIsAcceptable() is True:   ## terminal has good input, all ok
-                color = QtGui.QColor(0, 200, 0)
-            else:                                    ## terminal has bad input
-                color = QtGui.QColor(200, 0, 0)
+                    color = QtGui.QColor(128, 128, 128)
+            else:
+                color = QtGui.QColor(0, 0, 255)
         self.graphicsItem().setBrush(QtGui.QBrush(color))
         
         if recurse:
@@ -405,7 +400,8 @@ class TerminalGraphicsItem(GraphicsObject):
         if ev.button() != QtCore.Qt.LeftButton:
             ev.ignore()
             return
-        
+        if not self.term.isConnectable():
+            return
         ev.accept()
         if ev.isStart():
             if self.newConnection is None:
@@ -437,7 +433,7 @@ class TerminalGraphicsItem(GraphicsObject):
         else:
             if self.newConnection is not None:
                 self.newConnection.setTarget(self.mapToView(ev.pos()))
-        
+
     def hoverEvent(self, ev):
         if not ev.isExit() and ev.acceptDrags(QtCore.Qt.LeftButton):
             ev.acceptClicks(QtCore.Qt.LeftButton) ## we don't use the click, but we also don't want anyone else to use it.
@@ -470,18 +466,28 @@ class ConnectionItem(GraphicsObject):
         self.hovered = False
         self.path = None
         self.shapePath = None
-        self.style = {
-            'shape': 'line',
-            'color': (100, 100, 250),
-            'width': 1.0,
-            'hoverColor': (150, 150, 250),
-            'hoverWidth': 1.0,
-            'selectedColor': (200, 200, 0),
-            'selectedWidth': 3.0,
+        if self.source.term.isState():
+            self.style = {
+                'shape': 'line',
+                'color': (255, 0, 0, 255),
+                'width': 2.0,
+                'hoverColor': (150, 150, 250, 255),
+                'hoverWidth': 2.0,
+                'selectedColor': (200, 200, 0, 255),
+                'selectedWidth': 4.0,
+                }
+        else:
+            self.style = {
+                'shape': 'line',
+                'color': (0, 0, 255, 255),
+                'width': 2.0,
+                'hoverColor': (150, 150, 250),
+                'hoverWidth': 2.0,
+                'selectedColor': (200, 200, 0, 255),
+                'selectedWidth': 4.0,
             }
         self.source.getViewBox().addItem(self)
         self.updateLine()
-        self.setZValue(0)
         
     def close(self):
         if self.scene() is not None:
@@ -511,6 +517,7 @@ class ConnectionItem(GraphicsObject):
         self.path = self.generatePath(start, stop)
         self.shapePath = None
         self.update()
+        self.setZValue(100)
         
     def generatePath(self, start, stop):
         path = QtGui.QPainterPath()

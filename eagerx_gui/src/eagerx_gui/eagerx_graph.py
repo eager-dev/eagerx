@@ -6,6 +6,7 @@
 from pyqtgraph.Qt import QT_LIB
 from pyqtgraph.flowchart.Node import *
 from pyqtgraph import FileDialog, DataTreeWidget
+import tabulate
 
 ## pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
@@ -28,6 +29,7 @@ from pyqtgraph.python2_3 import asUnicode
 import os
 from pyqtgraph.debug import printExc
 from eagerx_gui.Node import Node as EagerxNode
+from eagerx_gui.Terminal import Terminal as EagerxTerminal
 
 
 def strDict(d):
@@ -591,7 +593,7 @@ class EagerxGraphCtrlWidget(QtGui.QWidget):
         self.cwWin = QtGui.QMainWindow()
         self.cwWin.setWindowTitle('EAGERx Graph')
         self.cwWin.setCentralWidget(self.chartWidget)
-        self.cwWin.resize(1000,800)
+        self.cwWin.resize(1000, 800)
         
         h = self.ui.ctrlList.header()
         if QT_LIB in ['PyQt4', 'PySide']:
@@ -838,25 +840,19 @@ class EagerxGraphWidget(dockarea.DockArea):
         self.selectedTree.setData(data, hideRoot=True)
 
     def hoverOver(self, items):
-        term = None
         for item in items:
-            if item is self.hoverItem:
-                return
             self.hoverItem = item
-            if hasattr(item, 'term') and isinstance(item.term, Terminal):
-                term = item.term
-                break
-        if term is None:
-            self.hoverText.setPlainText("")
-        else:
-            val = term.value()
-            if isinstance(val, ndarray):
-                val = "%s %s %s" % (type(val).__name__, str(val.shape), str(val.dtype))
-            else:
-                val = str(val)
-                if len(val) > 400:
-                    val = val[:400] + "..."
-            self.hoverText.setPlainText("%s.%s = %s" % (term.node().name(), term.name(), val))
+            if hasattr(item, 'term') and isinstance(item.term, EagerxTerminal):
+                self.hoverText.setPlainText(item.term.name())
+                return
+            elif hasattr(item, 'node') and isinstance(item.node, EagerxNode):
+                text = item.node.name()
+                for key, value in item.node.info().items():
+                    text += '\n' + '{}: {}'.format(key, value)
+                self.hoverText.setPlainText(text)
+                return
+        self.hoverText.setPlainText("")
+
 
     def clear(self):
         self.selectedTree.setData(None)

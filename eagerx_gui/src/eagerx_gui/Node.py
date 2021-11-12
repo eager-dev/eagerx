@@ -72,39 +72,50 @@ class Node(QtCore.QObject):
         self._allowRemove = allowRemove
         self._node_type = node_type
         self._node_params = node_params
-        self._input_converters = {}
-        self._output_converters = {}
         self._graph = None
+        self._info = {}
+
         if graph is not None:
             self._graph = weakref.ref(graph)
 
         self.exception = None
+        if 'default' in node_params:
+            self.updateInfo(**node_params['default'])
         if terminals is None:
             if node_type == 'object':
                 if 'default' in node_params:
                     if 'actuators' in node_params['default']:
                         for input in node_params['default']['actuators']:
-                            self.addInput(name=input, renamable=False, removable=True, multiable=False)
+                            self.addInput(name=input, removable=True)
                     if 'sensors' in node_params['default']:
                         for output in node_params['default']['sensors']:
-                            self.addOutput(name=output, renamable=False, removable=True, multiable=False)
+                            self.addOutput(name=output, removable=True)
                     if 'states' in node_params['default']:
                         for state in node_params['default']['states']:
-                            self.addState(name=state, renamable=False, removable=True, multiable=False)
+                            self.addOutput(name=state, removable=True, is_state=True)
             elif node_type == 'real_reset':
                 if 'inputs' in node_params:
                     for input in node_params['inputs'].keys():
-                        self.addInput(name=input, renamable=False, removable=False, multiable=False)
+                        self.addInput(name=input)
                 if 'outputs' in node_params:
                     for output in node_params['outputs'].keys():
-                        self.addOutput(name=output, renamable=False, removable=False, multiable=False)
+                        self.addOutput(name=output)
+                if 'states' in node_params:
+                    for output in node_params['states'].keys():
+                        self.addOutput(name=output, is_state=True, connectable=False)
+                if 'targets' in node_params:
+                    for target in node_params['targets'].keys():
+                        self.addInput(name=target, is_state=True)
             elif node_type == 'node':
                 if 'inputs' in node_params:
                     for input in node_params['inputs'].keys():
-                        self.addInput(name=input, renamable=False, removable=False, multiable=False)
+                        self.addInput(name=input)
                 if 'outputs' in node_params:
                     for output in node_params['outputs'].keys():
-                        self.addOutput(name=output, renamable=False, removable=False, multiable=False)
+                        self.addOutput(name=output)
+                if 'states' in node_params:
+                    for output in node_params['states'].keys():
+                        self.addOutput(name=output, is_state=True, connectable=False)
         else:
             for name, opts in terminals.items():
                 self.addTerminal(name, **opts)
@@ -133,11 +144,6 @@ class Node(QtCore.QObject):
         This is a convenience function that just calls addTerminal(io='out', ...)"""
         return self.addTerminal(name, io='out', **args)
 
-    def addState(self, name, **args):
-        """Add a new state, which is a special type of output."""
-        return self.addTerminal(name, io='out', is_state=True, **args)
-
-
     def removeTerminal(self, term):
         """Remove the specified terminal from this Node. May specify either the 
         terminal's name or the terminal itself.
@@ -153,8 +159,34 @@ class Node(QtCore.QObject):
         del self.terminals[name]
         if name in self._inputs:
             del self._inputs[name]
+            if term.isState():
+                states = self._info['states']
+                states.remove(name)
+                self.updateInfo(states=states)
+            else:
+                if self.node_type() == 'object':
+                    actuators = self._info['actuators']
+                    actuators.remove(name)
+                    self.updateInfo(actuators=actuators)
+                else:
+                    inputs = self._info['inputs']
+                    inputs.remove(name)
+                    self.updateInfo(inputs=inputs)
         if name in self._outputs:
             del self._outputs[name]
+            if term.isState():
+                states = self._info['states']
+                states.remove(name)
+                self.updateInfo(states=states)
+            else:
+                if self.node_type() == 'object':
+                    sensors = self._info['sensors']
+                    sensors.remove(name)
+                    self.updateInfo(sensors=sensors)
+                else:
+                    outputs = self._info['outputs']
+                    outputs.remove(name)
+                    self.updateInfo(inputs=outputs)
         self.graphicsItem().updateTerminals()
         self.sigTerminalRemoved.emit(self, term)
 
@@ -182,8 +214,30 @@ class Node(QtCore.QObject):
         self.terminals[name] = term
         if term.isInput():
             self._inputs[name] = term
+            if self.node_type() == 'object':
+                if 'actuators' not in self._info or not isinstance(self._info['actuators'], list):
+                    self.updateInfo(actuators=[name])
+                elif name not in self._info['actuators']:
+                    actuators = self._info['actuators']
+                    actuators.append(name)
+                    self.updateInfo(actuators=actuators)
         elif term.isOutput():
             self._outputs[name] = term
+            if self.node_type() == 'object':
+                if 'is_state' in opts.keys() and opts['is_state']:
+                    if 'states' not in self._info or not isinstance(self._info['states'], list):
+                        self.updateInfo(states=[name])
+                    elif name not in self._info['states']:
+                        states = self._info['states']
+                        states.append(name)
+                        self.updateInfo(states=states)
+                else:
+                    if 'sensors' not in self._info or not isinstance(self._info['sensors'], list):
+                        self.updateInfo(sensors=[name])
+                    elif name not in self._info['sensors']:
+                        sensors = self._info['sensors']
+                        sensors.append(name)
+                        self.updateInfo(sensors=sensors)
         self.graphicsItem().updateTerminals()
         self.sigTerminalAdded.emit(self, term)
         return term
@@ -252,6 +306,13 @@ class Node(QtCore.QObject):
     def graph(self):
         """Return the graph."""
         return self._graph
+
+    def info(self):
+        return self._info
+
+    def updateInfo(self, **kwargs):
+        for key, value in kwargs.items():
+            self._info[key] = value
 
     def rename(self, name):
         """Rename this node. This will cause sigRenamed to be emitted."""
@@ -499,20 +560,13 @@ class NodeGraphicsItem(GraphicsObject):
         self.nameItem.moveBy(self.bounds.width() / 2. - self.nameItem.boundingRect().width() / 2., 0)
         self.nameItem.setTextInteractionFlags(QtCore.Qt.TextEditorInteraction)
         self.updateTerminals()
-        # self.setZValue(10)
 
         self.nameItem.focusOutEvent = self.labelFocusOut
         self.nameItem.keyPressEvent = self.labelKeyPress
 
         self.menu = None
         self.buildMenu()
-
-        # self.node.sigTerminalRenamed.connect(self.updateActionMenu)
-
-    # def setZValue(self, z):
-    # for t, item in self.terminals.values():
-    # item.setZValue(z+1)
-    # GraphicsObject.setZValue(self, z)
+        self.initial_z_value = self.zValue()
 
     def labelFocusOut(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
@@ -564,7 +618,7 @@ class NodeGraphicsItem(GraphicsObject):
         for i, t in out.items():
             item = t.graphicsItem()
             item.setParentItem(self)
-            item.setZValue(self.zValue())
+            item.setZValue(self.initial_z_value)
             br = self.bounds
             item.setAnchor(bounds.width(), y)
             self.terminals[i] = (t, item)
@@ -579,12 +633,15 @@ class NodeGraphicsItem(GraphicsObject):
         if self.isSelected():
             p.setPen(self.selectPen)
             p.setBrush(self.selectBrush)
+            self.setZValue(200)
         else:
             p.setPen(self.pen)
             if self.hovered:
                 p.setBrush(self.hoverBrush)
+                self.setZValue(200)
             else:
                 p.setBrush(self.brush)
+                self.setZValue(self.initial_z_value)
 
         p.drawRect(self.bounds)
 
@@ -673,6 +730,15 @@ class NodeGraphicsItem(GraphicsObject):
                 self.menu.addAction(add_output_text, partial(self.addOutputFromMenu, name='action'))
             elif self._node_type == 'object':
                 sensor_menu = QtGui.QMenu(add_output_text, self.menu)
+                state_menu = QtGui.QMenu('Add state', self.menu)
+                for state in self._node_params['states'].keys():
+                    act = state_menu.addAction(
+                        state,
+                        partial(self.addOutputFromMenu, name=state, multiable=False, renamable=False, is_state=True)
+                    )
+                    if state in self.node.outputs().keys():
+                        act.setEnabled(False)
+                self.menu.addMenu(state_menu)
                 for sensor in self._node_params['sensors'].keys():
                     act = sensor_menu.addAction(
                         sensor,
@@ -689,8 +755,8 @@ class NodeGraphicsItem(GraphicsObject):
     def addInputFromMenu(self, name='Input', renamable=True, removable=True, multiable=True):  ## called when add input is clicked in context menu
         self.node.addInput(name=name, renamable=renamable, removable=removable, multiable=multiable)
 
-    def addOutputFromMenu(self, name='Output', renamable=True, removable=True, multiable=True):  ## called when add output is clicked in context menu
-        self.node.addOutput(name=name, renamable=renamable, removable=removable, multiable=multiable)
+    def addOutputFromMenu(self, name='Output', renamable=True, removable=True, multiable=True, is_state=False):  ## called when add output is clicked in context menu
+        self.node.addOutput(name=name, renamable=renamable, removable=removable, multiable=multiable, is_state=is_state)
 
     def addConverterFromMenu(self, name, type='input', converter_arguments=None):  ## called when add input is clicked in context menu
         self.node.addConverter(name, type=type, converter_arguments=converter_arguments)

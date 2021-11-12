@@ -11,6 +11,7 @@ class EagerxGraphView(GraphicsView):
     
     def __init__(self, widget, *args):
         GraphicsView.__init__(self, *args, useOpenGL=False)
+        self.setBackground((255, 255, 255))
         self._vb = EagerxGraphViewBox(widget, lockAspect=True, invertY=True)
         self.setCentralItem(self._vb)
         self.setRenderHint(QtGui.QPainter.Antialiasing, True)
