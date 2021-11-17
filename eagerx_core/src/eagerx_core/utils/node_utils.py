@@ -56,6 +56,7 @@ def configure_connections(connections):
 
             # Create input entry for action or state
             # Additional info: addresses & converters must match if a state is also the target of a resetnode. Hence, we check that here.
+            # Additional info: addresses & converters must match if an action is an input to multiple nodes. Hence, we check that here.
             if component in ['states', 'targets']:
                 if env_cname in env_dict['default']['states']:
                     address = env_dict['default']['states'][env_cname]
@@ -66,10 +67,15 @@ def configure_connections(connections):
                     env_dict['default']['state_converters'][env_cname] = space_converter
                     env_dict['states'][env_cname] = {'msg_type': msg_type_B}
             else:
-                assert env_cname not in env_dict['default']['outputs'], 'Action name "%s" already defined. Action names must be unique.' % cname
-                env_dict['default']['outputs'][env_cname] = address
-                env_dict['default']['output_converters'][env_cname] = space_converter
-                env_dict['outputs'][env_cname] = {'msg_type': msg_type_B}
+                if env_cname in env_dict['default']['outputs']:
+                    # assert env_cname not in env_dict['default']['outputs'], 'Action name "%s" already defined. Action names must be unique.' % cname
+                    address = env_dict['default']['outputs'][env_cname]
+                    assert space_converter == env_dict['default']['output_converters'][env_cname], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
+                    assert msg_type_B == env_dict['outputs'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('msg_types', env_cname)
+                else:
+                    env_dict['default']['outputs'][env_cname] = address
+                    env_dict['default']['output_converters'][env_cname] = space_converter
+                    env_dict['outputs'][env_cname] = {'msg_type': msg_type_B}
         elif isinstance(source, tuple) and isinstance(source[0], RxNodeParams):
             cname = source[1]
             address = source[0].params['default']['outputs'][cname]
@@ -103,16 +109,29 @@ def configure_connections(connections):
             obs_name = target[1]
             repeat = target[2]
 
-            # Infer details from target
+            # Infer details from source
             assert converter is None, "Cannot have an input converter when the source is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
-            node = source[0]
-            component = source[1]
-            cname = source[2]
 
-            # Infer msg_type from space_converter
-            space_converter = node.params[component][cname]['space_converter']
-            msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
-            msg_type_C = get_module_type_string(msg_cls_C)
+            if isinstance(source[0], RxObjectParams):
+                node = source[0]
+                component = source[1]
+                cname = source[2]
+
+                # Infer msg_type from space_converter
+                space_converter = node.params[component][cname]['space_converter']
+                msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
+                msg_type_C = get_module_type_string(msg_cls_C)
+            elif isinstance(source[0], RxNodeParams):
+                node = source[0]
+                component = 'outputs'
+                cname = source[1]
+
+                # Infer msg_type from space_converter
+                space_converter = node.params[component][cname]['space_converter']
+                msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
+                msg_type_C = get_module_type_string(msg_cls_C)
+            else:
+                raise ValueError('Cannot infer properties from source.')
 
             # Create input entry for action
             observations['default']['inputs'][obs_name] = address

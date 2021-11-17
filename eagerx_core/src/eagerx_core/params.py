@@ -61,6 +61,7 @@ class RxOutput(Params):
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  space_converter: Dict = None,
+                 start_with_msg: bool = False
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -288,6 +289,8 @@ class RxNodeParams(Params):
                     args['converter'] = default['output_converters'][key]
                 if 'space_converter' in p_in:
                     args['space_converter'] = p_in['space_converter']
+                if 'start_with_msg' in p_in:
+                    args['start_with_msg'] = p_in['start_with_msg']
                 n = RxOutput(**args)
                 outputs.append(n)
             del default['outputs']

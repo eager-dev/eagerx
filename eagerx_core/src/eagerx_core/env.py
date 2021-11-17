@@ -106,8 +106,7 @@ class Env(object):
         self.mb, self.env_node, _ = self._init_supervisor(states)
 
         # Initialize bridge
-        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
-        wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
+        self._init_bridge(observations, actions, states, bridge, nodes)
 
         # Initialize action & observation node
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
@@ -145,6 +144,34 @@ class Env(object):
         # Connect io
         mb.connect_io()
         return mb, rx_env.node, rx_env
+
+    def _init_bridge(self, observations: Dict, actions: Dict, states: Dict, bridge: RxNodeParams, nodes: List[RxNodeParams]) -> None:
+        # Check that reserved keywords are not already defined.
+        assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
+        assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
+
+        # Extract node_names
+        node_names = []
+        target_addresses = []
+        for i in (observations, actions, states):
+            node_names.append(i['default']['name'])
+        for i in nodes:
+            node_names.append(i.params['default']['name'])
+            if 'targets' in i.params['default']:
+                for cname, address in i.params['default']['targets'].items():
+                    target_addresses.append(address)
+        # for i in objects:
+        #     obj_name = i.name
+        #     for component in ('sensors', 'actuators'):
+        #         if component not in i.params['default']: continue
+        #         for cname in i.params['default'][component]:
+        #             obj_node_name = '%s/nodes/%s/%s' % (obj_name, component, cname)
+        #             node_names.append(obj_node_name)
+        bridge.params['default']['node_names'] = node_names
+        bridge.params['default']['target_addresses'] = target_addresses
+
+        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
+        wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
     def _init_actions_and_observations(self, actions: Dict, observations: Dict, message_broker):
         # Check that env has at least one input.

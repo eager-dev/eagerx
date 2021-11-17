@@ -110,17 +110,18 @@ class RxBridge(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, inputs, outputs, self.bridge = self._prepare_io_topics(self.name)
+        dt, inputs, outputs, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
         rx_objects = eagerx_core.init_bridge(self.ns, dt, self.bridge.callback, self.bridge.pre_reset,
                                              self.bridge.post_reset, self.bridge.register_object,
-                                             inputs, outputs, self.mb, node_name=self.name, scheduler=scheduler)
+                                             inputs, outputs, node_names, target_addresses,
+                                             self.mb, node_name=self.name, scheduler=scheduler)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
         # todo: resolve in a clean manner:
-        #  Currently, we add '/realreset' to avoid a namespace clash between done flags used in both real_reset & state_reset
-        self.mb.add_rx_objects(node_name=name + '/realreset', node=self)
+        #  Currently, we add '/dynamically_registered' to avoid a namespace clash between done flags used in both real_reset & state_reset
+        self.mb.add_rx_objects(node_name=name + '/dynamically_registered', node=self)
         self.mb.connect_io()
         self.cond_reg = Condition()  # todo: remove?
 
@@ -141,6 +142,8 @@ class RxBridge(object):
 
     def _prepare_io_topics(self, name, **kwargs):
         params = get_param_with_blocking(name)
+        node_names = params['node_names']
+        target_addresses = params['target_addresses']
         rate = params['rate']
         dt = 1 / rate
 
@@ -168,7 +171,7 @@ class RxBridge(object):
             else:
                 i['converter'] = IdentityConverter()
 
-        return dt, params['inputs'], tuple(params['outputs']), node
+        return dt, params['inputs'], tuple(params['outputs']), node_names, target_addresses, node
 
     def _close(self):
         return True
