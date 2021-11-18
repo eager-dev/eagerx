@@ -17,7 +17,11 @@ if __name__ == '__main__':
     # todo: remove output addresses from create fn? Input as list, inside .create change to dict with naming convention
     # todo: Add state selection via list? Then, add names via naming convention?
     # todo: add default states & outputs in yaml
-    sp = False
+    # todo: make object.create & node.create more uniform.
+
+    # todo: make default args of object/node uniform: inputs/outpus/etc... be lists, similar to actuators/sensors/states
+    # todo: RxNodeParams can receive lists & dicts. address/converter dicts are converted to lists, with addres & converter moved to corresponding terminal entry.
+    sp = True
     N1 = RxNodeParams.create('N1', 'eagerx_core', 'process',   rate=1, single_process=sp, outputs={'out_1': 'N1/P1', 'out_2': 'N2/P2'})
     N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1, single_process=sp, outputs={'out_1': 'N3/P3'})
     N4 = RxNodeParams.create('N4', 'eagerx_core', 'process',   rate=3, single_process=sp, outputs={'out_1': 'N4/P4'}, output_converters={'out_1': IntUInt64Converter})
@@ -25,12 +29,10 @@ if __name__ == '__main__':
     KF = RxNodeParams.create('KF', 'eagerx_core', 'kf',        rate=1, single_process=sp, outputs={'out_1': 'KF/S'})
 
     # Define object
-    # todo: why no error with 'single_process=sp'?
     # todo: select states here
-    viper = RxObjectParams.create('obj', 'eagerx_core', 'viper', single_process=sp, position=[1, 1, 1], actuators=['N8'])
+    viper = RxObjectParams.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
 
     # Define action/observations/states
-    # todo: create config.yaml for these dicts
     actions, observations, states = Env.define_actions(), Env.define_observations(), Env.define_states()
 
     # Connect nodes
@@ -86,7 +88,6 @@ if __name__ == '__main__':
 
     # todo: implement real_time rx pipeline
 
-    # todo: creat RxNode config.yaml for observation, action & state node
     # todo: change address naming conventions, remove address specification from node creation API
     # todo: Avoid blocking at initialization: make publishers latched? Wait for all simnodes to be initialized.
 

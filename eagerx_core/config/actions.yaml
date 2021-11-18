@@ -1,0 +1,15 @@
+node_type: eagerx_core.node/ActionsNode
+default:
+  inputs: {observations_set: env/observations/set, step: step}
+  outputs: {}
+  output_converters: {}
+  single_process: true
+  launch_locally: true
+inputs:
+  observations_set:
+    msg_type: std_msgs.msg/UInt64
+    repeat: all
+  step:
+    msg_type: std_msgs.msg/UInt64
+    repeat: all
+outputs: {}

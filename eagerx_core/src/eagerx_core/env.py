@@ -21,69 +21,19 @@ import multiprocessing
 
 class Env(object):
     @staticmethod
-    def define_actions(new=True):
-        actions = dict(default=dict(inputs={}, outputs={}, output_converters={}), inputs={}, outputs={})
-
-        # Add step as input
-        if new:
-            actions['node_type'] = 'eagerx_core.node/ActionsNode'
-            actions['default']['single_process'] = True
-            actions['default']['launch_locally'] = True
-            actions['default']['name'] = 'env/actions'
-            actions['default']['package_name'] = 'n/a'
-            actions['default']['config_name'] = 'n/a'
-
-            # Add step as input
-            cname = 'step'
-            address = 'step'
-            actions['default']['inputs'][cname] = address
-            actions['inputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64', 'repeat': 'all'}
-
-            # Add observations/set as input
-            cname = 'observations_set'
-            address = 'env/observations/set'
-            actions['default']['inputs'][cname] = address
-            actions['inputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64', 'repeat': 'all'}
-        return actions
+    def define_actions():
+        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
+        return actions.params
 
     @staticmethod
-    def define_observations(new=True):
-        observations = dict(default=dict(inputs={}, input_converters={}, outputs={}), inputs={}, outputs={})
-
-        # Add step as input
-        if new:
-            observations['node_type'] = 'eagerx_core.node/ObservationsNode'
-            observations['default']['single_process'] = True
-            observations['default']['launch_locally'] = True
-            observations['default']['name'] = 'env/observations'
-            observations['default']['package_name'] = 'n/a'
-            observations['default']['config_name'] = 'n/a'
-
-            # Add 'observations/set' as output
-            cname = 'observations_set'
-            address = 'env/observations/set'
-            observations['default']['outputs'][cname] = address
-            observations['outputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64'}
-        return observations
+    def define_observations():
+        observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations')
+        return observations.params
 
     @staticmethod
-    def define_states(new=True):
-        states = dict(default=dict(states={}, state_converters={}, outputs={}), states={}, outputs={})
-
-        if new:
-            states['node_type'] = 'eagerx_core.rxenv/EnvironmentNode'
-            states['default']['single_process'] = True
-            states['default']['launch_locally'] = True
-            states['default']['name'] = 'env/supervisor'
-            states['default']['package_name'] = 'n/a'
-            states['default']['config_name'] = 'n/a'
-
-            # Add '/step' as output
-            cname = 'step'
-            address = 'step'
-            states['default']['outputs'][cname] = address
-            states['outputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64'}
-        return states
+    def define_states():
+        states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
+        return states.params
 
     def __init__(self, name: str, rate: int,
                  observations: Dict,
@@ -160,13 +110,6 @@ class Env(object):
             if 'targets' in i.params['default']:
                 for cname, address in i.params['default']['targets'].items():
                     target_addresses.append(address)
-        # for i in objects:
-        #     obj_name = i.name
-        #     for component in ('sensors', 'actuators'):
-        #         if component not in i.params['default']: continue
-        #         for cname in i.params['default'][component]:
-        #             obj_node_name = '%s/nodes/%s/%s' % (obj_name, component, cname)
-        #             node_names.append(obj_node_name)
         bridge.params['default']['node_names'] = node_names
         bridge.params['default']['target_addresses'] = target_addresses
 

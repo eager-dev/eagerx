@@ -1,0 +1,11 @@
+node_type: eagerx_core.node/ObservationsNode
+default:
+  inputs: {}
+  input_converters: {}
+  outputs: {observations_set: env/observations/set}
+  single_process: true
+  launch_locally: true
+inputs: {}
+outputs:
+  observations_set:
+    msg_type: std_msgs.msg/UInt64

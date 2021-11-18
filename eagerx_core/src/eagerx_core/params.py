@@ -199,11 +199,14 @@ class RxNodeParams(Params):
         kwargs.pop('self')
         super(RxNodeParams, self).__init__(**kwargs)
 
-        # Check that node has at least one input. # todo: bridge initially does not have any inputs...
-        # assert len(params['inputs']) > 0, 'Nodes must have at least one input. Node "%s" does not have inputs.' % name
-
     @classmethod
     def create(cls, name: str, package_name: str, config_name: str, **kwargs):
+        """
+        - Every argument listed in .yaml with "None" must be specified.
+        - Exceptions to this are the converters & delay to avoid clutter in .yaml
+        - All other provided args via **kwargs throw an assertion error.
+        - Feedthroughs receive all args from corresponding output
+        """
         # default arguments, not specified in node_name.yaml
         nonlisted_yaml_args = ['delays', 'input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
         ignored_yaml_args = ['inputs', 'states', 'feedthroughs', 'targets']
@@ -211,6 +214,7 @@ class RxNodeParams(Params):
         # Load yaml from config file
         params = load_yaml(package_name, config_name)
 
+        # todo: move to .get_params(..)?
         # Add output details (msg_type, space_converter, etc...) to feedthroughs
         if 'feedthroughs' in params:
             for key, value in params['feedthroughs'].items():
@@ -221,7 +225,7 @@ class RxNodeParams(Params):
 
         # Replace default arguments
         for key, item in kwargs.items():
-            if key in nonlisted_yaml_args: # and key.split('_')[0] + 's' in params:
+            if key in nonlisted_yaml_args:
                 params['default'][key] = item
                 continue
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
@@ -380,15 +384,34 @@ class RxObjectParams(Params):
         # Error check the parameters here.
 
     @classmethod
-    def create(cls, name: str, package_name: str, object_name: str, **kwargs):
-
+    def create(cls, name: str, package_name: str, config_name: str, **kwargs):
         # Load yaml from config file
-        params = load_yaml(package_name, object_name)
+        params = load_yaml(package_name, config_name)
+
+        # default arguments, not specified in node_name.yaml
+        nonlisted_yaml_args = []
+        ignored_yaml_args = []
 
         # Replace default arguments
         for key, item in kwargs.items():
-            if key in params['default'].keys():
+            if key in nonlisted_yaml_args:
                 params['default'][key] = item
+                continue
+            assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
+            params['default'][key] = item
+
+        # Check if all arguments are specified
+        for key, value in params['default'].items():
+            if key in ignored_yaml_args: continue
+            assert value is not None, 'Missing argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (key, config_name, package_name)
+
+        # Check reserved keywords
+        assert 'name' not in params['default'], 'Argument "name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        assert 'package_name' not in params['default'], 'Argument "package_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        assert 'config_name' not in params['default'], 'Argument "config_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        params['default']['name'] = name
+        params['default']['package_name'] = package_name
+        params['default']['config_name'] = config_name
         return cls(name, params)
 
     def get_params(self, ns, bridge):
