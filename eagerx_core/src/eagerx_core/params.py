@@ -214,15 +214,6 @@ class RxNodeParams(Params):
         # Load yaml from config file
         params = load_yaml(package_name, config_name)
 
-        # todo: move to .get_params(..)?
-        # Add output details (msg_type, space_converter, etc...) to feedthroughs
-        if 'feedthroughs' in params:
-            for key, value in params['feedthroughs'].items():
-                assert key in params['outputs'], 'Feedthrough "%s" must directly correspond to an output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (key, config_name, package_name)
-                params['feedthroughs'][key] = {'msg_type': params['outputs'][key]['msg_type']}
-                if 'space_converter' in params['outputs'][key]:
-                    params['feedthroughs'][key]['space_converter'] = params['outputs'][key]['space_converter']
-
         # Replace default arguments
         for key, item in kwargs.items():
             if key in nonlisted_yaml_args:
@@ -331,7 +322,13 @@ class RxNodeParams(Params):
         if 'feedthroughs' in default:
             for key, value in default['feedthroughs'].items():
                 assert key in params['feedthroughs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('feedthrough', key, 'feedthroughs', config_name, package_name)
-                p_in = params['feedthroughs'][key]
+
+                # Add output details (msg_type, space_converter, etc...) to feedthroughs
+                assert key in params['outputs'], 'Feedthrough "%s" must directly correspond to an output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (key, config_name, package_name)
+                p_in = {'msg_type': params['outputs'][key]['msg_type']}
+                if 'space_converter' in params['outputs'][key]:
+                    p_in['space_converter'] = params['outputs'][key]['space_converter']
+
                 args = dict()
                 args['feedthrough_to'], args['address'] = key, value
                 args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')

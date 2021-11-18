@@ -144,6 +144,9 @@ def configure_connections(connections):
             component = target[1]
             cname = target[2]
 
+            if component == 'feedthroughs':
+                print('wait')
+
             # Add address
             if node.params['default'][component] is None:
                 node.params['default'][component] = dict()
@@ -163,7 +166,7 @@ def configure_connections(connections):
                 node.params['default']['delays'][cname] = delay
 
             # Verify that msg_type after converter matches the one specified in the .yaml
-            if msg_type_C:
+            if msg_type_C and not component=='feedthroughs':
                 type_out = get_cls_from_string(msg_type_C)
                 type_yaml = get_cls_from_string(node.params[component][cname]['msg_type'])
                 assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of node "%s".' % (type_out, type_yaml, node.name)
