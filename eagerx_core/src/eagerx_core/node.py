@@ -206,7 +206,14 @@ class ProcessNode(object):
                     self.iter_ticks = 0
                 self.iter_start = time.time()
         self.num_ticks = 0
-        return ticks
+
+        # Send initial message for outputs with 'start_with_msg' = True
+        init_msgs = dict()
+        for i in self.params['outputs']:
+            if not i['start_with_msg']: continue
+            name = i['name']
+            init_msgs[name] = UInt64(data=999)
+        return init_msgs
 
     def callback(self, inputs):
         # Verify that # of ticks equals internal counter

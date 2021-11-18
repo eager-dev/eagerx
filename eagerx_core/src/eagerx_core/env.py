@@ -21,69 +21,19 @@ import multiprocessing
 
 class Env(object):
     @staticmethod
-    def define_actions(new=True):
-        actions = dict(default=dict(inputs={}, outputs={}, output_converters={}), inputs={}, outputs={})
-
-        # Add step as input
-        if new:
-            actions['node_type'] = 'eagerx_core.node/ActionsNode'
-            actions['default']['single_process'] = True
-            actions['default']['launch_locally'] = True
-            actions['default']['name'] = 'env/actions'
-            actions['default']['package_name'] = 'n/a'
-            actions['default']['config_name'] = 'n/a'
-
-            # Add step as input
-            cname = 'step'
-            address = 'step'
-            actions['default']['inputs'][cname] = address
-            actions['inputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64', 'repeat': 'all'}
-
-            # Add observations/set as input
-            cname = 'observations_set'
-            address = 'env/observations/set'
-            actions['default']['inputs'][cname] = address
-            actions['inputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64', 'repeat': 'all'}
-        return actions
+    def define_actions():
+        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
+        return actions.params
 
     @staticmethod
-    def define_observations(new=True):
-        observations = dict(default=dict(inputs={}, input_converters={}, outputs={}), inputs={}, outputs={})
-
-        # Add step as input
-        if new:
-            observations['node_type'] = 'eagerx_core.node/ObservationsNode'
-            observations['default']['single_process'] = True
-            observations['default']['launch_locally'] = True
-            observations['default']['name'] = 'env/observations'
-            observations['default']['package_name'] = 'n/a'
-            observations['default']['config_name'] = 'n/a'
-
-            # Add 'observations/set' as output
-            cname = 'observations_set'
-            address = 'env/observations/set'
-            observations['default']['outputs'][cname] = address
-            observations['outputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64'}
-        return observations
+    def define_observations():
+        observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations')
+        return observations.params
 
     @staticmethod
-    def define_states(new=True):
-        states = dict(default=dict(states={}, state_converters={}, outputs={}), states={}, outputs={})
-
-        if new:
-            states['node_type'] = 'eagerx_core.rxenv/EnvironmentNode'
-            states['default']['single_process'] = True
-            states['default']['launch_locally'] = True
-            states['default']['name'] = 'env/supervisor'
-            states['default']['package_name'] = 'n/a'
-            states['default']['config_name'] = 'n/a'
-
-            # Add '/step' as output
-            cname = 'step'
-            address = 'step'
-            states['default']['outputs'][cname] = address
-            states['outputs'][cname] = {'msg_type': 'std_msgs.msg/UInt64'}
-        return states
+    def define_states():
+        states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
+        return states.params
 
     def __init__(self, name: str, rate: int,
                  observations: Dict,
@@ -106,8 +56,7 @@ class Env(object):
         self.mb, self.env_node, _ = self._init_supervisor(states)
 
         # Initialize bridge
-        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
-        wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
+        self._init_bridge(observations, actions, states, bridge, nodes)
 
         # Initialize action & observation node
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
@@ -145,6 +94,27 @@ class Env(object):
         # Connect io
         mb.connect_io()
         return mb, rx_env.node, rx_env
+
+    def _init_bridge(self, observations: Dict, actions: Dict, states: Dict, bridge: RxNodeParams, nodes: List[RxNodeParams]) -> None:
+        # Check that reserved keywords are not already defined.
+        assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
+        assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
+
+        # Extract node_names
+        node_names = []
+        target_addresses = []
+        for i in (observations, actions, states):
+            node_names.append(i['default']['name'])
+        for i in nodes:
+            node_names.append(i.params['default']['name'])
+            if 'targets' in i.params['default']:
+                for cname, address in i.params['default']['targets'].items():
+                    target_addresses.append(address)
+        bridge.params['default']['node_names'] = node_names
+        bridge.params['default']['target_addresses'] = target_addresses
+
+        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
+        wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
     def _init_actions_and_observations(self, actions: Dict, observations: Dict, message_broker):
         # Check that env has at least one input.
@@ -227,7 +197,7 @@ class Env(object):
         # Initialize single process communication
         self.mb.connect_io(print_status=True)
 
-        rospy.sleep(1.0) # todo:sleep required
+        rospy.sleep(0.2)  # todo:sleep required
         rospy.loginfo('Nodes initialized.')
 
         # Perform first reset

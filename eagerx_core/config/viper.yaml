@@ -1,6 +1,6 @@
 default:
   sensors: [N6, N7]
-  actuators: [ref_vel]
+  actuators: {ref_vel:}  # [ref_vel]
   states: [N9, N10]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
@@ -10,7 +10,7 @@ default:
 #########################
 sensors: # inputs of env
   N6:
-    rate: 2
+    rate: 1
     msg_type: std_msgs.msg/UInt64
   N7:
     rate: 2
@@ -23,7 +23,7 @@ sensors: # inputs of env
 
 actuators: # outputs of env
   N8:
-    rate: 1
+    rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.converter/SpaceUInt64Converter

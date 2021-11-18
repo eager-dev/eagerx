@@ -21,6 +21,7 @@ class RxInput(Params):
                  is_reactive: bool = True,
                  rate: int = None,
                  space_converter: Dict = None,
+                 delay: float = 0.0,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -47,7 +48,7 @@ class RxInput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -60,6 +61,7 @@ class RxOutput(Params):
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  space_converter: Dict = None,
+                 start_with_msg: bool = False
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -80,13 +82,12 @@ class RxOutput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
 class RxFeedthrough(Params):
     def __init__(self,
-                 # name: str,
                  address: str,
                  msg_type: str,
                  feedthrough_to: str,
@@ -95,6 +96,7 @@ class RxFeedthrough(Params):
                  converter: Dict = None,
                  is_reactive: bool = True,
                  space_converter: Dict = None,
+                 delay: float = 0.0
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -115,8 +117,7 @@ class RxFeedthrough(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        # params['feedthrough_to'] = ns + '/' + params['feedthrough_to']
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -148,7 +149,7 @@ class RxState(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -181,7 +182,7 @@ class RxSimState(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = ns + '/' + params['address']
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -198,29 +199,24 @@ class RxNodeParams(Params):
         kwargs.pop('self')
         super(RxNodeParams, self).__init__(**kwargs)
 
-        # Check that node has at least one input. # todo: bridge initially does not have any inputs...
-        # assert len(params['inputs']) > 0, 'Nodes must have at least one input. Node "%s" does not have inputs.' % name
-
     @classmethod
     def create(cls, name: str, package_name: str, config_name: str, **kwargs):
+        """
+        - Every argument listed in .yaml with "None" must be specified.
+        - Exceptions to this are the converters & delay to avoid clutter in .yaml
+        - All other provided args via **kwargs throw an assertion error.
+        - Feedthroughs receive all args from corresponding output
+        """
         # default arguments, not specified in node_name.yaml
-        nonlisted_yaml_args = ['input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
+        nonlisted_yaml_args = ['delays', 'input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
         ignored_yaml_args = ['inputs', 'states', 'feedthroughs', 'targets']
 
         # Load yaml from config file
         params = load_yaml(package_name, config_name)
 
-        # Add output details (msg_type, space_converter, etc...) to feedthroughs
-        if 'feedthroughs' in params:
-            for key, value in params['feedthroughs'].items():
-                assert key in params['outputs'], 'Feedthrough "%s" must directly correspond to an output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (key, config_name, package_name)
-                params['feedthroughs'][key] = {'msg_type': params['outputs'][key]['msg_type']}
-                if 'space_converter' in params['outputs'][key]:
-                    params['feedthroughs'][key]['space_converter'] = params['outputs'][key]['space_converter']
-
         # Replace default arguments
         for key, item in kwargs.items():
-            if key in nonlisted_yaml_args and key.split('_')[0] + 's' in params:
+            if key in nonlisted_yaml_args:
                 params['default'][key] = item
                 continue
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
@@ -264,6 +260,10 @@ class RxNodeParams(Params):
                     args['is_reactive'] = True
                 if 'input_converters' in default and key in default['input_converters']:
                     args['converter'] = default['input_converters'][key]
+                if 'delays' in default and key in default['delays']:
+                    args['delay'] = default['delays'][key]
+                elif 'delay' in p_in:
+                    args['delay'] = p_in['delay']
                 if 'space_converter' in p_in:
                     args['space_converter'] = p_in['space_converter']
                 n = RxInput(**args)
@@ -284,6 +284,8 @@ class RxNodeParams(Params):
                     args['converter'] = default['output_converters'][key]
                 if 'space_converter' in p_in:
                     args['space_converter'] = p_in['space_converter']
+                if 'start_with_msg' in p_in:
+                    args['start_with_msg'] = p_in['start_with_msg']
                 n = RxOutput(**args)
                 outputs.append(n)
             del default['outputs']
@@ -320,7 +322,13 @@ class RxNodeParams(Params):
         if 'feedthroughs' in default:
             for key, value in default['feedthroughs'].items():
                 assert key in params['feedthroughs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('feedthrough', key, 'feedthroughs', config_name, package_name)
-                p_in = params['feedthroughs'][key]
+
+                # Add output details (msg_type, space_converter, etc...) to feedthroughs
+                assert key in params['outputs'], 'Feedthrough "%s" must directly correspond to an output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (key, config_name, package_name)
+                p_in = {'msg_type': params['outputs'][key]['msg_type']}
+                if 'space_converter' in params['outputs'][key]:
+                    p_in['space_converter'] = params['outputs'][key]['space_converter']
+
                 args = dict()
                 args['feedthrough_to'], args['address'] = key, value
                 args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
@@ -373,15 +381,34 @@ class RxObjectParams(Params):
         # Error check the parameters here.
 
     @classmethod
-    def create(cls, name: str, package_name: str, object_name: str, **kwargs):
-
+    def create(cls, name: str, package_name: str, config_name: str, **kwargs):
         # Load yaml from config file
-        params = load_yaml(package_name, object_name)
+        params = load_yaml(package_name, config_name)
+
+        # default arguments, not specified in node_name.yaml
+        nonlisted_yaml_args = []
+        ignored_yaml_args = []
 
         # Replace default arguments
         for key, item in kwargs.items():
-            if key in params['default'].keys():
+            if key in nonlisted_yaml_args:
                 params['default'][key] = item
+                continue
+            assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
+            params['default'][key] = item
+
+        # Check if all arguments are specified
+        for key, value in params['default'].items():
+            if key in ignored_yaml_args: continue
+            assert value is not None, 'Missing argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (key, config_name, package_name)
+
+        # Check reserved keywords
+        assert 'name' not in params['default'], 'Argument "name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        assert 'package_name' not in params['default'], 'Argument "package_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        assert 'config_name' not in params['default'], 'Argument "config_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
+        params['default']['name'] = name
+        params['default']['package_name'] = package_name
+        params['default']['config_name'] = config_name
         return cls(name, params)
 
     def get_params(self, ns, bridge):

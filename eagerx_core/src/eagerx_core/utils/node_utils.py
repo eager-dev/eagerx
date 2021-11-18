@@ -25,6 +25,7 @@ def configure_connections(connections):
         source = io['source']
         target = io['target']
         converter = io['converter'] if 'converter' in io else None
+        delay = io['delay'] if 'delay' in io else None
 
         # PREPARE OUTPUT
         # Determine source address & msg_type
@@ -55,6 +56,7 @@ def configure_connections(connections):
 
             # Create input entry for action or state
             # Additional info: addresses & converters must match if a state is also the target of a resetnode. Hence, we check that here.
+            # Additional info: addresses & converters must match if an action is an input to multiple nodes. Hence, we check that here.
             if component in ['states', 'targets']:
                 if env_cname in env_dict['default']['states']:
                     address = env_dict['default']['states'][env_cname]
@@ -65,10 +67,15 @@ def configure_connections(connections):
                     env_dict['default']['state_converters'][env_cname] = space_converter
                     env_dict['states'][env_cname] = {'msg_type': msg_type_B}
             else:
-                assert env_cname not in env_dict['default']['outputs'], 'Action name "%s" already defined. Action names must be unique.' % cname
-                env_dict['default']['outputs'][env_cname] = address
-                env_dict['default']['output_converters'][env_cname] = space_converter
-                env_dict['outputs'][env_cname] = {'msg_type': msg_type_B}
+                if env_cname in env_dict['default']['outputs']:
+                    # assert env_cname not in env_dict['default']['outputs'], 'Action name "%s" already defined. Action names must be unique.' % cname
+                    address = env_dict['default']['outputs'][env_cname]
+                    assert space_converter == env_dict['default']['output_converters'][env_cname], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
+                    assert msg_type_B == env_dict['outputs'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('msg_types', env_cname)
+                else:
+                    env_dict['default']['outputs'][env_cname] = address
+                    env_dict['default']['output_converters'][env_cname] = space_converter
+                    env_dict['outputs'][env_cname] = {'msg_type': msg_type_B}
         elif isinstance(source, tuple) and isinstance(source[0], RxNodeParams):
             cname = source[1]
             address = source[0].params['default']['outputs'][cname]
@@ -102,25 +109,43 @@ def configure_connections(connections):
             obs_name = target[1]
             repeat = target[2]
 
-            # Infer details from target
-            assert converter is None, "Cannot have an input converter when the output is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
-            node = source[0]
-            component = source[1]
-            cname = source[2]
+            # Infer details from source
+            assert converter is None, "Cannot have an input converter when the source is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
 
-            # Infer msg_type from space_converter
-            space_converter = node.params[component][cname]['space_converter']
-            msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
-            msg_type_C = get_module_type_string(msg_cls_C)
+            if isinstance(source[0], RxObjectParams):
+                node = source[0]
+                component = source[1]
+                cname = source[2]
+
+                # Infer msg_type from space_converter
+                space_converter = node.params[component][cname]['space_converter']
+                msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
+                msg_type_C = get_module_type_string(msg_cls_C)
+            elif isinstance(source[0], RxNodeParams):
+                node = source[0]
+                component = 'outputs'
+                cname = source[1]
+
+                # Infer msg_type from space_converter
+                space_converter = node.params[component][cname]['space_converter']
+                msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
+                msg_type_C = get_module_type_string(msg_cls_C)
+            else:
+                raise ValueError('Cannot infer properties from source.')
 
             # Create input entry for action
             observations['default']['inputs'][obs_name] = address
             observations['default']['input_converters'][obs_name] = space_converter
             observations['inputs'][obs_name] = {'msg_type': msg_type_B, 'repeat': repeat}
+            if delay:
+                observations['inputs'][obs_name]['delay'] = delay
         elif isinstance(target, tuple) and isinstance(target[0], RxNodeParams):
             node = target[0]
             component = target[1]
             cname = target[2]
+
+            if component == 'feedthroughs':
+                print('wait')
 
             # Add address
             if node.params['default'][component] is None:
@@ -134,8 +159,14 @@ def configure_connections(connections):
                     node.params['default'][converter_key] = dict()
                 node.params['default'][converter_key][cname] = converter
 
+            # Add delay if specified
+            if delay and component == 'inputs':
+                if 'delays' not in node.params['default']:
+                    node.params['default']['delays'] = dict()
+                node.params['default']['delays'][cname] = delay
+
             # Verify that msg_type after converter matches the one specified in the .yaml
-            if msg_type_C:
+            if msg_type_C and not component=='feedthroughs':
                 type_out = get_cls_from_string(msg_type_C)
                 type_yaml = get_cls_from_string(node.params[component][cname]['msg_type'])
                 assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of node "%s".' % (type_out, type_yaml, node.name)
@@ -164,6 +195,12 @@ def configure_connections(connections):
                         if 'input_converters' not in bridge_params[component][cname]:
                             bridge_params[component][cname]['input_converters'] = dict()
                         bridge_params[component][cname]['input_converters'][actuator_input] = converter
+
+                    # Add converter if specified
+                    if delay:
+                        if 'delays' not in bridge_params[component][cname]:
+                            bridge_params[component][cname]['delays'] = dict()
+                        bridge_params[component][cname]['delays'][actuator_input] = delay
 
             # Verify that msg_type after converter matches the one specified in the .yaml
             if msg_type_C:
