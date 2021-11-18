@@ -3,12 +3,27 @@
 """
 
 # -*- coding: utf-8 -*-
+
+import os
+
+# Import pyqtgraph modules
 from pyqtgraph.Qt import QT_LIB
 from pyqtgraph.flowchart.Node import *
 from pyqtgraph import FileDialog, DataTreeWidget
-import tabulate
+from pyqtgraph import configfile as configfile
+from pyqtgraph import dockarea as dockarea
+from pyqtgraph import functions as fn
+from pyqtgraph.python2_3 import asUnicode
+from pyqtgraph.debug import printExc
 
-## pyside and pyqt use incompatible ui files.
+# Import eagerx modules
+from eagerx_gui.Node import Node as EagerxNode
+from eagerx_gui.Terminal import Terminal as EagerxTerminal
+from eagerx_gui import eagerx_graph_view
+from eagerx_core.params import RxObjectParams, RxNodeParams
+from eagerx_core.utils.utils import load_yaml
+
+# pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
     from eagerx_gui import EagerxGraphCtrlTemplate_pyside as EagerxGraphCtrlTemplate
 elif QT_LIB == 'PySide2':
@@ -17,20 +32,6 @@ elif QT_LIB == 'PyQt5':
     from eagerx_gui import EagerxGraphCtrlTemplate_pyqt5 as EagerxGraphCtrlTemplate
 else:
     from eagerx_gui import EagerxGraphCtrlTemplate_pyqt as EagerxGraphCtrlTemplate
-    
-from pyqtgraph.flowchart.Terminal import Terminal
-from numpy import ndarray
-from pyqtgraph import configfile as configfile
-from pyqtgraph import dockarea as dockarea
-from eagerx_gui import eagerx_graph_view
-from pyqtgraph import functions as fn
-from pyqtgraph.python2_3 import asUnicode
-
-import os
-from pyqtgraph.debug import printExc
-from eagerx_gui.Node import Node as EagerxNode
-from eagerx_gui.Terminal import Terminal as EagerxTerminal
-
 
 def strDict(d):
     return dict([(str(k), v) for k, v in d.items()])
@@ -43,13 +44,11 @@ class EagerxGraph(Node):
     sigStateChanged = QtCore.Signal()  # called when output is expected to have changed
     sigChartChanged = QtCore.Signal(object, object, object)  # called when nodes are added, removed, or renamed.
     
-    def __init__(self, terminals=None, name=None, filePath=None, library=None):
+    def __init__(self, terminals=None, name='env', file_path=None, library=None):
         self.library = library
-        if name is None:
-            name = "EAGERX Graph"
         if terminals is None:
             terminals = {}
-        self.filePath = filePath
+        self.filePath = file_path
         Node.__init__(self, name, allowAddInput=True, allowAddOutput=True)  # create node without terminals; we'll add these later
 
         self.inputWasSet = False  # flag allows detection of changes in the absence of input change.
@@ -60,9 +59,15 @@ class EagerxGraph(Node):
         self.processing = False  # flag that prevents recursive node updates
         
         self.widget()
-        
-        self.inputNode = EagerxNode('Actions', allowRemove=False, allowAddOutput=True, node_type='action', graph=self)
-        self.outputNode = EagerxNode('Observations', allowRemove=False, allowAddInput=True, node_type='observation', graph=self)
+
+        # Create actions and observations nodes
+        actions = RxNodeParams.create('{}/actions'.format(name), package_name='eagerx_core', config_name='actions')
+        actions_yaml = load_yaml('eagerx_core', 'actions')
+        observations = RxNodeParams.create('{}/observations'.format(name), 'eagerx_core', 'observations')
+        observations_yaml = load_yaml('eagerx_core', 'observations')
+        self.inputNode = EagerxNode(actions.name, params=actions.params, yaml=actions_yaml, graph=self)
+        self.outputNode = EagerxNode(observations.name, params=observations.params, yaml=observations_yaml, graph=self)
+
         self.addNode(self.inputNode, 'Actions', [-150, 0])
         self.addNode(self.outputNode, 'Observations', [300, 0])
         
@@ -112,7 +117,7 @@ class EagerxGraph(Node):
             opts['multi'] = False
             self.inputNode.sigTerminalAdded.disconnect(self.internalTerminalAdded)
             try:
-                term2 = self.inputNode.addTerminal(name, **opts)
+                self.inputNode.addTerminal(name, **opts)
             finally:
                 self.inputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
                 
@@ -120,7 +125,7 @@ class EagerxGraph(Node):
             opts['io'] = 'in'
             self.outputNode.sigTerminalAdded.disconnect(self.internalTerminalAdded)
             try:
-                term2 = self.outputNode.addTerminal(name, **opts)
+                self.outputNode.addTerminal(name, **opts)
             finally:
                 self.outputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
         return term
@@ -154,26 +159,13 @@ class EagerxGraph(Node):
             if oldName in n.terminals:
                 n[oldName].rename(newName)
 
-    def createNode(self, node_definition, name=None, pos=None):
+    def createNode(self, name, params, yaml, pos=None):
         """Create a new Node and add it to this flowchart.
         """
-        if name is None:
-            n = 0
-            while True:
-                name = '{}'.format(node_definition['name'])
-                if n > 0:
-                    name += '_{}'.format(n+1)
-                if name not in self._nodes:
-                    break
-                n += 1
-        allow_add_input = node_definition['type'] == 'object'
-        allow_add_output = node_definition['type'] == 'object'
         node = EagerxNode(
             name,
-            node_type=node_definition['type'],
-            node_params=node_definition['parameters'],
-            allowAddInput=allow_add_input,
-            allowAddOutput=allow_add_output,
+            params=params,
+            yaml=yaml,
             graph=self,
         )
         self.addNode(node, name, pos)
@@ -292,10 +284,7 @@ class EagerxGraph(Node):
                     ret = args  # we now have the return value, but must keep processing in case there are other endpoint nodes in the chart
                 else:
                     try:
-                        if node.isBypassed():
-                            result = node.processBypassed(args)
-                        else:
-                            result = node.process(display=False, **args)
+                        result = node.process(display=False, **args)
                     except:
                         print("Error processing node %s. Args are: %s" % (str(node), str(args)))
                         raise
@@ -434,19 +423,18 @@ class EagerxGraph(Node):
         
         for name, node in self._nodes.items():
             cls = type(node)
-            if hasattr(cls, 'nodeName'):
-                clsName = cls.nodeName
+            if hasattr(cls, 'saveState'):
                 pos = node.graphicsItem().pos()
-                ns = {'class': clsName, 'name': name, 'pos': (pos.x(), pos.y()), 'state': node.saveState()}
+                ns = {'name': name, 'pos': (pos.x(), pos.y()), 'state': node.saveState()}
                 state['nodes'].append(ns)
             
         conn = self.listConnections()
         for a, b in conn:
             state['connects'].append((a.node().name(), a.name(), b.node().name(), b.name()))
-        
+
         state['inputNode'] = self.inputNode.saveState()
         state['outputNode'] = self.outputNode.saveState()
-        
+
         return state
         
     def restoreState(self, state, clear=False):
@@ -464,7 +452,11 @@ class EagerxGraph(Node):
                     self._nodes[n['name']].restoreState(n['state'])
                     continue
                 try:
-                    node = self.createNode(n['class'], name=n['name'])
+                    params = n['state']['params']
+                    name = n['name']
+                    yaml = n['state']['yaml']
+                    pos = n['pos']
+                    node = self.createNode(name=name, params=params, yaml=yaml, pos=pos)
                     node.restoreState(n['state'])
                 except:
                     printExc("Error creating node %s: (continuing anyway)" % n['name'])
@@ -607,7 +599,7 @@ class EagerxGraphCtrlWidget(QtGui.QWidget):
         self.ui.saveAsBtn.clicked.connect(self.saveAsClicked)
         self.ui.showChartBtn.toggled.connect(self.chartToggled)
         self.chart.sigFileLoaded.connect(self.setCurrentFile)
-        self.ui.reloadBtn.clicked.connect(self.reloadClicked)
+        # self.ui.reloadBtn.clicked.connect(self.reloadClicked)
         self.chart.sigFileSaved.connect(self.fileSaved)
 
     def chartToggled(self, b):
@@ -616,15 +608,6 @@ class EagerxGraphCtrlWidget(QtGui.QWidget):
         else:
             self.cwWin.hide()
 
-    def reloadClicked(self):
-        try:
-            self.chartWidget.reloadLibrary()
-            self.ui.reloadBtn.success("Reloaded.")
-        except:
-            self.ui.reloadBtn.success("Error.")
-            raise
-            
-            
     def loadClicked(self):
         newFile = self.chart.loadFile()
         
@@ -678,15 +661,6 @@ class EagerxGraphCtrlWidget(QtGui.QWidget):
         ctrl = node.ctrlWidget()
         item = QtGui.QTreeWidgetItem([node.name(), '', ''])
         self.ui.ctrlList.addTopLevelItem(item)
-        byp = QtGui.QPushButton('X')
-        byp.setCheckable(True)
-        byp.setFixedWidth(20)
-        item.bypassBtn = byp
-        self.ui.ctrlList.setItemWidget(item, 1, byp)
-        byp.node = node
-        node.bypassButton = byp
-        byp.setChecked(node.isBypassed())
-        byp.clicked.connect(self.bypassClicked)
         
         if ctrl is not None:
             item2 = QtGui.QTreeWidgetItem()
@@ -698,15 +672,7 @@ class EagerxGraphCtrlWidget(QtGui.QWidget):
     def removeNode(self, node):
         if node in self.items:
             item = self.items[node]
-            try:
-                item.bypassBtn.clicked.disconnect(self.bypassClicked)
-            except (TypeError, RuntimeError):
-                pass
             self.ui.ctrlList.removeTopLevelItem(item)
-            
-    def bypassClicked(self):
-        btn = QtCore.QObject.sender(self)
-        btn.node.bypass(btn.isChecked())
             
     def chartWidget(self):
         return self.chartWidget
@@ -764,29 +730,22 @@ class EagerxGraphWidget(dockarea.DockArea):
         self._scene.selectionChanged.connect(self.selectionChanged)
         self._scene.sigMouseHover.connect(self.hoverOver)
 
-    def reloadLibrary(self):
-        self.nodeMenu.triggered.disconnect(self.nodeMenuTriggered)
-        self.nodeMenu = None
-        self.chart.library.reload()
-        self.buildMenu()
-        
     def buildMenu(self, pos=None):
-        def buildSubMenu(library, root_menu, subMenus, node_type, pos=None):
+        def buildSubMenu(library, root_menu, subMenus, pos=None):
             for package, nodes in library.items():
                 package_menu = QtGui.QMenu(package)
                 root_menu.addMenu(package_menu)
                 subMenus.append(package_menu)
                 for node in nodes:
                     act = package_menu.addAction(node['name'])
-                    node['package'] = package
-                    node['type'] = node_type
+                    node['package_name'] = package
                     act.nodeType = node
                     act.pos = pos
         self.subMenus = []
         self.nodeMenu = []
         for node_type, library in self.chart.library.items():
             menu = QtGui.QMenu('Add {}'.format(node_type))
-            buildSubMenu(library, menu, self.subMenus, node_type, pos=pos)
+            buildSubMenu(library, menu, self.subMenus, pos=pos)
             menu.triggered.connect(self.nodeMenuTriggered)
             self.nodeMenu.append(menu)
         return self.nodeMenu
@@ -812,8 +771,23 @@ class EagerxGraphWidget(dockarea.DockArea):
             pos = self.menuPos
         pos = self.viewBox().mapSceneToView(pos)
 
-        self.chart.createNode(nodeType, pos=pos)
+        n = 0
+        while True:
+            name = '{}'.format(nodeType['name'])
+            if n > 0:
+                name += '_{}'.format(n+1)
+            if name not in self.chart._nodes:
+                break
+            n += 1
 
+        yaml = nodeType['yaml']
+        if 'node_type' in yaml.keys():
+            rx_node = RxNodeParams.create(name, nodeType['package_name'], nodeType['name'], rate=1)
+            params = rx_node.params
+        else:
+            rx_object = RxObjectParams.create(name, nodeType['package_name'], nodeType['name'])
+            params = rx_object.params
+        self.chart.createNode(name=name, params=params, yaml=yaml, pos=pos)
 
     def selectionChanged(self):
         items = self._scene.selectedItems()
@@ -843,10 +817,13 @@ class EagerxGraphWidget(dockarea.DockArea):
         for item in items:
             self.hoverItem = item
             if hasattr(item, 'term') and isinstance(item.term, EagerxTerminal):
-                self.hoverText.setPlainText(item.term.name())
+                text = 'name: ' + item.term.nameSplit()
+                for key, value in item.term.info().items():
+                    text += '\n' + '{}: {}'.format(key, value)
+                self.hoverText.setPlainText(text)
                 return
             elif hasattr(item, 'node') and isinstance(item.node, EagerxNode):
-                text = item.node.name()
+                text = 'name: ' + item.node.name()
                 for key, value in item.node.info().items():
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)

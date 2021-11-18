@@ -55,7 +55,7 @@
   <build_export_depend>rospy</build_export_depend>
   <exec_depend>eagerx_core</exec_depend>
   <exec_depend>rospy</exec_depend>
-  <exec_depend>python-pyqtgraph</exec_depend>
+  <exec_depend>python3-pyqtgraph</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

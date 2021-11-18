@@ -18,10 +18,12 @@ def load_library():
                 package = split
             elif split.endswith('.yaml'):
                 node = split[:-5]
+        if package == 'eagerx_core' and node in ['actions', 'observations', 'bridge', 'supervisor']:
+            continue
         if package is not None and node is not None:
-            params = load_yaml(package, node)
-            if 'node_type' in params:
-                if 'feedthroughs' in params:
+            yaml = load_yaml(package, node)
+            if 'node_type' in yaml:
+                if 'feedthroughs' in yaml:
                     type = 'real_reset'
                 else:
                     type = 'node'
@@ -29,7 +31,7 @@ def load_library():
                 type = 'object'
             if package not in library[type].keys():
                 library[type][package] = []
-            library[type][package].append({'name': node, 'parameters': params})
+            library[type][package].append({'name': node, 'yaml': yaml})
     return library
 
 def EagerxGraphCreator():
@@ -58,7 +60,9 @@ def EagerxGraphCreator():
 if __name__ == '__main__':
     EagerxGraphCreator()
 
-#TODO: Selected node info should show default/custom arguments
 #TODO: Check if flowchart can run in notebook
-#TODO: State of process node should be output that is not connectable
 #TODO: Allow to add processor with arguments when right click on input or output
+#TODO: Open new window on double clicking on nodes/terminals
+#TODO: Input terminals get address on connection
+#TODO: Update addresses on changes in connection
+#TODO: Update information of feedthroughs

@@ -7,8 +7,8 @@ from pyqtgraph.Point import Point
 import eagerx_core.converter
 
 class Terminal(object):
-    def __init__(self, node, name, io, optional=False, multi=False, pos=None, renamable=False, removable=False,
-                 multiable=False, bypass=None, is_state=False, connectable=True):
+    def __init__(self, node, name, io, optional=False, multi=False, params=None, pos=None, renamable=False,
+                 removable=False, multiable=False, is_state=False, is_feedthrough=False, connectable=True):
         """
         Construct a new terminal. 
         
@@ -28,6 +28,8 @@ class Terminal(object):
                         when the Node is in bypass mode.
         ==============  =================================================================================
         """
+        if params is None:
+            params = {}
         self._io = io
         self._optional = optional
         self._multi = multi
@@ -38,10 +40,11 @@ class Terminal(object):
         self._multiable = multiable
         self._connections = {}
         self._graphicsItem = TerminalGraphicsItem(self, parent=self._node().graphicsItem())
-        self._bypass = bypass
         self._pos = pos
         self._is_state = is_state
+        self._is_feedthrough = is_feedthrough
         self._connectable = connectable
+        self._info = {}
         
         if multi:
             self._value = {}  ## dictionary of terminal:value pairs.
@@ -50,6 +53,8 @@ class Terminal(object):
         
         self.valueOk = None
         self.recolor()
+        if params is not None:
+            self.updateInfo(**params)
         
     def value(self, term=None):
         """Return the value this terminal provides for the connected terminal"""
@@ -60,9 +65,6 @@ class Terminal(object):
             return self._value.get(term, None)
         else:
             return self._value
-
-    def bypassValue(self):
-        return self._bypass
 
     def setValue(self, val, process=True):
         """If this is a single-value terminal, val should be a single value.
@@ -130,8 +132,18 @@ class Terminal(object):
     def node(self):
         return self._node()
 
+    def info(self):
+        return self._info
+
+    def updateInfo(self, **kwargs):
+        for key, value in kwargs.items():
+            self._info[key] = value
+
     def isState(self):
         return self._is_state
+
+    def isFeedthrough(self):
+        return self._is_feedthrough
         
     def isInput(self):
         return self._io == 'in'
@@ -165,6 +177,9 @@ class Terminal(object):
 
     def name(self):
         return self._name
+
+    def nameSplit(self):
+        return self._name.split('/')[-1]
         
     def graphicsItem(self):
         return self._graphicsItem
@@ -199,6 +214,11 @@ class Terminal(object):
                 raise Exception("Can't connect to terminal on same node.")
             if not term.isState() == self.isState():
                 raise Exception("Cannot connect different input/output types.")
+            if term.isInput() == self.isInput():
+                raise Exception("Cannot connect input with input or output with output.")
+            if 'msg_type' in term.info().keys() and 'msg_type' in self.info().keys():
+                if not term.info()['msg_type'] == self.info()['msg_type']:
+                    raise Exception("Cannot connect terminals with different message types")
             for t in [self, term]:
                 if t.isInput() and not t._multi and len(t.connections()) > 0:
                     raise Exception("Cannot connect %s <-> %s: Terminal %s is already connected to %s (and does not allow multiple connections)" % (self, term, t, list(t.connections().keys())))
@@ -212,7 +232,7 @@ class Terminal(object):
             self.graphicsItem().getViewBox().addItem(connectionItem)
         self._connections[term] = connectionItem
         term._connections[self] = connectionItem
-        
+
         self.recolor()
         
         self.connected(term)
@@ -266,7 +286,7 @@ class Terminal(object):
         self.graphicsItem().termRenamed(name)
         
     def __repr__(self):
-        return "<Terminal %s.%s>" % (str(self.node().name()), str(self.name()))
+        return "<Terminal %s.%s>" % (str(self.node().name()), str(self.nameSplit()))
         
     def __hash__(self):
         return id(self)
@@ -278,7 +298,9 @@ class Terminal(object):
             item.scene().removeItem(item)
         
     def saveState(self):
-        return {'io': self._io, 'multi': self._multi, 'optional': self._optional, 'renamable': self._renamable, 'removable': self._removable, 'multiable': self._multiable}
+        return {'io': self._io, 'multi': self._multi, 'optional': self._optional, 'renamable': self._renamable,
+                'removable': self._removable, 'multiable': self._multiable, 'info': self._info,
+                'is_state': self._is_state}
 
 
 class TerminalGraphicsItem(GraphicsObject):
@@ -288,7 +310,7 @@ class TerminalGraphicsItem(GraphicsObject):
         GraphicsObject.__init__(self, parent)
         self.brush = fn.mkBrush(0, 0, 0)
         self.box = QtGui.QGraphicsRectItem(0, 0, 10, 10, self)
-        self.label = QtGui.QGraphicsTextItem(self.term.name(), self)
+        self.label = QtGui.QGraphicsTextItem(self.term.nameSplit(), self)
         self.label.scale(0.7, 0.7)
         self.newConnection = None
         self.setFiltersChildEvents(True)  ## to pick up mouse events on the rectitem
@@ -311,11 +333,13 @@ class TerminalGraphicsItem(GraphicsObject):
         
     def labelChanged(self):
         newName = str(self.label.toPlainText())
-        if newName != self.term.name():
+        if newName != self.term.nameSplit():
+            if not self.term.name() == self.term.nameSplit():
+                newName = self.term.name().replace(self.term.nameSplit(), newName)
             self.term.rename(newName)
 
     def termRenamed(self, name):
-        self.label.setPlainText(name)
+        self.label.setPlainText(name.split('/')[-1])
 
     def setBrush(self, brush):
         self.brush = brush
@@ -372,7 +396,7 @@ class TerminalGraphicsItem(GraphicsObject):
     def getMenu(self):
         self.menu = QtGui.QMenu()
         self.menu.setTitle("Terminal")
-        remAct = QtGui.QAction("Remove {}".format(self.term.name()), self.menu)
+        remAct = QtGui.QAction("Remove {}".format(self.term.nameSplit()), self.menu)
         remAct.triggered.connect(self.removeSelf)
         self.menu.addAction(remAct)
         self.menu.remAct = remAct
