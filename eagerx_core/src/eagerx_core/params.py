@@ -291,6 +291,7 @@ class RxNodeParams(Params):
                 assert cname in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', cname, 'states', config_name, package_name)
                 params['states'][cname]['msg_module'], params['states'][cname]['msg_type'] = params['states'][cname]['msg_type'].split('/')
                 if 'address' in params['states'][cname]: # if 'env/supervisor', the state address is pre-defined (like an input)
+                    assert not in_object, 'Cannot pre-specify a state address for state "%s" when you use the node inside an object.' % cname
                     n = RxState(name=cname, **params['states'][cname])
                 else:
                     address = '%s/states/%s' % (name, cname)
@@ -434,8 +435,6 @@ class RxObjectParams(Params):
             p_bridge['rate'] = p_env['rate']
 
             # Define node inputs mapping
-            # todo: if 'actuators' in node_name --> normal naming convention
-            # todo; if 'sensors' in node_name and in_object --> node_name only --> check that sensors only have 1 output.
             inputs_dict = {'tick': 'bridge/outputs/tick'}
             check_None_trigger = False
             for act_cname, address in p_bridge['inputs'].items():

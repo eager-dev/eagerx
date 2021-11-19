@@ -14,7 +14,7 @@ if __name__ == '__main__':
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
 
     # Define nodes
-    sp = False
+    sp = True
     N1 = RxNodeParams.create('N1', 'eagerx_core', 'process',   rate=1, single_process=sp, outputs=['out_1', 'out_2'])
     N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1, single_process=sp, targets=['target_1'])
     N4 = RxNodeParams.create('N4', 'eagerx_core', 'process',   rate=3, single_process=sp, output_converters={'out_1': IntUInt64Converter})

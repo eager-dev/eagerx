@@ -64,7 +64,7 @@ bridge:
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
-#      states: []
+#      states: [error]
       test_arg: 'CHANGED ARGUMENT'
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state

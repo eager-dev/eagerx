@@ -5,7 +5,7 @@ from rosgraph.masterapi import Error
 
 # EAGERX
 from eagerx_core.params import RxNodeParams, RxObjectParams
-from eagerx_core.utils.utils import merge_dicts
+from eagerx_core.utils.utils import load_yaml
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.node import RxNode
 from eagerx_core.bridge import RxBridge
@@ -82,6 +82,30 @@ class Env(object):
 
                 supervisor.params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
                 supervisor.params['default']['states'].append(name)
+
+            # Get states from simnodes. WARNING: can make environment non-agnostic.
+            if isinstance(i, RxObjectParams):
+                for component in ('sensors', 'actuators'):
+                    if component in i.params['default']:
+                        for cname in i.params['default'][component]:
+                            params_simnode = i.params[self._bridge_name][component][cname]
+                            package_name, config_name = params_simnode['node_config'].split('/')
+                            node_yaml = load_yaml(package_name, config_name)
+                            if 'states' in params_simnode:
+                                node_yaml['default']['states'] = params_simnode['states']
+                            if 'states' in node_yaml['default']:
+                                for simnode_cname in node_yaml['default']['states']:
+                                    name = '%s/%s/%s/%s' % (i.name, component, cname, simnode_cname)
+                                    address = '%s/%s/%s/states/%s' % (i.name, component, cname, simnode_cname)
+                                    msg_type = node_yaml['states'][simnode_cname]['msg_type']
+                                    space_converter = node_yaml['states'][simnode_cname]['space_converter']
+
+                                    rospy.logwarn('Adding state "%s" to simulation nodes can potentially make the environment for object "%s" non-agnostic. Check "%s.yaml" in package "%s" for more info.' % (name, i.name, config_name, package_name))
+                                    assert name not in supervisor.params[ 'states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+
+                                    supervisor.params['states'][name] = dict(address=address, msg_type=msg_type,
+                                                                             converter=space_converter)
+                                    supervisor.params['default']['states'].append(name)
 
         # Delete pre-existing parameters
         try:

@@ -1,7 +1,7 @@
 node_type: eagerx_core.node/ProcessNode
 default:
   rate:
-  inputs: [tick, action_1, action_2]  # tick is added later on (all sim nodes have tick as input)
+  inputs: [tick, action_1, action_2]
   outputs: [action_1]
   single_process: True
   launch_locally: True

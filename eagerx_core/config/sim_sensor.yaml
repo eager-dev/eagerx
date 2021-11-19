@@ -1,9 +1,9 @@
 node_type: eagerx_core.node/ProcessNode
 default:
   rate:
-  inputs: [tick, in_1]  # tick is added later on (all sim nodes have tick as input)
+  inputs: [tick, in_1]
   outputs: [out_1]
-  states: []
+  states: [error]
   single_process: True
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
