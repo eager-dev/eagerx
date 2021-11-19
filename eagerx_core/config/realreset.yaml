@@ -1,11 +1,10 @@
 node_type: eagerx_core.node/RealResetNode
 default:
   rate:
-  inputs:
-  outputs:
-  states:
-  targets:
-  feedthroughs:
+  inputs: [in_1]
+  outputs: [out_1]
+  states: [state_1]
+  targets: [target_1]
   single_process: False
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
@@ -64,7 +63,7 @@ targets:
       high: [100]
 
 feedthroughs:
-  out_1:
-  out_2:
+  out_1: {}
+  out_2: {}
 
 

@@ -15,200 +15,142 @@ from functools import partial
 
 
 def configure_connections(connections):
-    # type(str) == address
-    # type(dict) == action/observation
-    # type(tuple) & type(tuple[0]) == RxObject
-    # type(tuple) & type(tuple[0]) == RxNode
-    # msg_types: A --> B --> C with A=output_type, B=topic_type, C=input_type
-
+    # msg_types: A --> B --> C with A=output_type, <output_converter>, B=topic_type, <input_converter>, C=input_type
     for io in connections:
         source = io['source']
         target = io['target']
         converter = io['converter'] if 'converter' in io else None
         delay = io['delay'] if 'delay' in io else None
+        repeat = io['repeat'] if 'repeat' in io else None
 
-        # PREPARE OUTPUT
-        # Determine source address & msg_type
-        if isinstance(source, str):  # address
-            raise ValueError('String type specifications of the source address is currently not supported.')
-            address = source
-            msg_type_A = None  # Cannot infer from address only
-            msg_type_B = msg_type_A
-        elif isinstance(source, tuple) and isinstance(source[0], dict):  # action or state
-            env_dict = source[0]
-            env_cname = source[1]
-
-            # Infer details from target
-            assert converter is None, "Cannot have an input converter when the output is an action of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
-            node = target[0]
-            name = node.name
-            component = target[1]
-            cname = target[2]
-
-            # Standard naming convention
-            address = '%s/%s' % (name, cname)
-            msg_type_B = node.params[component][cname]['msg_type']
-
-            # Infer msg_type from space_converter
-            space_converter = node.params[component][cname]['space_converter']
-            msg_cls_A = get_opposite_msg_cls(msg_type_B, space_converter)
-            msg_type_A = get_module_type_string(msg_cls_A)
-
-            # Create input entry for action or state
-            # Additional info: addresses & converters must match if a state is also the target of a resetnode. Hence, we check that here.
-            # Additional info: addresses & converters must match if an action is an input to multiple nodes. Hence, we check that here.
-            if component in ['states', 'targets']:
-                if env_cname in env_dict['default']['states']:
-                    address = env_dict['default']['states'][env_cname]
-                    assert space_converter == env_dict['default']['state_converters'][env_cname], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
-                    assert msg_type_B == env_dict['states'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('msg_types', env_cname)
-                else:
-                    env_dict['default']['states'][env_cname] = address
-                    env_dict['default']['state_converters'][env_cname] = space_converter
-                    env_dict['states'][env_cname] = {'msg_type': msg_type_B}
-            else:
-                if env_cname in env_dict['default']['outputs']:
-                    # assert env_cname not in env_dict['default']['outputs'], 'Action name "%s" already defined. Action names must be unique.' % cname
-                    address = env_dict['default']['outputs'][env_cname]
-                    assert space_converter == env_dict['default']['output_converters'][env_cname], 'Conflicting %s for state "%s".' % ('space_converters', env_cname)
-                    assert msg_type_B == env_dict['outputs'][env_cname]['msg_type'], 'Conflicting %s for state "%s".' % ('msg_types', env_cname)
-                else:
-                    env_dict['default']['outputs'][env_cname] = address
-                    env_dict['default']['output_converters'][env_cname] = space_converter
-                    env_dict['outputs'][env_cname] = {'msg_type': msg_type_B}
-        elif isinstance(source, tuple) and isinstance(source[0], RxNodeParams):
+        # PROCESS SOURCE
+        if isinstance(source[0], RxNodeParams):  # source=Node
+            node = source[0]
             cname = source[1]
-            address = source[0].params['default']['outputs'][cname]
-            msg_type_A = source[0].params['outputs'][cname]['msg_type']
-            if 'output_converters' in source[0].params['default'] and cname in source[0].params['default']['output_converters']:
-                msg_cls_B = get_opposite_msg_cls(msg_type_A, source[0].params['default']['output_converters'][cname])
-                msg_type_B = get_module_type_string(msg_cls_B)
-            else:
-                msg_type_B = msg_type_A
-        elif isinstance(source, tuple) and isinstance(source[0], RxObjectParams):
-            obj_name = source[0].name
+            address = '%s/outputs/%s' % (node.name, cname)
+
+            # Grab output entry
+            if not node.name == 'env/actions':
+                msg_type_A = node.params['outputs'][cname]['msg_type']
+                if 'converter' in node.params['outputs'][cname]:
+                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_A, node.params['outputs'][cname]['converter']))
+                else:
+                    msg_type_B = msg_type_A
+        elif isinstance(source[0], RxObjectParams):  # source=Object
+            obj = source[0]
             component = source[1]
             cname = source[2]
-            address = '%s/%s/%s' % (obj_name, component, cname)
-            msg_type_A = source[0].params[component][cname]['msg_type']
+            address = '%s/%s/%s' % (obj.name, component, cname)
+            msg_type_A = obj.params[component][cname]['msg_type']
             msg_type_B = msg_type_A
         else:
-            raise ValueError('Connection entry "%s" is misspecified/unsupported. ' % source)
+            raise ValueError('Connection entry "%s" is misspecified/unsupported. Source and target must either be an object or node.' % io)
 
-        # PREPARE  CONVERTER
-        if converter:
-            msg_cls_C = get_opposite_msg_cls(msg_type_B, converter)
-            msg_type_C = get_module_type_string(msg_cls_C)
-        else:
-            msg_type_C = msg_type_B
-
-        # PREPARE INPUT
-        # Set input address, check msg_type consistency, add converter
-        if isinstance(target, tuple) and isinstance(target[0], dict):  # observation
-            observations = target[0]
-            obs_name = target[1]
-            repeat = target[2]
-
-            # Infer details from source
+        # PREPARE TARGET
+        if isinstance(target[0], RxNodeParams) and target[0].name == 'env/observations':  # target=observations node
+            node = target[0]
+            cname = target[1]
             assert converter is None, "Cannot have an input converter when the source is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
 
-            if isinstance(source[0], RxObjectParams):
-                node = source[0]
-                component = source[1]
-                cname = source[2]
-
-                # Infer msg_type from space_converter
-                space_converter = node.params[component][cname]['space_converter']
-                msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
-                msg_type_C = get_module_type_string(msg_cls_C)
-            elif isinstance(source[0], RxNodeParams):
-                node = source[0]
-                component = 'outputs'
-                cname = source[1]
-
-                # Infer msg_type from space_converter
-                space_converter = node.params[component][cname]['space_converter']
-                msg_cls_C = get_opposite_msg_cls(msg_type_B, space_converter)
-                msg_type_C = get_module_type_string(msg_cls_C)
+            # Infer target properties from source
+            if isinstance(source[0], RxNodeParams):
+                space_converter = source[0].params['outputs'][source[1]]['space_converter']
+            elif isinstance(source[0], RxObjectParams):
+                space_converter = source[0].params['sensors'][source[1]]['space_converter']
             else:
-                raise ValueError('Cannot infer properties from source.')
-
-            # Create input entry for action
-            observations['default']['inputs'][obs_name] = address
-            observations['default']['input_converters'][obs_name] = space_converter
-            observations['inputs'][obs_name] = {'msg_type': msg_type_B, 'repeat': repeat}
+                raise ValueError('Cannot infer properties from source "%s".' % source)
+            msg_type_C = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+            node.params['default']['inputs'].append(cname)
+            node.params['inputs'][cname] = dict(address=address, msg_type=msg_type_B, converter=space_converter)
             if delay:
-                observations['inputs'][obs_name]['delay'] = delay
-        elif isinstance(target, tuple) and isinstance(target[0], RxNodeParams):
+                node.params['inputs'][cname]['delay'] = delay
+            if repeat:
+                node.params['inputs'][cname]['repeat'] = repeat
+        elif isinstance(target[0], RxNodeParams) and not target[0].name == 'env/observations':  # target=Node
             node = target[0]
             component = target[1]
             cname = target[2]
 
-            if component == 'feedthroughs':
-                print('wait')
+            if source[0].name == 'env/actions':  # source=actions node
+                assert component in ['inputs', 'feedthroughs'], 'Cannot connect an action to anything other than inputs/feedthroughs. Entry "%s" is misspecified.' % io
+                action_node = source[0]
+                action_cname = source[1]
 
-            # Add address
-            if node.params['default'][component] is None:
-                node.params['default'][component] = dict()
-            node.params['default'][component][cname] = address
+                if component == 'feedthroughs':
+                    action_component = 'outputs'
+                else:
+                    action_component = 'inputs'
 
-            # Add converter if specified
+                # Infer source properties from target node
+                msg_type_B = target[0].params[action_component][cname]['msg_type']
+                space_converter = target[0].params[action_component][cname]['space_converter']
+                msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+                if action_cname in action_node.params['outputs']:
+                    assert msg_type_B == action_node.params['outputs'][action_cname]['msg_type'], 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
+                    assert space_converter == action_node.params['outputs'][action_cname]['converter'], 'Conflicting %s for action "%s".' % ('space_converters', action_cname)
+                else:
+                    action_node.params['default']['outputs'].append(action_cname)
+                    action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
+
+            # Fill in target node properties
+            node.params[component][cname]['address'] = address
             if converter:
-                converter_key = '%s_converters' % component[:-1]
-                if converter_key not in node.params['default']:
-                    node.params['default'][converter_key] = dict()
-                node.params['default'][converter_key][cname] = converter
-
-            # Add delay if specified
-            if delay and component == 'inputs':
-                if 'delays' not in node.params['default']:
-                    node.params['default']['delays'] = dict()
-                node.params['default']['delays'][cname] = delay
+                node.params[component][cname]['converter'] = converter
+            assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
+            if delay:
+                node.params['inputs'][cname]['delay'] = delay
+            assert repeat is None or (repeat is not None and component == 'inputs'), 'Cannot specify a repeat for entry "%s".' % io
+            if repeat:
+                node.params['inputs'][cname]['repeat'] = repeat
+            if component == 'feedthroughs':
+                msg_type_C = node.params['outputs'][cname]['msg_type']
+            else:
+                msg_type_C = node.params[component][cname]['msg_type']
 
             # Verify that msg_type after converter matches the one specified in the .yaml
-            if msg_type_C and not component=='feedthroughs':
+            if msg_type_C and not component == 'feedthroughs':
                 type_out = get_cls_from_string(msg_type_C)
                 type_yaml = get_cls_from_string(node.params[component][cname]['msg_type'])
                 assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of node "%s".' % (type_out, type_yaml, node.name)
-        elif isinstance(target, tuple) and isinstance(target[0], RxObjectParams):
+        elif isinstance(target[0], RxObjectParams):  # target=Object
             obj = target[0]
             component = target[1]
             cname = target[2]
 
-            # Add address & converter --> add to every bridge
-            if component == 'states':
-                for key, bridge_params in obj.params.items():
-                    if key in ['default', 'sensors', 'actuators', 'states']: continue
-                    bridge_params[component][cname]['address'] = address
+            if source[0].name == 'env/actions':  # source=actions node
+                action_node = source[0]
+                action_cname = source[1]
 
-                    if converter:
-                        bridge_params[component][cname]['converter'] = converter
-            elif component == 'actuators':
-                for key, bridge_params in obj.params.items():
-                    if key in ['default', 'sensors', 'actuators', 'states']: continue
-                    actuator_input = bridge_params[component][cname]['actuator_input']
-                    if 'inputs' not in bridge_params[component][cname]:
-                        bridge_params[component][cname]['inputs'] = dict()
-                    bridge_params[component][cname]['inputs'][actuator_input] = address
+                # Infer source properties from target object
+                msg_type_B = target[0].params['actuators'][cname]['msg_type']
+                space_converter = target[0].params['actuators'][cname]['space_converter']
+                msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+                if action_cname in action_node.params['outputs']:
+                    assert msg_type_B == action_node.params['outputs'][action_cname]['msg_type'], 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
+                    assert space_converter == action_node.params['outputs'][action_cname]['converter'], 'Conflicting %s for action "%s".' % ('space_converters', action_cname)
+                else:
+                    action_node.params['default']['outputs'].append(action_cname)
+                    action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
 
-                    if converter:
-                        if 'input_converters' not in bridge_params[component][cname]:
-                            bridge_params[component][cname]['input_converters'] = dict()
-                        bridge_params[component][cname]['input_converters'][actuator_input] = converter
-
-                    # Add converter if specified
-                    if delay:
-                        if 'delays' not in bridge_params[component][cname]:
-                            bridge_params[component][cname]['delays'] = dict()
-                        bridge_params[component][cname]['delays'][actuator_input] = delay
+            # Fill in target object properties
+            obj.params[component][cname]['address'] = address
+            if converter:
+                obj.params[component][cname]['converter'] = converter
+            assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
+            if delay:
+                obj.params['actuators'][cname]['delay'] = delay
+            assert repeat is None or (repeat is not None and component == 'actuators'), 'Cannot specify a repeat for entry "%s".' % io
+            if repeat:
+                obj.params['actuators'][cname]['repeat'] = repeat
+            msg_type_C = obj.params[component][cname]['msg_type']
 
             # Verify that msg_type after converter matches the one specified in the .yaml
             if msg_type_C:
                 type_out = get_cls_from_string(msg_type_C)
                 type_yaml = get_cls_from_string(obj.params[component][cname]['msg_type'])
-                assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of node "%s".' % (type_out, type_yaml, node.name)
+                assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of object "%s".' % (type_out, type_yaml, obj.name)
         else:
-            raise ValueError('Connection entry "%s" is misspecified/unsupported. ' % target)
+            raise ValueError('Connection entry "%s" is misspecified/unsupported. Source and target must either be an object or node.' % io)
 
 
 def launch_node(launch_file, args):

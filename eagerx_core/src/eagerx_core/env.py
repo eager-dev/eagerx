@@ -23,22 +23,21 @@ class Env(object):
     @staticmethod
     def define_actions():
         actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
-        return actions.params
+        return actions
 
     @staticmethod
     def define_observations():
         observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations')
-        return observations.params
+        return observations
 
     @staticmethod
-    def define_states():
+    def define_supervisor():
         states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
-        return states.params
+        return states
 
     def __init__(self, name: str, rate: int,
-                 observations: Dict,
-                 actions: Dict,
-                 states: Dict,
+                 observations: RxNodeParams,
+                 actions: RxNodeParams,
                  bridge: RxNodeParams,
                  nodes: List[RxNodeParams],
                  objects: List[RxObjectParams]) -> None:
@@ -53,10 +52,10 @@ class Env(object):
         self._event = multiprocessing.Event()
 
         # Initialize supervisor node
-        self.mb, self.env_node, _ = self._init_supervisor(states)
+        self.mb, self.env_node, _ = self._init_supervisor(nodes, objects)
 
         # Initialize bridge
-        self._init_bridge(observations, actions, states, bridge, nodes)
+        self._init_bridge(bridge, nodes)
 
         # Initialize action & observation node
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
@@ -67,10 +66,22 @@ class Env(object):
         # Register objects
         self.register_objects(objects)
 
-    def _init_supervisor(self, states: Dict):
-        # Check that all action/observation addresses are unique
-        addresses_ste = [address for cname, address in states['default']['states'].items()]
-        len(set(addresses_ste)) == len(addresses_ste), 'Duplicate states found: %s. Make sure to only have unique states.' % (set([x for x in addresses_ste if addresses_ste.count(x) > 1]))
+    def _init_supervisor(self, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
+        # Initialize supervisor
+        supervisor = self.define_supervisor()
+
+        # Get all states from objects & nodes
+        for i in nodes + objects:
+            for cname in i.params['default']['states']:
+                name = '%s/%s' % (i.name, cname)
+                address = '%s/states/%s' % (i.name, cname)
+                msg_type = i.params['states'][cname]['msg_type']
+                space_converter = i.params['states'][cname]['space_converter']
+
+                assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+
+                supervisor.params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
+                supervisor.params['default']['states'].append(name)
 
         # Delete pre-existing parameters
         try:
@@ -83,32 +94,29 @@ class Env(object):
         mb = RxMessageBroker(owner='%s/%s' % (self.ns, 'env'))
 
         # Create env node
-        sup_name = states['default']['name']
-        env_params = merge_dicts(dict(), [dict(default={'rate': self.rate}), states])
-        env_params = RxNodeParams(sup_name, env_params)
-        env_params = env_params.get_params(ns=self.ns)
-        rosparam.upload_params(self.ns, env_params)
-        rx_env = RxEnvironment(name='%s/%s' % (self.ns, sup_name), message_broker=mb, scheduler=None)
+        supervisor.params['default']['rate'] = self.rate
+        supervisor_params = supervisor.get_params(ns=self.ns)
+        rosparam.upload_params(self.ns, supervisor_params)
+        rx_env = RxEnvironment(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb, scheduler=None)
         rx_env.node_initialized()
 
         # Connect io
         mb.connect_io()
         return mb, rx_env.node, rx_env
 
-    def _init_bridge(self, observations: Dict, actions: Dict, states: Dict, bridge: RxNodeParams, nodes: List[RxNodeParams]) -> None:
+    def _init_bridge(self, bridge: RxNodeParams, nodes: List[RxNodeParams]) -> None:
         # Check that reserved keywords are not already defined.
         assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
         assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
 
         # Extract node_names
-        node_names = []
+        node_names = ['env/actions', 'env/observations', 'env/supervisor']
         target_addresses = []
-        for i in (observations, actions, states):
-            node_names.append(i['default']['name'])
         for i in nodes:
             node_names.append(i.params['default']['name'])
             if 'targets' in i.params['default']:
-                for cname, address in i.params['default']['targets'].items():
+                for cname in i.params['default']['targets']:
+                    address = i.params['targets'][cname]['address']
                     target_addresses.append(address)
         bridge.params['default']['node_names'] = node_names
         bridge.params['default']['target_addresses'] = target_addresses
@@ -116,33 +124,27 @@ class Env(object):
         initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
         wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
-    def _init_actions_and_observations(self, actions: Dict, observations: Dict, message_broker):
-        # Check that env has at least one input.
-        assert len(observations['default']['inputs']) > 0, 'Environment "%s" must have at least one input (i.e. input).' % self.name
-        assert len(actions['default']['outputs']) > 0, 'Environment "%s" must have at least one action (i.e. output).' % self.name
+    def _init_actions_and_observations(self, actions: RxNodeParams, observations: RxNodeParams, message_broker):
+        # Check that env has at least one input & output.
+        assert len(observations.params['default']['inputs']) > 0, 'Environment "%s" must have at least one input (i.e. input).' % self.name
+        assert len(actions.params['default']['outputs']) > 0, 'Environment "%s" must have at least one action (i.e. output).' % self.name
 
-        # Check that all action/observation addresses are unique
-        addresses_obs = [address for cname, address in observations['default']['inputs'].items()]
-        addresses_act = [address for cname, address in actions['default']['outputs'].items()]
+        # Check that all observation addresses are unique
+        addresses_obs = [observations.params['inputs'][cname]['address'] for cname in observations.params['default']['inputs']]
         len(set(addresses_obs)) == len(addresses_obs), 'Duplicate observations found: %s. Make sure to only have unique observations' % (set([x for x in addresses_obs if addresses_obs.count(x) > 1]))
-        len(set(addresses_act)) == len(addresses_act), 'Duplicate actions found: %s. Make sure to only have unique actions.' % (set([x for x in addresses_act if addresses_act.count(x) > 1]))
 
-      # Create observation node
-        obs_name = observations['default']['name']
-        obs_params = merge_dicts(dict(), [dict(default={'rate': self.rate}), observations])
-        obs_params = RxNodeParams(obs_name, obs_params)
-        obs_params = obs_params.get_params(ns=self.ns)
+        # Create observation node
+        observations.params['default']['rate'] = self.rate
+        obs_params = observations.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, obs_params)
-        rx_obs = RxNode(name='%s/%s' % (self.ns, obs_name), message_broker=message_broker, scheduler=None)
+        rx_obs = RxNode(name='%s/%s' % (self.ns, observations.name), message_broker=message_broker, scheduler=None)
         rx_obs.node_initialized()
 
         # Create action node
-        act_name = actions['default']['name']
-        act_params = merge_dicts(dict(), [dict(default={'rate': self.rate}), actions])
-        act_params = RxNodeParams(act_name, act_params)
-        act_params = act_params.get_params(ns=self.ns)
+        actions.params['default']['rate'] = self.rate
+        act_params = actions.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, act_params)
-        rx_act = RxNode(name='%s/%s' % (self.ns, act_name), message_broker=message_broker, scheduler=None)
+        rx_act = RxNode(name='%s/%s' % (self.ns, actions.name), message_broker=message_broker, scheduler=None)
         rx_act.node_initialized()
 
         return rx_act.node, rx_obs.node, rx_act, rx_obs

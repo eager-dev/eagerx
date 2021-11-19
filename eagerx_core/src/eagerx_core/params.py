@@ -201,26 +201,40 @@ class RxNodeParams(Params):
 
     @classmethod
     def create(cls, name: str, package_name: str, config_name: str, **kwargs):
-        """
-        - Every argument listed in .yaml with "None" must be specified.
-        - Exceptions to this are the converters & delay to avoid clutter in .yaml
-        - All other provided args via **kwargs throw an assertion error.
-        - Feedthroughs receive all args from corresponding output
-        """
         # default arguments, not specified in node_name.yaml
-        nonlisted_yaml_args = ['delays', 'input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']
-        ignored_yaml_args = ['inputs', 'states', 'feedthroughs', 'targets']
+        ignored_yaml_args = []
 
         # Load yaml from config file
         params = load_yaml(package_name, config_name)
 
+        # Re-direct dict entries (converters, addresses, delays)
+        # Will remove re-directed dicts.
+        keys_to_pop = []
+        for key, entry in kwargs.items():
+            if isinstance(entry, dict):
+                if key in ['inputs', 'outputs', 'states', 'targets', 'feedthroughs']:
+                    component = key
+                    clist = []
+                    for cname, address in entry.items():
+                        params[component][cname]['address'] = address
+                        clist.append(cname)
+                    kwargs.update({component: clist})
+                if key in ['input_converters', 'output_converters', 'state_converters', 'feedthrough_converters', 'target_converters']:
+                    component = key.split('_')[0] + 's'
+                    for cname, converter in entry.items():
+                        params[component][cname]['converter'] = converter
+                    keys_to_pop.append(key)
+                if key in ['delays']:
+                    component = 'inputs'
+                    for cname, delay in entry.items():
+                        params[component][cname]['delay'] = delay
+                    keys_to_pop.append(key)
+        [kwargs.pop(key) for key in keys_to_pop]
+
         # Replace default arguments
-        for key, item in kwargs.items():
-            if key in nonlisted_yaml_args:
-                params['default'][key] = item
-                continue
+        for key, entry in kwargs.items():
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
-            params['default'][key] = item
+            params['default'][key] = entry
 
         # Check if all arguments are specified
         for key, value in params['default'].items():
@@ -228,6 +242,7 @@ class RxNodeParams(Params):
             assert value is not None, 'Missing argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (key, config_name, package_name)
 
         # Check reserved keywords
+        assert [n not in name.split('/') for n in ['env', 'rate', 'bridge']], 'Node name "%s" not allowed. Names containing "%s" are reserved.' % (name, ['env', 'rate', 'bridge'])
         assert 'name' not in params['default'], 'Argument "name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
         assert 'package_name' not in params['default'], 'Argument "package_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
         assert 'config_name' not in params['default'], 'Argument "config_name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
@@ -236,7 +251,7 @@ class RxNodeParams(Params):
         params['default']['config_name'] = config_name
         return cls(name, params)
 
-    def get_params(self, ns=''):
+    def get_params(self, ns='', in_object=False):
         params = self.params.copy()
         default = params['default'].copy()
         name = self.name
@@ -247,97 +262,61 @@ class RxNodeParams(Params):
         # Process inputs
         inputs = []
         if 'inputs' in default:
-            for key, value in default['inputs'].items():
-                assert key in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', key, 'inputs', config_name, package_name)
-                p_in = params['inputs'][key]
-                args = dict()
-                args['name'], args['address'] = key, value
-                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
-                args['repeat'] = p_in['repeat']
-                if 'rate' in p_in:
-                    args['rate'], args['is_reactive'] = p_in['rate'], False
+            for cname in default['inputs']:
+                assert cname in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', cname, 'inputs', config_name, package_name)
+                params['inputs'][cname]['msg_module'], params['inputs'][cname]['msg_type'] = params['inputs'][cname]['msg_type'].split('/')
+                if 'rate' in params['inputs'][cname]:
+                    is_reactive = False
                 else:
-                    args['is_reactive'] = True
-                if 'input_converters' in default and key in default['input_converters']:
-                    args['converter'] = default['input_converters'][key]
-                if 'delays' in default and key in default['delays']:
-                    args['delay'] = default['delays'][key]
-                elif 'delay' in p_in:
-                    args['delay'] = p_in['delay']
-                if 'space_converter' in p_in:
-                    args['space_converter'] = p_in['space_converter']
-                n = RxInput(**args)
+                    is_reactive = True
+                n = RxInput(name=cname, is_reactive=is_reactive, **params['inputs'][cname])
                 inputs.append(n)
-            del default['inputs']
 
         # Process outputs
         outputs = []
         if 'outputs' in default:
-            for key, value in default['outputs'].items():
-                assert key in params['outputs'], ('Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('output', key, 'outputs', config_name, package_name))
-                p_in = params['outputs'][key]
-                args = dict()
-                args['name'], args['address'] = key, value
-                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
-                args['rate'] = default['rate']
-                if 'output_converters' in default and key in default['output_converters']:
-                    args['converter'] = default['output_converters'][key]
-                if 'space_converter' in p_in:
-                    args['space_converter'] = p_in['space_converter']
-                if 'start_with_msg' in p_in:
-                    args['start_with_msg'] = p_in['start_with_msg']
-                n = RxOutput(**args)
+            for cname in default['outputs']:
+                assert cname in params['outputs'], ('Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('output', cname, 'outputs', config_name, package_name))
+                params['outputs'][cname]['msg_module'], params['outputs'][cname]['msg_type'] = params['outputs'][cname]['msg_type'].split('/')
+                if in_object and 'sensors' in name.split('/'):  # If node is part of object, only use name of node (e.g. obj/sensors/out_1)
+                    address = name
+                else:
+                    address = '%s/outputs/%s' % (name, cname)
+                n = RxOutput(name=cname, rate=default['rate'], address=address, **params['outputs'][cname])
                 outputs.append(n)
-            del default['outputs']
 
         states = []
         if 'states' in default:
-            for key, value in default['states'].items():
-                assert key in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', key, 'states', config_name, package_name)
-                p_in = params['states'][key]
-                args = dict()
-                args['name'], args['address'] = key, value
-                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
-                if 'state_converters' in default and key in default['state_converters']:
-                    args['converter'] = default['state_converters'][key]
-                n = RxState(**args)
+            for cname in default['states']:
+                assert cname in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', cname, 'states', config_name, package_name)
+                params['states'][cname]['msg_module'], params['states'][cname]['msg_type'] = params['states'][cname]['msg_type'].split('/')
+                if 'address' in params['states'][cname]: # if 'env/supervisor', the state address is pre-defined (like an input)
+                    n = RxState(name=cname, **params['states'][cname])
+                else:
+                    address = '%s/states/%s' % (name, cname)
+                    n = RxState(name=cname, address=address, **params['states'][cname])
                 states.append(n)
-            del default['states']
 
         targets = []
         if 'targets' in default:
-            for key, value in default['targets'].items():
-                assert key in params['targets'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('target', key, 'targets', config_name, package_name)
-                p_in = params['targets'][key]
-                args = dict()
-                args['name'], args['address'] = key, value
-                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
-                if 'target_converters' in default and key in default['target_converters']:
-                    args['converter'] = default['target_converters'][key]
-                n = RxState(**args)
+            for cname in default['targets']:
+                assert cname in params['targets'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('target', cname, 'targets', config_name, package_name)
+                params['targets'][cname]['msg_module'], params['targets'][cname]['msg_type'] = params['targets'][cname]['msg_type'].split('/')
+                n = RxState(name=cname, **params['targets'][cname])
                 targets.append(n)
-            del default['targets']
 
         feedthroughs = []
-        if 'feedthroughs' in default:
-            for key, value in default['feedthroughs'].items():
-                assert key in params['feedthroughs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('feedthrough', key, 'feedthroughs', config_name, package_name)
-
-                # Add output details (msg_type, space_converter, etc...) to feedthroughs
-                assert key in params['outputs'], 'Feedthrough "%s" must directly correspond to an output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (key, config_name, package_name)
-                p_in = {'msg_type': params['outputs'][key]['msg_type']}
-                if 'space_converter' in params['outputs'][key]:
-                    p_in['space_converter'] = params['outputs'][key]['space_converter']
-
-                args = dict()
-                args['feedthrough_to'], args['address'] = key, value
-                args['msg_module'], args['msg_type'] = p_in['msg_type'].split('/')
-                args['is_reactive'] = True
-                if 'feedthrough_converters' in default and key in default['feedthrough_converters']:
-                    args['converter'] = default['feedthrough_converters'][key]
-                n = RxFeedthrough(**args)
+        if 'feedthroughs' in params:
+            for cname in default['outputs']:
+                # Add output details (msg_type, space_converter) to feedthroughs
+                assert cname in params['feedthroughs'], 'Feedthrough "%s" must directly correspond to a selected output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (cname, config_name, package_name)
+                msg_module, msg_type = params['outputs'][cname]['msg_module'], params['outputs'][cname]['msg_type']
+                if 'space_converter' in params['outputs'][cname]:
+                    space_converter = params['outputs'][cname]['space_converter']
+                else:
+                    space_converter = None
+                n = RxFeedthrough(feedthrough_to=cname, msg_type=msg_type, msg_module=msg_module, space_converter=space_converter, **params['feedthroughs'][cname])
                 feedthroughs.append(n)
-            del default['feedthroughs']
 
         # Calculate properties
         default['outputs'] = [i.get_params(ns=ns) for i in outputs]
@@ -351,15 +330,12 @@ class RxNodeParams(Params):
         rate_dict = dict()
         for i in default['outputs']:
             address = i['address'][chars_ns:]
-            rate_dict[address] = {'rate': i['rate']}
-        assert name not in rate_dict, 'Cannot use the same output topic name for a node (%s).' % name
+            rate_dict[address] = i['rate']  # {'rate': i['rate']}
+        # assert name not in rate_dict, 'Cannot use the same output topic name for a node (%s).' % name
 
         # Put parameters in node namespace
         # TODO: WATCH OUT, ORDER OF DICT KEY MATTERS!
-        node_params = {name: default}
-
-        # Add output rates in separate namespace
-        node_params.update(rate_dict)
+        node_params = {name: default, 'rate': rate_dict}
         return node_params
 
 
@@ -386,14 +362,10 @@ class RxObjectParams(Params):
         params = load_yaml(package_name, config_name)
 
         # default arguments, not specified in node_name.yaml
-        nonlisted_yaml_args = []
         ignored_yaml_args = []
 
         # Replace default arguments
         for key, item in kwargs.items():
-            if key in nonlisted_yaml_args:
-                params['default'][key] = item
-                continue
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
             params['default'][key] = item
 
@@ -424,77 +396,68 @@ class RxObjectParams(Params):
         component = 'sensors'
         sensors = []
         for cname in params['default'][component]:
-            assert cname in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (cname, bridge, component)
+            assert cname in params[bridge][component], 'Entry "%s" not defined for bridge "%s" and component "%s".' % (cname, bridge, component)
             p_env = params[component][cname]
             p_bridge = params[bridge][component][cname]
 
             # Prepare node arguments
-            node_name = '%s/nodes/%s/%s' % (name, component, cname)
+            node_name = '%s/%s/%s' % (name, component, cname)
             package, config_name = p_bridge['node_config'].split('/')
-            args = p_bridge.copy()
-            args.pop('node_config')
-            args['rate'] = p_env['rate']
-
-            # Get node yaml
-            node_yaml = load_yaml(package, config_name)
-
-            # Define node outputs mapping
-            args['outputs'] = {}
-            for key, val in node_yaml['outputs'].items():
-                args['outputs'][key] = '%s/%s/%s' % (name, component, cname)
+            p_bridge.pop('node_config')
+            p_bridge['rate'] = p_env['rate']
 
             # Define node inputs mapping
-            args['inputs'] = {'tick': 'bridge/tick'}
+            inputs_dict = {'tick': 'bridge/outputs/tick'}
             if 'inputs' in p_bridge:
                 # First, prepend node name to inputs
                 for key, val in p_bridge['inputs'].items():
                     p_bridge['inputs'][key] = '%s/%s' % (name, val)
-                args['inputs'].update(p_bridge['inputs'])
+                inputs_dict.update(p_bridge['inputs'])
+            p_bridge['inputs'] = inputs_dict
 
             # Create node
-            node = RxNodeParams.create(node_name, package, config_name, **args)
+            node = RxNodeParams.create(node_name, package, config_name, **p_bridge)
             sensors.append(node)
 
         # Create actuators
         component = 'actuators'
         actuators = []
         for cname in params['default'][component]:
-            assert cname in params[bridge][component], '%s not defined for bridge %s and component "%s".' % (cname, bridge, component)
+            assert cname in params[bridge][component], 'Entry "%s" not defined for bridge "%s" and component "%s".' % (cname, bridge, component)
             p_env = params[component][cname]
             p_bridge = params[bridge][component][cname]
 
             # Prepare node arguments
-            node_name = '%s/nodes/%s/%s' % (name, component, cname)
+            node_name = '%s/%s/%s' % (name, component, cname)
             package, config_name = p_bridge['node_config'].split('/')
-            actuator_input = p_bridge['actuator_input']
-            args = p_bridge.copy()
-            args.pop('node_config')
-            args.pop('actuator_input')  # Key 'actuator_input' only relevant for object, so remove from node params
-            args['rate'] = p_env['rate']
-
-            # Define node outputs mapping
-            assert actuator_input in p_bridge['inputs'], 'The address for actuator "%s" of object "%s" has not been specified!'
-            args['outputs'] = dict()
-            args['outputs'][actuator_input] = '%s/actuators/%s/applied' % (name, cname)
+            p_bridge.pop('node_config')
+            p_bridge['rate'] = p_env['rate']
 
             # Define node inputs mapping
-            args['inputs'] = {'tick': 'bridge/tick'}
-            if 'inputs' in p_bridge:
-                # First, prepend node name to inputs (if not actuator input)
-                for key, val in p_bridge['inputs'].items():
-                    if key == actuator_input: continue
-                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
-                args['inputs'].update(p_bridge['inputs'])
+            # todo: if 'actuators' in node_name --> normal naming convention
+            # todo; if 'sensors' in node_name and in_object --> node_name only --> check that sensors only have 1 output.
+            inputs_dict = {'tick': 'bridge/outputs/tick'}
+            check_None_trigger = False
+            for act_cname, address in p_bridge['inputs'].items():
+                if address is None:
+                    assert not check_None_trigger, 'Can only have a single (actuator) input (identified with an empty value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
+                    check_None_trigger = True
+                    p_bridge['inputs'][act_cname] = p_env['address']
+                else:  # prepend node name to inputs (which have to originate from inside the object)
+                    p_bridge['inputs'][act_cname] = '%s/%s' % (name, address)
+            assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
+            inputs_dict.update(p_bridge['inputs'])
+            p_bridge['inputs'] = inputs_dict
 
             # Create node
-            node = RxNodeParams.create(node_name, package, config_name, **args)
+            node = RxNodeParams.create(node_name, package, config_name, **p_bridge)
             actuators.append(node)
 
         # Create states
         component = 'states'
         states = []
         for cname in params['default'][component]:
-            assert cname in params[bridge][component], '%s not defined for bridge "%s" and component "%s".' % (cname, bridge, component)
+            assert cname in params[bridge][component], 'Entry "%s" not defined for bridge "%s" and component "%s".' % (cname, bridge, component)
             p_env = params[component][cname]
             p_bridge = params[bridge][component][cname]
 
@@ -504,7 +467,7 @@ class RxObjectParams(Params):
                 if key in ['address', 'converter', 'space_converter']: continue
                 state[key] = value
             args = dict(state=state)
-            args['name'], args['address'] = '%s/%s/%s' % (name, component, cname), p_bridge['address']
+            args['name'], args['address'] = '%s/%s/%s' % (name, component, cname), '%s/%s/%s' % (name, component, cname)
             if 'space_converter' in p_env:
                 args['space_converter'] = p_env['space_converter']
             args['msg_module'], args['msg_type'] = p_env['msg_type'].split('/')
@@ -518,8 +481,8 @@ class RxObjectParams(Params):
         obj_params.update(params['default'])
 
         # Gather node names
-        sens_names = ['%s/%s/nodes/sensors/%s' % (ns, name, cname) for cname in obj_params['sensors']]
-        act_names = ['%s/%s/nodes/actuators/%s' % (ns, name, cname) for cname in obj_params['actuators']]
+        sens_names = ['%s/%s/sensors/%s' % (ns, name, cname) for cname in obj_params['sensors']]
+        act_names = ['%s/%s/actuators/%s' % (ns, name, cname) for cname in obj_params['actuators']]
         state_names = ['%s/%s/states/%s' % (ns, name, cname) for cname in obj_params['states']]
         obj_params['node_names'] = sens_names + act_names
         obj_params['state_names'] = state_names
