@@ -20,7 +20,7 @@ class RxInput(Params):
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  is_reactive: bool = True,
-                 rate: int = None,
+                 rate: float = None,
                  space_converter: Dict = None,
                  delay: float = 0.0,
                  ):
@@ -58,7 +58,7 @@ class RxOutput(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 rate: int,
+                 rate: float,
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  space_converter: Dict = None,

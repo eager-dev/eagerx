@@ -97,7 +97,7 @@ def spy(id='', node_name='', only_node=None, color=None):
     def _spy(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                if False:
+                if True:
                     # Get color based on node name
                     if node_name in node_color:
                         color = node_color[node_name]
@@ -485,7 +485,7 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
                           ops.map(inpt['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                          # ops.share(),  # todo: add? perhaps efficient and worked kind-off with create_channel_bridge
+                          ops.share(),
                           )
 
     # Get rate from rosparam server
@@ -503,7 +503,6 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     msg = num_msgs.pipe(gen_msg(Ir))
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
-                            ops.share(),  # todo: really needed with share at the end here?
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
@@ -563,7 +562,7 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_n
     else:
         # Create switch Subject
         zipped_flags = rx.never().pipe(ops.start_with({}))
-        rr_channel = Nc.pipe(ops.map(lambda x: None), ops.start_with(None)) # todo: ADDED start_with FOR DYNAMIC BRIDGE PIPELINE
+        rr_channel = Nc.pipe(ops.map(lambda x: None), ops.start_with(None))
 
     return rr_channel, zipped_flags, dispose
 
@@ -955,7 +954,7 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
 
         # Initialize reset topic
         i['reset'] = Subject()
-        i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)  # todo: make it latched?
+        i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)
 
     # Prepare action topics (used by RealResetNode)
     for i in feedthrough:
