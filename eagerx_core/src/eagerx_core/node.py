@@ -95,6 +95,8 @@ class RealResetNode(object):
 class ProcessNode(object):
     def __init__(self, name):
         self.name = name
+        # if 'obj' in name.split('/'):
+        #     rospy.sleep(5.0)
         self.ns = '/'.join(name.split('/')[:2])
 
         # If node is simulator, we will probably use this in callback & reset

@@ -55,7 +55,7 @@ class BridgeNode(object):
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        initialize_nodes(node_params, self.ns, self.name, self.mb, self.is_initialized, sp_nodes, launch_nodes)
+        initialize_nodes(node_params, self.ns, self.ns, self.mb, self.is_initialized, sp_nodes, launch_nodes)
         for name, node in sp_nodes.items():
             # Set object parameters
             if hasattr(node.node, 'set_object_params'):
@@ -65,6 +65,7 @@ class BridgeNode(object):
                 node.node.set_simulator(self.simulator)
             # Initialize
             node.node_initialized()
+        wait_for_node_initialization(self.is_initialized)
         return state_params, sp_nodes, launch_nodes
 
     def pre_reset(self, ticks):

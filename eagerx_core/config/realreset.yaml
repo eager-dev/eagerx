@@ -62,8 +62,4 @@ targets:
       low: [0]
       high: [100]
 
-feedthroughs:
-  out_1: {}
-  out_2: {}
-
 

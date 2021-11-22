@@ -1,6 +1,6 @@
 # ROS packages required
 import rospy
-from eagerx_core.params import RxObjectParams, RxNodeParams
+from eagerx_core.params import RxObjectParams, RxNodeParams, RxBridgeParams
 from eagerx_core.env import Env
 from eagerx_core.utils.utils import launch_roscore
 from eagerx_core.utils.node_utils import configure_connections
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
 
     # Define nodes
-    sp = True
+    sp = False
     N1 = RxNodeParams.create('N1', 'eagerx_core', 'process',   rate=1, single_process=sp, outputs=['out_1', 'out_2'])
     N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1, single_process=sp, targets=['target_1'])
     N4 = RxNodeParams.create('N4', 'eagerx_core', 'process',   rate=3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
@@ -28,9 +28,6 @@ if __name__ == '__main__':
     actions, observations = Env.define_actions(), Env.define_observations()
 
     # Connect nodes
-    # todo: how to add states for simulation nodes?
-    # todo: can simnodes have an initial message (i.e. is that logic implemented in bridge pipeline)?
-    # todo: if address is overwritten, remove all other entries?
     connections = [{'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
                    {'source': (viper, 'sensors', 'N7'), 'target': (KF, 'inputs', 'in_1')},
                    {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
@@ -45,8 +42,7 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    # todo: Fix, such that bridge name is always "bridge"
-    bridge = RxNodeParams.create('bridge', 'eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=sp)
+    bridge = RxBridgeParams.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=False)
 
     # Initialize Environment
     env = Env(name='rx',
@@ -58,8 +54,6 @@ if __name__ == '__main__':
               objects=[viper])
 
     # First reset
-    # todo: why sleep required in _initialize?
-    # todo: how to be sure that all sim-nodes have been initialized here?
     obs = env.reset()
     for j in range(20000):
         print('\n[Episode %s]' % j)
@@ -76,17 +70,14 @@ if __name__ == '__main__':
 
     # todo: implement real_time rx pipeline
 
-    # todo: Avoid blocking at initialization: make publishers latched? Wait for all simnodes to be initialized.
-
-    # todo: make all msg_reset publishers latched?
+    # Create issues
     # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
 
     # todo: CLEAN-UP ACTIONS
-    # todo: Combine action, observation, supervisor node into a single environment node.
     # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
     # todo: make baseclasses for bridge, node, simstate
-    # todo: replace rospy.sleep(..) with time.sleep(..)
+    # todo: replace rospy.sleep(..) with time.sleep(..) --> wait_for_node_initialization(..)
     # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
     # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
     # todo: add msg_types as static properties to node.py implementation (make class more descriptive)

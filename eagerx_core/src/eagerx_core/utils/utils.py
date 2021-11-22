@@ -12,6 +12,7 @@ from functools import reduce
 import importlib
 from six import raise_from
 import inspect
+from time import sleep
 import time
 
 
@@ -60,7 +61,7 @@ def get_param_with_blocking(name, timeout=5):
             sleep_time = 0.01
             if it % 20 == 0:
                 rospy.loginfo('Parameters under namespace "%s" not (yet) uploaded on parameter server. Retry with small pause (%s s).' % (name, sleep_time))
-            rospy.sleep(sleep_time)
+            sleep(sleep_time)
             pass
         if time.time() - start > timeout:
             break

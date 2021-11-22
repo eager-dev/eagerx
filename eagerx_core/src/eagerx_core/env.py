@@ -4,7 +4,7 @@ import rosparam
 from rosgraph.masterapi import Error
 
 # EAGERX
-from eagerx_core.params import RxNodeParams, RxObjectParams
+from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
 from eagerx_core.utils.utils import load_yaml
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.node import RxNode
@@ -38,7 +38,7 @@ class Env(object):
     def __init__(self, name: str, rate: int,
                  observations: RxNodeParams,
                  actions: RxNodeParams,
-                 bridge: RxNodeParams,
+                 bridge: RxBridgeParams,
                  nodes: List[RxNodeParams],
                  objects: List[RxObjectParams]) -> None:
         self.name = name
@@ -223,7 +223,6 @@ class Env(object):
         # Initialize single process communication
         self.mb.connect_io(print_status=True)
 
-        rospy.sleep(0.2)  # todo:sleep required
         rospy.loginfo('Nodes initialized.')
 
         # Perform first reset

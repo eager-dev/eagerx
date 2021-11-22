@@ -3,7 +3,7 @@ default:
   rate:
   inputs: [tick, in_1]
   outputs: [out_1]
-  states: [error]
+  states: []
   single_process: True
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'

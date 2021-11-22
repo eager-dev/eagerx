@@ -10,6 +10,7 @@ from std_msgs.msg import UInt64, String
 # Rx imports
 from eagerx_core.params import RxObjectParams
 from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.node_utils import initialize_nodes
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
 
@@ -23,6 +24,10 @@ class EnvironmentNode(object):
         self.ns = '/'.join(name.split('/')[:2])
         self.params = get_param_with_blocking(self.name)
         self.subjects = None
+
+        self._is_initialized = dict()
+        self._launch_nodes = dict()
+        self._sp_nodes = dict()
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
@@ -52,17 +57,6 @@ class EnvironmentNode(object):
         # Upload object params to rosparam server
         rosparam.upload_params(self.ns, params)
 
-        # Upload state parameters to ROS param server
-        # for s in states:
-        #     params = s.get_params(ns=self.ns)
-        #     state_name = params['name']
-        #
-        #     # Check if state name is unique
-        #     assert rospy.get_param(self.ns + '/' + state_name, None) is None, 'State name "%s" already exists. state names must be unique.' % self.ns + '/' + state_name
-        #
-        #     # Upload params to rosparam server
-        #     rosparam.upload_params(self.ns, params)
-
         # Upload node parameters to ROS param server
         for node in nodes:
             params = node.get_params(ns=self.ns, in_object=True)
@@ -73,6 +67,13 @@ class EnvironmentNode(object):
 
             # Upload params to rosparam server
             rosparam.upload_params(self.ns, params)
+
+            # If simulation node must run in separate process, the environment must launch it (i.e. the main thread).
+            if not params[node_name]['single_process']:
+                assert not params[node_name]['launch_locally'], 'If simulation node "%s" must run in a separate process, the environment must launch it (i.e. the main thread). Hence, launch_locally in "%s.yaml" via the config of the object must be set to "False".' % (node_name, params[node_name]['config_name'])
+                params[node_name]['launch_locally'] = True
+                initialize_nodes(params[node_name], self.ns, self.ns, message_broker=None, is_initialized=self._is_initialized,
+                                 sp_nodes=self._sp_nodes, launch_nodes=self._launch_nodes)
 
         self.subjects['register'].on_next(String(self.ns + '/' + obj_name))
 
