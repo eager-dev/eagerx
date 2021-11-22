@@ -1,8 +1,8 @@
 node_type: eagerx_core.node/ProcessNode
 default:
   rate:
-  inputs:
-  outputs:
+  inputs: [tick, action_1, action_2]
+  outputs: [action_1]
   single_process: True
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
@@ -10,6 +10,7 @@ default:
 
 inputs:
   tick:
+#    address: bridge/outputs/tick
     msg_type: std_msgs.msg/UInt64
     repeat: all
   action_1:

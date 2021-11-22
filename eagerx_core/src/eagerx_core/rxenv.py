@@ -65,7 +65,7 @@ class EnvironmentNode(object):
 
         # Upload node parameters to ROS param server
         for node in nodes:
-            params = node.get_params(ns=self.ns)
+            params = node.get_params(ns=self.ns, in_object=True)
             node_name = node.name
 
             # Check if node name is unique

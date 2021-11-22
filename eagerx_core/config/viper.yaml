@@ -1,6 +1,6 @@
 default:
   sensors: [N6, N7]
-  actuators: {ref_vel:}  # [ref_vel]
+  actuators: [ref_vel]
   states: [N9, N10]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
@@ -64,6 +64,7 @@ bridge:
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
+#      states: [error]
       test_arg: 'CHANGED ARGUMENT'
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
@@ -73,8 +74,8 @@ bridge:
   actuators:  # Inputs as defined above
     N8:
       node_config: eagerx_core/sim_actuator
-      actuator_input: action_1  # input name from outside object (inside node_config "sim_actuator.yaml")
-      inputs: {action_2: sensors/N6}
+      inputs: {action_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
+               action_2: sensors/N6}  # inputs to nodes must always originate from within the node itself.
 #      input_converters:  # can only contain converters for inputs other than "actuator_input"
 #        action_2:
 #          converter_type: eagerx_core.converter/SpaceUInt64Converter

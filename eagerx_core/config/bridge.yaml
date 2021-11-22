@@ -1,7 +1,7 @@
 node_type: eagerx_core.bridge/BridgeNode
 default:
   rate:
-  outputs: {tick: bridge/tick}
+  outputs: [tick]
   num_substeps: 10
   single_process: False
   launch_locally: True
@@ -9,4 +9,5 @@ default:
 
 outputs:
   tick:
+#    address: bridge/tick
     msg_type: std_msgs.msg/UInt64

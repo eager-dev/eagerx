@@ -22,7 +22,7 @@ from rx.subject import Subject, BehaviorSubject, ReplaySubject
 from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 
 # IMPORT eagerx
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking,initialize_converter, initialize_state
+from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter, initialize_state
 from eagerx_core.utils.node_utils import launch_node, wait_for_node_initialization
 from eagerx_core.converter import IdentityConverter
 from eagerx_core.params import RxInput
@@ -36,11 +36,11 @@ selected_nodes = ['/rx/bridge',
                   '/rx/N4',
                   '/rx/N5',
                   '/rx/KF',
-                  '/rx/obj/nodes/sensors/N6',
-                  '/rx/obj/nodes/sensors/N7',
-                  '/rx/obj/nodes/actuators/N8',
-                  '/rx/obj/nodes/states/N9',
-                  '/rx/obj/nodes/states/N10',
+                  '/rx/obj/sensors/N6',
+                  '/rx/obj/sensors/N7',
+                  '/rx/obj/actuators/N8',
+                  '/rx/obj/states/N9',
+                  '/rx/obj/states/N10',
                   ]
 
 node_color = {'/rx/bridge': 'magenta',
@@ -52,11 +52,11 @@ node_color = {'/rx/bridge': 'magenta',
               '/rx/N4': 'white',
               '/rx/N5': 'white',
               '/rx/KF': 'grey',
-              '/rx/obj/nodes/sensors/N6': 'cyan',
-              '/rx/obj/nodes/sensors/N7': 'cyan',
-              '/rx/obj/nodes/actuators/N8': 'green',
-              '/rx/obj/nodes/states/N9': 'yellow',
-              '/rx/obj/nodes/states/N10': 'yellow',
+              '/rx/obj/sensors/N6': 'cyan',
+              '/rx/obj/sensors/N7': 'cyan',
+              '/rx/obj/actuators/N8': 'green',
+              '/rx/obj/states/N9': 'yellow',
+              '/rx/obj/states/N10': 'yellow',
               }
 
 
@@ -200,6 +200,7 @@ def filter_dict():
 
         return rx.create(subscribe)
     return _filter_dict
+
 
 def switch_to_reset():
     def _switch_to_reset(source):
@@ -488,9 +489,9 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
                           )
 
     # Get rate from rosparam server
-    # todo: change to get_param util function that blocks until it finds the parameter
     try:
-        dt_i = 1 / rospy.get_param(inpt['address'] + '/rate')
+        rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
+        dt_i = 1 / get_param_with_blocking(rate_str)
     except Exception as e:
         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
         print(e)
@@ -513,8 +514,6 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
                    ops.map(lambda val: val[0] + 1),
                    ops.start_with(0),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   # ops.combine_latest(Is.pipe(spy('%s' % name, node_name, only_node=['/rx/env/observations', '/rx/bridge']), ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   # spy('Ir_Is_%s' % name, node_name, only_node='/rx/env/observations'),
                    ops.filter(lambda value: value[0] == value[1]),
                    ops.map(lambda x: {name: x[0]})
                    )
@@ -545,7 +544,8 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_n
     dispose = []
     if real_reset:
         for i in feedthrough:
-            dt_i = 1 / rospy.get_param(i['address'] + '/rate')
+            rate_str = '%s/rate/%s' % (ns, i['address'][len(ns) + 1:])
+            dt_i = 1 / get_param_with_blocking(rate_str)
             if not dt_i == dt_n:
                 raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (dt_n, dt_i))
 
@@ -664,7 +664,7 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
     else:
         output_stream = stream.pipe(ops.filter(lambda x: x[1][1] is None),
                                     ops.map(lambda x: x[1][0]),
-                                    # spy('CB_TICK', node_name),
+                                    spy('CB_TICK', node_name),
                                     # spy('CB_TICK', node_name, only_node=['/rx/bridge']),
                                     ops.map(lambda val: cb_tick(val)),
                                     ops.share())
@@ -915,9 +915,9 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
     node_inputs.append(real_reset_input)
 
     # Prepare reset topic
-    ER = Subject()
-    end_reset = dict(name='end_reset', address=ns + '/bridge/tick', msg_type=UInt64, msg=ER)
-    node_inputs.append(end_reset)
+    T = Subject()
+    first_tick = dict(name='first_tick', address=ns + '/bridge/outputs/tick', msg_type=UInt64, msg=T)
+    node_inputs.append(first_tick)
 
     # Prepare node reset topic
     node_reset = dict(name=node_name, msg_type=Bool)
@@ -1048,11 +1048,11 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
     reset_msg.pipe(ops.map(lambda x: Bool(data=True)),
                    publisher_to_topic(node_reset['msg_pub'])).subscribe(node_reset['msg'])
 
-    # Send initial messages, latched on 'rx/end_reset'
+    # Send initial messages, latched on first bridge tick
     for i in outputs:
         if i['start_with_msg']:
             reset_msg.pipe(ops.pluck(i['name']),
-                           ops.zip(ER.pipe(ops.filter(lambda x: x.data == 0))),
+                           ops.zip(T.pipe(ops.filter(lambda x: x.data == 0))),
                            ops.map(lambda x: x[0]),
                            spy('init_msg', node_name),
                            publisher_to_topic(i['msg_pub'])).subscribe(i['msg'])
@@ -1265,7 +1265,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     reset_trigger = rx.zip(f.pipe(spy('F', node_name)),
                            Rr.pipe(spy('Rr', node_name))).pipe(ops.share())
 
-    # Send reset messages for all outputs (Only '/rx/bridge/tick')
+    # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
     [RM.pipe(publisher_to_topic(o['reset_pub'])).subscribe(o['reset']) for o in outputs]
 
     ###########################################################################
@@ -1412,7 +1412,7 @@ def init_environment(ns, node, outputs=tuple(), state_outputs=tuple(), node_name
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
-    tick = dict(address=ns + '/bridge/tick', msg=Subject(), msg_type=UInt64)
+    tick = dict(address=ns + '/bridge/outputs/tick', msg=Subject(), msg_type=UInt64)
     tick['msg_pub'] = rospy.Publisher(tick['address'], tick['msg_type'], queue_size=0)
     end_reset = dict(address=ns + '/end_reset', msg=Subject(), msg_type=UInt64)
     end_reset['msg'].pipe(ops.map(node._clear_obs_event),
@@ -1422,7 +1422,7 @@ def init_environment(ns, node, outputs=tuple(), state_outputs=tuple(), node_name
     ###########################################################################
     # Observations set ########################################################
     ###########################################################################
-    obs_set = dict(address=ns + '/env/observations/set', msg=Subject(), msg_type=UInt64)
+    obs_set = dict(address=ns + '/env/observations/outputs/set', msg=Subject(), msg_type=UInt64)
     obs_set['msg'].subscribe(on_next=node._set_obs_event)
 
     # Create node inputs & outputs
@@ -1472,7 +1472,7 @@ class RxMessageBroker(object):
                        reactive_proxy=tuple()):
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
-            if i['address'] == '/rx/bridge/tick': continue
+            if i['address'] == '/rx/bridge/outputs/tick': continue
             assert i['address'] not in self.rx_connectable, 'Non-unique output (%s). All output names must be unique.' % i['address']
             self.rx_connectable[i['address']] = dict(rx=i['msg'], source=i, node_name=node_name, rate=i['rate'])
 
