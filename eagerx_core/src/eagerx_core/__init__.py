@@ -1345,7 +1345,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
 ###########################################################################
 
 
-def init_environment(ns, node, outputs=tuple(), state_outputs=tuple(), node_name='', scheduler=None):
+def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple(), node_name='', scheduler=None):
     # Initialize schedulers
     # event_scheduler = EventLoopScheduler()
     tp_scheduler = ThreadPoolScheduler(max_workers=5)

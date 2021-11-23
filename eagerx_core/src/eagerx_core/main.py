@@ -1,9 +1,8 @@
 # ROS packages required
 import rospy
-from eagerx_core.params import RxObjectParams, RxNodeParams, RxBridgeParams
-from eagerx_core.env import Env
+from eagerx_core.core import RxBridge, RxNode, RxObject
+from eagerx_core.rxenv import EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
-from time import sleep
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
@@ -13,21 +12,21 @@ if __name__ == '__main__':
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
 
-    # Type of simulation
+    # Type of simulation (optional)
     sp = True
 
     # Define nodes
-    N1 = RxNodeParams.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
-    N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1.0, single_process=sp, targets=['target_1'])
-    N4 = RxNodeParams.create('N4', 'eagerx_core', 'process',   rate=3.3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    N5 = RxNodeParams.create('N5', 'eagerx_core', 'process',   rate=6, single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    KF = RxNodeParams.create('KF', 'eagerx_core', 'kf',        rate=1, single_process=sp, inputs=['in_1', 'in_2'])
+    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, single_process=sp, targets=['target_1'])
+    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=6,   single_process=sp, output_converters={'out_1': IntUInt64Converter})
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   single_process=sp, inputs=['in_1', 'in_2'])
 
     # Define object
-    viper = RxObjectParams.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
+    viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
 
-    # Define action/observations/states
-    actions, observations = Env.define_actions(), Env.define_observations()
+    # Define action/observations
+    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
     # Connect nodes
     connections = [{'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
@@ -44,16 +43,16 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridgeParams.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
 
     # Initialize Environment
-    env = Env(name='rx',
-              rate=1,
-              actions=actions,
-              observations=observations,
-              bridge=bridge,
-              nodes=[N1, N3, N4, N5, KF],
-              objects=[viper])
+    env = EAGERxEnv(name='rx',
+                    rate=1,
+                    actions=actions,
+                    observations=observations,
+                    bridge=bridge,
+                    nodes=[N1, N3, N4, N5, KF],
+                    objects=[viper])
 
     # First reset
     obs = env.reset()
@@ -64,11 +63,9 @@ if __name__ == '__main__':
             obs, reward, done, info = env.step(action)
         obs = env.reset()
     print('\n[Finished]')
-    sleep(100000)
 
     # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
     # todo: Visualize and perform checks on DAGs (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
-    # todo: How to combine GUI with custom env?
 
     # todo: implement real_time rx pipeline
 
@@ -79,9 +76,10 @@ if __name__ == '__main__':
 
     # todo: NODE CLASS
     # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
-    # todo: make baseclasses for bridge, node, simstate, env
-    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
     # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
+
+    # todo: make baseclasses for bridge, node, simstate
+    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
     # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
 
     # todo: CREATE GITHUB ISSUES FOR:
