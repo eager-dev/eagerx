@@ -1,4 +1,4 @@
-node_type: eagerx_core.node/ProcessNode
+node_type: eagerx_core.rxnode/ProcessNode
 default:
   rate:
   inputs: [tick, action_1, action_2]
@@ -10,7 +10,6 @@ default:
 
 inputs:
   tick:
-#    address: bridge/outputs/tick
     msg_type: std_msgs.msg/UInt64
     repeat: all
   action_1:

@@ -2,8 +2,7 @@
 import rospy
 from eagerx_core.params import RxObjectParams, RxNodeParams, RxBridgeParams
 from eagerx_core.env import Env
-from eagerx_core.utils.utils import launch_roscore
-from eagerx_core.utils.node_utils import configure_connections
+from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 from time import sleep
 
 if __name__ == '__main__':
@@ -14,8 +13,10 @@ if __name__ == '__main__':
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
 
-    # Define nodes
+    # Type of simulation
     sp = True
+
+    # Define nodes
     N1 = RxNodeParams.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
     N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1.0, single_process=sp, targets=['target_1'])
     N4 = RxNodeParams.create('N4', 'eagerx_core', 'process',   rate=3.3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
@@ -71,16 +72,28 @@ if __name__ == '__main__':
 
     # todo: implement real_time rx pipeline
 
-    # todo: CLEAN-UP ACTIONS
-    # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
-    # todo: make baseclasses for bridge, node, simstate
-    # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
-    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
-    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
-    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
+    # todo: ADJUSTMENTS RX
     # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
+    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
     # todo: print statements of callback inside ProcessNode: color specified as additional argument
 
-    # todo: CREATE ISSUES FOR:
+    # todo: NODE CLASS
+    # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
+    # todo: make baseclasses for bridge, node, simstate, env
+    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
+    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
+    # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
+
+    # todo: CREATE GITHUB ISSUES FOR:
     # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+
+    # todo: THINGS TO KEEP IN MIND:
+    # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
+    #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
+    # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()". Hence, we cannot
+    #  completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but chance is very slim,
+    #  and only at the moment of initialization).
+    # todo: Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
+    #  Hence, we cannot adaptively register new objects or controllers after some episodes.
+

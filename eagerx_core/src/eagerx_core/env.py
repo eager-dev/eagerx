@@ -5,17 +5,17 @@ from rosgraph.masterapi import Error
 
 # EAGERX
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
-from eagerx_core.utils.utils import load_yaml
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx_core.node import RxNode
-from eagerx_core.bridge import RxBridge
+from eagerx_core.utils.utils import load_yaml
+from eagerx_core.rxnode import RxNode
+from eagerx_core.rxbridge import RxBridge
 from eagerx_core.rxenv import RxEnvironment
 from eagerx_core import RxMessageBroker
 
 # OTHER IMPORTS
 import gym
 import numpy as np
-from typing import List, Dict, Union
+from typing import List, Union
 import multiprocessing
 
 

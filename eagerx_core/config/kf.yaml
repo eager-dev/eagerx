@@ -1,4 +1,4 @@
-node_type: eagerx_core.node/ProcessNode
+node_type: eagerx_core.rxnode/ProcessNode
 default:
   rate:
   inputs: [in_1]

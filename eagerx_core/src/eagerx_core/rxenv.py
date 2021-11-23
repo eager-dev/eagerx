@@ -9,7 +9,8 @@ from std_msgs.msg import UInt64, String
 
 # Rx imports
 from eagerx_core.params import RxObjectParams
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter
+from eagerx_core import get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes
 from eagerx_core.converter import IdentityConverter
 import eagerx_core

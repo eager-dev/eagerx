@@ -1,4 +1,4 @@
-node_type: eagerx_core.bridge/BridgeNode
+node_type: eagerx_core.rxbridge/BridgeNode
 default:
   rate:
   outputs: [tick]
@@ -9,5 +9,4 @@ default:
 
 outputs:
   tick:
-#    address: bridge/tick
     msg_type: std_msgs.msg/UInt64

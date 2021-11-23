@@ -1,18 +1,33 @@
 # ROS SPECIFIC
+import roslaunch
 import rospy
 import rosparam
-import roslaunch
+from roslaunch.core import RLException
 from std_msgs.msg import UInt64
 
 # RXEAGER
 from eagerx_core.params import RxNodeParams, RxObjectParams
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, substitute_xml_args
-from eagerx_core.node import RxNode
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, \
+    substitute_xml_args
+from eagerx_core.rxnode import RxNode
 
 # OTHER
 from time import sleep
 from typing import List, Dict, Union, Any
 from functools import partial
+
+
+def launch_roscore():
+    uuid = roslaunch.rlutil.get_or_generate_uuid(options_runid=None, options_wait_for_master=False)
+    roslaunch.configure_logging(uuid)
+    roscore = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_files=[], is_core=True)
+
+    try:
+        roscore.start()
+    except RLException as e:
+        rospy.logwarn('Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore.')
+        pass
+    return roscore
 
 
 def configure_connections(connections):
@@ -238,3 +253,5 @@ def wait_for_node_initialization(is_initialized):
             rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break
+
+

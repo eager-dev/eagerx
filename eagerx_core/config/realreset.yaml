@@ -1,4 +1,4 @@
-node_type: eagerx_core.node/RealResetNode
+node_type: eagerx_core.rxnode/RealResetNode
 default:
   rate:
   inputs: [in_1]

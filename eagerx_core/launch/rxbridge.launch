@@ -3,6 +3,6 @@
     <arg name="owner" doc="The node name that launches this node."/>
     <arg name="node_name" default="node" doc="Set the node name."/>
     <group ns="$(arg owner)">
-        <node name="$(arg node_name)" pkg="eagerx_core" type="rxbridge" output="screen"/>
+        <node name="$(arg node_name)" pkg="eagerx_core" type="rxbridge.py" output="screen"/>
     </group>
 </launch>

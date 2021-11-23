@@ -1,4 +1,4 @@
-node_type: eagerx_core.node/ObservationsNode
+node_type: eagerx_core.rxnode/ObservationsNode
 default:
   inputs: []
   outputs: [set]

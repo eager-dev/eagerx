@@ -1,8 +1,7 @@
-node_type: eagerx_core.node/ActionsNode
+node_type: eagerx_core.rxnode/ActionsNode
 default:
   inputs: [observations_set, step]
   outputs: []
-#  output_converters: {}
   single_process: true
   launch_locally: true
 inputs:

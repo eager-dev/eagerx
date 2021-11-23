@@ -4,7 +4,7 @@ from os import getpid
 from functools import wraps
 import types
 from typing import Callable, Any
-from termcolor import colored, cprint
+from termcolor import cprint
 import datetime, traceback
 
 # IMPORT ROS
@@ -22,8 +22,8 @@ from rx.subject import Subject, BehaviorSubject, ReplaySubject
 from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 
 # IMPORT eagerx
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter, initialize_state
-from eagerx_core.utils.node_utils import launch_node, wait_for_node_initialization
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, initialize_state, \
+    get_param_with_blocking
 from eagerx_core.converter import IdentityConverter
 from eagerx_core.params import RxInput
 

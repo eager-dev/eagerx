@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
+
 # ROS imports
 import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter
+from eagerx_core import get_param_with_blocking
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
 
@@ -95,8 +98,6 @@ class RealResetNode(object):
 class ProcessNode(object):
     def __init__(self, name):
         self.name = name
-        # if 'obj' in name.split('/'):
-        #     rospy.sleep(5.0)
         self.ns = '/'.join(name.split('/')[:2])
 
         # If node is simulator, we will probably use this in callback & reset
@@ -313,3 +314,18 @@ class RxNode(object):
 
         return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']), tuple(
             params['states']), tuple(params['targets']), node
+
+
+if __name__ == '__main__':
+
+    rospy.init_node('process')
+
+    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
+
+    pnode = RxNode(name=rospy.get_name(), message_broker=message_broker)
+
+    message_broker.connect_io()
+
+    pnode.node_initialized()
+
+    rospy.spin()

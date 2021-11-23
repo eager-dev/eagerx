@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+
 import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter, initialize_state
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, initialize_state
+from eagerx_core import get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.converter import IdentityConverter
 import eagerx_core
@@ -176,3 +179,18 @@ class RxBridge(object):
 
     def _close(self):
         return True
+
+
+if __name__ == '__main__':
+
+    rospy.init_node('bridge', log_level=rospy.INFO)
+
+    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
+
+    pnode = RxBridge(name=rospy.get_name(), message_broker=message_broker)
+
+    message_broker.connect_io()
+
+    pnode.node_initialized()
+
+    rospy.spin()
