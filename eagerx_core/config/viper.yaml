@@ -90,10 +90,10 @@ bridge:
 
   states:
     N9:
-      state_type: eagerx_core.simstate/SimState
+      state_type: eagerx_core.rxsimstate/RxSimState
       test_arg: 'CHANGED ARGUMENT'
 
     N10:
-      state_type: eagerx_core.simstate/SimState
+      state_type: eagerx_core.rxsimstate/RxSimState
       test_arg: 'CHANGED ARGUMENT'
 

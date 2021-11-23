@@ -9,33 +9,34 @@ from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initial
 from eagerx_core.utils.utils import load_yaml
 from eagerx_core.rxnode import RxNode
 from eagerx_core.rxbridge import RxBridge
-from eagerx_core.rxenv import RxEnvironment
+from eagerx_core.rxsupervisor import RxSupervisor
 from eagerx_core import RxMessageBroker
 
 # OTHER IMPORTS
+import abc
+from copy import deepcopy
+from typing import List, Union, Dict, Tuple, Callable
 import gym
-import numpy as np
-from typing import List, Union
 import multiprocessing
 
 
-class Env(object):
+class RxEnv(object):
     @staticmethod
-    def define_actions():
+    def create_actions():
         actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
         return actions
 
     @staticmethod
-    def define_observations():
+    def create_observations():
         observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations')
         return observations
 
     @staticmethod
-    def define_supervisor():
+    def create_supervisor():
         states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
         return states
 
-    def __init__(self, name: str, rate: int,
+    def __init__(self, name: str, rate: float,
                  observations: RxNodeParams,
                  actions: RxNodeParams,
                  bridge: RxBridgeParams,
@@ -52,7 +53,7 @@ class Env(object):
         self._event = multiprocessing.Event()
 
         # Initialize supervisor node
-        self.mb, self.env_node, _ = self._init_supervisor(nodes, objects)
+        self.mb, self.supervisor_node, _ = self._init_supervisor(nodes, objects)
 
         # Initialize bridge
         self._init_bridge(bridge, nodes)
@@ -68,7 +69,7 @@ class Env(object):
 
     def _init_supervisor(self, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
         # Initialize supervisor
-        supervisor = self.define_supervisor()
+        supervisor = self.create_supervisor()
 
         # Get all states from objects & nodes
         for i in nodes + objects:
@@ -121,12 +122,12 @@ class Env(object):
         supervisor.params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_env = RxEnvironment(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb, scheduler=None)
-        rx_env.node_initialized()
+        rx_supervisor = RxSupervisor(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb, scheduler=None)
+        rx_supervisor.node_initialized()
 
         # Connect io
         mb.connect_io()
-        return mb, rx_env.node, rx_env
+        return mb, rx_supervisor.node, rx_supervisor
 
     def _init_bridge(self, bridge: RxNodeParams, nodes: List[RxNodeParams]) -> None:
         # Check that reserved keywords are not already defined.
@@ -174,46 +175,46 @@ class Env(object):
         return rx_act.node, rx_obs.node, rx_act, rx_obs
 
     @property
-    def observation_space(self):
+    def observation_space(self) -> gym.spaces.Dict:
         observation_space = dict()
         for name, buffer in self.obs_node.observation_buffer.items():
             observation_space[name] = buffer['converter'].get_space()
         return gym.spaces.Dict(spaces=observation_space)
 
     @property
-    def action_space(self):
+    def action_space(self) -> gym.spaces.Dict:
         action_space = dict()
         for name, buffer in self.act_node.action_buffer.items():
             action_space[name] = buffer['converter'].get_space()
         return gym.spaces.Dict(spaces=action_space)
 
     @property
-    def state_space(self):
+    def state_space(self) -> gym.spaces.Dict:
         state_space = dict()
-        for name, buffer in self.env_node.state_buffer.items():
+        for name, buffer in self.supervisor_node.state_buffer.items():
             state_space[name] = buffer['converter'].get_space()
         return gym.spaces.Dict(spaces=state_space)
 
-    def _set_action(self, action):
+    def _set_action(self, action) -> None:
         # Set actions in buffer
         for name, buffer in self.act_node.action_buffer.items():
             assert name in action, 'Action "%s" not specified. Must specify all actions in action_space.' % name
             buffer['msg'] = action[name]
 
-    def _set_state(self, state):
+    def _set_state(self, state) -> None:
         # Set states in buffer
         for name, msg in state.items():
-            assert name in self.env_node.state_buffer, 'Cannot set unknown state "%s".' % name
-            self.env_node.state_buffer[name]['msg'] = msg
+            assert name in self.supervisor_node.state_buffer, 'Cannot set unknown state "%s".' % name
+            self.supervisor_node.state_buffer[name]['msg'] = msg
 
-    def _get_observation(self):
+    def _get_observation(self) -> Dict:
         # Get observations from buffer
         observation = dict()
         for name, buffer in self.obs_node.observation_buffer.items():
             observation[name] = buffer['msg']
         return observation
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         assert not self.initialized, 'Environment already initialized. Cannot re-initialize pipelines. '
 
         # Wait for nodes to be initialized
@@ -226,60 +227,36 @@ class Env(object):
         rospy.loginfo('Nodes initialized.')
 
         # Perform first reset
-        _ = self._reset()
-
-        # todo: remove print status?
-        # self.mb.print_io_status()
+        self.supervisor_node.reset()
 
         # Nodes initialized
         self.initialized = True
         rospy.loginfo("Pipelines initialized.")
 
-    def _reset(self):
-        self.env_node.reset()
-        return self._get_observation()
-
-    def _step(self):
-        self.env_node.step()
-        return self._get_observation()
-
-    def register_objects(self, objects: Union[List[RxObjectParams], RxObjectParams]):
-        # todo: There might be timing issues... Currently solved with condition.
-        # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
-        if not isinstance(objects, list):
-            objects = [objects]
-
-        # Register objects
-        [self.env_node.register_object(o, self._bridge_name) for o in objects]
-
-    def reset(self):
+    def _reset(self, states: Dict) -> Dict:
         # Initialize environment
         if not self.initialized:
             self._initialize()
 
         # Set desired reset states
-        self._set_state(self.state_space.sample())
-        # self._set_state({'N9': np.array([50], dtype='uint64')})
+        self._set_state(states)
 
         # Perform reset
-        observation = self._reset()
-        return observation
+        self.supervisor_node.reset()
+        return self._get_observation()
 
-    def step(self, action):
+    def _step(self, action: Dict) -> Dict:
         # Check that nodes were previously initialized.
         assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .step().'
 
         # Set actions in buffer
         self._set_action(action)
 
-        # Send actions and wait for observations
-        observation = self._step()
-        reward = None
-        is_done = False
-        info = {}
-        return observation, reward, is_done, info
+        # Call step
+        self.supervisor_node.step()
+        return self._get_observation()
 
-    def close(self):
+    def _close(self):
         for name in self._launch_nodes:
             self._launch_nodes[name].shutdown()
         try:
@@ -287,3 +264,67 @@ class Env(object):
             rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
         except:
             pass
+
+    def register_objects(self, objects: Union[List[RxObjectParams], RxObjectParams]) -> None:
+        # todo: There might be timing issues... Currently solved with condition.
+        # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
+        if not isinstance(objects, list):
+            objects = [objects]
+
+        # Register objects
+        [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
+
+    @abc.abstractmethod
+    def reset(self) -> Dict:
+        pass
+
+    @abc.abstractmethod
+    def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
+        pass
+
+    def close(self):
+        self._close()
+
+
+class EAGERxEnv(RxEnv):
+    def __init__(self, name: str, rate: float,
+                 observations: RxNodeParams,
+                 actions: RxNodeParams,
+                 bridge: RxBridgeParams,
+                 nodes: List[RxNodeParams],
+                 objects: List[RxObjectParams],
+                 reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
+                 is_done_fn: Callable = lambda obs, action, steps: False,
+                 reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
+        self.steps = None
+        self.prev_observation = None
+        self.reward_fn = reward_fn
+        self.is_done_fn = is_done_fn
+        self.reset_fn = reset_fn
+        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects)
+
+    def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
+        # Send actions and wait for observations
+        observation = self._step(action)
+        self.steps += 1
+
+        # Calculate reward
+        reward = self.reward_fn(self.prev_observation, observation, action, self.steps)
+        is_done = self.is_done_fn(observation, action, self.steps)
+        info = {}
+
+        # Store previous observation
+        self.prev_observation = deepcopy(observation)
+        return observation, reward, is_done, info
+
+    def reset(self) -> Dict:
+        # Determine reset states
+        states = self.reset_fn(self)
+
+        # Perform reset
+        observation = self._reset(states)
+        self.prev_observation = deepcopy(observation)
+
+        # Reset number of steps
+        self.steps = 0
+        return observation

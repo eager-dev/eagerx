@@ -19,7 +19,7 @@ import eagerx_core
 from threading import Event
 
 
-class EnvironmentNode(object):
+class SupervisorNode(object):
     def __init__(self, name, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
@@ -122,7 +122,7 @@ class EnvironmentNode(object):
         print('STEP END')
 
 
-class RxEnvironment(object):
+class RxSupervisor(object):
     def __init__(self, name, message_broker, scheduler=None, **kwargs):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
@@ -133,7 +133,7 @@ class RxEnvironment(object):
         outputs, states, self.node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx_core.init_environment(self.ns, self.node, outputs=outputs, state_outputs=states, node_name=self.name, scheduler=scheduler)
+        rx_objects, env_subjects = eagerx_core.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states, node_name=self.name, scheduler=scheduler)
         self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
     message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
 
-    pnode = RxEnvironment(name=rospy.get_name(), message_broker=message_broker)
+    pnode = RxSupervisor(name=rospy.get_name(), message_broker=message_broker)
 
     message_broker.connect_io()
 
