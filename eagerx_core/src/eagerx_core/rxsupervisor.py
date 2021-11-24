@@ -8,6 +8,7 @@ import rosparam
 from std_msgs.msg import UInt64, String
 
 # Rx imports
+from eagerx_core.rxnode import NodeBase
 from eagerx_core.params import RxObjectParams
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter
 from eagerx_core import get_param_with_blocking
@@ -19,11 +20,8 @@ import eagerx_core
 from threading import Event
 
 
-class SupervisorNode(object):
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.ns = '/'.join(name.split('/')[:2])
-        self.params = get_param_with_blocking(self.name)
+class SupervisorNode(NodeBase):
+    def __init__(self, states, **kwargs):
         self.subjects = None
 
         self._is_initialized = dict()
@@ -32,9 +30,12 @@ class SupervisorNode(object):
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
-        for i in self.params['states']:
-            if 'converter' in i:
-                converter = initialize_converter(i['converter'])
+        for i in states:
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['converter'] = initialize_converter(i['converter'])
+                converter = i['converter']
+            elif 'converter' in i and not isinstance(i['converter'], dict):
+                converter = i['converter']
             else:
                 converter = None
             self.state_buffer[i['name']] = {'msg': None, 'converter': converter}
@@ -43,6 +44,7 @@ class SupervisorNode(object):
         self._reset_event = Event()
         self._obs_event = Event()
         self._step_counter = 0
+        super().__init__(states=states, **kwargs)
 
     def _set_subjects(self, subjects):
         self.subjects = subjects
@@ -123,17 +125,17 @@ class SupervisorNode(object):
 
 
 class RxSupervisor(object):
-    def __init__(self, name, message_broker, scheduler=None, **kwargs):
+    def __init__(self, name, message_broker):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.mb = message_broker
         self.initialized = False
 
         # Prepare input & output topics
-        outputs, states, self.node = self._prepare_io_topics(self.name, **kwargs)
+        outputs, states, self.node = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx_core.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states, node_name=self.name, scheduler=scheduler)
+        rx_objects, env_subjects = eagerx_core.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
         self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -146,27 +148,27 @@ class RxSupervisor(object):
             rospy.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
-    def _prepare_io_topics(self, name, **kwargs):
+    def _prepare_io_topics(self, name):
         params = get_param_with_blocking(name)
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name, **kwargs)
+        node = node_cls(ns=self.ns, message_broker=self.mb, **params)
 
         # Prepare output topics
         for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
+            if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            else:
+            elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
 
         # Prepare state topics
         for i in params['states']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
+            if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            else:
+            elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
 
         return tuple(params['outputs']), tuple(params['states']), node

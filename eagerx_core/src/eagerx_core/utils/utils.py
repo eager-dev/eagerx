@@ -12,7 +12,7 @@ import importlib
 import inspect
 from time import sleep
 from six import raise_from
-
+from copy import deepcopy
 
 def get_attribute_from_module(module, attribute):
     module = importlib.import_module(module)
@@ -21,9 +21,10 @@ def get_attribute_from_module(module, attribute):
 
 
 def initialize_converter(args):
+    converter_args = deepcopy(args)
+    converter_args.pop('converter_type')
     converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
-    del args['converter_type']
-    return converter_cls(**args)
+    return converter_cls(**converter_args)
 
 
 def initialize_state(args):
@@ -124,3 +125,8 @@ def substitute_xml_args(param):
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
                 param[key] = resolve_args(param[key])
+
+
+def get_ROS_log_level(name):
+    ns = '/'.join(name.split('/')[:2])
+    return get_param_with_blocking(ns + '/log_level')

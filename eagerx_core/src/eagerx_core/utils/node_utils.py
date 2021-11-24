@@ -174,7 +174,7 @@ def launch_node(launch_file, args):
     roslaunch_args = cli_args[1:]
     roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-    roslaunch.configure_logging(uuid)
+    # roslaunch.configure_logging(uuid)  # THIS RESETS the log level. Can we do without this line? Are ROS logs stil being made?
     launch = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
     return launch
 
@@ -225,7 +225,7 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
 
         # Initialize node
         if single_process:  # Initialize inside this process
-            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, scheduler=None)
+            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker)
             sp_nodes[node_address].node_initialized()
         else:
             if launch_locally and launch_file:  # Launch node as separate process

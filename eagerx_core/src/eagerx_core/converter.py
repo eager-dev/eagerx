@@ -39,6 +39,11 @@ class IdentityConverter(object):
         return msg
 
 
+###########################################################################
+# Specific implementations ################################################
+###########################################################################
+
+
 class SpaceUInt64Converter(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = UInt64

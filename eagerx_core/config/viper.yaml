@@ -65,12 +65,14 @@ bridge:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       states: [error]
+      color: cyan
 #      single_process: False
 #      launch_locally: False
       test_arg: 'CHANGED ARGUMENT'
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       inputs: {in_1: sensors/N6}
+      color: cyan
 #      single_process: False
 #      launch_locally: False
       test_arg: 'CHANGED ARGUMENT'
@@ -80,6 +82,7 @@ bridge:
       node_config: eagerx_core/sim_actuator
       inputs: {action_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
                action_2: sensors/N6}  # inputs to nodes must always originate from within the node itself.
+      color: green
 #      single_process: False
 #      launch_locally: False
 #      input_convert:  # can only contain converters for inputs other than "actuator_input"
@@ -90,10 +93,10 @@ bridge:
 
   states:
     N9:
-      state_type: eagerx_core.rxsimstate/RxSimState
+      state_type: eagerx_core.rxsimstate/TestSimState
       test_arg: 'CHANGED ARGUMENT'
 
     N10:
-      state_type: eagerx_core.rxsimstate/RxSimState
+      state_type: eagerx_core.rxsimstate/TestSimState
       test_arg: 'CHANGED ARGUMENT'
 

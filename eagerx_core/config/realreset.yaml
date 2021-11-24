@@ -8,6 +8,7 @@ default:
   single_process: False
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
+  color: blue
   test_arg: 'TEST ARGUMENT'
 
 inputs:

@@ -9,6 +9,7 @@ import datetime, traceback
 
 # IMPORT ROS
 import rospy
+import logging
 from std_msgs.msg import UInt64, String, Bool
 
 # IMPORT RX
@@ -24,51 +25,24 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 # IMPORT eagerx
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, initialize_state, \
     get_param_with_blocking
+from eagerx_core.rxnode import NodeBase
 from eagerx_core.converter import IdentityConverter
 from eagerx_core.params import RxInput
-
-selected_nodes = ['/rx/bridge',
-                  '/rx/env/actions',
-                  '/rx/env/observations',
-                  '/rx/N1',
-                  '/rx/N2',
-                  '/rx/N3',
-                  '/rx/N4',
-                  '/rx/N5',
-                  '/rx/KF',
-                  '/rx/obj/sensors/N6',
-                  '/rx/obj/sensors/N7',
-                  '/rx/obj/actuators/N8',
-                  '/rx/obj/states/N9',
-                  '/rx/obj/states/N10',
-                  ]
-
-node_color = {'/rx/bridge': 'magenta',
-              '/rx/env/actions': 'red',
-              '/rx/env/observations': 'red',
-              '/rx/N1': 'white',
-              '/rx/N2': 'white',
-              '/rx/N3': 'blue',
-              '/rx/N4': 'white',
-              '/rx/N5': 'white',
-              '/rx/KF': 'grey',
-              '/rx/obj/sensors/N6': 'cyan',
-              '/rx/obj/sensors/N7': 'cyan',
-              '/rx/obj/actuators/N8': 'green',
-              '/rx/obj/states/N9': 'yellow',
-              '/rx/obj/states/N10': 'yellow',
-              }
+from eagerx_core.core import SILENT, DEBUG, INFO, WARN, ERROR, FATAL, TERMCOLOR, ROS
 
 
-def identity(msg):
-    return msg
+print_modes = {TERMCOLOR: 'eagerx_core.TERMCOLOR',
+               ROS: 'eagerx_core.ROS'}
 
 
-def UInt64_to_int(msg):
-    return int(msg.data)
+ros_log_fns = {SILENT: lambda print_str: None,
+               DEBUG: rospy.logdebug,
+               INFO: rospy.loginfo,
+               ERROR: rospy.logerr,
+               FATAL: rospy.logfatal}
 
 
-def cb_ft(cb_input, name='P3'):
+def cb_ft(cb_input):
     # Fill output msg with number of node ticks
     output_msgs = dict()
     for key, item in cb_input.items():
@@ -77,36 +51,40 @@ def cb_ft(cb_input, name='P3'):
     return output_msgs
 
 
-def print_info(node_name, color, id=None, trace_type=None, value=None, date=None):
-    if date:
-        cprint('[' + str(date)[:40].ljust(20) + ']', color, end='')
-    cprint('[' + str(getpid())[:5].ljust(5) + ']', color, end='')
-    cprint('[' + current_thread().name.split('/')[-1][:15].ljust(15) + ']', color, end='')
-    cprint('[' + node_name.split('/')[-1][:12].ljust(12) + ']', color, end='', attrs=['bold'])
-    if id:
-        cprint('[' + id.split('/')[-1][:12].ljust(12) + ']', color, end='')
-    cprint((' %s: %s' % (trace_type, value)), color)
-    # cprint((' %s: %s' % (trace_type, value))[:160].ljust(160), color)
+def print_info(node_name, color, id=None, trace_type=None, value=None, date=None, print_mode=TERMCOLOR, op_log_level=DEBUG):
+    if print_mode == TERMCOLOR:
+        if date:
+            cprint('[' + str(date)[:40].ljust(20) + ']', color, end='')
+        cprint('[' + str(getpid())[:5].ljust(5) + ']', color, end='')
+        cprint('[' + current_thread().name.split('/')[-1][:15].ljust(15) + ']', color, end='')
+        cprint('[' + node_name.split('/')[-1][:12].ljust(12) + ']', color, end='', attrs=['bold'])
+        if id:
+            cprint('[' + id.split('/')[-1][:12].ljust(12) + ']', color, end='')
+        cprint((' %s: %s' % (trace_type, value)), color)
+    elif print_mode == ROS:
+        print_str = ''
+        print_str += '[' + str(getpid())[:5].ljust(5) + ']'
+        print_str += '[' + current_thread().name.split('/')[-1][:15].ljust(15) + ']'
+        print_str += '[' + node_name.split('/')[-1][:12].ljust(12) + ']'
+        if id:
+            print_str += '[' + id.split('/')[-1][:12].ljust(12) + ']'
+        print_str += ' %s: %s' % (trace_type, value)
+        ros_log_fns[op_log_level](print_str)
+    else:
+        raise ValueError('Print mode not recognized. Only print_modes %s are available.' % (print_modes.values()))
 
 
-def spy(id='', node_name='', only_node=None, color=None):
-    if only_node is None:
-        only_node = selected_nodes
-    if only_node and not isinstance(only_node, list):
-        only_node = [only_node]
+def spy(id: str, node: NodeBase, op_log_level: int = SILENT):
+    node_name = node.ns_name
+    color = node.color
+    print_mode = node.print_mode
+    effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+
     def _spy(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                if True:
-                    # Get color based on node name
-                    if node_name in node_color:
-                        color = node_color[node_name]
-                    else:
-                        color = 'white'
-
-                    # Print item
-                    if node_name in only_node:
-                        print_info(node_name, color, id, trace_type='', value=str(value))
+                if node.log_level >= effective_log_level and op_log_level >= effective_log_level:
+                    print_info(node_name, color, id, trace_type='', value=str(value), print_mode=print_mode, op_log_level=op_log_level)
                 observer.on_next(value)
 
             return source.subscribe(
@@ -119,42 +97,43 @@ def spy(id='', node_name='', only_node=None, color=None):
     return _spy
 
 
-def trace_observable(id, node_name, trace_next=False, trace_next_payload=False, trace_subscribe=False, date=None):
-    def _trace(source):
-        color_err = 'red'
-        color_info = 'white'
+def trace_observable(id: str, node: NodeBase, trace_next=False, trace_next_payload=False, trace_subscribe=False, date=None):
+    node_name = node.ns_name
+    color = node.color
+    print_mode = node.print_mode
 
+    def _trace(source):
         def on_subscribe(observer, scheduler):
             def on_next(value):
                 if trace_next is True:
                     if trace_next_payload is True:
-                        print_info(node_name, color_info, id, 'on_next', value, date=date or datetime.datetime.now())
+                        print_info(node_name, color, id, 'on_next', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
                     else:
-                        print_info(node_name, color_info, id, 'on_next', '', date=date or datetime.datetime.now())
+                        print_info(node_name, color, id, 'on_next', '', date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
                 observer.on_next(value)
 
             def on_completed():
                 value = ''
-                print_info(node_name, color_info, id, 'on_completed', value, date=date or datetime.datetime.now())
+                print_info(node_name, color, id, 'on_completed', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
                 observer.on_completed()
 
             def on_error(error):
                 if isinstance(error, Exception):
                     error_traceback = '%s, %s' % (error, traceback.print_tb(error.__traceback__))
-                    print_info(node_name, color_err, id, 'on_error', error_traceback, date=date or datetime.datetime.now())
+                    print_info(node_name, color, id, 'on_error', error_traceback, date=date or datetime.datetime.now())
                 else:
-                    print_info(node_name, color_info, id, 'on_error', error, date=date or datetime.datetime.now())
+                    print_info(node_name, color, id, 'on_error', error, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=rospy.ERROR)
                 observer.on_error(error)
 
             def dispose():
                 if trace_subscribe is True:
                     value = ''
-                    print_info(node_name, color_info, id, 'dispose', value, date=date or datetime.datetime.now())
+                    print_info(node_name, color, id, 'dispose', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
                 disposable.dispose()
 
             if trace_subscribe is True:
                 value = ''
-                print_info(node_name, color_info, id, 'on_subscribe', value, date=date or datetime.datetime.now())
+                print_info(node_name, color, id, 'on_subscribe', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
             disposable = source.subscribe(
                 on_next=on_next,
                 on_error=on_error,
@@ -258,7 +237,7 @@ def combine_dict(acc, x):
     return acc
 
 
-def from_topic(topic_type: Any, topic_name: str, node_name: str=None) -> Observable:
+def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
     def _subscribe(observer, scheduler=None) -> Disposable:
         try:
             rospy.Subscriber(topic_name, topic_type, lambda msg: observer.on_next(msg))
@@ -342,14 +321,13 @@ def regroup_msgs(name, dt_i=None, dt_n=None):
     return _regroup_msgs
 
 
-def regroup_inputs(node_name, dt_n=None):
+def regroup_inputs(node: NodeBase, dt_n=None):
+    node_name = node.ns_name
+    color = node.color
+    print_mode = node.print_mode
     def _regroup_inputs(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                # if node_name == '/rx/bridge':
-                #     print(value)
-                #     print('')
-
                 res = dict()
 
                 # Store node tick and t_n
@@ -379,8 +357,7 @@ def regroup_inputs(node_name, dt_n=None):
                 # Check that all node_ticks are the same
                 if len(node_ticks) > 0:
                     if not len(set(node_ticks)) == 1:
-                        print_info(node_name, 'red', 'regroup_inputs', trace_type='', value='Not all node_ticks are the same: %s' % str(value))
-                # assert len(node_ticks) == 0 or len(set(node_ticks)) == 1, 'Not all node_ticks are the same: %s' % str(value)
+                        print_info(node_name, color, 'regroup_inputs', trace_type='', value='Not all node_ticks are the same: %s' % str(value), print_mode=print_mode, op_log_level=rospy.ERROR)
                 observer.on_next(res)
 
             return source.subscribe(
@@ -474,7 +451,7 @@ def get_repeat_fn(repeat, name):
     return repeat_fn
 
 
-def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
+def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase):
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
@@ -509,8 +486,7 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
                             ops.share())
 
     # Create reset flag
-    flag = Ir.pipe(# ops.observe_on(scheduler),
-                   ops.map(lambda val: val[0] + 1),
+    flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
                    ops.start_with(0),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
                    ops.filter(lambda value: value[0] == value[1]),
@@ -519,26 +495,25 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     return channel, flag
 
 
-def init_channels(ns, Nc, dt_n, inputs, scheduler, is_feedthrough=False, node_name=''):
+def init_channels(ns, Nc, dt_n, inputs, scheduler, node: NodeBase, is_feedthrough=False):
     # Create channels
     channels = []
     flags = []
     for i in inputs:
-        channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, is_feedthrough=is_feedthrough, node_name=node_name)
+        channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, node=node, is_feedthrough=is_feedthrough)
         channels.append(channel)
-        if node_name in selected_nodes:
-            if is_feedthrough:
-                name = i['address']
-            else:
-                name = i['name']
-            flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node_name))
+        if is_feedthrough:
+            name = i['address']
+        else:
+            name = i['name']
+        flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node))
         flags.append(flag)
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
-    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(dt_n=dt_n, node_name=node_name), ops.share())
+    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, dt_n=dt_n), ops.share())
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_name=''):
+def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node: NodeBase):
     # Create real reset pipeline
     dispose = []
     if real_reset:
@@ -550,7 +525,7 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_n
 
         # Create zipped action channel
         # todo: in real world implementation, how to deal with action feedthrough? Perhaps not zip, but feedthrough every action individually.
-        zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, scheduler, is_feedthrough=True, node_name=node_name)
+        zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, scheduler, node, is_feedthrough=True)
 
         # Create switch subject
         RR_ho = BehaviorSubject(zipped_channels)
@@ -567,7 +542,7 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_n
     return rr_channel, zipped_flags, dispose
 
 
-def init_target_channel(states, scheduler, node_name=''):
+def init_target_channel(states, scheduler, node: NodeBase):
     channels = []
     for s in states:
         c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
@@ -575,7 +550,7 @@ def init_target_channel(states, scheduler, node_name=''):
                           ops.map(lambda val: dict(msg=val)),
                           regroup_msgs(s['name']),)
         channels.append(c)
-    return rx.zip(*channels).pipe(regroup_inputs(node_name=node_name))
+    return rx.zip(*channels).pipe(regroup_inputs(node))
 
 
 def merge_dicts(dict_1, dict_2):
@@ -586,7 +561,7 @@ def merge_dicts(dict_1, dict_2):
     return dict_1
 
 
-def init_state_inputs_channel(ns, state_inputs, scheduler, node_name=''):
+def init_state_inputs_channel(ns, state_inputs, scheduler, node: NodeBase):
     if len(state_inputs) > 0:
         channels = []
         for s in state_inputs:
@@ -601,12 +576,12 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node_name=''):
                               ops.filter(lambda x: x[0]['msg'] is not None or x[1]),
                               ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]})))
             channels.append(c)
-        return rx.zip(*channels).pipe(regroup_inputs(node_name=node_name), ops.merge(rx.never()))
+        return rx.zip(*channels).pipe(regroup_inputs(node), ops.merge(rx.never()))
     else:
         return rx.never().pipe(ops.start_with('n/a'))
 
 
-def init_state_resets(ns, state_inputs, trigger, scheduler, node_name=''):
+def init_state_resets(ns, state_inputs, trigger, scheduler, node: NodeBase):
     if len(state_inputs) > 0:
         channels = []
         for s in state_inputs:
@@ -626,31 +601,31 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node_name=''):
                                        ops.partition(lambda x: x['done']))
             reset = reset.pipe(ops.map(lambda x: (x, s['state'].reset(state=x['msg'][0], done=x['done']))),
                                ops.map(lambda x: x[0]))
-            rs = rx.merge(done.pipe(spy('done [%s]' % s['name'].split('/')[-1][:12].ljust(4), node_name)),
-                          reset.pipe(spy('reset [%s]' % s['name'].split('/')[-1][:12].ljust(4), node_name)))
+            rs = rx.merge(done.pipe(spy('done [%s]' % s['name'].split('/')[-1][:12].ljust(4), node)),
+                          reset.pipe(spy('reset [%s]' % s['name'].split('/')[-1][:12].ljust(4), node)))
 
             channels.append(rs)
-        return rx.zip(*channels).pipe(regroup_inputs(node_name=node_name), ops.merge(rx.never()))
+        return rx.zip(*channels).pipe(regroup_inputs(node), ops.merge(rx.never()))
     else:
         return rx.never().pipe(ops.start_with('n/a'))
 
 
-def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, state_outputs, outputs, scheduler, node_name=''):
+def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, state_outputs, outputs, scheduler, node: NodeBase):
     d_msg = []
     if real_reset:
-        target_stream = init_target_channel(targets, scheduler, node_name=node_name)
+        target_stream = init_target_channel(targets, scheduler, node)
 
         # Split stream into feedthrough (ft) and reset stream
         reset_stream, ft_stream = stream.pipe(ops.partition(lambda x: x[1][1] is None))
 
         # Either feedthrough action or run callback
         ft_stream = ft_stream.pipe(ops.map(lambda x: x[1][1]),
-                                   spy('CB_FEED', node_name),
+                                   spy('CB_FEED', node),
                                    ops.map(lambda val: cb_ft(val)), ops.share())
         reset_stream = reset_stream.pipe(ops.map(lambda x: x[1][0]),
                                          ops.combine_latest(target_stream),
-                                         spy('CB_REAL', node_name),
-                                         ops.map(lambda val: cb_tick(val)), ops.share())
+                                         spy('CB_REAL', node),
+                                         ops.map(lambda val: cb_tick(inputs=val[0], targets=val[1])), ops.share())
         output_stream = rx.merge(reset_stream, ft_stream)
 
         # Send done flags
@@ -663,8 +638,7 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
     else:
         output_stream = stream.pipe(ops.filter(lambda x: x[1][1] is None),
                                     ops.map(lambda x: x[1][0]),
-                                    spy('CB_TICK', node_name),
-                                    # spy('CB_TICK', node_name, only_node=['/rx/bridge']),
+                                    spy('CB_TICK', node),
                                     ops.map(lambda val: cb_tick(val)),
                                     ops.share())
 
@@ -715,9 +689,9 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
         # Convert to classes
         i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-        if 'converter' in i:
+        if 'converter' in i and isinstance(i['converter'], dict):
             i['converter'] = initialize_converter(i['converter'])
-        else:
+        elif 'converter' not in i:
             i['converter'] = IdentityConverter()
 
         # Initialize rx objects
@@ -746,31 +720,25 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
             # Convert to classes
             n['msg_type'] = get_attribute_from_module(n['msg_module'], n['msg_type'])
-            if 'converter' in i:
-                n['converter'] = initialize_converter(n['converter'])
-            else:
+            if 'converter' in i and isinstance(i['converter'], dict):
+                n['converter'] = initialize_converter(i['converter'])
+            if 'converter' in i and not isinstance(i['converter'], dict):
+                n['converter'] = i['converter']
+            elif 'converter' not in i:
                 n['converter'] = IdentityConverter()
 
             # Initialize rx objects
             n['msg'] = Subject()  # Ir
             n['reset'] = Subject()  # Is
-
-            # Create a new input topic for each SimNode output topic
-            # n = dict()
-            # n.update(i)
-            # n.pop('rate')
-            # n['is_reactive'] = True
-            # n['repeat'] = 'all'
-            # n['name'] = n['address']
             inputs.append(n)
 
         for i in params['inputs']:
             if not i['is_reactive']:
                 # Convert to classes
                 i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-                if 'converter' in i:
+                if 'converter' in i and isinstance(i['converter'], dict):
                     i['converter'] = initialize_converter(i['converter'])
-                else:
+                elif 'converter' not in i:
                     i['converter'] = IdentityConverter()
 
                 # Initialize rx reset output for reactive input
@@ -807,15 +775,15 @@ def switch_with_check_pipeline(init_ho=None):
     return check, stream, stream_ho
 
 
-def node_reset_flags(ns, node_flags, node_name=''):
-    flags = [nf['msg'].pipe(flag_dict(nf['name']), spy('has_reset', node_name), ops.start_with({nf['name']: False})) for nf in node_flags]
+def node_reset_flags(ns, node_flags, node: NodeBase):
+    flags = [nf['msg'].pipe(flag_dict(nf['name']), spy('has_reset', node), ops.start_with({nf['name']: False})) for nf in node_flags]
     init_dict = dict()
     for nf in node_flags:
         init_dict[nf['name']] = False
     stream = rx.merge(*flags).pipe(ops.scan(lambda acc, x: merge_dicts(acc, x), init_dict),
                                    ops.filter(lambda x: any([value for key, value in x.items()])),
                                    filter_dict(),
-                                   spy('awaiting', node_name),
+                                   spy('awaiting', node, op_log_level=DEBUG),
                                    ops.filter(lambda x: len(x) == 0),
                                    ops.start_with(None))
     return stream
@@ -826,17 +794,17 @@ def node_reset_flags(ns, node_flags, node_name=''):
 ###########################################################################
 
 
-def init_node_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, node_name='', event_scheduler=None, thread_pool_scheduler=None):
+def init_node_pipeline(ns, dt_n, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, event_scheduler=None):
     # Node ticks
     Rn = ReplaySubject()     # Reset flag for the node (Nc=Ns and r_signal)
     Nc = Subject()           # Number completed callbacks (i.e. send Topics): initialized at zero to kick of chain reaction
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
 
     # Create input channels
-    zipped_inputs, zipped_input_flags = init_channels(ns, Nc, dt_n, inputs, node_name=node_name, scheduler=thread_pool_scheduler)
+    zipped_inputs, zipped_input_flags = init_channels(ns, Nc, dt_n, inputs, node=node, scheduler=event_scheduler)
 
     # Create action channels
-    zipped_feedthrough, zipped_action_flags, d_rr = init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, thread_pool_scheduler, node_name=node_name)
+    zipped_feedthrough, zipped_action_flags, d_rr = init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, event_scheduler, node=node)
 
     # Zip inputs & action channels
     zipped_channels = rx.zip(zipped_inputs, zipped_feedthrough).pipe(ops.share(), ops.observe_on(event_scheduler))
@@ -856,7 +824,7 @@ def init_node_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, SS_ho, SS_CL_ho, R
 
     # Create callback stream
     input_stream = Ns.pipe(ops.skip(1), ops.zip(P), ops.share())
-    d_msg = init_callback_pipeline(ns, cb_tick, cb_ft, input_stream, real_reset, targets, state_outputs, outputs, event_scheduler, node_name=node_name)
+    d_msg = init_callback_pipeline(ns, node.callback, cb_ft, input_stream, real_reset, targets, state_outputs, outputs, event_scheduler, node=node)
 
     # Publish output msg as ROS topic and to subjects if single process
     output_msgs = []
@@ -868,7 +836,7 @@ def init_node_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, SS_ho, SS_CL_ho, R
     Nc_obs = rx.zip(*output_msgs).pipe(ops.scan(lambda acc, x: acc + 1, 0))
 
     # Increase ticks
-    d_Nc = Nc_obs.subscribe(Nc, scheduler=thread_pool_scheduler)
+    d_Nc = Nc_obs.subscribe(Nc, scheduler=event_scheduler)
     d_Rn = Nc_obs.pipe(ops.start_with(0),  # added to simulated first zero from BS(0) of Nc
                        ops.combine_latest(Ns, Rr),
                        ops.filter(lambda value: value[0] == value[1]),
@@ -877,28 +845,21 @@ def init_node_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, SS_ho, SS_CL_ho, R
                        ).subscribe(Rn)
 
     # Create reset flags for the set_states (only concerns StateNode)
-    ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node_name=node_name)
+    ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
     SS_ho.on_next(ss_flags.pipe(ops.take(1), ops.start_with(None)))
     SS_CL_ho.on_next(ss_flags.pipe(ops.start_with(None)))
 
     # Combine flags and subscribe F to all the flags zipped together
-    d_flag = rx.zip(zipped_input_flags, zipped_action_flags).pipe(ops.map(lambda x: merge_dicts(x[0], x[1]))).subscribe(F, scheduler=thread_pool_scheduler)
+    d_flag = rx.zip(zipped_input_flags, zipped_action_flags).pipe(ops.map(lambda x: merge_dicts(x[0], x[1]))).subscribe(F, scheduler=event_scheduler)
 
     # Dispose
     dispose = [Rn, Nc, Ns, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
     return {'Rn': Rn, 'dispose': dispose}
 
 
-def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(), state_inputs=tuple(), targets=tuple(), node_name='', scheduler=None):
+def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs=tuple(), targets=tuple()):
     # Initialize scheduler
-    if scheduler is not None:
-        event_scheduler = scheduler
-        thread_pool_scheduler = event_scheduler
-    else:
-        event_scheduler = EventLoopScheduler()
-        thread_pool_scheduler = event_scheduler
-        # thread_count = multiprocessing.cpu_count()
-        # thread_pool_scheduler = ThreadPoolScheduler(thread_count)
+    event_scheduler = EventLoopScheduler()
 
     # Track node I/O
     node_inputs = []
@@ -920,8 +881,8 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
     node_inputs.append(first_tick)
 
     # Prepare node reset topic
-    node_reset = dict(name=node_name, msg_type=Bool)
-    node_reset['address'] = (node_name + '/end_reset')
+    node_reset = dict(name=node.ns_name, msg_type=Bool)
+    node_reset['address'] = (node.ns_name + '/end_reset')
     node_reset['msg'] = Subject()
     node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0, latch=True)
     node_outputs.append(node_reset)
@@ -993,7 +954,7 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
         state_outputs.append(done_output)
 
     # Prepare initial flags
-    F_init = rx.zip(*flags).pipe(spy('zip', node_name), ops.map(lambda x: merge_dicts({}, x)))
+    F_init = rx.zip(*flags).pipe(spy('zip', node), ops.map(lambda x: merge_dicts({}, x)))
 
     # Reset flags
     F = Subject()
@@ -1009,8 +970,8 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
     Rr = R.pipe(ops.map(lambda x: True))  # ops.observe_on(event_scheduler),  # seemed to make ROS variant crash
 
     # Prepare "ready-to-reset" signal (i.e. after node receives reset signal and stops sending any output msgs).
-    RrRn = rx.zip(Rr.pipe(spy('Rr', node_name)),
-                  Rn.pipe(spy('Rn', node_name))).pipe(ops.map(lambda x: x[1]), spy('SEND_FLAGS', node_name), ops.share())
+    RrRn = rx.zip(Rr.pipe(spy('Rr', node)),
+                  Rn.pipe(spy('Rn', node))).pipe(ops.map(lambda x: x[1]), spy('SEND_FLAGS', node), ops.share())
 
     # Send output flags
     for i in outputs:
@@ -1021,13 +982,13 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn,
-                           f.pipe(spy('F', node_name)),
-                           SS.pipe(spy('SS', node_name))).pipe(ops.with_latest_from(SS_CL),
+                           f.pipe(spy('F', node)),
+                           SS.pipe(spy('SS', node))).pipe(ops.with_latest_from(SS_CL),
                                                                ops.map(lambda x: x[0][:-1] + (x[1],)),
-                                                               spy('RENEW_PIPE', node_name),
+                                                               spy('RENEW_PIPE', node),
                                                                ops.map(lambda x: x[-1]), ops.share())  # x: SS_CL
-    reset_obs = reset_trigger.pipe(ops.map(lambda x: init_node_pipeline(ns, dt_n, cb_tick, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, node_name=node_name, event_scheduler=event_scheduler, thread_pool_scheduler=thread_pool_scheduler)),
-                                   trace_observable('init_node_pipeline', node_name),
+    reset_obs = reset_trigger.pipe(ops.map(lambda x: init_node_pipeline(ns, dt_n, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, event_scheduler=event_scheduler)),
+                                   trace_observable('init_node_pipeline', node),
                                    ops.share())
     reset_obs.pipe(ops.pluck('Rn')).subscribe(Rn_ho)
 
@@ -1040,9 +1001,9 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
                                ops.zip(reset_trigger, Rn_ho.pipe(ops.skip(1)), check_SS, check_SS_CL),
                                ops.map(lambda x: x[1]),  # x[1]=Nc
                                ops.share(),
-                               spy('RESET', node_name),
-                               ops.map(lambda x: cb_reset(x)),
-                               trace_observable('cb_reset', node_name),
+                               spy('RESET', node, op_log_level=DEBUG),
+                               ops.map(lambda x:  node.reset(x)),
+                               trace_observable('cb_reset', node),
                                ops.share())
 
     # Send node reset message
@@ -1055,7 +1016,7 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
             reset_msg.pipe(ops.pluck(i['name']),
                            ops.zip(T.pipe(ops.filter(lambda x: x.data == 0))),
                            ops.map(lambda x: x[0]),
-                           spy('init_msg', node_name),
+                           spy('init_msg', node),
                            publisher_to_topic(i['msg_pub'])).subscribe(i['msg'])
 
     rx_objects = dict(inputs=inputs, outputs=outputs, feedthrough=feedthrough, state_inputs=state_inputs, state_outputs=state_outputs, targets=targets, node_inputs=node_inputs, node_outputs=node_outputs)
@@ -1067,7 +1028,7 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
 ###########################################################################
 
 
-def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF, RRn_ho, node_name='', event_scheduler=None, thread_pool_scheduler=None):
+def init_bridge_pipeline(ns, node, zipped_channels, outputs, Nc_ho, DF, RRn_ho, event_scheduler=None):
     # Node ticks
     RRn = Subject()
     RRn_ho.on_next(RRn)
@@ -1080,7 +1041,7 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF,
 
     # New routine with merge
     PR = DF.pipe(ops.filter(lambda x: all([df for df in x])),
-                 spy('DF filtered', node_name),
+                 spy('DF filtered', node),
                  ops.observe_on(event_scheduler),
                  ops.map(lambda x: True),
                  ops.merge(zipped_channels),
@@ -1095,16 +1056,15 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF,
 
     # Create callback stream
     input_stream = Ns.pipe(ops.skip(1), ops.zip(P), ops.share())
-    d_msg = init_callback_pipeline(ns, cb_tick, cb_ft, input_stream, False, tuple(), tuple(), outputs, event_scheduler, node_name=node_name)
+    d_msg = init_callback_pipeline(ns, node.callback, cb_ft, input_stream, False, tuple(), tuple(), outputs, event_scheduler, node)
 
     # After outputs have been send, increase the completed callback counter
     Nc_obs = rx.zip(*[o['msg'] for o in outputs]).pipe(ops.scan(lambda acc, x: acc + 1, 0))
 
     # Increase ticks
-    d_Nc = Nc_obs.subscribe(Nc, scheduler=thread_pool_scheduler)
+    d_Nc = Nc_obs.subscribe(Nc, scheduler=event_scheduler)
     d_RRn = Nc_obs.pipe(ops.start_with(0),  # added to simulated first zero from BS(0) of Nc
                         ops.combine_latest(Ns, RRr),
-                        # spy('RRn pre-filter', node_name),
                         ops.filter(lambda value: value[0] == value[1]),
                         ops.take(1),
                         ops.merge(rx.never()),
@@ -1115,18 +1075,12 @@ def init_bridge_pipeline(ns, dt_n, cb_tick, zipped_channels, outputs, Nc_ho, DF,
     return {'dispose': dispose}
 
 
-def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_object, inputs_init, outputs, node_names, target_addresses,
-                message_broker, node_name='', scheduler=''):
+def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_addresses, message_broker):
     ###########################################################################
     # Initialization ##########################################################
     ###########################################################################
     # Prepare scheduler
-    if scheduler is not None:
-        event_scheduler = scheduler
-        thread_pool_scheduler = event_scheduler
-    else:
-        event_scheduler = EventLoopScheduler()
-        thread_pool_scheduler = event_scheduler
+    event_scheduler = EventLoopScheduler()
 
     # Prepare output topics
     for i in outputs:
@@ -1191,17 +1145,15 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     # Object registry pipeline
     params_nodes = OR.pipe(ops.map(get_object_params),
                            ops.filter(lambda params: params is not None),
-                           ops.map(lambda params: (params[1],) + cb_register_object(*params)), ops.share())
+                           ops.map(lambda params: (params[1],) + node.register_object(*params)), ops.share())
     rx_objects = params_nodes.pipe(ops.map(lambda i: extract_inputs_and_reactive_proxy(ns, *i)),
-                                   ops.map(lambda i: (i, message_broker.add_rx_objects(node_name + '/dynamically_registered', inputs=i['inputs'], reactive_proxy=i['reactive_proxy'], state_inputs=i['state_inputs'], node_inputs=i['node_flags']))),
+                                   ops.map(lambda i: (i, message_broker.add_rx_objects(node.ns_name + '/dynamically_registered', inputs=i['inputs'], reactive_proxy=i['reactive_proxy'], state_inputs=i['state_inputs'], node_inputs=i['node_flags']))),
                                    ops.map(lambda i: i[0]),
                                    ops.scan(combine_dict, dict(inputs=inputs_init, reactive_proxy=[], sp_nodes=[], launch_nodes=[], state_inputs=[], node_flags=init_node_flags)), ops.share())
 
     # Make sure that all nodes are initialized, before passing it to start_reset_input
     OR_cum = OR.pipe(ops.scan(lambda acc, x: acc + 1, 0))
-    rx_objects = rx_objects.pipe(ops.zip(OR_cum),
-                                 # spy('cum', node_name),
-                                 )
+    rx_objects = rx.zip(rx_objects, OR_cum)
 
     ###########################################################################
     # Start reset #############################################################
@@ -1213,12 +1165,9 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
 
     # Latch on '/rx/start_reset' event
     # todo: risk: that OR_cum == 1, while rx_objects is already OR_cum == 2. Will deadlock then.
-    rx_objects = SR.pipe(#spy('SR', node_name),
-                         ops.with_latest_from(OR_cum),
-                         # spy('WL', node_name),
+    rx_objects = SR.pipe(ops.with_latest_from(OR_cum),
                          ops.combine_latest(rx_objects),
                          ops.filter(lambda x: x[0][1] == x[1][1]),
-                         spy('WL filtered', node_name),
                          ops.map(lambda i: i[1][0]),  # rx_objects
                          ops.share())
     inputs = rx_objects.pipe(ops.pluck('inputs'))
@@ -1241,7 +1190,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
 
     # Zip node flags
     check_NF, NF, NF_ho = switch_with_check_pipeline()
-    node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node_name))).subscribe(NF_ho)
+    node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node))).subscribe(NF_ho)
 
     ###########################################################################
     # Real reset ##############################################################
@@ -1257,11 +1206,11 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
 
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
-    rx.zip(RRn.pipe(spy('RRn', node_name)),
-           RRr.pipe(spy('RRr', node_name))).pipe(ops.map(lambda x: x[0][0]),  # x[0][0]=Nc
-                                                 ops.map(lambda x: (x, cb_pre_reset(x))),  # Run pre-reset callback
-                                                 spy('PRE-RESET', node_name),
-                                                 trace_observable('cb_pre_reset', node_name),
+    rx.zip(RRn.pipe(spy('RRn', node)),
+           RRr.pipe(spy('RRr', node))).pipe(ops.map(lambda x: x[0][0]),  # x[0][0]=Nc
+                                                 ops.map(lambda x: (x, node.pre_reset(x))),  # Run pre-reset callback
+                                                 spy('PRE-RESET', node, op_log_level=DEBUG),
+                                                 trace_observable('cb_pre_reset', node),
                                                  ops.map(lambda x: UInt64(data=x[0] + 1)),
                                                  ops.share()).subscribe(RM)
 
@@ -1277,8 +1226,8 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     # Send reset message
     RM.pipe(publisher_to_topic(reset_output['msg_pub'])).subscribe(R)
     Rr = R.pipe(ops.map(lambda x: True))
-    reset_trigger = rx.zip(f.pipe(spy('F', node_name)),
-                           Rr.pipe(spy('Rr', node_name))).pipe(ops.share())
+    reset_trigger = rx.zip(f.pipe(spy('F', node)),
+                           Rr.pipe(spy('Rr', node))).pipe(ops.share())
 
     # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
     [RM.pipe(publisher_to_topic(o['reset_pub'])).subscribe(o['reset']) for o in outputs]
@@ -1290,28 +1239,28 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     check_Nc, Nc, Nc_ho = switch_with_check_pipeline()
     inputs_flags = inputs.pipe(ops.zip(reset_trigger),
                                ops.map(lambda i: i[0]),
-                               ops.map(lambda inputs: init_channels(ns, Nc, dt_n, inputs, node_name=node_name, scheduler=thread_pool_scheduler)),
+                               ops.map(lambda inputs: init_channels(ns, Nc, dt_n, inputs, event_scheduler, node)),
                                ops.share())
 
     # Switch to latest zipped inputs pipeline
     check_z_inputs, z_inputs, z_inputs_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(z_inputs_ho, scheduler=thread_pool_scheduler)
+    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(z_inputs_ho, scheduler=event_scheduler)
 
     # Switch to latest zipped flags pipeline
     check_z_flags, z_flags, z_flags_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(z_flags_ho, scheduler=thread_pool_scheduler)
+    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(z_flags_ho, scheduler=event_scheduler)
     z_flags.subscribe(F)
 
     # Initialize rest of episode pipeline
-    pipeline_trigger = rx.zip(check_z_flags, check_z_inputs) #, check_z_nodes)
-    reset_obs = pipeline_trigger.pipe(ops.map(lambda x: init_bridge_pipeline(ns, dt_n, cb_tick, z_inputs, outputs, Nc_ho, DF, RRn_ho, node_name=node_name, event_scheduler=event_scheduler, thread_pool_scheduler=thread_pool_scheduler)),
-                                      trace_observable('init_bridge_pipeline', node_name), ops.share())
+    pipeline_trigger = rx.zip(check_z_flags, check_z_inputs)
+    reset_obs = pipeline_trigger.pipe(ops.map(lambda x: init_bridge_pipeline(ns, node, z_inputs, outputs, Nc_ho, DF, RRn_ho, event_scheduler=event_scheduler)),
+                                      trace_observable('init_bridge_pipeline', node), ops.share())
 
     # Dynamically initialize new state pipeline
     check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject('n/a'))
-    ss_flags = state_inputs.pipe(ops.zip(SS.pipe(spy('SS', node_name))),
+    ss_flags = state_inputs.pipe(ops.zip(SS.pipe(spy('SS', node))),
                                  ops.map(lambda i: i[0]),
-                                 ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node_name=node_name)),
+                                 ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node)),
                                  ops.share())
     ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(SS_ho)
 
@@ -1328,10 +1277,10 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
                    ops.buffer_with_count(2, skip=1),
                    ops.map(lambda x: [d.dispose() for d in x[0]]),
                    ops.start_with(None),
-                   ops.zip(reset_obs, check_SS, NF.pipe(spy('NF', node_name))),
-                   ops.map(lambda x: cb_post_reset()),
-                   spy('POST-RESET', node_name),
-                   trace_observable('cb_post_reset', node_name),
+                   ops.zip(reset_obs, check_SS, NF.pipe(spy('NF', node))),
+                   ops.map(lambda x: node.reset()),
+                   spy('POST-RESET', node, op_log_level=DEBUG),
+                   trace_observable('cb_post_reset', node),
                    ops.map(lambda x: UInt64(data=0)),
                    ops.share(),
                    publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])
@@ -1345,9 +1294,8 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
 ###########################################################################
 
 
-def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple(), node_name='', scheduler=None):
+def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # Initialize schedulers
-    # event_scheduler = EventLoopScheduler()
     tp_scheduler = ThreadPoolScheduler(max_workers=5)
 
     # Prepare states
@@ -1407,11 +1355,11 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple(), node_name=
     reset = dict(name='reset', address=ns + '/reset', msg_type=UInt64, msg=R)
 
     # Prepare node reset topic
-    node_reset = dict(name=node_name, address=node_name + '/end_reset', msg_type=Bool, msg=Subject())
+    node_reset = dict(name=node.ns_name, address=node.ns_name + '/end_reset', msg_type=Bool, msg=Subject())
     node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0, latch=True)
 
     # Reset pipeline
-    SR.pipe(ops.zip(R), ops.map(lambda x: x[0]), publisher_to_topic(step['reset_pub'])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
+    SR.pipe(spy('RESET', node, op_log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0]), publisher_to_topic(step['reset_pub'])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
     R.pipe(ops.map(lambda x: Bool(data=True)), publisher_to_topic(node_reset['msg_pub'])).subscribe(node_reset['msg'], scheduler=tp_scheduler)  # todo: swap
 
     ###########################################################################
@@ -1462,6 +1410,9 @@ def thread_safe_wrapper(func, condition):
 class RxMessageBroker(object):
     def __init__(self, owner):
         self.owner = owner
+
+        # Determine log_level
+        self.effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
 
         # Ensure that we are not reading and writing at the same time.
         self.cond = Condition()
@@ -1607,6 +1558,10 @@ class RxMessageBroker(object):
             print(' '.center(140, " "))
 
     def connect_io(self, print_status=True):
+        # If log_level is not high enough, overwrite print_status
+        if self.effective_log_level > DEBUG:
+            print_status = False
+
         for node_name, node in self.disconnected.items():
             # Skip if no disconnected addresses
             num_disconnected = 0
@@ -1616,13 +1571,11 @@ class RxMessageBroker(object):
                 continue
 
             # Else, initialize connection
+
             print_status and cprint(('OWNER "%s"' % self.owner).ljust(15, ' ') + ('| CONNECTING NODE "%s" ' % node_name).ljust(180, " "), attrs=['bold', 'underline'])
             for key, addresses in node.items():
                 for address in list(addresses.keys()):
                     entry = addresses[address]
-
-                    # if address in self.connected_ros[node_name][key]:
-                    #     rospy.logdebug('Address (%s) of this node (%s) already connected via ROS. Connecting again.' % (address, node_name))
                     assert address not in self.connected_rx[node_name][key], 'Address (%s) of this node (%s) already connected via rx.' % (address, node_name)
                     assert address not in self.connected_ros[node_name][key], 'Address (%s) of this node (%s) already connected via ROS.' % (address, node_name)
                     if address in self.rx_connectable.keys():

@@ -4,6 +4,7 @@ default:
   outputs: [set]
   single_process: true
   launch_locally: true
+  color: yellow
 inputs: {}
 outputs:
   set:

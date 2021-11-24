@@ -4,6 +4,7 @@ default:
   states: []
   single_process: true
   launch_locally: true
+  color: yellow
 outputs:
   step:
     msg_type: std_msgs.msg/UInt64

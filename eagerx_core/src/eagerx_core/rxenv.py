@@ -4,6 +4,7 @@ import rosparam
 from rosgraph.masterapi import Error
 
 # EAGERX
+import eagerx_core.core
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import load_yaml
@@ -18,6 +19,7 @@ from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
 import gym
 import multiprocessing
+import logging
 
 
 class RxEnv(object):
@@ -42,6 +44,7 @@ class RxEnv(object):
                  bridge: RxBridgeParams,
                  nodes: List[RxNodeParams],
                  objects: List[RxObjectParams]) -> None:
+        assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = '/' + name
         self.rate = rate
@@ -102,7 +105,7 @@ class RxEnv(object):
                                     space_converter = node_yaml['states'][simnode_cname]['space_converter']
 
                                     rospy.logwarn('Adding state "%s" to simulation nodes can potentially make the environment for object "%s" non-agnostic. Check "%s.yaml" in package "%s" for more info.' % (name, i.name, config_name, package_name))
-                                    assert name not in supervisor.params[ 'states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                                    assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
 
                                     supervisor.params['states'][name] = dict(address=address, msg_type=msg_type,
                                                                              converter=space_converter)
@@ -115,6 +118,10 @@ class RxEnv(object):
         except Error:
             pass
 
+        # Upload log_level
+        log_level = logging.getLogger('rosout').getEffectiveLevel()
+        rosparam.upload_params(self.ns, {'log_level': log_level})
+
         # Initialize message broker
         mb = RxMessageBroker(owner='%s/%s' % (self.ns, 'env'))
 
@@ -122,7 +129,7 @@ class RxEnv(object):
         supervisor.params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_supervisor = RxSupervisor(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb, scheduler=None)
+        rx_supervisor = RxSupervisor(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb)
         rx_supervisor.node_initialized()
 
         # Connect io
@@ -162,14 +169,14 @@ class RxEnv(object):
         observations.params['default']['rate'] = self.rate
         obs_params = observations.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, obs_params)
-        rx_obs = RxNode(name='%s/%s' % (self.ns, observations.name), message_broker=message_broker, scheduler=None)
+        rx_obs = RxNode(name='%s/%s' % (self.ns, observations.name), message_broker=message_broker)
         rx_obs.node_initialized()
 
         # Create action node
         actions.params['default']['rate'] = self.rate
         act_params = actions.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, act_params)
-        rx_act = RxNode(name='%s/%s' % (self.ns, actions.name), message_broker=message_broker, scheduler=None)
+        rx_act = RxNode(name='%s/%s' % (self.ns, actions.name), message_broker=message_broker)
         rx_act.node_initialized()
 
         return rx_act.node, rx_obs.node, rx_act, rx_obs

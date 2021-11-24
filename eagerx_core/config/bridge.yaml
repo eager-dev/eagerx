@@ -1,4 +1,4 @@
-node_type: eagerx_core.rxbridge/BridgeNode
+node_type: eagerx_core.rxbridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
@@ -6,6 +6,7 @@ default:
   single_process: False
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
+  color: magenta
 
 outputs:
   tick:

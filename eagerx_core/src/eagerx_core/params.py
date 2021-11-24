@@ -240,6 +240,8 @@ class RxNodeParams(Params):
 
         # Replace default arguments
         for key, entry in kwargs.items():
+            if key in ['color', 'print_mode', 'log_level']:
+                params['default'][key] = entry
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
             params['default'][key] = entry
 

@@ -4,6 +4,7 @@ default:
   outputs: []
   single_process: true
   launch_locally: true
+  color: yellow
 inputs:
   observations_set:
     address: env/observations/outputs/set

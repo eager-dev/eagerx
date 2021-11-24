@@ -7,10 +7,10 @@ from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
-
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
+
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Type of simulation (optional)
     sp = True
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=False)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -72,19 +72,15 @@ if __name__ == '__main__':
     # todo: ADJUSTMENTS RX
     # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
     # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
-    # todo: print statements of callback inside ProcessNode: color specified as additional argument
-
-    # todo: NODE CLASS
-    # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
+    # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
+    #       done flags used in both real_reset & state_reset
     # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
-
-    # todo: make baseclasses for bridge, node, simstate
     # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
-    # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
-    # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
 
     # todo: THINGS TO KEEP IN MIND:
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
