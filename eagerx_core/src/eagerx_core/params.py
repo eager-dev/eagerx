@@ -1,4 +1,5 @@
 from typing import Dict
+from copy import deepcopy
 from eagerx_core.utils.utils import load_yaml
 
 
@@ -19,7 +20,7 @@ class RxInput(Params):
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  is_reactive: bool = True,
-                 rate: int = None,
+                 rate: float = None,
                  space_converter: Dict = None,
                  delay: float = 0.0,
                  ):
@@ -57,7 +58,7 @@ class RxOutput(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 rate: int,
+                 rate: float,
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  space_converter: Dict = None,
@@ -207,6 +208,12 @@ class RxNodeParams(Params):
         # Load yaml from config file
         params = load_yaml(package_name, config_name)
 
+        # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
+        if 'targets' in params:
+            params['feedthroughs'] = dict()
+            for cname in params['outputs']:
+                params['feedthroughs'][cname] = dict()
+
         # Re-direct dict entries (converters, addresses, delays)
         # Will remove re-directed dicts.
         keys_to_pop = []
@@ -252,8 +259,8 @@ class RxNodeParams(Params):
         return cls(name, params)
 
     def get_params(self, ns='', in_object=False):
-        params = self.params.copy()
-        default = params['default'].copy()
+        params = deepcopy(self.params)
+        default = deepcopy(params['default'])
         name = self.name
         package_name = default['package_name']
         config_name = default['config_name']
@@ -359,11 +366,11 @@ class RxObjectParams(Params):
 
     @classmethod
     def create(cls, name: str, package_name: str, config_name: str, **kwargs):
-        # Load yaml from config file
-        params = load_yaml(package_name, config_name)
-
         # default arguments, not specified in node_name.yaml
         ignored_yaml_args = []
+
+        # Load yaml from config file
+        params = load_yaml(package_name, config_name)
 
         # Replace default arguments
         for key, item in kwargs.items():
@@ -385,7 +392,7 @@ class RxObjectParams(Params):
         return cls(name, params)
 
     def get_params(self, ns, bridge):
-        params = self.params.copy()
+        params = deepcopy(self.params)
         name = self.name
 
         # Check if the bridge name is not contained in the config's (.yaml) default parameters
@@ -497,3 +504,9 @@ class RxObjectParams(Params):
                 del obj_params[c]
 
         return {self.name: obj_params}, nodes
+
+
+class RxBridgeParams(RxNodeParams):
+    @classmethod
+    def create(cls, package_name: str, config_name: str, **kwargs):
+        return RxNodeParams.create('bridge', package_name, config_name, **kwargs)

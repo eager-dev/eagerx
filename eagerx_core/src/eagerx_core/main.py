@@ -1,9 +1,8 @@
 # ROS packages required
 import rospy
-from eagerx_core.params import RxObjectParams, RxNodeParams
-from eagerx_core.env import Env
-from eagerx_core.utils.utils import launch_roscore
-from eagerx_core.utils.node_utils import configure_connections
+from eagerx_core.core import RxBridge, RxNode, RxObject
+from eagerx_core.rxenv import EAGERxEnv
+from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
@@ -13,24 +12,23 @@ if __name__ == '__main__':
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
 
-    # Define nodes
+    # Type of simulation (optional)
     sp = True
-    N1 = RxNodeParams.create('N1', 'eagerx_core', 'process',   rate=1, single_process=sp, outputs=['out_1', 'out_2'])
-    N3 = RxNodeParams.create('N3', 'eagerx_core', 'realreset', rate=1, single_process=sp, targets=['target_1'])
-    N4 = RxNodeParams.create('N4', 'eagerx_core', 'process',   rate=3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    N5 = RxNodeParams.create('N5', 'eagerx_core', 'process',   rate=6, single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    KF = RxNodeParams.create('KF', 'eagerx_core', 'kf',        rate=1, single_process=sp, inputs=['in_1', 'in_2'])
+
+    # Define nodes
+    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, single_process=sp, targets=['target_1'])
+    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=6,   single_process=sp, output_converters={'out_1': IntUInt64Converter})
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   single_process=sp, inputs=['in_1', 'in_2'])
 
     # Define object
-    viper = RxObjectParams.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
+    viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
 
-    # Define action/observations/states
-    actions, observations = Env.define_actions(), Env.define_observations()
+    # Define action/observations
+    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
     # Connect nodes
-    # todo: how to add states for simulation nodes?
-    # todo: can simnodes have an initial message (i.e. is that logic implemented in bridge pipeline)?
-    # todo: if address is overwritten, remove all other entries?
     connections = [{'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
                    {'source': (viper, 'sensors', 'N7'), 'target': (KF, 'inputs', 'in_1')},
                    {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
@@ -45,21 +43,18 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    # todo: Fix, such that bridge name is always "bridge"
-    bridge = RxNodeParams.create('bridge', 'eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=sp)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
 
     # Initialize Environment
-    env = Env(name='rx',
-              rate=1,
-              actions=actions,
-              observations=observations,
-              bridge=bridge,
-              nodes=[N1, N3, N4, N5, KF],
-              objects=[viper])
+    env = EAGERxEnv(name='rx',
+                    rate=1,
+                    actions=actions,
+                    observations=observations,
+                    bridge=bridge,
+                    nodes=[N1, N3, N4, N5, KF],
+                    objects=[viper])
 
     # First reset
-    # todo: why sleep required in _initialize?
-    # todo: how to be sure that all sim-nodes have been initialized here?
     obs = env.reset()
     for j in range(20000):
         print('\n[Episode %s]' % j)
@@ -68,29 +63,35 @@ if __name__ == '__main__':
             obs, reward, done, info = env.step(action)
         obs = env.reset()
     print('\n[Finished]')
-    rospy.sleep(100000)
 
     # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
     # todo: Visualize and perform checks on DAGs (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
-    # todo: How to combine GUI with custom env?
 
     # todo: implement real_time rx pipeline
 
-    # todo: Avoid blocking at initialization: make publishers latched? Wait for all simnodes to be initialized.
+    # todo: ADJUSTMENTS RX
+    # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
+    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
+    # todo: print statements of callback inside ProcessNode: color specified as additional argument
 
-    # todo: make all msg_reset publishers latched?
+    # todo: NODE CLASS
+    # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
+    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
+
+    # todo: make baseclasses for bridge, node, simstate
+    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
+    # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
+
+    # todo: CREATE GITHUB ISSUES FOR:
     # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
 
-    # todo: CLEAN-UP ACTIONS
-    # todo: Combine action, observation, supervisor node into a single environment node.
-    # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
-    # todo: make baseclasses for bridge, node, simstate
-    # todo: replace rospy.sleep(..) with time.sleep(..)
-    # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
-    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
-    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
-    # todo: change rate type to float (instead of int)
-    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
-    # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
-    # todo: print statements of callback inside ProcessNode: color specified as additional argument
+    # todo: THINGS TO KEEP IN MIND:
+    # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
+    #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
+    # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()". Hence, we cannot
+    #  completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but chance is very slim,
+    #  and only at the moment of initialization).
+    # todo: Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
+    #  Hence, we cannot adaptively register new objects or controllers after some episodes.
+

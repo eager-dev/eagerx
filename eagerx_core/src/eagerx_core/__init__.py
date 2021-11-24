@@ -4,7 +4,7 @@ from os import getpid
 from functools import wraps
 import types
 from typing import Callable, Any
-from termcolor import colored, cprint
+from termcolor import cprint
 import datetime, traceback
 
 # IMPORT ROS
@@ -22,8 +22,8 @@ from rx.subject import Subject, BehaviorSubject, ReplaySubject
 from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 
 # IMPORT eagerx
-from eagerx_core.utils.utils import get_attribute_from_module, get_param_with_blocking, initialize_converter, initialize_state
-from eagerx_core.utils.node_utils import launch_node, wait_for_node_initialization
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, initialize_state, \
+    get_param_with_blocking
 from eagerx_core.converter import IdentityConverter
 from eagerx_core.params import RxInput
 
@@ -485,7 +485,7 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
                           ops.map(inpt['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                          # ops.share(),  # todo: add? perhaps efficient and worked kind-off with create_channel_bridge
+                          ops.share(),
                           )
 
     # Get rate from rosparam server
@@ -503,7 +503,6 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node_name=''):
     msg = num_msgs.pipe(gen_msg(Ir))
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
-                            ops.share(),  # todo: really needed with share at the end here?
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
@@ -563,7 +562,7 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node_n
     else:
         # Create switch Subject
         zipped_flags = rx.never().pipe(ops.start_with({}))
-        rr_channel = Nc.pipe(ops.map(lambda x: None), ops.start_with(None)) # todo: ADDED start_with FOR DYNAMIC BRIDGE PIPELINE
+        rr_channel = Nc.pipe(ops.map(lambda x: None), ops.start_with(None))
 
     return rr_channel, zipped_flags, dispose
 
@@ -698,7 +697,8 @@ def get_object_params(msg):
     node_params = []
     for node_name in obj_params['node_names']:
         params = get_param_with_blocking(node_name)
-        assert params['single_process'], 'Only single_process simulation nodes are supported.'
+        # If simulation node is not launched locally, it will be launched by the environment. --> can only launch nodes in main thread.
+        assert params['single_process'] or not params['launch_locally'], 'Only single_process simulation nodes, or nodes not launched locally are supported.'
         node_params.append(params)
     return obj_params, node_params, state_params
 
@@ -923,7 +923,7 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
     node_reset = dict(name=node_name, msg_type=Bool)
     node_reset['address'] = (node_name + '/end_reset')
     node_reset['msg'] = Subject()
-    node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0)
+    node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0, latch=True)
     node_outputs.append(node_reset)
 
     # Real reset checks
@@ -954,7 +954,7 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
 
         # Initialize reset topic
         i['reset'] = Subject()
-        i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)  # todo: make it latched?
+        i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)
 
     # Prepare action topics (used by RealResetNode)
     for i in feedthrough:
@@ -1009,7 +1009,8 @@ def init_node(ns, dt_n, cb_tick, cb_reset, inputs, outputs, feedthrough=tuple(),
     Rr = R.pipe(ops.map(lambda x: True))  # ops.observe_on(event_scheduler),  # seemed to make ROS variant crash
 
     # Prepare "ready-to-reset" signal (i.e. after node receives reset signal and stops sending any output msgs).
-    RrRn = rx.zip(Rr, Rn).pipe(ops.map(lambda x: x[1]), spy('SEND_FLAGS', node_name), ops.share())
+    RrRn = rx.zip(Rr.pipe(spy('Rr', node_name)),
+                  Rn.pipe(spy('Rn', node_name))).pipe(ops.map(lambda x: x[1]), spy('SEND_FLAGS', node_name), ops.share())
 
     # Send output flags
     for i in outputs:
@@ -1196,6 +1197,12 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
                                    ops.map(lambda i: i[0]),
                                    ops.scan(combine_dict, dict(inputs=inputs_init, reactive_proxy=[], sp_nodes=[], launch_nodes=[], state_inputs=[], node_flags=init_node_flags)), ops.share())
 
+    # Make sure that all nodes are initialized, before passing it to start_reset_input
+    OR_cum = OR.pipe(ops.scan(lambda acc, x: acc + 1, 0))
+    rx_objects = rx_objects.pipe(ops.zip(OR_cum),
+                                 # spy('cum', node_name),
+                                 )
+
     ###########################################################################
     # Start reset #############################################################
     ###########################################################################
@@ -1205,7 +1212,15 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
-    rx_objects = SR.pipe(ops.with_latest_from(rx_objects), ops.map(lambda i: i[1]), ops.share())
+    # todo: risk: that OR_cum == 1, while rx_objects is already OR_cum == 2. Will deadlock then.
+    rx_objects = SR.pipe(#spy('SR', node_name),
+                         ops.with_latest_from(OR_cum),
+                         # spy('WL', node_name),
+                         ops.combine_latest(rx_objects),
+                         ops.filter(lambda x: x[0][1] == x[1][1]),
+                         spy('WL filtered', node_name),
+                         ops.map(lambda i: i[1][0]),  # rx_objects
+                         ops.share())
     inputs = rx_objects.pipe(ops.pluck('inputs'))
     state_inputs = rx_objects.pipe(ops.pluck('state_inputs'))
     reactive_proxy = rx_objects.pipe(ops.pluck('reactive_proxy'))
@@ -1233,7 +1248,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     ###########################################################################
     # Prepare real_reset output
     real_reset_output = dict(address=ns + '/real_reset', msg=RR, msg_type=UInt64)
-    real_reset_output['msg_pub'] = rospy.Publisher(real_reset_output['address'], real_reset_output['msg_type'], queue_size=0)
+    real_reset_output['msg_pub'] = rospy.Publisher(real_reset_output['address'], real_reset_output['msg_type'], queue_size=0, latch=True)
     node_outputs.append(real_reset_output)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
@@ -1256,7 +1271,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
     # Prepare reset output
     R = Subject()
     reset_output = dict(address=ns + '/reset', msg=R, msg_type=UInt64)
-    reset_output['msg_pub'] = rospy.Publisher(reset_output['address'], reset_output['msg_type'], queue_size=0)
+    reset_output['msg_pub'] = rospy.Publisher(reset_output['address'], reset_output['msg_type'], queue_size=0, latch=True)
     node_outputs.append(reset_output)
 
     # Send reset message
@@ -1330,7 +1345,7 @@ def init_bridge(ns, dt_n, cb_tick, cb_pre_reset, cb_post_reset, cb_register_obje
 ###########################################################################
 
 
-def init_environment(ns, node, outputs=tuple(), state_outputs=tuple(), node_name='', scheduler=None):
+def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple(), node_name='', scheduler=None):
     # Initialize schedulers
     # event_scheduler = EventLoopScheduler()
     tp_scheduler = ThreadPoolScheduler(max_workers=5)

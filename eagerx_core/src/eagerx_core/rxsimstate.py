@@ -1,7 +1,4 @@
-from eagerx_core.utils.utils import get_param_with_blocking
-
-
-class SimState(object):
+class RxSimState(object):
     def __init__(self, name, simulator, test_arg):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])

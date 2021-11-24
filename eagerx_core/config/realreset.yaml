@@ -1,4 +1,4 @@
-node_type: eagerx_core.node/RealResetNode
+node_type: eagerx_core.rxnode/RealResetNode
 default:
   rate:
   inputs: [in_1]
@@ -61,9 +61,5 @@ targets:
       dtype: uint64
       low: [0]
       high: [100]
-
-feedthroughs:
-  out_1: {}
-  out_2: {}
 
 

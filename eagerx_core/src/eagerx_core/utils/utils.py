@@ -1,84 +1,23 @@
 # ROS SPECIFIC
-import roslaunch
-import rospy
-import rospkg
 import rosparam
-from roslaunch.substitution_args import resolve_args
-from roslaunch.core import RLException
+import rospkg
+import rospy
 from rosgraph.masterapi import Error
+from roslaunch.substitution_args import resolve_args
 
 # OTHER
+import time
 from functools import reduce
 import importlib
-from six import raise_from
 import inspect
-import time
-
-
-def substitute_xml_args(param):
-    # substitute string
-    if isinstance(param, str):
-        param = resolve_args(param)
-        return param
-
-    # For every key in the dictionary (not performing deepcopy!)
-    if isinstance(param, dict):
-        for key in param:
-            # If the value is of type `(Ordered)dict`, then recurse with the value
-            if isinstance(param[key], dict):
-                substitute_xml_args(param[key])
-            # Otherwise, add the element to the result
-            elif isinstance(param[key], str):
-                param[key] = resolve_args(param[key])
+from time import sleep
+from six import raise_from
 
 
 def get_attribute_from_module(module, attribute):
     module = importlib.import_module(module)
     attribute = getattr(module, attribute)
     return attribute
-
-
-def load_yaml(package_name, object_name):
-    try:
-        pp = rospkg.RosPack().get_path(package_name)
-        filename = pp + "/config/" + object_name + ".yaml"
-        params = rosparam.load_file(filename)[0][0]
-    except Exception as ex:
-        raise_from(RuntimeError(('Unable to load %s from package %s' % (object_name, package_name))), ex)
-    return params
-
-
-def get_param_with_blocking(name, timeout=5):
-    params = None
-    start = time.time()
-    it = 0
-    while params is None:
-
-        try:
-            params = rospy.get_param(name)
-        except (Error, KeyError):
-            sleep_time = 0.01
-            if it % 20 == 0:
-                rospy.loginfo('Parameters under namespace "%s" not (yet) uploaded on parameter server. Retry with small pause (%s s).' % (name, sleep_time))
-            rospy.sleep(sleep_time)
-            pass
-        if time.time() - start > timeout:
-            break
-        it += 1
-    return params
-
-
-def launch_roscore():
-    uuid = roslaunch.rlutil.get_or_generate_uuid(options_runid=None, options_wait_for_master=False)
-    roslaunch.configure_logging(uuid)
-    roscore = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_files=[], is_core=True)
-
-    try:
-        roscore.start()
-    except RLException as e:
-        rospy.logwarn('Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore.')
-        pass
-    return roscore
 
 
 def initialize_converter(args):
@@ -138,3 +77,50 @@ def merge(a, b, path=None):
         else:
             a[key] = b[key]
     return a
+
+
+def load_yaml(package_name, object_name):
+    try:
+        pp = rospkg.RosPack().get_path(package_name)
+        filename = pp + "/config/" + object_name + ".yaml"
+        params = rosparam.load_file(filename)[0][0]
+    except Exception as ex:
+        raise_from(RuntimeError(('Unable to load %s from package %s' % (object_name, package_name))), ex)
+    return params
+
+
+def get_param_with_blocking(name, timeout=5):
+    params = None
+    start = time.time()
+    it = 0
+    while params is None:
+
+        try:
+            params = rospy.get_param(name)
+        except (Error, KeyError):
+            sleep_time = 0.01
+            if it % 20 == 0:
+                rospy.loginfo('Parameters under namespace "%s" not (yet) uploaded on parameter server. Retry with small pause (%s s).' % (name, sleep_time))
+            sleep(sleep_time)
+            pass
+        if time.time() - start > timeout:
+            break
+        it += 1
+    return params
+
+
+def substitute_xml_args(param):
+    # substitute string
+    if isinstance(param, str):
+        param = resolve_args(param)
+        return param
+
+    # For every key in the dictionary (not performing deepcopy!)
+    if isinstance(param, dict):
+        for key in param:
+            # If the value is of type `(Ordered)dict`, then recurse with the value
+            if isinstance(param[key], dict):
+                substitute_xml_args(param[key])
+            # Otherwise, add the element to the result
+            elif isinstance(param[key], str):
+                param[key] = resolve_args(param[key])

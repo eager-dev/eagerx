@@ -1,17 +1,33 @@
 # ROS SPECIFIC
+import roslaunch
 import rospy
 import rosparam
-import roslaunch
+from roslaunch.core import RLException
 from std_msgs.msg import UInt64
 
 # RXEAGER
 from eagerx_core.params import RxNodeParams, RxObjectParams
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, substitute_xml_args
-from eagerx_core.node import RxNode
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, \
+    substitute_xml_args
+from eagerx_core.rxnode import RxNode
 
 # OTHER
+from time import sleep
 from typing import List, Dict, Union, Any
 from functools import partial
+
+
+def launch_roscore():
+    uuid = roslaunch.rlutil.get_or_generate_uuid(options_runid=None, options_wait_for_master=False)
+    roslaunch.configure_logging(uuid)
+    roscore = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_files=[], is_core=True)
+
+    try:
+        roscore.start()
+    except RLException as e:
+        rospy.logwarn('Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore.')
+        pass
+    return roscore
 
 
 def configure_connections(connections):
@@ -171,7 +187,7 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
                      sp_nodes: Dict,
                      launch_nodes: Dict,
                      rxnode_cls: Any = RxNode):
-    if isinstance(nodes, RxNodeParams):
+    if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
 
     for node in nodes:
@@ -213,15 +229,22 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
             sp_nodes[node_address].node_initialized()
         else:
             if launch_locally and launch_file:  # Launch node as separate process
-                launch_nodes[ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name,
-                                                                               'owner:=' + owner])
+                owner_with_node_ns = '/'.join(owner.split('/') + name.split('/')[:-1])
+                name_without_node_ns = name.split('/')[-1]
+                launch_nodes[ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name_without_node_ns,
+                                                                               'owner:=' + owner_with_node_ns])
                 launch_nodes[ns + '/' + name].start()
 
 
 def wait_for_node_initialization(is_initialized):
+    iter = 0
     # Wait for nodes to be initialized
     while True:
-        rospy.sleep(1.0)
+        if iter == 0:
+            sleep(0.1)
+        else:
+            sleep(0.3)
+        iter += 1
         not_init = []
         for name, flag in is_initialized.items():
             if not flag:
@@ -230,3 +253,5 @@ def wait_for_node_initialization(is_initialized):
             rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break
+
+

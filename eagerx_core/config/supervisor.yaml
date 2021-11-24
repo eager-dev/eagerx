@@ -1,12 +1,10 @@
-node_type: eagerx_core.rxenv/EnvironmentNode
+node_type: eagerx_core.rxsupervisor/SupervisorNode
 default:
   outputs: [step]
   states: []
-#  state_converters: {}
   single_process: true
   launch_locally: true
 outputs:
   step:
-#    address: step
     msg_type: std_msgs.msg/UInt64
 states: {}
