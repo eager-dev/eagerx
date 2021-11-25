@@ -68,8 +68,8 @@ bridge:
       inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
       color: cyan
       nonreactive_rates: {in_1: 2}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
-#      single_process: False
-#      launch_locally: False
+      single_process: False
+      launch_locally: False
       test_arg: 'CHANGED ARGUMENT'
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
@@ -85,8 +85,8 @@ bridge:
       inputs: {in_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
                in_2: $(obj_name)/sensors/N6}  # inputs to nodes must always originate from within the node itself.
       color: green
-#      single_process: False
-#      launch_locally: False
+      single_process: False
+      launch_locally: False
 #      input_convert:  # can only contain converters for inputs other than "actuator input" ("in_1" in this case)
 #        action_2:
 #          converter_type: eagerx_core.baseconverter/SpaceUInt64Converter

@@ -9,10 +9,10 @@ if __name__ == '__main__':
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Type of simulation (optional)
-    sp = True
+    sp = False
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
@@ -67,10 +67,6 @@ if __name__ == '__main__':
 
     # todo: implement real_time rx pipeline
 
-    # todo: ADJUSTMENTS RX
-    # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
-    #       done flags used in both real_reset & state_reset
-
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
@@ -78,6 +74,7 @@ if __name__ == '__main__':
     # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain randomization)
     # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions) (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
     # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout reached (count how many repeats)
+    # todo: Currently, we add bridge node twice to message_broker with '/dynamically_registered' appended to avoid a namespace clash between done flags used in both real_reset & state_reset
 
     # todo: THINGS TO KEEP IN MIND:
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
