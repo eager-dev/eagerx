@@ -1,6 +1,6 @@
 from typing import Dict
 from copy import deepcopy
-from eagerx_core.utils.utils import load_yaml
+from eagerx_core.utils.utils import load_yaml, substitute_yaml_args
 
 
 class Params(object):
@@ -428,9 +428,7 @@ class RxObjectParams(Params):
             if 'inputs' in p_bridge:
                 # First, prepend node name to inputs
                 for key, val in p_bridge['inputs'].items():
-                    # Skip if nonreactive input
-                    if 'nonreactive_rates' in p_bridge and key in p_bridge['nonreactive_rates']: continue
-                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
+                    p_bridge['inputs'][key] = substitute_yaml_args(val, {'env_name': ns, 'obj_name': name})
                 inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict
 
@@ -461,7 +459,7 @@ class RxObjectParams(Params):
                     check_None_trigger = True
                     p_bridge['inputs'][act_cname] = p_env['address']
                 else:  # prepend node name to inputs (which have to originate from inside the object)
-                    p_bridge['inputs'][act_cname] = '%s/%s' % (name, address)
+                    p_bridge['inputs'][act_cname] = substitute_yaml_args(address, {'env_name': ns, 'obj_name': name})
             assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
             inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict

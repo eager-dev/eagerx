@@ -77,7 +77,7 @@ class TestBridgeNode(BridgeBase):
         simulator = None
 
         # Initialize nonreactive input
-        self.nonreactive_pub = rospy.Publisher(nonreactive_address, UInt64, queue_size=0, latch=True)
+        self.nonreactive_pub = rospy.Publisher(kwargs['ns'] + nonreactive_address, UInt64, queue_size=0, latch=True)
 
         # Message counter
         self.num_ticks = 0

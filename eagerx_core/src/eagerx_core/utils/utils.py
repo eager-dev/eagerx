@@ -3,7 +3,8 @@ import rosparam
 import rospkg
 import rospy
 from rosgraph.masterapi import Error
-from roslaunch.substitution_args import resolve_args
+from roslaunch.substitution_args import resolve_args, _resolve_args
+from roslaunch.substitution_args import _collect_args
 
 # OTHER
 import time
@@ -126,6 +127,42 @@ def substitute_xml_args(param):
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
                 param[key] = resolve_args(param[key])
+
+
+def resolve_yaml_args(arg_str, context, commands):
+    valid = ['env_name', 'obj_name']
+    resolved = arg_str
+    for a in _collect_args(arg_str):
+        splits = [s for s in a.split(' ') if s]
+        if not splits[0] in valid:
+            raise ValueError("Unknown substitution command [%s]. Valid commands are %s"%(a, valid))
+        command = splits[0]
+        args = splits[1:]
+        if command in commands:
+            resolved = commands[command](resolved, a, args, context)
+    return resolved
+
+
+def substitute_yaml_args(param, context):
+    commands = {
+        'env_name': lambda resolved, a, args, context: resolved.replace("$(%s)" % a, context[a]),
+        'obj_name': lambda resolved, a, args, context: resolved.replace("$(%s)" % a, context[a]),
+    }
+
+    # substitute string
+    if isinstance(param, str):
+        param = resolve_yaml_args(param, context, commands)
+        return param
+
+    # For every key in the dictionary (not performing deepcopy!)
+    if isinstance(param, dict):
+        for key in param:
+            # If the value is of type `(Ordered)dict`, then recurse with the value
+            if isinstance(param[key], dict):
+                substitute_yaml_args(param[key], context)
+            # Otherwise, add the element to the result
+            elif isinstance(param[key], str):
+                param[key] = resolve_args(param[key], context, commands)
 
 
 def get_ROS_log_level(name):

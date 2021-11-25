@@ -65,15 +65,15 @@ bridge:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       states: [state_1]
-      inputs: {in_1: /nonreactive_input_topic}
+      inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
       color: cyan
-      nonreactive_rates: {in_1: 2}
+      nonreactive_rates: {in_1: 2}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
 #      single_process: False
 #      launch_locally: False
       test_arg: 'CHANGED ARGUMENT'
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
-      inputs: {in_1: sensors/N6}
+      inputs: {in_1: $(obj_name)/sensors/N6}  # $(obj_name) is replaced at run-time with object name
       color: cyan
       single_process: False  # Simnode in a separate process? Set to {launch_locally, single_process} = False
       launch_locally: False  # Simnode in a separate process? Set to {launch_locally, single_process} = False
@@ -83,7 +83,7 @@ bridge:
     N8:
       node_config: eagerx_core/sim_actuator
       inputs: {in_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
-               in_2: sensors/N6}  # inputs to nodes must always originate from within the node itself.
+               in_2: $(obj_name)/sensors/N6}  # inputs to nodes must always originate from within the node itself.
       color: green
 #      single_process: False
 #      launch_locally: False

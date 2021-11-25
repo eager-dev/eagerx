@@ -70,7 +70,6 @@ if __name__ == '__main__':
     # todo: ADJUSTMENTS RX
     # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
     #       done flags used in both real_reset & state_reset
-    # todo: Create substitute args ($obj_name, $env_name, etc..) that are replaced in .yaml before uploading.
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
