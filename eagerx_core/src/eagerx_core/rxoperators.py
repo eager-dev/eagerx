@@ -623,7 +623,6 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
     for o in outputs:
         d = output_stream.pipe(ops.pluck(o['name']),
                                ops.map(o['converter'].convert), ops.share(),
-                               publisher_to_topic(o['msg_pub']),
                                ops.share(),
                                ).subscribe(o['msg'])
 

@@ -1,11 +1,15 @@
+# IMPORT ROS
+import rospy
+from std_msgs.msg import UInt64
+
+# IMPORT OTHER
+from termcolor import cprint
 import logging
 import types
 from functools import wraps
 from threading import Condition
 
-from std_msgs.msg import UInt64
-from termcolor import cprint
-
+# IMPORT EAGERX
 from eagerx_core.constants import DEBUG
 from eagerx_core.rxoperators import from_topic
 
@@ -40,13 +44,14 @@ class RxMessageBroker(object):
     # Every method is wrapped in a 'with Condition' block in order to be threadsafe
     def __getattribute__(self, name):
         attr = super(RxMessageBroker, self).__getattribute__(name)
-        if type(attr)==types.MethodType:
+        if isinstance(attr, types.MethodType):
             attr = thread_safe_wrapper(attr, self.cond)
         return attr
 
     def add_rx_objects(self, node_name, node=None, inputs=tuple(), outputs=tuple(), feedthrough=tuple(),
                        state_inputs=tuple(), state_outputs=tuple(), targets=tuple(), node_inputs=tuple(), node_outputs=tuple(),
                        reactive_proxy=tuple()):
+        # todo: connect all outputs
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
             if i['address'] == '/rx/bridge/outputs/tick': continue
@@ -72,17 +77,28 @@ class RxMessageBroker(object):
             assert address not in self.node_io[node_name]['outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'outputs')
             n['outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'rate': i['rate'], 'converter': i['converter'], 'status': ''}
             n['outputs'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': ''}
+
+            # Create publisher
+            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)  # todo: make latched?
+            i['msg'].subscribe(on_next=i['msg_pub'].publish)
+            i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', i['msg_type'], queue_size=0, latch=True)
+            i['reset'].subscribe(on_next=i['reset_pub'].publish)
         for i in feedthrough:
             address = i['address']
             assert address not in self.node_io[node_name]['feedthrough'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'feedthrough')
             n['feedthrough'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'repeat': i['repeat'], 'status': 'disconnected'}
             n['feedthrough'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in state_outputs:
+            # todo: create publisher, subscribe
             address = i['address']
             assert address not in self.node_io[node_name]['state_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'state_outputs')
             n['state_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
             if 'converter' in i:
                 n['state_outputs'][address]['converter'] = i['converter']
+
+            # Create publisher
+            # i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0)  # todo: make latched?
+            # i['msg'].subscribe(on_next=i['msg_pub'].publish)
         for i in state_inputs:
             address = i['address']
             if 'msg' in i:  # Only true if sim state node (i.e. **not** for bridge done flags)
@@ -100,10 +116,12 @@ class RxMessageBroker(object):
             assert address not in self.node_io[node_name]['node_inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_inputs')
             n['node_inputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': 'disconnected'}
         for i in node_outputs:
+            # todo: create publisher, subscribe
             address = i['address']
             assert address not in self.node_io[node_name]['node_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_outputs')
             n['node_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
         for i in reactive_proxy:
+            # todo: create publisher, subscribe
             address = i['address']
             assert address not in self.node_io[node_name]['reactive_proxy'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'reactive_proxy')
             n['reactive_proxy'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i,  'msg_type': UInt64, 'rate': i['rate'], 'status': ''}

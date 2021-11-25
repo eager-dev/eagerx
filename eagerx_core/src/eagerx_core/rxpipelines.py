@@ -1,10 +1,14 @@
+# ROS IMPORTS
 import rospy
+from std_msgs.msg import UInt64, Bool, String
+
+# RX IMPORTS
 import rx
 from rx import operators as ops
 from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
-from std_msgs.msg import UInt64, Bool, String
 
+# EAGERX IMPORTS
 from eagerx_core.constants import DEBUG
 from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
     publisher_to_topic, init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
@@ -129,11 +133,9 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
     for i in outputs:
         # Prepare output topic
         i['msg'] = Subject()
-        i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0)
 
         # Initialize reset topic
         i['reset'] = Subject()
-        i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)
 
     # Prepare action topics (used by RealResetNode)
     for i in feedthrough:
@@ -196,7 +198,7 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
         offset = RrRn.pipe(ops.map(lambda x: int(i['start_with_msg'])), ops.start_with(0))
         RrRn.pipe(ops.zip(offset),
                   ops.map(lambda x: UInt64(data=x[0] + x[1])),
-                  publisher_to_topic(i['reset_pub'])).subscribe(i['reset'])
+                  ).subscribe(i['reset'])
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn,
@@ -236,7 +238,7 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
                            ops.zip(T.pipe(ops.filter(lambda x: x.data == 0))),
                            ops.map(lambda x: x[0]),
                            spy('init_msg', node),
-                           publisher_to_topic(i['msg_pub'])).subscribe(i['msg'])
+                           ).subscribe(i['msg'])
 
     rx_objects = dict(inputs=inputs, outputs=outputs, feedthrough=feedthrough, state_inputs=state_inputs, state_outputs=state_outputs, targets=targets, node_inputs=node_inputs, node_outputs=node_outputs)
     return rx_objects
@@ -300,11 +302,9 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     for i in outputs:
         # Prepare output topic
         i['msg'] = Subject()
-        i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0)
 
         # Initialize reset topic
         i['reset'] = Subject()
-        i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0)
 
     # Prepare input topics
     for i in inputs_init:
@@ -444,7 +444,7 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
                            Rr.pipe(spy('Rr', node))).pipe(ops.share())
 
     # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
-    [RM.pipe(publisher_to_topic(o['reset_pub'])).subscribe(o['reset']) for o in outputs]
+    [RM.subscribe(o['reset']) for o in outputs]
 
     ###########################################################################
     # Reset: initialize episode pipeline ######################################
@@ -526,12 +526,10 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     S = Subject()  # ---> Not a node output, but used in node.step() to kickstart step pipeline.
     step = outputs[0]
     step['msg'] = Subject()
-    step['msg_pub'] = rospy.Publisher(step['address'], step['msg_type'], queue_size=0)
     step['reset'] = Subject()
-    step['reset_pub'] = rospy.Publisher(step['address'] + '/reset', UInt64, queue_size=0, latch=True)  # todo: could cause a block?
 
     # Step pipeline
-    S.pipe(publisher_to_topic(step['msg_pub'])).subscribe(step['msg'], scheduler=tp_scheduler)  # todo: swap
+    S.subscribe(step['msg'], scheduler=tp_scheduler)  # todo: swap
 
     ###########################################################################
     # Start reset #############################################################
@@ -568,7 +566,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0, latch=True)
 
     # Reset pipeline
-    SR.pipe(spy('RESET', node, op_log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0]), publisher_to_topic(step['reset_pub'])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
+    SR.pipe(spy('RESET', node, op_log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
     R.pipe(ops.map(lambda x: Bool(data=True)), publisher_to_topic(node_reset['msg_pub'])).subscribe(node_reset['msg'], scheduler=tp_scheduler)  # todo: swap
 
     ###########################################################################

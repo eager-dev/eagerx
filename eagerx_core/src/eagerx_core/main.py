@@ -72,7 +72,6 @@ if __name__ == '__main__':
     # todo: ADJUSTMENTS RX
     # todo: test reactive proxy --> create a topic that is published in the callback of any node, and publish reset msg
     # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
-
     # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
     #       done flags used in both real_reset & state_reset
 
