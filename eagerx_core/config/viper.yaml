@@ -65,7 +65,9 @@ bridge:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       states: [state_1]
+      inputs: {in_1: /nonreactive_input_topic}
       color: cyan
+      nonreactive_rates: {in_1: 2}
 #      single_process: False
 #      launch_locally: False
       test_arg: 'CHANGED ARGUMENT'

@@ -68,9 +68,9 @@ if __name__ == '__main__':
     # todo: implement real_time rx pipeline
 
     # todo: ADJUSTMENTS RX
-    # todo: test reactive proxy --> create a topic that is published in the callback of any node, and publish reset msg
     # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
     #       done flags used in both real_reset & state_reset
+    # todo: Create substitute args ($obj_name, $env_name, etc..) that are replaced in .yaml before uploading.
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
@@ -78,6 +78,7 @@ if __name__ == '__main__':
     # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
     # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain randomization)
     # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions) (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
+    # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout reached (count how many repeats)
 
     # todo: THINGS TO KEEP IN MIND:
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
@@ -88,4 +89,6 @@ if __name__ == '__main__':
     # todo: Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
     #  Hence, we cannot adaptively register new objects or controllers after some episodes.
     # todo: If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
+    # todo: Only objects can have nonreactive inputs. In that case, the bridge is responsible for sending flag msgs (num_msgs_send).
+    #  The bridges knows which inputs are nonreactive when the object is registered.
 

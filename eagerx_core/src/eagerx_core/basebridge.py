@@ -72,9 +72,12 @@ class BridgeBase(NodeBase):
 
 
 class TestBridgeNode(BridgeBase):
-    def __init__(self, num_substeps, **kwargs):
+    def __init__(self, num_substeps, nonreactive_address, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
         simulator = None
+
+        # Initialize nonreactive input
+        self.nonreactive_pub = rospy.Publisher(nonreactive_address, UInt64, queue_size=0, latch=True)
 
         # Message counter
         self.num_ticks = 0
@@ -96,10 +99,16 @@ class TestBridgeNode(BridgeBase):
         return 'PRE RESET RETURN VALUE'
 
     def reset(self):
+        # Publish nonreactive input
         self.num_ticks = 0
+        self.nonreactive_pub.publish(UInt64(data=0))
         return 'POST RESET RETURN VALUE'
 
     def callback(self, node_tick: int, t_n: float,  **kwargs):
+        # Publish nonreactive input
+        self.nonreactive_pub.publish(UInt64(data=node_tick))
+        self.nonreactive_pub.publish(UInt64(data=node_tick*2))
+
         # Verify that # of ticks equals internal counter
         if not self.num_ticks == node_tick:
             print('[%s]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))

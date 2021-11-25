@@ -79,7 +79,7 @@ class RxMessageBroker(object):
             n['outputs'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': ''}
 
             # Create publisher
-            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)  # todo: make latched?
+            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)
             i['msg'].subscribe(on_next=i['msg_pub'].publish)
             i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', i['msg_type'], queue_size=0, latch=True)
             i['reset'].subscribe(on_next=i['reset_pub'].publish)
@@ -96,7 +96,7 @@ class RxMessageBroker(object):
                 n['state_outputs'][address]['converter'] = i['converter']
 
             # Create publisher
-            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0)  # todo: make latched?
+            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)
             i['msg'].subscribe(on_next=i['msg_pub'].publish)
         for i in state_inputs:
             address = i['address']
@@ -115,20 +115,21 @@ class RxMessageBroker(object):
             assert address not in self.node_io[node_name]['node_inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_inputs')
             n['node_inputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': 'disconnected'}
         for i in node_outputs:
-            # todo: create publisher, subscribe
             address = i['address']
             assert address not in self.node_io[node_name]['node_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_outputs')
             n['node_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
 
-            # Create publisher
-            # latched: register, node_reset, start_reset, reset, real_reset
-            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)  # todo: make latched?
+            # Create publisher: (latched: register, node_reset, start_reset, reset, real_reset)
+            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)
             i['msg'].subscribe(on_next=i['msg_pub'].publish)
         for i in reactive_proxy:
-            # todo: create publisher, subscribe
             address = i['address']
             assert address not in self.node_io[node_name]['reactive_proxy'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'reactive_proxy')
             n['reactive_proxy'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i,  'msg_type': UInt64, 'rate': i['rate'], 'status': ''}
+
+            # Create publisher
+            i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)
+            i['reset'].subscribe(on_next=i['reset_pub'].publish)
 
         # Add new addresses to already registered I/Os
         for key in n.keys():

@@ -2,11 +2,12 @@ node_type: eagerx_core.basebridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
-  num_substeps: 10
   single_process: False
   launch_locally: True
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
   color: magenta
+  num_substeps: 10
+  nonreactive_address: '/nonreactive_input_topic'
 
 outputs:
   tick:

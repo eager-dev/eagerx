@@ -449,8 +449,13 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase
 
     # Get rate from rosparam server
     try:
-        rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
-        dt_i = 1 / get_param_with_blocking(rate_str)
+        # if 'is_reactive' in inpt and not inpt['is_reactive']:
+        if 'rate' in inpt:
+            rate = inpt['rate']
+        else:
+            rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
+            rate = get_param_with_blocking(rate_str)
+        dt_i = 1 / rate
     except Exception as e:
         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
         print(e)
@@ -725,18 +730,16 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
                 # Initialize rx reset output for reactive input
                 i['reset'] = Subject()
-                i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0)
 
                 # Create a new output topic for each SimNode reactive input (bridge sends reset msg)
                 o = dict()
                 o.update(i)
-                o.pop('repeat')
                 reactive_proxy.append(o)
 
     return dict(inputs=inputs, reactive_proxy=reactive_proxy, state_inputs=state_inputs, node_flags=node_flags, sp_nodes=sp_nodes, launch_nodes=launch_nodes)
 
 
-def initialize_reactive_proxy_reset(dt_n, RM, reactive_proxy):
+def initialize_reactive_proxy_reset(dt_n, RM, reactive_proxy, node):
     for rx in reactive_proxy:
         if 'disposable' in rx:
             continue
@@ -744,7 +747,7 @@ def initialize_reactive_proxy_reset(dt_n, RM, reactive_proxy):
         rx['disposable'] = RM.pipe(ops.map(lambda msg: msg.data),
                                    ops.map(lambda idx_n: 1 + int((idx_n - 1) * dt_n / dt_i)),  # We subtract -1 from msg to account for the initial tick.
                                    ops.map(lambda i: UInt64(data=i)),
-                                   publisher_to_topic(rx['reset_pub'])).subscribe(rx['reset'])
+                                   ).subscribe(rx['reset'])
     return None
 
 

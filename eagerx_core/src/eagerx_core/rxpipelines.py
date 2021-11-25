@@ -386,9 +386,8 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     node_flags = rx_objects.pipe(ops.pluck('node_flags'))
 
     # Prepare output for reactive proxy
-    # todo: test reactive proxy
     RM = Subject()
-    check_reactive_proxy = reactive_proxy.pipe(ops.map(lambda rx: initialize_reactive_proxy_reset(dt_n, RM, rx)))
+    check_reactive_proxy = reactive_proxy.pipe(ops.map(lambda rx: initialize_reactive_proxy_reset(dt_n, RM, rx, node)))
 
     # Zip initial input flags
     check_F_init, F_init, F_init_ho = switch_with_check_pipeline()

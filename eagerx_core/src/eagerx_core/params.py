@@ -49,7 +49,8 @@ class RxInput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        if params['is_reactive']:
+            params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -235,6 +236,11 @@ class RxNodeParams(Params):
                     component = 'inputs'
                     for cname, delay in entry.items():
                         params[component][cname]['delay'] = delay
+                    keys_to_pop.append(key)
+                if key in ['nonreactive_rates']:
+                    component = 'inputs'
+                    for cname, rate in entry.items():
+                        params[component][cname]['rate'] = rate
                     keys_to_pop.append(key)
         [kwargs.pop(key) for key in keys_to_pop]
 
@@ -422,6 +428,8 @@ class RxObjectParams(Params):
             if 'inputs' in p_bridge:
                 # First, prepend node name to inputs
                 for key, val in p_bridge['inputs'].items():
+                    # Skip if nonreactive input
+                    if 'nonreactive_rates' in p_bridge and key in p_bridge['nonreactive_rates']: continue
                     p_bridge['inputs'][key] = '%s/%s' % (name, val)
                 inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict
