@@ -16,7 +16,7 @@ sensors: # inputs of env
     rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -26,7 +26,7 @@ actuators: # outputs of env
     rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: 0
       high: 100
@@ -35,7 +35,7 @@ actuators: # outputs of env
     rate: 1
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -44,14 +44,14 @@ states:  # reset states inside bridge
   N9:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
   N10:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -64,7 +64,7 @@ bridge:
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
-      states: [error]
+      states: [state_1]
       color: cyan
 #      single_process: False
 #      launch_locally: False
@@ -80,23 +80,23 @@ bridge:
   actuators:  # Inputs as defined above
     N8:
       node_config: eagerx_core/sim_actuator
-      inputs: {action_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
-               action_2: sensors/N6}  # inputs to nodes must always originate from within the node itself.
+      inputs: {in_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
+               in_2: sensors/N6}  # inputs to nodes must always originate from within the node itself.
       color: green
 #      single_process: False
 #      launch_locally: False
 #      input_convert:  # can only contain converters for inputs other than "actuator_input"
 #        action_2:
-#          converter_type: eagerx_core.converter/SpaceUInt64Converter
+#          converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
 #          test_arg: 'test'
       test_arg: 'CHANGED ARGUMENT'
 
   states:
     N9:
-      state_type: eagerx_core.rxsimstate/TestSimState
+      state_type: eagerx_core.basesimstate/TestSimState
       test_arg: 'CHANGED ARGUMENT'
 
     N10:
-      state_type: eagerx_core.rxsimstate/TestSimState
+      state_type: eagerx_core.basesimstate/TestSimState
       test_arg: 'CHANGED ARGUMENT'
 

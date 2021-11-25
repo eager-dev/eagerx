@@ -8,12 +8,14 @@ import rosparam
 from std_msgs.msg import UInt64, String
 
 # Rx imports
-from eagerx_core.rxnode import NodeBase
+import eagerx_core.rxmessage_broker
+import eagerx_core.rxoperators
+import eagerx_core.rxpipelines
+from eagerx_core.basenode import NodeBase
 from eagerx_core.params import RxObjectParams
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter
-from eagerx_core import get_param_with_blocking
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes
-from eagerx_core.converter import IdentityConverter
+from eagerx_core.baseconverter import IdentityConverter
 import eagerx_core
 
 # OTHER
@@ -135,7 +137,7 @@ class RxSupervisor(object):
         outputs, states, self.node = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx_core.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
+        rx_objects, env_subjects = eagerx_core.rxpipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
         self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -178,7 +180,7 @@ if __name__ == '__main__':
 
     rospy.init_node('env', log_level=rospy.INFO)
 
-    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx_core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxSupervisor(name=rospy.get_name(), message_broker=message_broker)
 

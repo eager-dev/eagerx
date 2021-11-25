@@ -4,14 +4,13 @@ import rosparam
 from rosgraph.masterapi import Error
 
 # EAGERX
-import eagerx_core.core
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import load_yaml
 from eagerx_core.rxnode import RxNode
 from eagerx_core.rxbridge import RxBridge
 from eagerx_core.rxsupervisor import RxSupervisor
-from eagerx_core import RxMessageBroker
+from eagerx_core.rxmessage_broker import RxMessageBroker
 
 # OTHER IMPORTS
 import abc

@@ -273,6 +273,7 @@ class RxNodeParams(Params):
         if 'inputs' in default:
             for cname in default['inputs']:
                 assert cname in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', cname, 'inputs', config_name, package_name)
+                assert 'targets' not in params or cname not in params['targets'], 'Input "%s" cannot have the same name as a selected target. Change either the input or target name under "%s" in "%s.yaml" inside ROS package "%s/config".' % (cname, 'inputs', config_name, package_name)
                 params['inputs'][cname]['msg_module'], params['inputs'][cname]['msg_type'] = params['inputs'][cname]['msg_type'].split('/')
                 if 'rate' in params['inputs'][cname]:
                     is_reactive = False

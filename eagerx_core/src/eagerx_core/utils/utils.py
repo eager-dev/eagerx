@@ -14,6 +14,7 @@ from time import sleep
 from six import raise_from
 from copy import deepcopy
 
+
 def get_attribute_from_module(module, attribute):
     module = importlib.import_module(module)
     attribute = getattr(module, attribute)

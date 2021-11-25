@@ -1,4 +1,4 @@
-node_type: eagerx_core.rxnode/ProcessNode
+node_type: eagerx_core.basenode/ProcessNode
 default:
   rate:
   inputs: [tick, in_1]
@@ -22,10 +22,10 @@ outputs:
     msg_type: std_msgs.msg/UInt64
 
 states:
-  error:
+  state_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]

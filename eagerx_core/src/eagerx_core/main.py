@@ -1,16 +1,15 @@
 # ROS packages required
 import rospy
-from eagerx_core.core import RxBridge, RxNode, RxObject
-from eagerx_core.rxenv import EAGERxEnv
+from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
     # Define converter (optional)
-    IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
+    IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Type of simulation (optional)
     sp = True
@@ -52,7 +51,8 @@ if __name__ == '__main__':
                     observations=observations,
                     bridge=bridge,
                     nodes=[N1, N3, N4, N5, KF],
-                    objects=[viper])
+                    objects=[viper],
+                    reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9']})
 
     # First reset
     obs = env.reset()
@@ -70,24 +70,25 @@ if __name__ == '__main__':
     # todo: implement real_time rx pipeline
 
     # todo: ADJUSTMENTS RX
-    # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
+    # todo: test reactive proxy --> create a topic that is published in the callback of any node, and publish reset msg
     # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
+
     # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
     #       done flags used in both real_reset & state_reset
-    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
-    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
     # todo: create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
+    # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain randomization)
 
     # todo: THINGS TO KEEP IN MIND:
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
     #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
-    # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()". Hence, we cannot
-    #  completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but chance is very slim,
-    #  and only at the moment of initialization).
+    # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()".
+    #  Hence, we cannot completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but
+    #  chance is very slim, and only at the moment of initialization).
     # todo: Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
     #  Hence, we cannot adaptively register new objects or controllers after some episodes.
+    # todo: If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
 

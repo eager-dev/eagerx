@@ -1,4 +1,4 @@
-node_type: eagerx_core.rxnode/ProcessNode
+node_type: eagerx_core.basenode/ProcessNode
 default:
   rate:
   inputs: [in_1]
@@ -14,7 +14,7 @@ inputs:
     msg_type: std_msgs.msg/UInt64
     repeat: all
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -22,7 +22,7 @@ inputs:
     msg_type: std_msgs.msg/UInt64
     repeat: all
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -32,14 +32,14 @@ outputs:
     msg_type: std_msgs.msg/UInt64
     start_with_msg: True
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
   out_2:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -48,14 +48,14 @@ states:
   state_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
   state_2:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]

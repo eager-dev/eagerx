@@ -1,4 +1,4 @@
-node_type: eagerx_core.rxbridge/TestBridgeNode
+node_type: eagerx_core.basebridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
