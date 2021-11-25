@@ -9,10 +9,10 @@ if __name__ == '__main__':
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Type of simulation (optional)
-    sp = False
+    sp = True
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=False)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -65,22 +65,19 @@ if __name__ == '__main__':
         obs = env.reset()
     print('\n[Finished]')
 
-    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
-    # todo: Visualize and perform checks on DAGs (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
-
     # todo: implement real_time rx pipeline
 
     # todo: ADJUSTMENTS RX
     # todo: test reactive proxy --> create a topic that is published in the callback of any node, and publish reset msg
-    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
     # todo: resolve in a clean manner: Currently, we add '/dynamically_registered' to avoid a namespace clash between
     #       done flags used in both real_reset & state_reset
 
     # todo: CREATE GITHUB ISSUES FOR:
-    # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
-    # todo: how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
-    # todo: create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
+    # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
+    # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
     # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain randomization)
+    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions) (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
 
     # todo: THINGS TO KEEP IN MIND:
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces

@@ -1,24 +1,29 @@
+# ROS IMPORTS
+import rospy
+from std_msgs.msg import Bool, UInt64
+
+# RX IMPORTS
+import rx
+from rx import Observable, operators as ops, create
+from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable
+from rx.internal.utils import add_ref
+from rx.subject import Subject, BehaviorSubject
+
+# EAGERX IMPORTS
+from eagerx_core.basenode import NodeBase
+from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.params import RxInput
+from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
+
+# OTHER IMPORTS
+from termcolor import cprint
 import datetime
 import logging
 import traceback
 from os import getpid
 from threading import current_thread
 from typing import Any, Callable
-
-import rospy
-import rx
-from rx import Observable, operators as ops, create
-from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable
-from rx.internal.utils import add_ref
-from rx.subject import Subject, BehaviorSubject
-from std_msgs.msg import Bool, UInt64
-from termcolor import cprint
-
-from eagerx_core.basenode import NodeBase
-from eagerx_core.baseconverter import IdentityConverter
-from eagerx_core.params import RxInput
-from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 
 print_modes = {TERMCOLOR: 'eagerx_core.TERMCOLOR',
                ROS: 'eagerx_core.ROS'}

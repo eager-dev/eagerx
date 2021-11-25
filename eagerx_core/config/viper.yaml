@@ -73,8 +73,8 @@ bridge:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       inputs: {in_1: sensors/N6}
       color: cyan
-#      single_process: False
-#      launch_locally: False
+      single_process: False  # Simnode in a separate process? Set to {launch_locally, single_process} = False
+      launch_locally: False  # Simnode in a separate process? Set to {launch_locally, single_process} = False
       test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
@@ -85,7 +85,7 @@ bridge:
       color: green
 #      single_process: False
 #      launch_locally: False
-#      input_convert:  # can only contain converters for inputs other than "actuator_input"
+#      input_convert:  # can only contain converters for inputs other than "actuator input" ("in_1" in this case)
 #        action_2:
 #          converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
 #          test_arg: 'test'
