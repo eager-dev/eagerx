@@ -89,7 +89,6 @@ class RxMessageBroker(object):
             n['feedthrough'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'repeat': i['repeat'], 'status': 'disconnected'}
             n['feedthrough'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in state_outputs:
-            # todo: create publisher, subscribe
             address = i['address']
             assert address not in self.node_io[node_name]['state_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'state_outputs')
             n['state_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
@@ -97,8 +96,8 @@ class RxMessageBroker(object):
                 n['state_outputs'][address]['converter'] = i['converter']
 
             # Create publisher
-            # i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0)  # todo: make latched?
-            # i['msg'].subscribe(on_next=i['msg_pub'].publish)
+            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0)  # todo: make latched?
+            i['msg'].subscribe(on_next=i['msg_pub'].publish)
         for i in state_inputs:
             address = i['address']
             if 'msg' in i:  # Only true if sim state node (i.e. **not** for bridge done flags)
@@ -120,6 +119,11 @@ class RxMessageBroker(object):
             address = i['address']
             assert address not in self.node_io[node_name]['node_outputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'node_outputs')
             n['node_outputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'status': ''}
+
+            # Create publisher
+            # latched: register, node_reset, start_reset, reset, real_reset
+            i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)  # todo: make latched?
+            i['msg'].subscribe(on_next=i['msg_pub'].publish)
         for i in reactive_proxy:
             # todo: create publisher, subscribe
             address = i['address']

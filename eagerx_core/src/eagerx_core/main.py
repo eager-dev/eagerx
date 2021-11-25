@@ -9,10 +9,10 @@ if __name__ == '__main__':
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Type of simulation (optional)
-    sp = True
+    sp = False
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
@@ -52,7 +52,8 @@ if __name__ == '__main__':
                     bridge=bridge,
                     nodes=[N1, N3, N4, N5, KF],
                     objects=[viper],
-                    reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9']})
+                    reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
+                                          'N1/state_1': env.state_space.sample()['N1/state_1']})
 
     # First reset
     obs = env.reset()

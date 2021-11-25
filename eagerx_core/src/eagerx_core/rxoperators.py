@@ -607,8 +607,9 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
 
         # Send done flags
         for s in state_outputs:
-            d = reset_stream.pipe(ops.pluck(s['name'] + '/done'),
-                                  publisher_to_topic(s['msg_pub']), ops.share()).subscribe(s['msg'])
+            d = reset_stream.pipe(spy('reset', node, op_log_level=DEBUG),
+                                  ops.pluck(s['name'] + '/done'),
+                                  ops.share()).subscribe(s['msg'])
 
             # Add disposable
             d_msg += [d]
@@ -773,3 +774,20 @@ def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
             print('[%s]: %s' % (node_name, e))
         return observer
     return create(_subscribe)
+
+
+def filter_dict_on_key(key):
+    def _filter_dict_on_key(source):
+        def subscribe(observer, scheduler=None):
+            def on_next(value):
+                if key in value:
+                    observer.on_next(value[key])
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+
+        return rx.create(subscribe)
+
+    return _filter_dict_on_key

@@ -1,5 +1,4 @@
 # ROS IMPORTS
-import rospy
 from std_msgs.msg import UInt64, Bool, String
 
 # RX IMPORTS
@@ -11,9 +10,9 @@ from rx.subject import ReplaySubject, Subject, BehaviorSubject
 # EAGERX IMPORTS
 from eagerx_core.constants import DEBUG
 from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
-    publisher_to_topic, init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
+    init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
     init_callback_pipeline, get_object_params, extract_inputs_and_reactive_proxy, initialize_reactive_proxy_reset, \
-    switch_with_check_pipeline, node_reset_flags
+    switch_with_check_pipeline, node_reset_flags, filter_dict_on_key
 
 
 def init_node_pipeline(ns, dt_n, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, event_scheduler=None):
@@ -106,7 +105,6 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
     node_reset = dict(name=node.ns_name, msg_type=Bool)
     node_reset['address'] = (node.ns_name + '/end_reset')
     node_reset['msg'] = Subject()
-    node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0, latch=True)
     node_outputs.append(node_reset)
 
     # Real reset checks
@@ -169,8 +167,7 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
         i['done'] = D
 
         # Initialize done flag for desired state
-        done_pub = rospy.Publisher(i['address'] + '/done', UInt64, queue_size=0)
-        done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=UInt64, msg=D, msg_pub=done_pub)
+        done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=UInt64, msg=D)
         state_outputs.append(done_output)
 
     # Prepare initial flags
@@ -228,8 +225,7 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
                                ops.share())
 
     # Send node reset message
-    reset_msg.pipe(ops.map(lambda x: Bool(data=True)),
-                   publisher_to_topic(node_reset['msg_pub'])).subscribe(node_reset['msg'])
+    reset_msg.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'])
 
     # Send initial messages, latched on first bridge tick
     for i in outputs:
@@ -411,12 +407,11 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     ###########################################################################
     # Prepare real_reset output
     real_reset_output = dict(address=ns + '/real_reset', msg=RR, msg_type=UInt64)
-    real_reset_output['msg_pub'] = rospy.Publisher(real_reset_output['address'], real_reset_output['msg_type'], queue_size=0, latch=True)
     node_outputs.append(real_reset_output)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
     rx.zip(check_F_init, check_reactive_proxy, check_NF).pipe(ops.map(lambda i: message_broker.connect_io()),
-                                                              publisher_to_topic(real_reset_output['msg_pub'])).subscribe(RR)
+                                                              ).subscribe(RR)
 
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
@@ -434,11 +429,10 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     # Prepare reset output
     R = Subject()
     reset_output = dict(address=ns + '/reset', msg=R, msg_type=UInt64)
-    reset_output['msg_pub'] = rospy.Publisher(reset_output['address'], reset_output['msg_type'], queue_size=0, latch=True)
     node_outputs.append(reset_output)
 
     # Send reset message
-    RM.pipe(publisher_to_topic(reset_output['msg_pub'])).subscribe(R)
+    RM.subscribe(R)
     Rr = R.pipe(ops.map(lambda x: True))
     reset_trigger = rx.zip(f.pipe(spy('F', node)),
                            Rr.pipe(spy('Rr', node))).pipe(ops.share())
@@ -483,7 +477,6 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     ###########################################################################
     # Prepare end_reset output
     end_reset = dict(address=ns + '/end_reset', msg=Subject(), msg_type=UInt64)
-    end_reset['msg_pub'] = rospy.Publisher(end_reset['address'], end_reset['msg_type'], queue_size=0)
     node_outputs.append(end_reset)
 
     # Send '/end_reset' after reset has finished
@@ -496,8 +489,7 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
                    spy('POST-RESET', node, op_log_level=DEBUG),
                    trace_observable('cb_post_reset', node),
                    ops.map(lambda x: UInt64(data=0)),
-                   ops.share(),
-                   publisher_to_topic(end_reset['msg_pub'])).subscribe(end_reset['msg'])
+                   ops.share()).subscribe(end_reset['msg'])
 
     rx_objects = dict(inputs=inputs_init, outputs=outputs, node_inputs=node_inputs, node_outputs=node_outputs, state_inputs=df_inputs)
     return rx_objects
@@ -512,13 +504,11 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     for s in state_outputs:
         # Prepare done flag
         s['done'] = Subject()
-        s['done_pub'] = rospy.Publisher(s['address'] + '/done', UInt64, queue_size=0)
-        done_outputs.append(dict(name=s['name'], address=s['address'] + '/done', msg_type=UInt64, msg=s['done'], msg_pub=s['done_pub']))
+        done_outputs.append(dict(name=s['name'], address=s['address'] + '/done', msg_type=UInt64, msg=s['done']))
 
         # Prepare state message (IMPORTANT: after done flag, we modify address afterwards)
         s['msg'] = Subject()
         s['address'] += '/set'
-        s['msg_pub'] = rospy.Publisher(s['address'], s['msg_type'], queue_size=0)
 
     ###########################################################################
     # Step ####################################################################
@@ -529,29 +519,27 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     step['reset'] = Subject()
 
     # Step pipeline
-    S.subscribe(step['msg'], scheduler=tp_scheduler)  # todo: swap
+    S.subscribe(step['msg'], scheduler=tp_scheduler)
 
     ###########################################################################
     # Start reset #############################################################
     ###########################################################################
     SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline.
     start_reset = dict(address=ns + '/start_reset', msg=Subject(), msg_type=UInt64)
-    start_reset['msg_pub'] = rospy.Publisher(start_reset['address'], start_reset['msg_type'], queue_size=0, latch=True)
-    SR.pipe(publisher_to_topic(start_reset['msg_pub'])).subscribe(start_reset['msg'], scheduler=tp_scheduler)  # todo: swap
+    SR.subscribe(start_reset['msg'], scheduler=tp_scheduler)
 
     # Publish state msgs
     msgs = SR.pipe(ops.skip(1),
                    ops.map(node._get_states), ops.share())
     for s in state_outputs:
         msgs.pipe(ops.pluck(s['name'] + '/done'),
-                  publisher_to_topic(s['done_pub']),
+                  trace_observable('done', node),
                   ops.share(),
                   ).subscribe(s['done'])
 
-        msgs.pipe(ops.pluck(s['name']),
+        msgs.pipe(filter_dict_on_key(s['name']),
                   ops.filter(lambda msg: msg is not None),
                   ops.map(s['converter'].convert),
-                  publisher_to_topic(s['msg_pub']),
                   ops.share(),
                   ).subscribe(s['msg'])
 
@@ -563,31 +551,27 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
 
     # Prepare node reset topic
     node_reset = dict(name=node.ns_name, address=node.ns_name + '/end_reset', msg_type=Bool, msg=Subject())
-    node_reset['msg_pub'] = rospy.Publisher(node_reset['address'], node_reset['msg_type'], queue_size=0, latch=True)
 
     # Reset pipeline
     SR.pipe(spy('RESET', node, op_log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
-    R.pipe(ops.map(lambda x: Bool(data=True)), publisher_to_topic(node_reset['msg_pub'])).subscribe(node_reset['msg'], scheduler=tp_scheduler)  # todo: swap
+    R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'], scheduler=tp_scheduler)
 
     ###########################################################################
     # Register ################################################################
     ###########################################################################
     REG = Subject()  # ---> Not a node output, but used in node.register_object() to kickstart register pipeline.
     register = dict(address=ns + '/register', msg=Subject(), msg_type=String)
-    register['msg_pub'] = rospy.Publisher(register['address'], register['msg_type'], queue_size=0, latch=True)
 
     # Register pipeline
-    REG.pipe(publisher_to_topic(register['msg_pub'])).subscribe(register['msg'], scheduler=tp_scheduler)  # todo: swap
+    REG.subscribe(register['msg'], scheduler=tp_scheduler)
 
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
     tick = dict(address=ns + '/bridge/outputs/tick', msg=Subject(), msg_type=UInt64)
-    tick['msg_pub'] = rospy.Publisher(tick['address'], tick['msg_type'], queue_size=0)
     end_reset = dict(address=ns + '/end_reset', msg=Subject(), msg_type=UInt64)
     end_reset['msg'].pipe(ops.map(node._clear_obs_event),
-                          ops.map(node._set_reset_event),
-                          publisher_to_topic(tick['msg_pub'])).subscribe(tick['msg'])  # todo: swap
+                          ops.map(node._set_reset_event)).subscribe(tick['msg'])
 
     ###########################################################################
     # Observations set ########################################################
