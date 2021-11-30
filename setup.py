@@ -8,7 +8,7 @@ class sdist(sdist_orig):
 
     def run(self):
         try:
-            self.spawn('./bin/install')
+            self.spawn(['ls', '-l'])
         except DistutilsExecError:
             self.warn('EAGERx installation failed')
         super().run()
