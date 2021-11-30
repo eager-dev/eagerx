@@ -8,11 +8,13 @@ import rosparam
 from std_msgs.msg import UInt64, String
 
 # Rx imports
+from eagerx_core.constants import process
+from eagerx_core.rxnode import RxNode
 import eagerx_core.rxmessage_broker
 import eagerx_core.rxoperators
 import eagerx_core.rxpipelines
 from eagerx_core.basenode import NodeBase
-from eagerx_core.params import RxObjectParams
+from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes
 from eagerx_core.baseconverter import IdentityConverter
@@ -26,9 +28,9 @@ class SupervisorNode(NodeBase):
     def __init__(self, states, **kwargs):
         self.subjects = None
 
-        self._is_initialized = dict()
-        self._launch_nodes = dict()
-        self._sp_nodes = dict()
+        self.is_initialized = dict()
+        self.launch_nodes = dict()
+        self.sp_nodes = dict()
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
@@ -51,36 +53,26 @@ class SupervisorNode(NodeBase):
     def _set_subjects(self, subjects):
         self.subjects = subjects
 
+    def register_node(self, node: RxNodeParams):
+        node_name = node.name
+        initialize_nodes(node, process.ENVIRONMENT, self.ns, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
+        self.subjects['register_node'].on_next(String(self.ns + '/' + node_name))
+        # self.message_broker.print_io_status(node_names='/rx/bridge/dynamically_registered')
+
     def register_object(self, object: RxObjectParams, bridge_name: str):
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         # Check if object name is unique
         obj_name = object.name
         assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, 'Object name "%s" already exists. Object names must be unique.' % self.ns + '/' + obj_name
 
-        params, nodes = object.get_params(ns=self.ns, bridge=bridge_name)
-
         # Upload object params to rosparam server
+        params, nodes = object.get_params(ns=self.ns, bridge=bridge_name)
         rosparam.upload_params(self.ns, params)
 
         # Upload node parameters to ROS param server
-        for node in nodes:
-            params = node.get_params(ns=self.ns, in_object=True)
-            node_name = node.name
-
-            # Check if node name is unique
-            assert rospy.get_param(self.ns + '/' + node_name, None) is None, 'Node name "%s" already exists. Node names must be unique.' % self.ns + '/' + node_name
-
-            # Upload params to rosparam server
-            rosparam.upload_params(self.ns, params)
-
-            # If simulation node must run in separate process, the environment must launch it (i.e. the main thread).
-            if not params[node_name]['single_process']:
-                assert not params[node_name]['launch_locally'], 'If simulation node "%s" must run in a separate process, the environment must launch it (i.e. the main thread). Hence, launch_locally in "%s.yaml" via the config of the object must be set to "False".' % (node_name, params[node_name]['config_name'])
-                params[node_name]['launch_locally'] = True
-                initialize_nodes(params[node_name], self.ns, self.ns, message_broker=None, is_initialized=self._is_initialized,
-                                 sp_nodes=self._sp_nodes, launch_nodes=self._launch_nodes)
-
-        self.subjects['register'].on_next(String(self.ns + '/' + obj_name))
+        initialize_nodes(nodes, process.ENVIRONMENT, self.ns, self.ns, message_broker=self.message_broker, in_object=True,
+                         is_initialized=self.is_initialized, sp_nodes=self.sp_nodes, launch_nodes=self.launch_nodes)
+        self.subjects['register_object'].on_next(String(self.ns + '/' + obj_name))
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states

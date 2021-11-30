@@ -6,6 +6,7 @@ import psutil
 import rospy
 from std_msgs.msg import UInt64
 
+from eagerx_core.constants import process
 from eagerx_core.basenode import NodeBase
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import initialize_state
@@ -22,6 +23,20 @@ class BridgeBase(NodeBase):
 
         super(BridgeBase, self).__init__(**kwargs)
 
+    def register_node(self, node_params):
+        # Initialize nodes
+        sp_nodes = dict()
+        launch_nodes = dict()
+        initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
+        for name, node in sp_nodes.items():
+            # Set simulator
+            if hasattr(node.node, 'set_simulator'):
+                node.node.set_simulator(self.simulator)
+            # Initialize
+            node.node_initialized()
+        wait_for_node_initialization(self.is_initialized)
+        return node_params, sp_nodes, launch_nodes
+
     def register_object(self, object_params, node_params, state_params):
         # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
         params = self.add_object_to_simulator(object_params, node_params, state_params)
@@ -36,7 +51,7 @@ class BridgeBase(NodeBase):
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        initialize_nodes(node_params, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
+        initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
         for name, node in sp_nodes.items():
             # Set object parameters
             if hasattr(node.node, 'set_object_params'):

@@ -2,8 +2,7 @@ node_type: eagerx_core.basenode/ActionsNode
 default:
   inputs: [observations_set, step]
   outputs: []
-  single_process: true
-  launch_locally: true
+  process: 1  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   color: yellow
 inputs:
   observations_set:

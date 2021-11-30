@@ -13,7 +13,7 @@ from rx.subject import Subject, BehaviorSubject
 from eagerx_core.basenode import NodeBase
 from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.params import RxInput
-from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS
+from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS, process
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 
 # OTHER IMPORTS
@@ -43,7 +43,7 @@ def cb_ft(cb_input):
     return output_msgs
 
 
-def print_info(node_name, color, id=None, trace_type=None, value=None, date=None, print_mode=TERMCOLOR, op_log_level=DEBUG):
+def print_info(node_name, color, id=None, trace_type=None, value=None, date=None, print_mode=TERMCOLOR, log_level=DEBUG):
     if print_mode == TERMCOLOR:
         if date:
             cprint('[' + str(date)[:40].ljust(20) + ']', color, end='')
@@ -61,12 +61,12 @@ def print_info(node_name, color, id=None, trace_type=None, value=None, date=None
         if id:
             print_str += '[' + id.split('/')[-1][:12].ljust(12) + ']'
         print_str += ' %s: %s' % (trace_type, value)
-        ros_log_fns[op_log_level](print_str)
+        ros_log_fns[log_level](print_str)
     else:
         raise ValueError('Print mode not recognized. Only print_modes %s are available.' % (print_modes.values()))
 
 
-def spy(id: str, node: NodeBase, op_log_level: int = SILENT):
+def spy(id: str, node: NodeBase, log_level: int = SILENT):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -75,8 +75,8 @@ def spy(id: str, node: NodeBase, op_log_level: int = SILENT):
     def _spy(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                if node.log_level >= effective_log_level and op_log_level >= effective_log_level:
-                    print_info(node_name, color, id, trace_type='', value=str(value), print_mode=print_mode, op_log_level=op_log_level)
+                if node.log_level >= effective_log_level and log_level >= effective_log_level:
+                    print_info(node_name, color, id, trace_type='', value=str(value), print_mode=print_mode, log_level=log_level)
                 observer.on_next(value)
 
             return source.subscribe(
@@ -99,14 +99,14 @@ def trace_observable(id: str, node: NodeBase, trace_next=False, trace_next_paylo
             def on_next(value):
                 if trace_next is True:
                     if trace_next_payload is True:
-                        print_info(node_name, color, id, 'on_next', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
+                        print_info(node_name, color, id, 'on_next', value, date=date or datetime.datetime.now(), print_mode=print_mode, log_level=DEBUG)
                     else:
-                        print_info(node_name, color, id, 'on_next', '', date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
+                        print_info(node_name, color, id, 'on_next', '', date=date or datetime.datetime.now(), print_mode=print_mode, log_level=DEBUG)
                 observer.on_next(value)
 
             def on_completed():
                 value = ''
-                print_info(node_name, color, id, 'on_completed', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
+                print_info(node_name, color, id, 'on_completed', value, date=date or datetime.datetime.now(), print_mode=print_mode, log_level=DEBUG)
                 observer.on_completed()
 
             def on_error(error):
@@ -114,18 +114,18 @@ def trace_observable(id: str, node: NodeBase, trace_next=False, trace_next_paylo
                     error_traceback = '%s, %s' % (error, traceback.print_tb(error.__traceback__))
                     print_info(node_name, color, id, 'on_error', error_traceback, date=date or datetime.datetime.now())
                 else:
-                    print_info(node_name, color, id, 'on_error', error, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=rospy.ERROR)
+                    print_info(node_name, color, id, 'on_error', error, date=date or datetime.datetime.now(), print_mode=print_mode, log_level=rospy.ERROR)
                 observer.on_error(error)
 
             def dispose():
                 if trace_subscribe is True:
                     value = ''
-                    print_info(node_name, color, id, 'dispose', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
+                    print_info(node_name, color, id, 'dispose', value, date=date or datetime.datetime.now(), print_mode=print_mode, log_level=DEBUG)
                 disposable.dispose()
 
             if trace_subscribe is True:
                 value = ''
-                print_info(node_name, color, id, 'on_subscribe', value, date=date or datetime.datetime.now(), print_mode=print_mode, op_log_level=DEBUG)
+                print_info(node_name, color, id, 'on_subscribe', value, date=date or datetime.datetime.now(), print_mode=print_mode, log_level=DEBUG)
             disposable = source.subscribe(
                 on_next=on_next,
                 on_error=on_error,
@@ -339,7 +339,7 @@ def regroup_inputs(node: NodeBase, dt_n=None):
                 # Check that all node_ticks are the same
                 if len(node_ticks) > 0:
                     if not len(set(node_ticks)) == 1:
-                        print_info(node_name, color, 'regroup_inputs', trace_type='', value='Not all node_ticks are the same: %s' % str(value), print_mode=print_mode, op_log_level=rospy.ERROR)
+                        print_info(node_name, color, 'regroup_inputs', trace_type='', value='Not all node_ticks are the same: %s' % str(value), print_mode=print_mode, log_level=rospy.ERROR)
                 observer.on_next(res)
 
             return source.subscribe(
@@ -607,17 +607,17 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
 
         # Either feedthrough action or run callback
         ft_stream = ft_stream.pipe(ops.map(lambda x: x[1][1]),
-                                   spy('CB_FEED', node, op_log_level=DEBUG),
+                                   spy('CB_FEED', node, log_level=DEBUG),
                                    ops.map(lambda val: cb_ft(val)), ops.share())
         reset_stream = reset_stream.pipe(ops.map(lambda x: x[1][0]),
                                          ops.combine_latest(target_stream),
-                                         spy('CB_REAL', node, op_log_level=DEBUG),
+                                         spy('CB_REAL', node, log_level=DEBUG),
                                          ops.map(lambda val: cb_tick(**val[0], **val[1])), ops.share())
         output_stream = rx.merge(reset_stream, ft_stream)
 
         # Send done flags
         for s in state_outputs:
-            d = reset_stream.pipe(spy('reset', node, op_log_level=DEBUG),
+            d = reset_stream.pipe(spy('reset', node, log_level=DEBUG),
                                   ops.pluck(s['name'] + '/done'),
                                   ops.share()).subscribe(s['msg'])
 
@@ -626,14 +626,14 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
     else:
         output_stream = stream.pipe(ops.filter(lambda x: x[1][1] is None),
                                     ops.map(lambda x: x[1][0]),
-                                    spy('CB_TICK', node, op_log_level=DEBUG),
+                                    spy('CB_TICK', node, log_level=DEBUG),
                                     ops.map(lambda val: cb_tick(**val)),
                                     ops.share())
 
     # Publish output msg as ROS topic and to subjects if single process
     for o in outputs:
         d = output_stream.pipe(ops.pluck(o['name']),
-                               ops.map(o['converter'].convert), ops.share(),
+                               ops.map(o['converter'].convert),
                                ops.share(),
                                ).subscribe(o['msg'])
 
@@ -641,6 +641,20 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
         d_msg += [d]
 
     return d_msg
+
+
+def get_node_params(msg):
+    node_name = msg.data
+    node_params = get_param_with_blocking(node_name)
+    if node_params is None:
+        rospy.logwarn('Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered.' % (msg.data, msg.data))
+    return node_params
+
+
+def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
+    name = node_params['name']
+    nf = dict(name=name, address='%s/%s/end_reset' % (ns, name), msg=Subject(), msg_type=Bool)
+    return dict(inputs=[], reactive_proxy=[], state_inputs=[], node_flags=[nf], sp_nodes=sp_nodes, launch_nodes=launch_nodes)
 
 
 def get_object_params(msg):
@@ -658,8 +672,6 @@ def get_object_params(msg):
     node_params = []
     for node_name in obj_params['node_names']:
         params = get_param_with_blocking(node_name)
-        # If simulation node is not launched locally, it will be launched by the environment. --> can only launch nodes in main thread.
-        assert params['single_process'] or not params['launch_locally'], 'Only single_process simulation nodes, or nodes not launched locally are supported.'
         node_params.append(params)
     return obj_params, node_params, state_params
 
@@ -699,7 +711,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         node_flags.append(nf)
 
         for i in params['outputs']:
-            assert not params['single_process'] or (params['single_process'] and 'converter' not in i), 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
+            assert not params['process'] == process.BRIDGE or 'converter' not in i, 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
 
             # Create a new input topic for each SimNode output topic
             n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], msg_module=i['msg_module'],
@@ -768,7 +780,7 @@ def node_reset_flags(ns, node_flags, node: NodeBase):
     stream = rx.merge(*flags).pipe(ops.scan(lambda acc, x: merge_dicts(acc, x), init_dict),
                                    ops.filter(lambda x: any([value for key, value in x.items()])),
                                    filter_dict(),
-                                   spy('awaiting', node, op_log_level=DEBUG),
+                                   spy('awaiting', node, log_level=DEBUG),
                                    ops.filter(lambda x: len(x) == 0),
                                    ops.start_with(None))
     return stream

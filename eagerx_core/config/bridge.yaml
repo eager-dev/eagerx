@@ -2,8 +2,7 @@ node_type: eagerx_core.basebridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
-  single_process: False
-  launch_locally: True
+  process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
   color: magenta
   num_substeps: 10

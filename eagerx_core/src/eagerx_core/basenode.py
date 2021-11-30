@@ -13,7 +13,7 @@ from eagerx_core.utils.utils import initialize_converter
 
 
 class NodeBase:
-    def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, launch_locally, single_process,
+    def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
                  inputs, outputs, states, feedthroughs,  targets, launch_file=None,
                  color='grey', print_mode=TERMCOLOR, log_level=ERROR):
         """
@@ -29,8 +29,7 @@ class NodeBase:
         self.node_type = node_type
         self.module = module
         self.rate = rate
-        self.launch_locally = launch_locally
-        self.single_process = single_process
+        self.process = process
         self.launch_file = launch_file
         self.inputs = inputs
         self.outputs = outputs

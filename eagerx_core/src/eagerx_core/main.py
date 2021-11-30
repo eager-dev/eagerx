@@ -2,24 +2,25 @@
 import rospy
 from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
-
+from eagerx_core.constants import process
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
+
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
-
-    # Type of simulation (optional)
-    sp = False
+    # Process configuration (optional)
+    node_p = process.ENVIRONMENT
+    bridge_p = process.NEW_PROCESS
 
     # Define nodes
-    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, single_process=sp, targets=['target_1'])
-    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=6,   single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   single_process=sp, inputs=['in_1', 'in_2'])
+    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p, outputs=['out_1', 'out_2'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
+    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, process=node_p, output_converters={'out_1': IntUInt64Converter})
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=6,   process=node_p, output_converters={'out_1': IntUInt64Converter})
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   process=node_p, inputs=['in_1', 'in_2'])
 
     # Define object
     viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
@@ -35,14 +36,14 @@ if __name__ == '__main__':
                    {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
                    {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
                    {'source': (N1, 'out_2'),            'target': (N3, 'feedthroughs', 'out_1')},
-                   {'source': (N3, 'out_1'),            'target': (N4, 'inputs', 'in_1')},
+                   {'source': (N3, 'out_1'),            'target': (N4, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
                    {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
                    {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': IntUInt64Converter, 'delay': 1.0},
                    ]
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, process=bridge_p)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -66,15 +67,26 @@ if __name__ == '__main__':
     print('\n[Finished]')
 
     # todo: implement real_time rx pipeline
+    # todo: implement on_error for every subscription in rxpipeline and rxoperator
+    # todo: test registering multiple robots
+    # todo: create render functionality
+    #  - Env gets last buffered rgb image from object via service --> what address? msg_type?
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
     # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
-    # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain randomization)
-    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions) (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
-    # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout reached (count how many repeats)
-    # todo: Currently, we add bridge node twice to message_broker with '/dynamically_registered' appended to avoid a namespace clash between done flags used in both real_reset & state_reset
+    # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain
+    #       randomization)
+    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
+    #       (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
+    # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout
+    #       reached (count how many repeats)
+    # todo: Currently, we add bridge node twice to message_broker with '/dynamically_registered' appended to avoid a
+    #       namespace clash between done flags used in both real_reset & state_reset
+    # todo: Create batch dimension on all nodes (with $(batch_dim) in .yaml used in e.g. converter definitions), so that
+    #       complete envs can be batched. Bridge must have a grid edge length param, simnodes that use global position
+    #       info must correct for grid position.
 
     # todo: THINGS TO KEEP IN MIND:
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces

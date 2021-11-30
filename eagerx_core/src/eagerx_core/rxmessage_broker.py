@@ -51,7 +51,6 @@ class RxMessageBroker(object):
     def add_rx_objects(self, node_name, node=None, inputs=tuple(), outputs=tuple(), feedthrough=tuple(),
                        state_inputs=tuple(), state_outputs=tuple(), targets=tuple(), node_inputs=tuple(), node_outputs=tuple(),
                        reactive_proxy=tuple()):
-        # todo: connect all outputs
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
             if i['address'] == '/rx/bridge/outputs/tick': continue
@@ -137,15 +136,15 @@ class RxMessageBroker(object):
 
         # Add new addresses to disconnected
         for key in ('inputs', 'feedthrough', 'state_inputs', 'targets', 'node_inputs'):
-            self.disconnected[node_name][key] = n[key].copy()
+            self.disconnected[node_name][key].update(n[key].copy())
 
     def print_io_status(self, node_names=None):
         # Only print status for specific node
         if node_names is None:
             node_names = self.node_io.keys()
         else:
-            if not isinstance(node_names, list):
-                node_names = list(node_names)
+            if isinstance(node_names, str):
+                node_names = [node_names]
 
         # Print status
         for node_name in node_names:
@@ -166,6 +165,7 @@ class RxMessageBroker(object):
                         if address in self.connected_ros[node_name][key]:
                             assert color is None, 'Duplicate connection status for address (%s).' % address
                             color = 'blue'
+                        assert color is not None, 'Address (%s) not found in self.{disconnected, connected_rx, connected_ros}.' % address
                     status = self.node_io[node_name][key][address]['status']
 
                     # Print status
@@ -199,6 +199,7 @@ class RxMessageBroker(object):
         for node_name, node in self.disconnected.items():
             # Skip if no disconnected addresses
             num_disconnected = 0
+
             for key, addresses in node.items():
                 num_disconnected += len(addresses)
             if num_disconnected == 0:

@@ -13,8 +13,6 @@ from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.constants import log_levels_ROS
 
 # Other imports
-
-# Memory usage
 from threading import Condition
 
 

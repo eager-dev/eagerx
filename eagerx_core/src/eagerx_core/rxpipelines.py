@@ -12,7 +12,7 @@ from eagerx_core.constants import DEBUG
 from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
     init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
     init_callback_pipeline, get_object_params, extract_inputs_and_reactive_proxy, initialize_reactive_proxy_reset, \
-    switch_with_check_pipeline, node_reset_flags, filter_dict_on_key
+    switch_with_check_pipeline, node_reset_flags, filter_dict_on_key, get_node_params, extract_node_reset
 
 
 def init_node_pipeline(ns, dt_n, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, event_scheduler=None):
@@ -219,7 +219,7 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
                                ops.zip(reset_trigger, Rn_ho.pipe(ops.skip(1)), check_SS, check_SS_CL),
                                ops.map(lambda x: x[1]),  # x[1]=Nc
                                ops.share(),
-                               spy('RESET', node, op_log_level=DEBUG),
+                               spy('RESET', node, log_level=DEBUG),
                                ops.map(lambda x:  node.reset(**x)),
                                trace_observable('cb_reset', node),
                                ops.share())
@@ -345,25 +345,40 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     DF = rx.combine_latest(RRr, *dfs)
 
     ###########################################################################
-    # Registry: objects #######################################################
+    # Registry ################################################################
     ###########################################################################
     # Object register (to dynamically add input reset flags to F for reset)
+    NR = Subject()
+    node_registry = dict(address=ns + '/register_node', msg=NR, msg_type=String)
+    node_inputs.append(node_registry)
+
+    # Node registry pipeline
+    node_params = NR.pipe(spy('nodes', node, log_level=DEBUG),
+                          ops.map(get_node_params),
+                          ops.filter(lambda params: params is not None),
+                          ops.map(node.register_node),
+                          ops.map(lambda args: extract_node_reset(ns, *args)),
+                          ops.share())
+
+    # Object register (to dynamically add input reset flags to F for reset)
     OR = Subject()
-    object_registry = dict(address=ns + '/register', msg=OR, msg_type=String)
+    object_registry = dict(address=ns + '/register_object', msg=OR, msg_type=String)
     node_inputs.append(object_registry)
 
     # Object registry pipeline
-    params_nodes = OR.pipe(ops.map(get_object_params),
-                           ops.filter(lambda params: params is not None),
-                           ops.map(lambda params: (params[1],) + node.register_object(*params)), ops.share())
-    rx_objects = params_nodes.pipe(ops.map(lambda i: extract_inputs_and_reactive_proxy(ns, *i)),
-                                   ops.map(lambda i: (i, message_broker.add_rx_objects(node.ns_name + '/dynamically_registered', inputs=i['inputs'], reactive_proxy=i['reactive_proxy'], state_inputs=i['state_inputs'], node_inputs=i['node_flags']))),
-                                   ops.map(lambda i: i[0]),
-                                   ops.scan(combine_dict, dict(inputs=inputs_init, reactive_proxy=[], sp_nodes=[], launch_nodes=[], state_inputs=[], node_flags=init_node_flags)), ops.share())
+    object_params = OR.pipe(ops.map(get_object_params),
+                            ops.filter(lambda params: params is not None),
+                            ops.map(lambda params: (params[1],) + node.register_object(*params)),
+                            ops.map(lambda i: extract_inputs_and_reactive_proxy(ns, *i)),
+                            ops.share())
+
+    rx_objects = rx.merge(object_params, node_params).pipe(ops.map(lambda i: (i, message_broker.add_rx_objects(node.ns_name + '/dynamically_registered', inputs=i['inputs'], reactive_proxy=i['reactive_proxy'], state_inputs=i['state_inputs'], node_inputs=i['node_flags']))),
+                                                           ops.map(lambda i: i[0]),
+                                                           ops.scan(combine_dict, dict(inputs=inputs_init, reactive_proxy=[], sp_nodes=[], launch_nodes=[], state_inputs=[], node_flags=init_node_flags)), ops.share())
 
     # Make sure that all nodes are initialized, before passing it to start_reset_input
-    OR_cum = OR.pipe(ops.scan(lambda acc, x: acc + 1, 0))
-    rx_objects = rx.zip(rx_objects, OR_cum)
+    REG_cum = rx.merge(OR, NR).pipe(ops.scan(lambda acc, x: acc + 1, 0))
+    rx_objects = rx.zip(rx_objects, REG_cum)
 
     ###########################################################################
     # Start reset #############################################################
@@ -374,9 +389,10 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
-    # todo: risk: that OR_cum == 1, while rx_objects is already OR_cum == 2. Will deadlock then.
-    rx_objects = SR.pipe(ops.with_latest_from(OR_cum),
+    # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will deadlock then.
+    rx_objects = SR.pipe(ops.with_latest_from(REG_cum),
                          ops.combine_latest(rx_objects),
+                         spy('register', node, log_level=DEBUG),
                          ops.filter(lambda x: x[0][1] == x[1][1]),
                          ops.map(lambda i: i[1][0]),  # rx_objects
                          ops.share())
@@ -417,7 +433,7 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     rx.zip(RRn.pipe(spy('RRn', node)),
            RRr.pipe(spy('RRr', node))).pipe(ops.map(lambda x: x[0][0]),  # x[0][0]=Nc
                                             ops.map(lambda x: (x, node.pre_reset())),  # Run pre-reset callback
-                                            spy('PRE-RESET', node, op_log_level=DEBUG),
+                                            spy('PRE-RESET', node, log_level=DEBUG),
                                             trace_observable('cb_pre_reset', node),
                                             ops.map(lambda x: UInt64(data=x[0] + 1)),
                                             ops.share()).subscribe(RM)
@@ -485,7 +501,7 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
                    ops.start_with(None),
                    ops.zip(reset_obs, check_SS, NF.pipe(spy('NF', node))),
                    ops.map(lambda x: node.reset()),
-                   spy('POST-RESET', node, op_log_level=DEBUG),
+                   spy('POST-RESET', node, log_level=DEBUG),
                    trace_observable('cb_post_reset', node),
                    ops.map(lambda x: UInt64(data=0)),
                    ops.share()).subscribe(end_reset['msg'])
@@ -552,17 +568,20 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     node_reset = dict(name=node.ns_name, address=node.ns_name + '/end_reset', msg_type=Bool, msg=Subject())
 
     # Reset pipeline
-    SR.pipe(spy('RESET', node, op_log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
+    SR.pipe(spy('RESET', node, log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
     R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'], scheduler=tp_scheduler)
 
     ###########################################################################
     # Register ################################################################
     ###########################################################################
-    REG = Subject()  # ---> Not a node output, but used in node.register_object() to kickstart register pipeline.
-    register = dict(address=ns + '/register', msg=Subject(), msg_type=String)
+    REG_OBJECT = Subject()  # ---> Not a node output, but used in node.register_object() to kickstart register pipeline.
+    register_object = dict(address=ns + '/register_object', msg=Subject(), msg_type=String)
+    REG_NODE = Subject()  # ---> Not a node output, but used in node.register_node() to kickstart register pipeline.
+    register_node = dict(address=ns + '/register_node', msg=Subject(), msg_type=String)
 
     # Register pipeline
-    REG.subscribe(register['msg'], scheduler=tp_scheduler)
+    REG_OBJECT.subscribe(register_object['msg'], scheduler=tp_scheduler)
+    REG_NODE.subscribe(register_node['msg'], scheduler=tp_scheduler)
 
     ###########################################################################
     # End reset ###############################################################
@@ -580,10 +599,10 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
 
     # Create node inputs & outputs
     node_inputs = [reset, end_reset, obs_set]
-    node_outputs = [register, start_reset, tick, node_reset]
+    node_outputs = [register_object, register_node, start_reset, tick, node_reset]
     outputs = [step]
 
     # Create return objects
-    env_subjects = dict(step=S, register=REG, start_reset=SR)
+    env_subjects = dict(step=S, register_object=REG_OBJECT, register_node=REG_NODE, start_reset=SR)
     rx_objects = dict(node_inputs=node_inputs, node_outputs=node_outputs, outputs=outputs, state_outputs=state_outputs + tuple(done_outputs))
     return rx_objects, env_subjects

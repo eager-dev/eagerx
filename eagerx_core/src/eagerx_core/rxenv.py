@@ -11,13 +11,13 @@ from eagerx_core.rxnode import RxNode
 from eagerx_core.rxbridge import RxBridge
 from eagerx_core.rxsupervisor import RxSupervisor
 from eagerx_core.rxmessage_broker import RxMessageBroker
+from eagerx_core.constants import process
 
 # OTHER IMPORTS
 import abc
 from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
 import gym
-import multiprocessing
 import logging
 
 
@@ -49,13 +49,10 @@ class RxEnv(object):
         self.rate = rate
         self.initialized = False
         self._bridge_name = bridge.name
-        self._is_initialized = dict()
-        self._launch_nodes = dict()
-        self._sp_nodes = dict()
-        self._event = multiprocessing.Event()
 
         # Initialize supervisor node
         self.mb, self.supervisor_node, _ = self._init_supervisor(nodes, objects)
+        self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize bridge
         self._init_bridge(bridge, nodes)
@@ -63,8 +60,8 @@ class RxEnv(object):
         # Initialize action & observation node
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
-        # Initialize nodes
-        initialize_nodes(nodes, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxNode)
+        # Register nodes
+        self.register_nodes(nodes)
 
         # Register objects
         self.register_objects(objects)
@@ -144,7 +141,7 @@ class RxEnv(object):
         node_names = ['env/actions', 'env/observations', 'env/supervisor']
         target_addresses = []
         for i in nodes:
-            node_names.append(i.params['default']['name'])
+            # node_names.append(i.params['default']['name'])
             if 'targets' in i.params['default']:
                 for cname in i.params['default']['targets']:
                     address = i.params['targets'][cname]['address']
@@ -152,7 +149,7 @@ class RxEnv(object):
         bridge.params['default']['node_names'] = node_names
         bridge.params['default']['target_addresses'] = target_addresses
 
-        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
+        initialize_nodes(bridge, process.ENVIRONMENT, self.ns, self.name, self.mb, self.supervisor_node.is_initialized, self.supervisor_node.sp_nodes, self.supervisor_node.launch_nodes, rxnode_cls=RxBridge)
         wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
     def _init_actions_and_observations(self, actions: RxNodeParams, observations: RxNodeParams, message_broker):
@@ -224,7 +221,7 @@ class RxEnv(object):
         assert not self.initialized, 'Environment already initialized. Cannot re-initialize pipelines. '
 
         # Wait for nodes to be initialized
-        [node.node_initialized() for name, node in self._sp_nodes.items()]
+        [node.node_initialized() for name, node in self.supervisor_node.sp_nodes.items()]
         wait_for_node_initialization(self._is_initialized)
 
         # Initialize single process communication
@@ -263,16 +260,23 @@ class RxEnv(object):
         return self._get_observation()
 
     def _close(self):
-        for name in self._launch_nodes:
-            self._launch_nodes[name].shutdown()
+        for name in self.supervisor_node.launch_nodes:
+            self.supervisor_node.launch_nodes[name].shutdown()
         try:
             rosparam.delete_param('/')
             rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
         except:
             pass
 
+    def register_nodes(self, nodes: Union[List[RxNodeParams], RxNodeParams]) -> None:
+        # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
+        if not isinstance(nodes, list):
+            nodes = [nodes]
+
+        # Register nodes
+        [self.supervisor_node.register_node(n) for n in nodes]
+
     def register_objects(self, objects: Union[List[RxObjectParams], RxObjectParams]) -> None:
-        # todo: There might be timing issues... Currently solved with condition.
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(objects, list):
             objects = [objects]

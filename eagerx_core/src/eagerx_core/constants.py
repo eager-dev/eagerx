@@ -17,3 +17,11 @@ log_levels_ROS = {SILENT: rospy.DEBUG,
 # PRINT MODES
 TERMCOLOR = 1
 ROS = 2
+
+
+# PROCESS
+class process:
+    NEW_PROCESS = 0
+    ENVIRONMENT = 1
+    BRIDGE = 2
+    EXTERNAL = 3

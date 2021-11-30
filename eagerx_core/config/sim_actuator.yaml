@@ -3,8 +3,7 @@ default:
   rate:
   inputs: [tick, in_1, in_2]
   outputs: [out_1]
-  single_process: True
-  launch_locally: True
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
   test_arg: 'TEST ARGUMENT'
 

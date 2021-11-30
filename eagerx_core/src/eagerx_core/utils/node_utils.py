@@ -10,6 +10,7 @@ from eagerx_core.params import RxNodeParams, RxObjectParams
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, \
     substitute_xml_args
 from eagerx_core.rxnode import RxNode
+from eagerx_core.constants import process
 
 # OTHER
 from time import sleep
@@ -180,20 +181,23 @@ def launch_node(launch_file, args):
 
 
 def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodeParams, Dict]]],
+                     process_id: int,
                      ns: str,
                      owner: str,
                      message_broker: Any,
                      is_initialized: Dict,
                      sp_nodes: Dict,
                      launch_nodes: Dict,
-                     rxnode_cls: Any = RxNode):
+                     in_object: bool = False,
+                     rxnode_cls: Any = RxNode,
+                     ):
     if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
 
     for node in nodes:
         # Check if we still need to upload params to rosparam server (env)
         if not isinstance(node, dict):
-            params = node.get_params(ns=ns)
+            params = node.get_params(ns=ns, in_object=in_object)
 
             # Check if node name is unique
             name = node.name
@@ -207,10 +211,6 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         else:
             params = node
             name = params['name']
-        launch_file = params['launch_file']
-        launch_locally = params['launch_locally']
-        single_process = params['single_process']
-
         # Flag to check if node is initialized
         is_initialized[name] = False
 
@@ -224,16 +224,20 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         rospy.Subscriber(node_address + '/initialized', UInt64, partial(initialized, name=name))
 
         # Initialize node
-        if single_process:  # Initialize inside this process
+        if params['process'] == process_id:  # Initialize inside this process
             sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker)
             sp_nodes[node_address].node_initialized()
-        else:
-            if launch_locally and launch_file:  # Launch node as separate process
-                owner_with_node_ns = '/'.join(owner.split('/') + name.split('/')[:-1])
-                name_without_node_ns = name.split('/')[-1]
-                launch_nodes[ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name_without_node_ns,
-                                                                               'owner:=' + owner_with_node_ns])
-                launch_nodes[ns + '/' + name].start()
+        elif params['process'] == process.NEW_PROCESS and process_id == process.ENVIRONMENT:  # Only environment can launch new processes (as it is the main_thread)
+            assert 'launch_file' in params, 'No launch_file defined. Node "%s" can only be launched as a separate process if a launch_file is specified.' % name
+            owner_with_node_ns = '/'.join(owner.split('/') + name.split('/')[:-1])
+            name_without_node_ns = name.split('/')[-1]
+            launch_nodes[ns + '/' + name] = launch_node(params['launch_file'],
+                                                        args=['node_name:=' + name_without_node_ns,
+                                                              'owner:=' + owner_with_node_ns])
+            launch_nodes[ns + '/' + name].start()
+        elif params['process'] == process.EXTERNAL:
+            rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
+        # else: node is launched in another (already launched) node's process (e.g. bridge process).
 
 
 def wait_for_node_initialization(is_initialized):
