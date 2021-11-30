@@ -23,7 +23,7 @@ def load_library():
         if package is not None and node is not None:
             yaml = load_yaml(package, node)
             if 'node_type' in yaml:
-                if 'feedthroughs' in yaml:
+                if 'targets' in yaml:
                     type = 'real_reset'
                 else:
                     type = 'node'
@@ -46,7 +46,7 @@ def EagerxGraphCreator():
     layout = QtGui.QGridLayout()
     cw.setLayout(layout)
 
-    fc = EagerxGraph(terminals={}, library=library)
+    fc = EagerxGraph(library=library)
     w = fc.widget()
 
     # Add flowchart control panel to the main window

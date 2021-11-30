@@ -44,10 +44,8 @@ class EagerxGraph(Node):
     sigStateChanged = QtCore.Signal()  # called when output is expected to have changed
     sigChartChanged = QtCore.Signal(object, object, object)  # called when nodes are added, removed, or renamed.
     
-    def __init__(self, terminals=None, name='env', file_path=None, library=None):
+    def __init__(self, name='env', file_path=None, library=None):
         self.library = library
-        if terminals is None:
-            terminals = {}
         self.filePath = file_path
         Node.__init__(self, name, allowAddInput=True, allowAddOutput=True)  # create node without terminals; we'll add these later
 
@@ -68,8 +66,8 @@ class EagerxGraph(Node):
         self.inputNode = EagerxNode(actions.name, params=actions.params, yaml=actions_yaml, graph=self)
         self.outputNode = EagerxNode(observations.name, params=observations.params, yaml=observations_yaml, graph=self)
 
-        self.addNode(self.inputNode, 'Actions', [-150, 0])
-        self.addNode(self.outputNode, 'Observations', [300, 0])
+        self.addNode(self.inputNode, self.inputNode.name(), [-150, 0])
+        self.addNode(self.outputNode, self.outputNode.name(), [300, 0])
         
         self.outputNode.sigOutputChanged.connect(self.outputChanged)
         self.outputNode.sigTerminalRenamed.connect(self.internalTerminalRenamed)
@@ -78,11 +76,8 @@ class EagerxGraph(Node):
         self.inputNode.sigTerminalRemoved.connect(self.internalTerminalRemoved)
         self.outputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
         self.inputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
-        
+
         self.viewBox.autoRange(padding=0.04)
-            
-        for name, opts in terminals.items():
-            self.addTerminal(name, **opts)
       
     def setLibrary(self, lib):
         self.library = lib
@@ -114,7 +109,6 @@ class EagerxGraph(Node):
         name = term.name()
         if opts['io'] == 'in':  ## inputs to the flowchart become outputs on the input node
             opts['io'] = 'out'
-            opts['multi'] = False
             self.inputNode.sigTerminalAdded.disconnect(self.internalTerminalAdded)
             try:
                 self.inputNode.addTerminal(name, **opts)
@@ -144,7 +138,7 @@ class EagerxGraph(Node):
             io = 'out'
         else:
             io = 'in'
-        Node.addTerminal(self, term.name(), io=io, renamable=term.isRenamable(), removable=term.isRemovable(), multiable=term.isMultiable())
+        Node.addTerminal(self, term.name(), io=io)
         
     def internalTerminalRemoved(self, node, term):
         try:
@@ -246,56 +240,54 @@ class EagerxGraph(Node):
         ## determine order of operations
         ## order should look like [('p', node1), ('p', node2), ('d', terminal1), ...] 
         ## Each tuple specifies either (p)rocess this node or (d)elete the result from this terminal
-        order = self.processOrder()
-        
-        ## Record inputs given to process()
-        for n, t in self.inputNode.outputs().items():
-            # if n not in args:
-            #     raise Exception("Parameter %s required to process this chart." % n)
-            if n in args:
-                data[t] = args[n]
-        
+        # order = self.processOrder()
+        #
+        # ## Record inputs given to process()
+        # for n, t in self.inputNode.outputs().items():
+        #     # if n not in args:
+        #     #     raise Exception("Parameter %s required to process this chart." % n)
+        #     if n in args:
+        #         data[t] = args[n]
+        #
         ret = {}
-            
-        ## process all in order
-        for c, arg in order:
-            
-            if c == 'p':     ## Process a single node
-                node = arg
-                if node is self.inputNode:
-                    continue  ## input node has already been processed.
-
-                ## get input and output terminals for this node
-                outs = list(node.outputs().values())
-                ins = list(node.inputs().values())
-                
-                # construct input value dictionary
-                args = {}
-                for inp in ins:
-                    inputs = inp.inputTerminals()
-                    if len(inputs) == 0:
-                        continue
-                    if inp.isMultiValue():  # multi-input terminals require a dict of all inputs
-                        args[inp.name()] = dict([(i, data[i]) for i in inputs if i in data])
-                    else:                   # single-inputs terminals only need the single input value available
-                        args[inp.name()] = data[inputs[0]]  
-                        
-                if node is self.outputNode:
-                    ret = args  # we now have the return value, but must keep processing in case there are other endpoint nodes in the chart
-                else:
-                    try:
-                        result = node.process(display=False, **args)
-                    except:
-                        print("Error processing node %s. Args are: %s" % (str(node), str(args)))
-                        raise
-                    for out in outs:
-                        try:
-                            data[out] = result[out.name()]
-                        except KeyError:
-                            pass
-            elif c == 'd':   ## delete a terminal result (no longer needed; may be holding a lot of memory)
-                if arg in data:
-                    del data[arg]
+        #
+        # ## process all in order
+        # for c, arg in order:
+        #
+        #     if c == 'p':     ## Process a single node
+        #         node = arg
+        #         if node is self.inputNode:
+        #             continue  ## input node has already been processed.
+        #
+        #         ## get input and output terminals for this node
+        #         outs = list(node.outputs().values())
+        #         ins = list(node.inputs().values())
+        #
+        #         # construct input value dictionary
+        #         args = {}
+        #         for inp in ins:
+        #             inputs = inp.inputTerminals()
+        #             if len(inputs) == 0:
+        #                 continue
+        #             else:                   # single-inputs terminals only need the single input value available
+        #                 args[inp.name()] = data[inputs[0]]
+        #
+        #         if node is self.outputNode:
+        #             ret = args  # we now have the return value, but must keep processing in case there are other endpoint nodes in the chart
+        #         else:
+        #             try:
+        #                 result = node.process(display=False, **args)
+        #             except:
+        #                 print("Error processing node %s. Args are: %s" % (str(node), str(args)))
+        #                 raise
+        #             for out in outs:
+        #                 try:
+        #                     data[out] = result[out.name()]
+        #                 except KeyError:
+        #                     pass
+        #     elif c == 'd':   ## delete a terminal result (no longer needed; may be holding a lot of memory)
+        #         if arg in data:
+        #             del data[arg]
 
         return ret
         
@@ -539,25 +531,25 @@ class EagerxGraphicsItem(GraphicsObject):
         
     def updateTerminals(self):
         self.terminals = {}
-        bounds = self.boundingRect()
-        inp = self.chart.inputs()
-        dy = bounds.height() / (len(inp)+1)
-        y = dy
-        for n, t in inp.items():
-            item = t.graphicsItem()
-            self.terminals[n] = item
-            item.setParentItem(self)
-            item.setAnchor(bounds.width(), y)
-            y += dy
-        out = self.chart.outputs()
-        dy = bounds.height() / (len(out)+1)
-        y = dy
-        for n, t in out.items():
-            item = t.graphicsItem()
-            self.terminals[n] = item
-            item.setParentItem(self)
-            item.setAnchor(0, y)
-            y += dy
+        # bounds = self.boundingRect()
+        # inp = self.chart.inputs()
+        # dy = bounds.height() / (len(inp)+1)
+        # y = dy
+        # for n, t in inp.items():
+        #     item = t.graphicsItem()
+        #     self.terminals[n] = item
+        #     item.setParentItem(self)
+        #     item.setAnchor(bounds.width(), y)
+        #     y += dy
+        # out = self.chart.outputs()
+        # dy = bounds.height() / (len(out)+1)
+        # y = dy
+        # for n, t in out.items():
+        #     item = t.graphicsItem()
+        #     self.terminals[n] = item
+        #     item.setParentItem(self)
+        #     item.setAnchor(0, y)
+        #     y += dy
         
     def boundingRect(self):
         return QtCore.QRectF()
@@ -817,15 +809,15 @@ class EagerxGraphWidget(dockarea.DockArea):
         for item in items:
             self.hoverItem = item
             if hasattr(item, 'term') and isinstance(item.term, EagerxTerminal):
-                text = 'name: ' + item.term.nameSplit()
+                text = 'name: ' + item.term.terminal_name()
                 for key, value in item.term.info().items():
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
             elif hasattr(item, 'node') and isinstance(item.node, EagerxNode):
-                text = 'name: ' + item.node.name()
+                text = ''
                 for key, value in item.node.info().items():
-                    text += '\n' + '{}: {}'.format(key, value)
+                    text += '{}: {}\n'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
         self.hoverText.setPlainText("")

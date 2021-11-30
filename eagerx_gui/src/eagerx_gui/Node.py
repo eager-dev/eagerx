@@ -76,35 +76,29 @@ class Node(QtCore.QObject):
             node_type = 'actions'
         elif params['default']['config_name'] == 'observations':
             node_type = 'observations'
-        elif 'feedthroughs' in params.keys():
+        elif 'targets' in params.keys():
             node_type = 'real_reset'
         else:
             node_type = 'node'
         self._node_type = node_type
         self._is_object = node_type == 'object'
 
-        allow_remove = False
-        allow_add_input = False
-        allow_add_output = False
-
-        if self._node_type == 'actions':
-            allow_add_output = True
-            allow_remove = False
-        elif self._node_type == 'observations':
-            allow_add_input = True
+        allow_add_terminal = False
+        allow_remove = True
+        if self._node_type in ['actions', 'observations']:
+            allow_add_terminal = True
             allow_remove = False
         elif self._is_object:
-            allow_add_input = True
-            allow_add_output = True
+            allow_add_terminal = True
 
+        self._allow_add_terminal = allow_add_terminal
         self._allow_remove = allow_remove
-        self._allow_add_input = allow_add_input
-        self._allow_add_output = allow_add_output
-
         self.exception = None
-        self.initializeTerminals()
 
-    def nextTerminalName(self, name):
+        if not self._node_type in ['actions', 'observations']:
+            self.__initialize_terminals()
+
+    def __next_terminal_name(self, name):
         """Return an unused terminal name"""
         name2 = name
         i = 1
@@ -113,58 +107,16 @@ class Node(QtCore.QObject):
             i += 1
         return name2
 
-    def addInput(self, name="Input", **args):
-        """Add a new input terminal to this Node with the given name. Extra
-        keyword arguments are passed to Terminal.__init__.
-        
-        This is a convenience function that just calls addTerminal(io='in', ...)"""
-        # print "Node.addInput called."
-        return self.addTerminal(name, io='in', **args)
-
-    def addOutput(self, name="Output", **args):
-        """Add a new output terminal to this Node with the given name. Extra
-        keyword arguments are passed to Terminal.__init__.
-        
-        This is a convenience function that just calls addTerminal(io='out', ...)"""
-        return self.addTerminal(name, io='out', **args)
-
-    def initializeTerminals(self):
+    def __initialize_terminals(self):
         if 'default' in self._params:
-            for output_type in ['sensors', 'states', 'outputs']:
-                if self._node_type == 'observations':
-                    break
-                is_state = output_type == 'states'
-                if output_type in self._params['default']:
-                    if self._is_object:
-                        for output in self._params['default'][output_type]:
-                            name = output_type + '/' + output
-                            self.addOutput(name=name, is_state=is_state, removable=True,
-                                           params=self._params[output_type][output])
-                    else:
-                        connectable = not is_state
-                        for output in self._params[output_type]:
-                            name = output_type + '/' + output
-                            self.addOutput(name=name, is_state=is_state, params=self._params[output_type][output],
-                                           connectable=connectable)
-            for input_type in ['actuators', 'inputs', 'targets', 'feedthroughs']:
-                if self._node_type == 'actions':
-                    break
-                is_state = input_type == 'targets'
-                is_feedthrough = input_type == 'feedthroughs'
-                if input_type in self._params['default']:
-                    if self._is_object:
-                        for input in self._params['default'][input_type]:
-                            name = input_type + '/' + input
-                            self.addInput(name=name, is_state=is_state, removable=True,
-                                          params=self._params[input_type][input])
-                    else:
-                        for input in self._params[input_type]:
-                            name = input_type + '/' + input
-                            if is_feedthrough:
-                                params = self._params['outputs'][input]
-                            else:
-                                params = self._params[input_type][input]
-                            self.addInput(name=name, is_state=is_state, params=params, is_feedthrough=is_feedthrough)
+            for terminal_type in ['outputs', 'inputs', 'sensors', 'actuators', 'states', 'targets']:
+                if terminal_type in self._params['default']:
+                    for terminal in self._params['default'][terminal_type]:
+                        name = terminal_type + '/' + terminal
+                        self.addTerminal(name=name)
+                        if self._node_type == 'real_reset' and terminal_type == 'outputs':
+                            name = 'feedthroughs/' + terminal
+                            self.addTerminal(name=name)
 
     def removeTerminal(self, term):
         """Remove the specified terminal from this Node. May specify either the 
@@ -173,36 +125,23 @@ class Node(QtCore.QObject):
         Causes sigTerminalRemoved to be emitted."""
         if isinstance(term, Terminal):
             name = term.name()
-            name_split = term.nameSplit()
         else:
             name = term
-            name_split = name.split('/')[-1]
             term = self.terminals[name]
-
         term.close()
+
+        name_split = name.split('/')
+        terminal_name = name_split[-1]
+        terminal_type = name_split[0]
+
         del self.terminals[name]
-        default = self._params['default']
         if term.isInput():
             del self._inputs[name]
-            if self.node_type() == 'object':
-                default['actuators'].remove(name_split)
-            elif term.isFeedthrough():
-                default['feedthroughs'].pop(name_split)
-            elif term.isState():
-                default['targets'].pop(name_split)
-            else:
-                default['inputs'].pop(name_split)
         if term.isOutput():
             del self._outputs[name]
-            if self.node_type() == 'object':
-                if term.isState():
-                    default['states'].remove(name_split)
-                else:
-                    default['sensors'].remove(name_split)
-            elif term.isState():
-                default['states'].pop(name_split)
-            else:
-                default['outputs'].pop(name_split)
+
+        self._params['default'][terminal_type].remove(terminal_name)
+
         self.graphicsItem().updateTerminals()
         self.sigTerminalRemoved.emit(self, term)
 
@@ -217,37 +156,19 @@ class Node(QtCore.QObject):
             d[new_name] = d[old_name]
             del d[old_name]
 
-        old_name_split = old_name.split('/')[-1]
-        new_name_split = new_name.split('/')[-1]
+        old_name_split = old_name.split('/')
+        old_terminal_type = old_name_split[0]
+        old_terminal_name = old_name_split[-1]
+        
+        new_name_split = new_name.split('/')
+        new_terminal_type = new_name_split[0]
+        new_terminal_name = new_name_split[-1]
 
-        default = self._params['default']
-        if term.isInput():
-            if term.isState():
-                default['targets'][new_name_split] = default['targets'][old_name_split]
-                default['targets'].pop(old_name_split)
-            elif self.node_type() == 'object':
-                default['actuators'].remove(old_name_split)
-                default['actuators'].append(new_name_split)
-            elif term.isFeedthrough():
-                default['feedthroughs'][new_name_split] = default['feedthroughs'][old_name_split]
-                default['feedthroughs'].pop(old_name_split)
-            else:
-                default['inputs'][new_name_split] = default['inputs'][old_name_split]
-                default['inputs'].pop(old_name_split)
-        if term.isOutput():
-            if self._node_type == 'object':
-                if term.isState():
-                    default['states'].remove(old_name_split)
-                    default['states'].append(new_name_split)
-                else:
-                    default['sensors'].remove(old_name_split)
-                    default['sensors'].append(new_name_split)
-            elif term.isState():
-                default['states'][new_name_split] = self.name() + '/' + new_name
-                default['states'].pop(old_name_split)
-            else:
-                default['outputs'][new_name_split] = self.name() + '/' + new_name
-                default['outputs'].pop(old_name_split)
+        assert old_terminal_type == new_terminal_type, 'Terminal type should not change after renaming the terminal.'
+
+        self._params['default'][new_terminal_type].append(new_terminal_name)
+        self._params['default'][old_terminal_type].remove(old_terminal_name)
+
         self.graphicsItem().updateTerminals()
         self.sigTerminalRenamed.emit(term, old_name)
 
@@ -256,57 +177,26 @@ class Node(QtCore.QObject):
         keyword arguments are passed to Terminal.__init__.
                 
         Causes sigTerminalAdded to be emitted."""
-        name = self.nextTerminalName(name)
+        name = self.__next_terminal_name(name)
+        name_split = name.split('/')
+        terminal_type = name_split[0]
+        terminal_name = name_split[-1]
+
+        if terminal_type in ['inputs', 'feedthroughs', 'actuators', 'targets']:
+            opts['io'] = 'in'
+        else:
+            opts['io'] = 'out'
         term = Terminal(self, name, **opts)
         self.terminals[name] = term
-        name_split = name.split('/')[-1]
-
-        default = self._params['default']
 
         if term.isInput():
             self._inputs[name] = term
-            if self.node_type() == 'object':
-                if 'actuators' not in default or not isinstance(default['actuators'], list):
-                    default['actuators'] = [name_split]
-                elif name_split not in default['actuators']:
-                    default['actuators'].append(name_split)
-            elif 'is_feedthrough' in opts.keys() and opts['is_feedthrough']:
-                if 'feedthroughs' not in default or not isinstance(default['feedthroughs'], dict):
-                    default['feedthroughs'] = {name_split: None}
-                elif name_split not in default['feedthroughs'].keys():
-                    default['feedthroughs'][name_split] = None
-            elif 'is_state' in opts.keys() and opts['is_state']:
-                if 'targets' not in default or not isinstance(default['targets'], dict):
-                    default['targets'] = {name_split: None}
-                elif name_split not in default['targets'].keys():
-                    default['targets'][name_split] = None
-            else:
-                if 'inputs' not in default or not isinstance(default['inputs'], dict):
-                    default['inputs'] = {name_split: None}
-                elif name_split not in default['inputs'].keys():
-                    default['inputs'][name_split] = None
         elif term.isOutput():
             self._outputs[name] = term
-            if self.node_type() == 'object':
-                if 'is_state' in opts.keys() and opts['is_state']:
-                    if 'states' not in default or not isinstance(default['states'], list):
-                        default['states'] = [name_split]
-                    elif name_split not in default['states']:
-                        default['states'].append(name_split)
-                elif 'sensors' not in default or not isinstance(default['sensors'], list):
-                    default['sensors'] = [name_split]
-                elif name_split not in default['sensors']:
-                    default['sensors'].append(name_split)
-            elif 'is_state' in opts.keys() and opts['is_state']:
-                if 'states' not in default or not isinstance(default['states'], dict):
-                    default['states'] = {name_split: self.name() + '/' + name}
-                elif name_split not in default['states'].keys():
-                    default['states'][name_split] = self.name() + '/' + name
-            else:
-                if 'outputs' not in default or not isinstance(default['outputs'], dict):
-                    default['outputs'] = {name_split: self.name() + '/' + name}
-                elif name_split not in default['outputs'].keys():
-                    default['outputs'][name_split] = self.name() + '/' + name
+
+        if terminal_type in self._params['default'] and terminal_name not in self._params['default'][terminal_type]:
+            self._params['default'][terminal_type].append(terminal_name)
+
         self.graphicsItem().updateTerminals()
         self.sigTerminalAdded.emit(self, term)
         return term
@@ -341,7 +231,7 @@ class Node(QtCore.QObject):
             self._graphicsItem = NodeGraphicsItem(self)
         return self._graphicsItem
 
-    ## this is just bad planning. Causes too many bugs.
+    # this is just bad planning. Causes too many bugs.
     def __getattr__(self, attr):
         """Return the terminal with the given name"""
         if attr not in self.terminals:
@@ -376,14 +266,17 @@ class Node(QtCore.QObject):
         return self._graph
 
     def info(self):
-        self.updateInfo()
-        return self._info
+        info = deepcopy(self._params['default'])
+        return info
+
+    def is_object(self):
+        return self._is_object
 
     def yaml(self):
         return self._yaml
 
-    def updateInfo(self):
-        self._info = deepcopy(self._params['default'])
+    def allow_add_terminal(self):
+        return self._allow_add_terminal
 
     def rename(self, name):
         """Rename this node. This will cause sigRenamed to be emitted."""
@@ -450,24 +343,25 @@ class Node(QtCore.QObject):
         (such as when the user interacts with the Node's control widget). Update
         is automatically called when the inputs to the node are changed.
         """
-        vals = self.inputValues()
-        try:
-            out = self.process(**strDict(vals))
-            if out is not None:
-                if signal:
-                    self.setOutput(**out)
-                else:
-                    self.setOutputNoSignal(**out)
-            for n, t in self.inputs().items():
-                t.setValueAcceptable(True)
-            self.clearException()
-        except:
-            for n, t in self.outputs().items():
-                t.setValue(None)
-            self.setException(sys.exc_info())
-
-            if signal:
-                self.sigOutputChanged.emit(self)  ## triggers flowchart to propagate new data
+        # vals = self.inputValues()
+        # try:
+        #     out = self.process(**strDict(vals))
+        #     if out is not None:
+        #         if signal:
+        #             self.setOutput(**out)
+        #         else:
+        #             self.setOutputNoSignal(**out)
+        #     for n, t in self.inputs().items():
+        #         t.setValueAcceptable(True)
+        #     self.clearException()
+        # except:
+        #     for n, t in self.outputs().items():
+        #         t.setValue(None)
+        #     self.setException(sys.exc_info())
+        #
+        #     if signal:
+        #         self.sigOutputChanged.emit(self)  ## triggers flowchart to propagate new data
+        pass
 
     def setOutput(self, **vals):
         self.setOutputNoSignal(**vals)
@@ -502,9 +396,9 @@ class Node(QtCore.QObject):
         dict."""
         pos = self.graphicsItem().pos()
         state = {'pos': (pos.x(), pos.y()), 'params': self._params, 'yaml': self._yaml}
-        termsEditable = self._allow_add_input | self._allow_add_output
+        termsEditable = self._allow_add_terminal
         for term in list(self._inputs.values()) + list(self._outputs.values()):
-            termsEditable |= term._renamable | term._removable | term._multiable
+            termsEditable |= term._renamable | term._removable
         if termsEditable:
             state['terminals'] = self.saveTerminals()
         return state
@@ -587,7 +481,6 @@ class NodeGraphicsItem(GraphicsObject):
 
         self.node = node
         flags = self.ItemIsMovable | self.ItemIsSelectable | self.ItemIsFocusable | self.ItemSendsGeometryChanges
-        # flags =  self.ItemIsFocusable |self.ItemSendsGeometryChanges
 
         self.setFlags(flags)
         self.bounds = QtCore.QRectF(0, 0, 125, 125)
@@ -737,84 +630,32 @@ class NodeGraphicsItem(GraphicsObject):
     def buildMenu(self):
         self.menu = QtGui.QMenu()
         self.menu.setTitle("Node")
-        add_input_text = 'Add input'
-        add_output_text = 'Add output'
-        if self._node_type == 'action':
-            add_output_text = 'Add action'
-        elif self._node_type == 'object':
-            add_input_text = 'Add actuator'
-            add_output_text = 'Add sensor'
-        elif self._node_type == 'observation':
-            add_input_text = 'Add observation'
-        if self.node._allow_add_input:
-            if self._node_type == 'observation':
-                self.menu.addAction(add_input_text, partial(self.addInputFromMenu, name='outputs/' + 'observation'))
+
+        if self.node.allow_add_terminal():
+            if self._node_type in ['observations', 'actions']:
+                terminal = self._node_type[:-1]
+                if self._node_type == 'observations':
+                    terminal_name = 'inputs/' + terminal
+                else:
+                    terminal_name = 'outputs/' + terminal
+                self.menu.addAction('Add {}'.format(terminal), partial(self.__add_terminal_from_menu,
+                                                                       name=terminal_name))
             elif self._node_type == 'object':
-                sensor_menu = QtGui.QMenu(add_input_text, self.menu)
-                for actuator in self._params['actuators'].keys():
-                    actuator_name = 'actuators/' + actuator
-                    act = sensor_menu.addAction(
-                        actuator,
-                        partial(self.addInputFromMenu, name=actuator_name, multiable=False, renamable=False)
-                    )
-                    if actuator_name in self.node.inputs().keys():
+                for terminal_type in ['actuators', 'sensors', 'states']:
+                    terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
+                    for terminal in self._params[terminal_type].keys():
+                        terminal_name = str(terminal_type) + '/' + terminal
+                    act = terminal_menu.addAction(terminal, partial(self.__add_terminal_from_menu, name=terminal_name))
+                    if terminal_name in self.node.terminals.keys():
                         act.setEnabled(False)
-                self.menu.addMenu(sensor_menu)
+                    self.menu.addMenu(terminal_menu)
             else:
-                self.menu.addAction(add_input_text, self.addInputFromMenu)
-        if self.node._allow_add_output:
-            if self._node_type == 'action':
-                self.menu.addAction(add_output_text, partial(self.addOutputFromMenu,
-                                                             name='outputs/' + 'action'))
-            elif self._node_type == 'object':
-                sensor_menu = QtGui.QMenu(add_output_text, self.menu)
-                state_menu = QtGui.QMenu('Add state', self.menu)
-                for state in self._params['states'].keys():
-                    state_name = 'states/' + state
-                    act = state_menu.addAction(
-                        state,
-                        partial(self.addOutputFromMenu, name=state_name, multiable=False,
-                                renamable=False, is_state=True)
-                    )
-                    if state_name in self.node.outputs().keys():
-                        act.setEnabled(False)
-                self.menu.addMenu(state_menu)
-                for sensor in self._params['sensors'].keys():
-                    sensor_name = 'sensors/' + sensor
-                    act = sensor_menu.addAction(
-                        sensor,
-                        partial(self.addOutputFromMenu, name=sensor_name, multiable=False, renamable=False)
-                    )
-                    if sensor_name in self.node.outputs().keys():
-                        act.setEnabled(False)
-                self.menu.addMenu(sensor_menu)
-            else:
-                self.menu.addAction(add_output_text, self.addOutputFromMenu)
+                for terminal_type in ['inputs', 'outputs']:
+                    terminal_name = str(terminal_type) + '/' + terminal_type[:-1]
+                    self.menu.addAction('Add {}'.format(terminal_type[:-1]), partial(self.__add_terminal_from_menu,
+                                                                                     name=terminal_name))
         if self.node._allow_remove:
-            self.menu.addAction("Remove {}".format(self._node_type), self.node.close)
+            self.menu.addAction("Remove {}".format(self.node.name()), self.node.close)
 
-    def addInputFromMenu(self, name='Input', renamable=True, removable=True,
-                         multiable=True, is_state=False):
-        params = {}
-        name_split = name.split('/')[-1]
-        if is_state and 'targets' in self._params and name_split in self._params['targets']:
-            params = self._params['targets'][name_split]
-        elif self._node_type == 'object' and name_split in self._params['actuators']:
-            params = self._params['actuators'][name_split]
-        elif 'inputs' in self._params and name_split in self._params['inputs']:
-            params = self._params['inputs'][name_split]
-        self.node.addInput(name=name, renamable=renamable, removable=removable, multiable=multiable, params=params,
-                           is_state=is_state)
-
-    def addOutputFromMenu(self, name='Output', renamable=True, removable=True, multiable=True,
-                          is_state=False):
-        params = {}
-        name_split = name.split('/')[-1]
-        if is_state and 'states' in self._params and name_split in self._params['states']:
-            params = self._params['states'][name_split]
-        elif self._node_type == 'object' and name_split in self._params['sensors']:
-            params = self._params['sensors'][name_split]
-        elif 'outputs' in self._params and name_split in self._params['outputs']:
-            params = self._params['outputs'][name_split]
-        self.node.addOutput(name=name, renamable=renamable, removable=removable, multiable=multiable, is_state=is_state,
-                            params=params)
+    def __add_terminal_from_menu(self, name='Input'):
+        self.node.addTerminal(name=name)
