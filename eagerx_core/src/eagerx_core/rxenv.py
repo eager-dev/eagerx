@@ -16,6 +16,7 @@ from eagerx_core.constants import process
 
 # OTHER IMPORTS
 import abc
+import numpy as np
 from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
 import gym
@@ -299,12 +300,17 @@ class RxEnv(object):
         [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
 
     def render(self, mode="human"):
-        # todo: turn on render if closed --> send topic, else return
         if self.render_node:
             if mode == "human":
                 self.supervisor_node.start_render()
             elif mode == "rgb_array":
-                return self.supervisor_node.get_last_image()
+                ros_im = self.supervisor_node.get_last_image()
+                if ros_im.height == 0 or ros_im.width == 0:
+                    # todo: check if channel dim first or last.
+                    im = np.empty(shape=(0, 0, 3), dtype=np.uint8)
+                else:
+                    im = np.frombuffer(ros_im.data, dtype=np.uint8).reshape(ros_im.height, ros_im.width, -1)
+                return im
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)
         else:

@@ -74,7 +74,7 @@ class SupervisorNode(NodeBase):
     def get_last_image(self):
         if not self._render_service_ready:
             rospy.wait_for_service('%s/env/render/get_last_image' % self.ns)
-        return self.get_last_image_service()
+        return self.get_last_image_service().image
 
     def register_node(self, node: RxNodeParams):
         node_name = node.name
