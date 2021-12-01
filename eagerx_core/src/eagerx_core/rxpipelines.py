@@ -25,7 +25,7 @@ def init_node_pipeline(ns, dt_n, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, R
     zipped_inputs, zipped_input_flags = init_channels(ns, Nc, dt_n, inputs, node=node, scheduler=event_scheduler)
 
     # Create action channels
-    zipped_feedthrough, zipped_action_flags, d_rr = init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, event_scheduler, node=node)
+    zipped_feedthrough, zipped_action_flags, d_rr = init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, event_scheduler, node=node)
 
     # Zip inputs & action channels
     zipped_channels = rx.zip(zipped_inputs, zipped_feedthrough).pipe(ops.share(), ops.observe_on(event_scheduler))
@@ -392,7 +392,6 @@ def init_bridge(ns, dt_n, node, inputs_init, outputs, node_names, target_address
     # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will deadlock then.
     rx_objects = SR.pipe(ops.with_latest_from(REG_cum),
                          ops.combine_latest(rx_objects),
-                         spy('register', node, log_level=DEBUG),
                          ops.filter(lambda x: x[0][1] == x[1][1]),
                          ops.map(lambda i: i[1][0]),  # rx_objects
                          ops.share())

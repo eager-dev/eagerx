@@ -5,7 +5,7 @@ from __future__ import print_function
 # ROS imports
 import rospy
 import rosparam
-from std_msgs.msg import UInt64, String
+from std_msgs.msg import UInt64, String, Bool
 
 # Rx imports
 from eagerx_core.constants import process
@@ -18,6 +18,7 @@ from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes
 from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.srv import ImageUInt8
 import eagerx_core
 
 # OTHER
@@ -25,9 +26,16 @@ from threading import Event
 
 
 class SupervisorNode(NodeBase):
-    def __init__(self, states, **kwargs):
+    def __init__(self, ns, states, **kwargs):
         self.subjects = None
 
+        # Render
+        self._render_service_ready = False
+        self.render_toggle = False
+        self.get_last_image_service = rospy.ServiceProxy('%s/env/render/get_last_image' % ns, ImageUInt8)
+        self.render_toggle_pub = rospy.Publisher('%s/env/render/toggle' % ns, Bool, queue_size=0)
+
+        # Initialize nodes
         self.is_initialized = dict()
         self.launch_nodes = dict()
         self.sp_nodes = dict()
@@ -48,16 +56,30 @@ class SupervisorNode(NodeBase):
         self._reset_event = Event()
         self._obs_event = Event()
         self._step_counter = 0
-        super().__init__(states=states, **kwargs)
+        super().__init__(ns=ns, states=states, **kwargs)
 
     def _set_subjects(self, subjects):
         self.subjects = subjects
+
+    def start_render(self):
+        if not self.render_toggle:
+            self.render_toggle = True
+            self.render_toggle_pub.publish(Bool(data=self.render_toggle))
+
+    def stop_render(self):
+        if self.render_toggle:
+            self.render_toggle = False
+            self.render_toggle_pub.publish(Bool(data=self.render_toggle))
+
+    def get_last_image(self):
+        if not self._render_service_ready:
+            rospy.wait_for_service('%s/env/render/get_last_image' % self.ns)
+        return self.get_last_image_service()
 
     def register_node(self, node: RxNodeParams):
         node_name = node.name
         initialize_nodes(node, process.ENVIRONMENT, self.ns, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
         self.subjects['register_node'].on_next(String(self.ns + '/' + node_name))
-        # self.message_broker.print_io_status(node_names='/rx/bridge/dynamically_registered')
 
     def register_object(self, object: RxObjectParams, bridge_name: str):
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors

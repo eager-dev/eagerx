@@ -2,6 +2,7 @@
 import rospy
 import rosparam
 from rosgraph.masterapi import Error
+from sensor_msgs.msg import Image
 
 # EAGERX
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
@@ -37,16 +38,23 @@ class RxEnv(object):
         states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
         return states
 
+    @staticmethod
+    def create_render(rate):
+        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate)
+        return render
+
     def __init__(self, name: str, rate: float,
                  observations: RxNodeParams,
                  actions: RxNodeParams,
                  bridge: RxBridgeParams,
                  nodes: List[RxNodeParams],
-                 objects: List[RxObjectParams]) -> None:
+                 objects: List[RxObjectParams],
+                 render_node: RxNodeParams = None) -> None:
         assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = '/' + name
         self.rate = rate
+        self.render_node = render_node
         self.initialized = False
         self._bridge_name = bridge.name
 
@@ -60,6 +68,9 @@ class RxEnv(object):
         # Initialize action & observation node
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
+        # Register render node
+        if self.render_node: self.register_nodes(render_node)
+
         # Register nodes
         self.register_nodes(nodes)
 
@@ -72,6 +83,7 @@ class RxEnv(object):
 
         # Get all states from objects & nodes
         for i in nodes + objects:
+            if 'states' not in i.params['default']: continue
             for cname in i.params['default']['states']:
                 name = '%s/%s' % (i.name, cname)
                 address = '%s/states/%s' % (i.name, cname)
@@ -136,6 +148,8 @@ class RxEnv(object):
         # Check that reserved keywords are not already defined.
         assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
         assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
+        assert not bridge.params['default']['process'] == process.BRIDGE, 'Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}.'
+
 
         # Extract node_names
         node_names = ['env/actions', 'env/observations', 'env/supervisor']
@@ -259,7 +273,7 @@ class RxEnv(object):
         self.supervisor_node.step()
         return self._get_observation()
 
-    def _close(self):
+    def _shutdown(self):
         for name in self.supervisor_node.launch_nodes:
             self.supervisor_node.launch_nodes[name].shutdown()
         try:
@@ -284,6 +298,22 @@ class RxEnv(object):
         # Register objects
         [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
 
+    def render(self, mode="human"):
+        # todo: turn on render if closed --> send topic, else return
+        if self.render_node:
+            if mode == "human":
+                self.supervisor_node.start_render()
+            elif mode == "rgb_array":
+                return self.supervisor_node.get_last_image()
+            else:
+                raise ValueError('Render mode "%s" not recognized.' % mode)
+        else:
+            rospy.logwarn_once('No render node active, so not rendering.')
+            if mode == "rgb_array":
+                return Image()
+            else:
+                return
+
     @abc.abstractmethod
     def reset(self) -> Dict:
         pass
@@ -293,7 +323,10 @@ class RxEnv(object):
         pass
 
     def close(self):
-        self._close()
+        self.supervisor_node.stop_render()
+
+    def shutdown(self):
+        self._shutdown()
 
 
 class EAGERxEnv(RxEnv):
@@ -303,6 +336,7 @@ class EAGERxEnv(RxEnv):
                  bridge: RxBridgeParams,
                  nodes: List[RxNodeParams],
                  objects: List[RxObjectParams],
+                 render: RxNodeParams = None,
                  reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
                  is_done_fn: Callable = lambda obs, action, steps: False,
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
@@ -311,7 +345,7 @@ class EAGERxEnv(RxEnv):
         self.reward_fn = reward_fn
         self.is_done_fn = is_done_fn
         self.reset_fn = reset_fn
-        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects)
+        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects, render)
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         # Send actions and wait for observations

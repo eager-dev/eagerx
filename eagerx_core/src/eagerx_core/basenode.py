@@ -6,11 +6,12 @@ from typing import Dict
 import numpy as np
 import psutil
 import rospy
-from std_msgs.msg import UInt64
+from std_msgs.msg import UInt64, String, Bool
+from sensor_msgs.msg import Image
 
 from eagerx_core.constants import TERMCOLOR, ERROR
 from eagerx_core.utils.utils import initialize_converter
-
+from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 class NodeBase:
     def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
@@ -164,6 +165,38 @@ class ActionsNode(Node):
         return output_msgs
 
 
+class RenderNode(Node):
+    def __init__(self, ns, name, **kwargs):
+        self.last_image = Image(data=[])
+        self.render_toggle = False
+        rospy.Service('%s/%s/get_last_image' % (ns, name), ImageUInt8, self._get_last_image)
+        rospy.Subscriber('%s/%s/toggle' % (ns, name), Bool, self._set_render_toggle)
+        super().__init__(ns=ns, name=name, **kwargs)
+
+    def _set_render_toggle(self, msg):
+        if msg.data:
+            rospy.loginfo('START RENDERING!')
+        else:
+            rospy.loginfo('STOP RENDERING!')
+        self.render_toggle = msg.data
+
+    def _get_last_image(self, req):
+        return ImageUInt8Response(image=self.last_image)
+
+    def reset(self):
+        self.last_image = Image()
+
+    def callback(self, node_tick: int, t_n: float, image: Image = None):
+        self.last_image = image['msg'][-1]
+        if self.render_toggle:
+            # todo: render image
+            pass
+
+        # Fill output_msg with 'done' output --> signals that we are done rendering
+        output_msgs = dict(done=UInt64)
+        return output_msgs
+
+
 class RealResetNode(ResetNode):
     # MSG_TYPE = {'in_1': 'std_msgs.msg/UInt64',
     #             'in_2': 'std_msgs.msg/UInt64',}
@@ -287,7 +320,7 @@ class ProcessNode(Node):
             init_msgs[name] = UInt64(data=999)
         return init_msgs
 
-    def callback(self, node_tick: int, t_n: float, in_1: UInt64 = None, in_2: UInt64 = None, tick: UInt64 = None) -> Dict[str, UInt64]:
+    def callback(self, node_tick: int, t_n: float, in_1: UInt64 = None, in_2: UInt64 = None, in_3: String = None, tick: UInt64 = None) -> Dict[str, UInt64]:
         inputs = {'in_1': in_1,
                   'in_2': in_2,
                   'tick': tick}

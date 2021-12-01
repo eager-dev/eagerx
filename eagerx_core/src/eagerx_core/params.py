@@ -215,7 +215,7 @@ class RxNodeParams(Params):
             for cname in params['outputs']:
                 params['feedthroughs'][cname] = dict()
 
-        # Re-direct dict entries (converters, addresses, delays)
+        # Re-direct dict entries (converters, addresses, delays, nonreactive_rates, input_msg_types)
         # Will remove re-directed dicts.
         keys_to_pop = []
         for key, entry in kwargs.items():
@@ -450,6 +450,10 @@ class RxObjectParams(Params):
             p_bridge.pop('node_config')
             p_bridge['rate'] = p_env['rate']
 
+            # create empty dict if no input converters have been defined yet
+            if 'input_converters' not in p_bridge:
+                p_bridge['input_converters'] = dict()
+
             # Define node inputs mapping
             inputs_dict = {'tick': 'bridge/outputs/tick'}
             check_None_trigger = False
@@ -458,6 +462,8 @@ class RxObjectParams(Params):
                     assert not check_None_trigger, 'Can only have a single (actuator) input (identified with an empty value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
                     check_None_trigger = True
                     p_bridge['inputs'][act_cname] = p_env['address']
+                    if 'converter' in p_env:
+                        p_bridge['input_converters'][act_cname] = p_env['converter']
                 else:  # prepend node name to inputs (which have to originate from inside the object)
                     p_bridge['inputs'][act_cname] = substitute_yaml_args(address, {'env_name': ns, 'obj_name': name})
             assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])

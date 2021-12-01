@@ -6,20 +6,22 @@ from eagerx_core.constants import process
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define converter (optional)
     IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
+    ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
+    StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
     node_p = process.ENVIRONMENT
-    bridge_p = process.NEW_PROCESS
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p, outputs=['out_1', 'out_2'])
     N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
-    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, process=node_p, output_converters={'out_1': IntUInt64Converter})
-    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=6,   process=node_p, output_converters={'out_1': IntUInt64Converter})
+    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, process=node_p, output_converters={'out_1': StringUInt64Converter})
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=4,   process=node_p, inputs=['in_1'])
     KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   process=node_p, inputs=['in_1', 'in_2'])
 
     # Define object
@@ -28,17 +30,21 @@ if __name__ == '__main__':
     # Define action/observations
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
+    # Define render
+    render = EAGERxEnv.create_render(rate=1)
+
     # Connect nodes
-    connections = [{'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
+    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
+                   {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
                    {'source': (viper, 'sensors', 'N7'), 'target': (KF, 'inputs', 'in_1')},
                    {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
                    {'source': (actions, 'act_1'),       'target': (N1, 'inputs', 'in_1')},
                    {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
                    {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
                    {'source': (N1, 'out_2'),            'target': (N3, 'feedthroughs', 'out_1')},
-                   {'source': (N3, 'out_1'),            'target': (N4, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
-                   {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
-                   {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': IntUInt64Converter, 'delay': 1.0},
+                   {'source': (N3, 'out_1'),            'target': (N4, 'inputs', 'in_1')},
+                   {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': StringUInt64Converter},
+                   {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
                    ]
     configure_connections(connections)
 
@@ -53,24 +59,26 @@ if __name__ == '__main__':
                     bridge=bridge,
                     nodes=[N1, N3, N4, N5, KF],
                     objects=[viper],
+                    render=render,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
-                                          'N1/state_1': env.state_space.sample()['N1/state_1']})
+                                          'N1/state_1': env.state_space.sample()['N1/state_1'],
+                                         }
+                    )
 
     # First reset
     obs = env.reset()
+    env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
         for i in range(2):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
+            rgb = env.render(mode='rgb_array')
         obs = env.reset()
     print('\n[Finished]')
 
     # todo: implement real_time rx pipeline
-    # todo: implement on_error for every subscription in rxpipeline and rxoperator
-    # todo: test registering multiple robots
-    # todo: create render functionality
-    #  - Env gets last buffered rgb image from object via service --> what address? msg_type?
+    # todo: add states to bridge (for domain randomization)
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
@@ -89,6 +97,7 @@ if __name__ == '__main__':
     #       info must correct for grid position.
 
     # todo: THINGS TO KEEP IN MIND:
+    # todo: The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
     #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
     # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()".
