@@ -1,0 +1,15 @@
+node_type: eagerx_core.basenode/RenderNode
+default:
+  rate:
+  inputs: [image]
+  outputs: [done]
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  color: red
+  log_level: 0  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+inputs:
+  image:
+    msg_type: sensor_msgs.msg/Image
+    repeat: all
+outputs:
+  done:
+    msg_type: std_msgs.msg/UInt64

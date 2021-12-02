@@ -1,7 +1,7 @@
 node_type: eagerx_core.basenode/ProcessNode
 default:
   rate:
-  inputs: [tick, in_1, in_2]
+  inputs: [tick, in_1, in_2, in_3]
   outputs: [out_1]
   process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
@@ -16,6 +16,9 @@ inputs:
     repeat: all
   in_2:
     msg_type: std_msgs.msg/UInt64
+    repeat: all
+  in_3:
+    msg_type: std_msgs.msg/String
     repeat: all
 
 outputs:

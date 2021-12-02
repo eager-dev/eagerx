@@ -79,9 +79,9 @@ class RxMessageBroker(object):
 
             # Create publisher
             i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)
-            i['msg'].subscribe(on_next=i['msg_pub'].publish)
-            i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', i['msg_type'], queue_size=0, latch=True)
-            i['reset'].subscribe(on_next=i['reset_pub'].publish)
+            i['msg'].subscribe(on_next=i['msg_pub'].publish, on_error=lambda e: print("Error : {0}".format(e)))
+            i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)
+            i['reset'].subscribe(on_next=i['reset_pub'].publish, on_error=lambda e: print("Error : {0}".format(e)))
         for i in feedthrough:
             address = i['address']
             assert address not in self.node_io[node_name]['feedthrough'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'feedthrough')
@@ -96,7 +96,7 @@ class RxMessageBroker(object):
 
             # Create publisher
             i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)
-            i['msg'].subscribe(on_next=i['msg_pub'].publish)
+            i['msg'].subscribe(on_next=i['msg_pub'].publish, on_error=lambda e: print("Error : {0}".format(e)))
         for i in state_inputs:
             address = i['address']
             if 'msg' in i:  # Only true if sim state node (i.e. **not** for bridge done flags)
@@ -120,7 +120,7 @@ class RxMessageBroker(object):
 
             # Create publisher: (latched: register, node_reset, start_reset, reset, real_reset)
             i['msg_pub'] = rospy.Publisher(i['address'], i['msg_type'], queue_size=0, latch=True)
-            i['msg'].subscribe(on_next=i['msg_pub'].publish)
+            i['msg'].subscribe(on_next=i['msg_pub'].publish, on_error=lambda e: print("Error : {0}".format(e)))
         for i in reactive_proxy:
             address = i['address']
             assert address not in self.node_io[node_name]['reactive_proxy'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'reactive_proxy')
@@ -128,7 +128,7 @@ class RxMessageBroker(object):
 
             # Create publisher
             i['reset_pub'] = rospy.Publisher(i['address'] + '/reset', UInt64, queue_size=0, latch=True)
-            i['reset'].subscribe(on_next=i['reset_pub'].publish)
+            i['reset'].subscribe(on_next=i['reset_pub'].publish, on_error=lambda e: print("Error : {0}".format(e)))
 
         # Add new addresses to already registered I/Os
         for key in n.keys():
@@ -206,7 +206,6 @@ class RxMessageBroker(object):
                 continue
 
             # Else, initialize connection
-
             print_status and cprint(('OWNER "%s"' % self.owner).ljust(15, ' ') + ('| CONNECTING NODE "%s" ' % node_name).ljust(180, " "), attrs=['bold', 'underline'])
             for key, addresses in node.items():
                 for address in list(addresses.keys()):
@@ -230,6 +229,8 @@ class RxMessageBroker(object):
                         rate_str = '|' + ''.center(3, ' ')
                         msg_type = entry['msg_type']
                         self.connected_ros[node_name][key][address] = entry
+                        # if key == 'inputs':
+                        #     print('%s: msg_type=%s, address=%s' % (node_name, msg_type, address))
                         O = from_topic(msg_type, address, node_name=node_name)
 
                     # Subscribe and change status

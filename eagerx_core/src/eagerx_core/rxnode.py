@@ -8,7 +8,7 @@ from std_msgs.msg import UInt64
 from eagerx_core.constants import log_levels_ROS
 import eagerx_core.rxmessage_broker
 import eagerx_core.rxpipelines
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking, get_opposite_msg_cls
 from eagerx_core.baseconverter import IdentityConverter
 
 
@@ -49,17 +49,21 @@ class RxNode(object):
         for i in params['inputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         # Prepare output topics
         for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         # Prepare state topics
         for i in params['states']:
@@ -68,22 +72,27 @@ class RxNode(object):
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         # Prepare target topics
         for i in params['targets']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         # Prepare feedthrough topics
         for i in params['feedthroughs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']), tuple(
             params['states']), tuple(params['targets']), node

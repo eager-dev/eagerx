@@ -102,9 +102,14 @@ def configure_connections(connections):
                 msg_type_B = target[0].params[action_component][cname]['msg_type']
                 space_converter = target[0].params[action_component][cname]['space_converter']
                 msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+                if converter:  # Overwrite msg_type_B if input converter specified
+                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_B, converter))
                 if action_cname in action_node.params['outputs']:
-                    assert msg_type_B == action_node.params['outputs'][action_cname]['msg_type'], 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
-                    assert space_converter == action_node.params['outputs'][action_cname]['converter'], 'Conflicting %s for action "%s".' % ('space_converters', action_cname)
+                    assert get_cls_from_string(msg_type_B) == get_cls_from_string(action_node.params['outputs'][action_cname]['msg_type']), 'Conflicting %s for action "%s". Occurs with connection %s' % ('msg_types', action_cname, io)
+                    if not space_converter == action_node.params['outputs'][action_cname]['converter']:
+                        # Overwrite msg_type_B if input converter specified
+                        rospy.logwarn('Conflicting %s for action "%s". Overwriting space_converter of %s[%s][%s]' % ('space_converters', action_cname, node.name, component, cname))
+                        target[0].params[action_component][cname]['space_converter'] = action_node.params['outputs'][action_cname]['converter']
                 else:
                     action_node.params['default']['outputs'].append(action_cname)
                     action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
@@ -113,6 +118,8 @@ def configure_connections(connections):
             node.params[component][cname]['address'] = address
             if converter:
                 node.params[component][cname]['converter'] = converter
+                # Change message type to pre-converter type (as conversion happens after de-serialization)
+                # node.params[component][cname]['msg_type'] = msg_type_B
             assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 node.params['inputs'][cname]['delay'] = delay
@@ -142,9 +149,14 @@ def configure_connections(connections):
                 msg_type_B = target[0].params['actuators'][cname]['msg_type']
                 space_converter = target[0].params['actuators'][cname]['space_converter']
                 msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+                if converter:  # Overwrite msg_type_B if input converter specified
+                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_B, converter))
                 if action_cname in action_node.params['outputs']:
-                    assert msg_type_B == action_node.params['outputs'][action_cname]['msg_type'], 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
-                    assert space_converter == action_node.params['outputs'][action_cname]['converter'], 'Conflicting %s for action "%s".' % ('space_converters', action_cname)
+                    assert get_cls_from_string(msg_type_B) == get_cls_from_string(action_node.params['outputs'][action_cname]['msg_type']), 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
+                    if not space_converter == action_node.params['outputs'][action_cname]['converter']:
+                        # Overwrite msg_type_B if input converter specified
+                        rospy.logwarn('Conflicting %s for action "%s". Overwriting space_converter of %s[%s][%s]' % ( 'space_converters', action_cname, obj.name, component, cname))
+                        target[0].params['actuators'][cname]['space_converter'] = action_node.params['outputs'][action_cname]['converter']
                 else:
                     action_node.params['default']['outputs'].append(action_cname)
                     action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
@@ -153,6 +165,8 @@ def configure_connections(connections):
             obj.params[component][cname]['address'] = address
             if converter:
                 obj.params[component][cname]['converter'] = converter
+                # Change message type to pre-converter type (as conversion happens after de-serialization)
+                # obj.params[component][cname]['msg_type'] = msg_type_B
             assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 obj.params['actuators'][cname]['delay'] = delay
@@ -201,7 +215,7 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
 
             # Check if node name is unique
             name = node.name
-            assert rospy.get_param(('%s/%s/rate') % (ns, name), None) is None, 'Node name "%s" already exists. Node names must be unique.' % ns + '/' + name
+            assert rospy.get_param(('%s/%s/rate') % (ns, name), None) is None, 'Node name "%s" already exists. Node names must be unique.' % (ns + '/' + name)
 
             # Upload params to rosparam server
             rosparam.upload_params(ns, params)
@@ -240,14 +254,15 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         # else: node is launched in another (already launched) node's process (e.g. bridge process).
 
 
-def wait_for_node_initialization(is_initialized):
+def wait_for_node_initialization(is_initialized, wait_time=0.3):
     iter = 0
+
     # Wait for nodes to be initialized
     while True:
         if iter == 0:
             sleep(0.1)
         else:
-            sleep(0.3)
+            sleep(wait_time)
         iter += 1
         not_init = []
         for name, flag in is_initialized.items():

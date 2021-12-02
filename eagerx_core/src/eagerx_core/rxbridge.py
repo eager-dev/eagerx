@@ -7,7 +7,7 @@ from std_msgs.msg import UInt64
 import eagerx_core.rxmessage_broker
 import eagerx_core.rxoperators
 import eagerx_core.rxpipelines
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking, get_opposite_msg_cls
 from eagerx_core.utils.node_utils import wait_for_node_initialization
 from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.constants import log_levels_ROS
@@ -24,10 +24,10 @@ class RxBridge(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, inputs, outputs, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
+        dt, inputs, outputs, states, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx_core.rxpipelines.init_bridge(self.ns, dt, self.bridge, inputs, outputs, node_names, target_addresses, self.mb)
+        rx_objects = eagerx_core.rxpipelines.init_bridge(self.ns, dt, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
         self.mb.add_rx_objects(node_name=name + '/dynamically_registered', node=self)
         self.mb.connect_io()
@@ -63,19 +63,32 @@ class RxBridge(object):
         for i in params['inputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         # Prepare output topics
         for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
-        return dt, params['inputs'], tuple(params['outputs']), node_names, target_addresses, node
+        # Prepare state topics
+        for i in params['states']:
+            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['converter'] = initialize_converter(i['converter'])
+            elif 'converter' not in i:
+                i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
+
+        return dt, params['inputs'], tuple(params['outputs']), tuple(params['states']), node_names, target_addresses, node
 
     def _close(self):
         return True

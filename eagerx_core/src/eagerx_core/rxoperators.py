@@ -66,7 +66,7 @@ def print_info(node_name, color, id=None, trace_type=None, value=None, date=None
         raise ValueError('Print mode not recognized. Only print_modes %s are available.' % (print_modes.values()))
 
 
-def spy(id: str, node: NodeBase, log_level: int = SILENT):
+def spy(id: str, node: NodeBase, log_level: int = DEBUG):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -442,7 +442,8 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase
     # Readable format
     Is = inpt['reset']
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                          ops.map(inpt['converter'].convert), ops.share(),
+                          ops.map(inpt['converter'].convert),
+                          ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                           ops.share(),
                           )
@@ -500,7 +501,7 @@ def init_channels(ns, Nc, dt_n, inputs, scheduler, node: NodeBase, is_feedthroug
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node: NodeBase):
+def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, scheduler, node: NodeBase):
     # Create real reset pipeline
     dispose = []
     if real_reset:
@@ -515,8 +516,10 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, scheduler, node: 
         zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, scheduler, node, is_feedthrough=True)
 
         # Create switch subject
+        target_signal = rx.zip(*[t['msg'] for t in targets])
         RR_ho = BehaviorSubject(zipped_channels)
-        d_RR_ho = RR.pipe(ops.map(lambda x: Nc.pipe(ops.map(lambda x: None), ops.start_with(None)))).subscribe(RR_ho)
+        d_RR_ho = RR.pipe(ops.combine_latest(target_signal),  # make switch logic wait for all targets to be received.
+                          ops.map(lambda x: Nc.pipe(ops.map(lambda x: None), ops.start_with(None)))).subscribe(RR_ho)
         rr_channel = RR_ho.pipe(ops.switch_latest())
 
         # Add disposables
@@ -607,11 +610,11 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
 
         # Either feedthrough action or run callback
         ft_stream = ft_stream.pipe(ops.map(lambda x: x[1][1]),
-                                   spy('CB_FEED', node, log_level=DEBUG),
+                                   spy('CB_FT', node, log_level=DEBUG),
                                    ops.map(lambda val: cb_ft(val)), ops.share())
         reset_stream = reset_stream.pipe(ops.map(lambda x: x[1][0]),
                                          ops.combine_latest(target_stream),
-                                         spy('CB_REAL', node, log_level=DEBUG),
+                                         spy('CB_RESET', node, log_level=DEBUG),
                                          ops.map(lambda val: cb_tick(**val[0], **val[1])), ops.share())
         output_stream = rx.merge(reset_stream, ft_stream)
 

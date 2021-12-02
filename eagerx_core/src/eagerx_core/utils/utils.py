@@ -35,18 +35,12 @@ def initialize_state(args):
     return state_cls(**args)
 
 
-def get_opposite_msg_cls(msg_type, args):
+def get_opposite_msg_cls(msg_type, converter_cls):
     if isinstance(msg_type, str):
         msg_type = get_attribute_from_module(*msg_type.split('/'))
-    converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
-    if msg_type == converter_cls.MSG_TYPE_A:
-        return converter_cls.MSG_TYPE_B
-    elif msg_type == converter_cls.MSG_TYPE_B:
-        return converter_cls.MSG_TYPE_A
-    else:
-        raise ValueError(
-            'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
-            (msg_type, converter_cls.MSG_TYPE_A, converter_cls.MSG_TYPE_B))
+    if isinstance(converter_cls, dict):
+        converter_cls = get_attribute_from_module(*converter_cls['converter_type'].split('/'))
+    return converter_cls.get_opposite_msg_type(converter_cls, msg_type)
 
 
 def get_module_type_string(cls):
