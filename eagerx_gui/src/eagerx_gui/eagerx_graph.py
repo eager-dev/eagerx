@@ -591,7 +591,6 @@ class EagerxGraphCtrlWidget(QtGui.QWidget):
         self.ui.saveAsBtn.clicked.connect(self.saveAsClicked)
         self.ui.showChartBtn.toggled.connect(self.chartToggled)
         self.chart.sigFileLoaded.connect(self.setCurrentFile)
-        # self.ui.reloadBtn.clicked.connect(self.reloadClicked)
         self.chart.sigFileSaved.connect(self.fileSaved)
 
     def chartToggled(self, b):

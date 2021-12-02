@@ -33,12 +33,16 @@ class Terminal(object):
         terminal_type = name_split[0]
         terminal_name = name_split[-1]
 
-        valid_terminal_types = ['inputs', 'actuators', 'sensors', 'targets', 'feedthroughs', 'states', 'actions', 'outputs']
+        valid_terminal_types = [
+            'inputs', 'actuators', 'sensors', 'targets', 'feedthroughs', 'states', 'actions', 'outputs',
+        ]
+
         assert terminal_type in valid_terminal_types, 'Invalid terminal type: {}, should be one of {}'.format(
-            terminal_type, valid_terminal_types)
+            terminal_type, valid_terminal_types,
+        )
 
         is_state = terminal_type in ['targets', 'states']
-        is_feedthrough = terminal_type == 'feedthrough'
+        is_feedthrough = terminal_type == 'feedthroughs'
         removable = node.is_object() or node_type in ['actions', 'observations']
         renamable = node_type in ['actions', 'observations']
         connectable = not(terminal_type == 'states' and not node.is_object())
@@ -123,7 +127,10 @@ class Terminal(object):
         params = self._node().params()
         if self._terminal_type in params:
             if self._terminal_name in params[self._terminal_type]:
-                info = params[self._terminal_type][self._terminal_name]
+                if self._is_feedthrough:
+                    info = params['outputs'][self._terminal_name]
+                else:
+                    info = params[self._terminal_type][self._terminal_name]
         return info
 
     def isState(self):

@@ -34,6 +34,7 @@ def load_library():
             library[type][package].append({'name': node, 'yaml': yaml})
     return library
 
+
 def EagerxGraphCreator():
     library = load_library()
     app = QtGui.QApplication([])
@@ -60,9 +61,9 @@ def EagerxGraphCreator():
 if __name__ == '__main__':
     EagerxGraphCreator()
 
-#TODO: Check if flowchart can run in notebook
-#TODO: Allow to add processor with arguments when right click on input or output
-#TODO: Open new window on double clicking on nodes/terminals
-#TODO: Input terminals get address on connection
-#TODO: Update addresses on changes in connection
-#TODO: Update information of feedthroughs
+# TODO: Check if flowchart can run in notebook
+# TODO: Allow to add processor with arguments when right click on input or output
+# TODO: Open new window on double clicking on nodes/terminals
+# TODO: Input terminals get address on connection
+# TODO: Update addresses on changes in connection
+# TODO: Update information of feedthroughs
