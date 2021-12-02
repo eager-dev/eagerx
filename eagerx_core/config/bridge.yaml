@@ -2,6 +2,7 @@ node_type: eagerx_core.basebridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
+  states: [param_1]
   process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
   color: magenta
@@ -11,3 +12,12 @@ default:
 outputs:
   tick:
     msg_type: std_msgs.msg/UInt64
+
+states:
+  param_1:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]

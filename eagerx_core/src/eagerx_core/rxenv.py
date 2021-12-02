@@ -60,7 +60,7 @@ class RxEnv(object):
         self._bridge_name = bridge.name
 
         # Initialize supervisor node
-        self.mb, self.supervisor_node, _ = self._init_supervisor(nodes, objects)
+        self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)
         self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize bridge
@@ -78,12 +78,12 @@ class RxEnv(object):
         # Register objects
         self.register_objects(objects)
 
-    def _init_supervisor(self, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
+    def _init_supervisor(self, bridge: RxBridgeParams, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
         # Initialize supervisor
         supervisor = self.create_supervisor()
 
         # Get all states from objects & nodes
-        for i in nodes + objects:
+        for i in [bridge] + nodes + objects:
             if 'states' not in i.params['default']: continue
             for cname in i.params['default']['states']:
                 name = '%s/%s' % (i.name, cname)
@@ -150,7 +150,6 @@ class RxEnv(object):
         assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
         assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
         assert not bridge.params['default']['process'] == process.BRIDGE, 'Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}.'
-
 
         # Extract node_names
         node_names = ['env/actions', 'env/observations', 'env/supervisor']

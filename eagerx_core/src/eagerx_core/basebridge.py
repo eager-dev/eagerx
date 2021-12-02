@@ -1,11 +1,15 @@
+# OTHER IMPORTS
 import abc
 import os
-from typing import Dict
-
+from typing import Dict, Union, List
 import psutil
+
+# ROS IMPORTS
 import rospy
+from genpy.message import Message
 from std_msgs.msg import UInt64
 
+# EAGERx IMPORTS
 from eagerx_core.constants import process
 from eagerx_core.basenode import NodeBase
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
@@ -64,20 +68,43 @@ class BridgeBase(NodeBase):
         wait_for_node_initialization(self.is_initialized)
         return state_params, sp_nodes, launch_nodes
 
+    def pre_reset_cb(self, **kwargs):
+        keys_to_pop = []
+        for cname, msg in kwargs.items():
+            if msg['done']:
+                keys_to_pop.append(cname)
+            else:
+                kwargs[cname] = msg['msg'][0]
+        [kwargs.pop(key) for key in keys_to_pop]
+        return self.pre_reset(**kwargs)
+
+    def reset_cb(self, **kwargs):
+        keys_to_pop = []
+        for cname, msg in kwargs.items():
+            if msg['done']:
+                keys_to_pop.append(cname)
+            else:
+                kwargs[cname] = msg['msg'][0]
+        [kwargs.pop(key) for key in keys_to_pop]
+        return self.reset(**kwargs)
+
+    def callback_cb(self, node_tick, t_n, **kwargs):
+        return self.callback(node_tick, t_n, **kwargs)
+
     @abc.abstractmethod
     def add_object_to_simulator(self, object_params, node_params, state_params) -> Dict:
         pass
 
     @abc.abstractmethod
-    def pre_reset(self):
+    def pre_reset(self, **kwargs: Message):
         pass
 
     @abc.abstractmethod
-    def reset(self):
+    def reset(self, **kwargs: Message):
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
         pass
 
 
@@ -110,16 +137,16 @@ class TestBridgeNode(BridgeBase):
         rospy.loginfo('Adding object "%s" of type "%s.yaml" from package "%s" to the simulator.' % (object_params['name'], object_params['config_name'], object_params['package_name']))
         return object_params
 
-    def pre_reset(self):
+    def pre_reset(self, param_1: UInt64 = None):
         return 'PRE RESET RETURN VALUE'
 
-    def reset(self):
-        # Publish nonreactive input
+    def reset(self, param_1: UInt64 = None):
+        # Publish nonreactive input (this is only required for simulation setup)
         self.num_ticks = 0
         self.nonreactive_pub.publish(UInt64(data=0))
         return 'POST RESET RETURN VALUE'
 
-    def callback(self, node_tick: int, t_n: float,  **kwargs):
+    def callback(self, node_tick: int, t_n: float,  **kwargs: Dict[str, Union[List[Message], float, int]]):
         # Publish nonreactive input
         self.nonreactive_pub.publish(UInt64(data=node_tick))
         self.nonreactive_pub.publish(UInt64(data=node_tick*2))

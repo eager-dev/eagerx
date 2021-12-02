@@ -14,14 +14,14 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p, outputs=['out_1', 'out_2'])
     N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
-    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, process=node_p, output_converters={'out_1': StringUInt64Converter})
-    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=4,   process=node_p, inputs=['in_1'])
+    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=0.9, process=node_p, output_converters={'out_1': StringUInt64Converter})
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=1.1,   process=node_p, inputs=['in_1'])
     KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   process=node_p, inputs=['in_1', 'in_2'])
 
     # Define object
@@ -61,9 +61,8 @@ if __name__ == '__main__':
                     objects=[viper],
                     render=render,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
-                                          'N1/state_1': env.state_space.sample()['N1/state_1'],
-                                         }
-                    )
+                                          'bridge/param_1': env.state_space.sample()['bridge/param_1'],
+                                          'N1/state_1': env.state_space.sample()['N1/state_1']})
 
     # First reset
     obs = env.reset()

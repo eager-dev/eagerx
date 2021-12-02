@@ -254,14 +254,15 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         # else: node is launched in another (already launched) node's process (e.g. bridge process).
 
 
-def wait_for_node_initialization(is_initialized):
+def wait_for_node_initialization(is_initialized, wait_time=0.3):
     iter = 0
+
     # Wait for nodes to be initialized
     while True:
         if iter == 0:
             sleep(0.1)
         else:
-            sleep(0.3)
+            sleep(wait_time)
         iter += 1
         not_init = []
         for name, flag in is_initialized.items():
