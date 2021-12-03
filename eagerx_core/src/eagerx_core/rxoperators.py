@@ -443,7 +443,6 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase
     Is = inpt['reset']
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
                           ops.map(inpt['converter'].convert),
-                          ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                           ops.share(),
                           )

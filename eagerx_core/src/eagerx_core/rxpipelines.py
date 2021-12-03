@@ -590,7 +590,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     node_reset = dict(name=node.ns_name, address=node.ns_name + '/end_reset', msg_type=Bool, msg=Subject())
 
     # Reset pipeline
-    SR.pipe(spy('RESET', node, log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)  # todo: swap
+    SR.pipe(spy('RESET', node, log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)
     R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'], scheduler=tp_scheduler)
 
     ###########################################################################

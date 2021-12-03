@@ -9,19 +9,18 @@ if __name__ == '__main__':
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define converter (optional)
-    IntUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/IntUInt64Converter', 'test_arg': 'test'}
     ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p, outputs=['out_1', 'out_2'])
     N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
     N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=0.9, process=node_p, output_converters={'out_1': StringUInt64Converter})
-    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=1.1,   process=node_p, inputs=['in_1'])
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=1.1, process=node_p, inputs=['in_1'])
     KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   process=node_p, inputs=['in_1', 'in_2'])
 
     # Define object
@@ -30,7 +29,7 @@ if __name__ == '__main__':
     # Define action/observations
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
-    # Define render
+    # Define render (optional)
     render = EAGERxEnv.create_render(rate=1)
 
     # Connect nodes
@@ -62,7 +61,8 @@ if __name__ == '__main__':
                     render=render,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1'],
-                                          'N1/state_1': env.state_space.sample()['N1/state_1']})
+                                          'N1/state_1': env.state_space.sample()['N1/state_1']}
+                    )
 
     # First reset
     obs = env.reset()
@@ -76,15 +76,25 @@ if __name__ == '__main__':
         obs = env.reset()
     print('\n[Finished]')
 
+    # True & real_time_factor!= 0: rospy.rate behavior --> implement rospy.sleep() inside bridge tick
+    # False & real_time_factor=0: ERROR --> cannot run as fast as possible asynchronous (without a common clock)
+    # True & real_time_factor = 0,  # --> as fast as possible and disregard real_time_factor
+
+    # todo: add reactive & real_time_factor to default bridge.yaml & BridgeBaseClass
+    # todo: change reset msg recv logic from msg_rcv=msg_send to msg_rcv > msg_send.
     # todo: implement real_time rx pipeline
-    # todo: add states to bridge (for domain randomization)
+    #  - Latch Nc.interval on initial /rx/bridge/outputs/tick
+    #  - Instead of counting msgs, we open/close buffer
+    #  - If buffer is empty, we repeat_last/None
+    #  - Filter None messages --> no problem because flags are not counting msg_send==msg_recv
+    #  - Latch input channels that are non-reactive & non-deterministic.
+    #  - How to deal with delay?
+    #  - Can we throttle output at provided real_timefactor * rate? What happens if output is slower/faster?
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
     # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
-    # todo: Bridge states that resemble simulator parameters that a user may want to vary between episodes (domain
-    #       randomization)
     # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
     #       (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
     # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout

@@ -17,10 +17,15 @@ from eagerx_core.utils.utils import initialize_state
 
 
 class BridgeBase(NodeBase):
-    def __init__(self, simulator, target_addresses, node_names, **kwargs):
+    def __init__(self, simulator, target_addresses, node_names, reactive, real_time_factor, **kwargs):
         self.simulator = simulator
         self.target_addresses = target_addresses
         self.node_names = node_names
+        self.reactive = reactive
+        self.real_time_factor = real_time_factor
+
+        # Check real_time_factor & reactive args
+        assert reactive or (not reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set reactive=True or real_time_factor > 0'
 
         # Initialized nodes
         self.is_initialized = dict()
@@ -89,6 +94,7 @@ class BridgeBase(NodeBase):
         return self.reset(**kwargs)
 
     def callback_cb(self, node_tick, t_n, **kwargs):
+        # todo: reactive=True & real_time_factor!= 0: rospy.rate behavior --> implement with rospy.sleep()?
         return self.callback(node_tick, t_n, **kwargs)
 
     @abc.abstractmethod
@@ -117,6 +123,8 @@ class TestBridgeNode(BridgeBase):
     def __init__(self, num_substeps, nonreactive_address, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
         simulator = None
+
+        # If real_time bridge, assert that real_time_factor == 1 & reactive=False.
 
         # Initialize nonreactive input
         self.nonreactive_pub = rospy.Publisher(kwargs['ns'] + nonreactive_address, UInt64, queue_size=0, latch=True)
