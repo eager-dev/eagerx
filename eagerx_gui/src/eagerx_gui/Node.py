@@ -4,6 +4,7 @@ from functools import partial
 from eagerx_gui.Terminal import *
 from pyqtgraph.pgcollections import OrderedDict
 from pyqtgraph.debug import *
+from pyqtgraph import ComboBox, SpinBox
 import numpy as np
 
 
@@ -230,6 +231,9 @@ class Node(QtCore.QObject):
         if self._graphicsItem is None:
             self._graphicsItem = NodeGraphicsItem(self)
         return self._graphicsItem
+
+    def graph(self):
+        return self._graph
 
     # this is just bad planning. Causes too many bugs.
     def __getattr__(self, attr):
@@ -497,6 +501,41 @@ class NodeGraphicsItem(GraphicsObject):
         self.buildMenu()
         self.initial_z_value = self.zValue()
 
+        graph = node.graph()
+        self.param_window = QtGui.QMainWindow(graph().widget().cwWin)
+        self.param_window.setWindowTitle('Parameters {}'.format(self.node.name()))
+        # self.param_window.resize(500, 400)
+        cw = QtGui.QWidget()
+        layout = QtGui.QGridLayout()
+        cw.setLayout(layout)
+        self.param_window.setCentralWidget(cw)
+        self.param_window.resize(400, 400)
+        self.labels = []
+        row = 1
+        n_labels = len(node.params()['default'])
+        for key, value in node.params()['default'].items():
+            # layout.setRowMinimumHeight(row, 12)
+            label = QtGui.QLabel(key)
+            self.labels.append(label)
+            layout.addWidget(label, row, 1, n_labels, 2)
+            if isinstance(value, bool):
+                items = ['True', 'False']
+                widget = ComboBox(items=items, default=str(value))
+            elif isinstance(value, int):
+                widget = SpinBox(value=value, int=True, dec=True)
+            elif isinstance(value, float):
+                widget = SpinBox(value=value, dec=True)
+            elif key in ['sensors', 'actuators', 'states', 'inputs', 'outputs', 'feedthroughs', 'targets', 'name', 'package_name', 'config_name']:
+                widget = QtGui.QLineEdit(str(value))
+                widget.setEnabled(False)
+            else:
+                widget = QtGui.QLineEdit(str(value))
+            # font = widget.font()
+            # font.setPointSize(12)
+            # widget.setFont(font)
+            layout.addWidget(widget, row, 2, n_labels, 2)
+            row += 1
+
     def labelFocusOut(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
         self.labelChanged()
@@ -590,6 +629,11 @@ class NodeGraphicsItem(GraphicsObject):
             self.buildMenu()
             ev.accept()
             self.raiseContextMenu(ev)
+
+    def mouseDoubleClickEvent(self, ev):
+        if int(ev.button()) == int(QtCore.Qt.LeftButton):
+            ev.accept()
+            self.param_window.show()
 
     def mouseDragEvent(self, ev):
         if ev.button() == QtCore.Qt.LeftButton:

@@ -3,6 +3,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 import weakref
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph import functions as fn
+from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Point import Point
 import eagerx_core.converter
 
@@ -204,7 +205,7 @@ class Terminal(object):
             for t in [self, term]:
                 if t.isInput() and len(t.connections()) > 0:
                     raise Exception("Cannot connect %s <-> %s: Terminal %s is already connected to %s" % (
-                        self,term, t, list(t.connections().keys())))
+                        self, term, t, list(t.connections().keys())))
         except:
             if connectionItem is not None:
                 connectionItem.close()
@@ -302,6 +303,37 @@ class TerminalGraphicsItem(GraphicsObject):
         self.setZValue(1)
         self.menu = None
 
+        node = term.node()
+        graph = node.graph()
+        self.param_window = QtGui.QMainWindow(graph().widget().cwWin)
+        self.param_window.setWindowTitle('Parameters {}'.format(term.terminal_name()))
+        cw = QtGui.QWidget()
+        layout = QtGui.QGridLayout()
+        cw.setLayout(layout)
+        self.param_window.setCentralWidget(cw)
+        if term.terminal_name() in node.params()[term.terminal_type()]:
+            self.labels = []
+            row = 0
+            n_labels = len(node.params()[term.terminal_type()][term.terminal_name()])
+            for key, value in node.params()['default'].items():
+                row += 1
+                label = QtGui.QLabel(key)
+                self.labels.append(label)
+                layout.addWidget(label, row, 0, n_labels, 2)
+                if isinstance(value, bool):
+                    items = ['True', 'False']
+                    widget = ComboBox(items=items, default=str(value))
+                elif isinstance(value, int):
+                    widget = SpinBox(value=value, int=True)
+                elif isinstance(value, float):
+                    widget = SpinBox(value=value)
+                # elif key in ['msg_type']:
+                #     widget = QtGui.QLabel(str(value))
+                else:
+                    widget = QtGui.QLineEdit(str(value))
+                layout.addWidget(widget, row, 2, n_labels, 2)
+            self.param_window.resize(500, 400)
+
     def labelFocusOut(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.label, ev)
         self.labelChanged()
@@ -365,6 +397,11 @@ class TerminalGraphicsItem(GraphicsObject):
         elif ev.button() == QtCore.Qt.RightButton:
             ev.accept()
             self.raiseContextMenu(ev)
+
+    def mouseDoubleClickEvent(self, ev):
+        if int(ev.button()) == int(QtCore.Qt.LeftButton):
+            ev.accept()
+            self.param_window.show()
             
     def raiseContextMenu(self, ev):
         ## only raise menu if this terminal is removable
