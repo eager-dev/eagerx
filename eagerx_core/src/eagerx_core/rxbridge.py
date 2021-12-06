@@ -4,130 +4,34 @@ import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, initialize_state
-from eagerx_core import get_param_with_blocking
-from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx_core.converter import IdentityConverter
-import eagerx_core
+import eagerx_core.rxmessage_broker
+import eagerx_core.rxoperators
+import eagerx_core.rxpipelines
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking, get_opposite_msg_cls
+from eagerx_core.utils.node_utils import wait_for_node_initialization
+from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.constants import log_levels_ROS
 
-# Memory usage
+# Other imports
 from threading import Condition
-import os, psutil
-
-
-class BridgeNode(object):
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.ns = '/'.join(name.split('/')[:2])
-        self.mb = None
-        self.params = get_param_with_blocking(self.name)
-
-        # Initialize any simulator here, that is passed as reference to each simnode
-        self.simulator = None  # todo: Make a ThreadSafe simulator object
-
-        # Initialized nodes
-        self.is_initialized = dict()
-
-        # Message counter
-        self.params = get_param_with_blocking(self.name)
-        self.num_ticks = 0
-        self.num_resets = 0
-        self.dt = 1 / self.params['rate']
-
-        # Memory usage
-        self.py = psutil.Process(os.getpid())
-        self.iter_start = None
-        self.iter_ticks = 0
-        self.print_iter = 20
-
-    def set_message_broker(self, message_broker):
-        self.mb = message_broker
-
-    def register_object(self, obj_params, node_params, state_params):
-        assert self.mb is not None, 'Message broker for this bridge (%s) was not set. Must be set, before an object can be registered.'
-
-        # Use obj_params to initialize object in simulator
-        obj_params
-
-        # Initialize states
-        for i in state_params:
-            i['state']['name'] = i['name']
-            i['state']['simulator'] = self.simulator
-            i['state'] = initialize_state(i['state'])
-
-        # Initialize nodes
-        sp_nodes = dict()
-        launch_nodes = dict()
-        initialize_nodes(node_params, self.ns, self.ns, self.mb, self.is_initialized, sp_nodes, launch_nodes)
-        for name, node in sp_nodes.items():
-            # Set object parameters
-            if hasattr(node.node, 'set_object_params'):
-                node.node.set_object_params(obj_params)
-            # Set simulator
-            if hasattr(node.node, 'set_simulator'):
-                node.node.set_simulator(self.simulator)
-            # Initialize
-            node.node_initialized()
-        wait_for_node_initialization(self.is_initialized)
-        return state_params, sp_nodes, launch_nodes
-
-    def pre_reset(self, ticks):
-        return 'PRE RESET RETURN VALUE'
-
-    def post_reset(self):
-        self.num_ticks = 0
-        return 'POST RESET RETURN VALUE'
-
-    def callback(self, inputs):
-        # Verify that # of ticks equals internal counter
-        node_tick = inputs['node_tick']
-        if not self.num_ticks == node_tick:
-            print('[%s]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
-
-        # Verify that all timestamps are smaller or equal to node time
-        t_n = node_tick * self.dt
-        for i in self.params['inputs']:
-            name = i['name']
-            if name in inputs:
-                t_i = inputs[name]['t_i']
-                if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
-                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-
-        # Fill output msg with number of node ticks
-        output_msgs = dict()
-        Nc = self.num_ticks + 1
-        for i in self.params['outputs']:
-            name = i['name']
-            msg = UInt64()
-            msg.data = Nc
-            output_msgs[name] = msg
-        self.num_ticks += 1
-        self.iter_ticks += 1
-        return output_msgs
 
 
 class RxBridge(object):
-    def __init__(self, name, message_broker, scheduler=None):
+    def __init__(self, name, message_broker):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.mb = message_broker
         self.initialized = False
 
         # Prepare input & output topics
-        dt, inputs, outputs, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
+        dt, inputs, outputs, states, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx_core.init_bridge(self.ns, dt, self.bridge.callback, self.bridge.pre_reset,
-                                             self.bridge.post_reset, self.bridge.register_object,
-                                             inputs, outputs, node_names, target_addresses,
-                                             self.mb, node_name=self.name, scheduler=scheduler)
+        rx_objects = eagerx_core.rxpipelines.init_bridge(self.ns, dt, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
-
-        # todo: resolve in a clean manner:
-        #  Currently, we add '/dynamically_registered' to avoid a namespace clash between done flags used in both real_reset & state_reset
         self.mb.add_rx_objects(node_name=name + '/dynamically_registered', node=self)
         self.mb.connect_io()
-        self.cond_reg = Condition()  # todo: remove?
+        self.cond_reg = Condition()
 
         # Prepare closing routine
         rospy.on_shutdown(self._close)
@@ -144,7 +48,7 @@ class RxBridge(object):
                 rospy.loginfo('Node "%s" initialized.' % self.name)
                 self.initialized = True
 
-    def _prepare_io_topics(self, name, **kwargs):
+    def _prepare_io_topics(self, name):
         params = get_param_with_blocking(name)
         node_names = params['node_names']
         target_addresses = params['target_addresses']
@@ -153,29 +57,38 @@ class RxBridge(object):
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name)
-
-        # Set message broker
-        if hasattr(node, 'set_message_broker'):
-            node.set_message_broker(self.mb)
+        node = node_cls(ns=self.ns, message_broker=self.mb, **params)
 
         # Prepare input topics
         for i in params['inputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
-            else:
+            elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
         # Prepare output topics
         for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
-            else:
+            elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
 
-        return dt, params['inputs'], tuple(params['outputs']), node_names, target_addresses, node
+        # Prepare state topics
+        for i in params['states']:
+            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['converter'] = initialize_converter(i['converter'])
+            elif 'converter' not in i:
+                i['converter'] = IdentityConverter()
+            # else:  # Converter already initialized
+
+        return dt, params['inputs'], tuple(params['outputs']), tuple(params['states']), node_names, target_addresses, node
 
     def _close(self):
         return True
@@ -183,9 +96,11 @@ class RxBridge(object):
 
 if __name__ == '__main__':
 
-    rospy.init_node('bridge', log_level=rospy.INFO)
+    log_level = get_ROS_log_level(rospy.get_name())
 
-    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
+    rospy.init_node('rxbridge', log_level=log_levels_ROS[log_level])
+
+    message_broker = eagerx_core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxBridge(name=rospy.get_name(), message_broker=message_broker)
 
@@ -194,3 +109,4 @@ if __name__ == '__main__':
     pnode.node_initialized()
 
     rospy.spin()
+

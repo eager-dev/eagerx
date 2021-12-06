@@ -1,6 +1,6 @@
 from typing import Dict
 from copy import deepcopy
-from eagerx_core.utils.utils import load_yaml
+from eagerx_core.utils.utils import load_yaml, substitute_yaml_args
 
 
 class Params(object):
@@ -49,7 +49,8 @@ class RxInput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        if params['is_reactive']:
+            params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
 
@@ -214,7 +215,7 @@ class RxNodeParams(Params):
             for cname in params['outputs']:
                 params['feedthroughs'][cname] = dict()
 
-        # Re-direct dict entries (converters, addresses, delays)
+        # Re-direct dict entries (converters, addresses, delays, nonreactive_rates, input_msg_types)
         # Will remove re-directed dicts.
         keys_to_pop = []
         for key, entry in kwargs.items():
@@ -236,10 +237,17 @@ class RxNodeParams(Params):
                     for cname, delay in entry.items():
                         params[component][cname]['delay'] = delay
                     keys_to_pop.append(key)
+                if key in ['nonreactive_rates']:
+                    component = 'inputs'
+                    for cname, rate in entry.items():
+                        params[component][cname]['rate'] = rate
+                    keys_to_pop.append(key)
         [kwargs.pop(key) for key in keys_to_pop]
 
         # Replace default arguments
         for key, entry in kwargs.items():
+            if key in ['color', 'print_mode', 'log_level']:
+                params['default'][key] = entry
             assert key in params['default'], 'Received unknown argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all possible arguments.' % (key, config_name, package_name)
             params['default'][key] = entry
 
@@ -271,6 +279,7 @@ class RxNodeParams(Params):
         if 'inputs' in default:
             for cname in default['inputs']:
                 assert cname in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', cname, 'inputs', config_name, package_name)
+                assert 'targets' not in params or cname not in params['targets'], 'Input "%s" cannot have the same name as a selected target. Change either the input or target name under "%s" in "%s.yaml" inside ROS package "%s/config".' % (cname, 'inputs', config_name, package_name)
                 params['inputs'][cname]['msg_module'], params['inputs'][cname]['msg_type'] = params['inputs'][cname]['msg_type'].split('/')
                 if 'rate' in params['inputs'][cname]:
                     is_reactive = False
@@ -419,7 +428,7 @@ class RxObjectParams(Params):
             if 'inputs' in p_bridge:
                 # First, prepend node name to inputs
                 for key, val in p_bridge['inputs'].items():
-                    p_bridge['inputs'][key] = '%s/%s' % (name, val)
+                    p_bridge['inputs'][key] = substitute_yaml_args(val, {'env_name': ns, 'obj_name': name})
                 inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict
 
@@ -441,6 +450,10 @@ class RxObjectParams(Params):
             p_bridge.pop('node_config')
             p_bridge['rate'] = p_env['rate']
 
+            # create empty dict if no input converters have been defined yet
+            if 'input_converters' not in p_bridge:
+                p_bridge['input_converters'] = dict()
+
             # Define node inputs mapping
             inputs_dict = {'tick': 'bridge/outputs/tick'}
             check_None_trigger = False
@@ -449,8 +462,10 @@ class RxObjectParams(Params):
                     assert not check_None_trigger, 'Can only have a single (actuator) input (identified with an empty value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
                     check_None_trigger = True
                     p_bridge['inputs'][act_cname] = p_env['address']
+                    if 'converter' in p_env:
+                        p_bridge['input_converters'][act_cname] = p_env['converter']
                 else:  # prepend node name to inputs (which have to originate from inside the object)
-                    p_bridge['inputs'][act_cname] = '%s/%s' % (name, address)
+                    p_bridge['inputs'][act_cname] = substitute_yaml_args(address, {'env_name': ns, 'obj_name': name})
             assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
             inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict

@@ -16,26 +16,26 @@ sensors: # inputs of env
     rate: 2
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
 
 actuators: # outputs of env
   N8:
-    rate: 2
-    msg_type: std_msgs.msg/UInt64
+    rate: 1
+    msg_type: std_msgs.msg/String
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceStringConverter
       dtype: uint64
       low: 0
       high: 100
-      shape: (1,)  # optional
+      shape: [1]  # optional
   ref_vel:
     rate: 1
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -44,14 +44,14 @@ states:  # reset states inside bridge
   N9:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
   N10:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
@@ -64,36 +64,44 @@ bridge:
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
-      states: [error]
-#      single_process: False
-#      launch_locally: False
+      states: [state_1]
+      inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
+      color: cyan
+      nonreactive_rates: {in_1: 2}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
+      process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
-      inputs: {in_1: sensors/N6}
-#      single_process: False
-#      launch_locally: False
+      inputs: {in_1: $(obj_name)/sensors/N6}  # $(obj_name) is replaced at run-time with object name
+      color: cyan
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
     N8:
       node_config: eagerx_core/sim_actuator
-      inputs: {action_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
-               action_2: sensors/N6}  # inputs to nodes must always originate from within the node itself.
-#      single_process: False
-#      launch_locally: False
-#      input_convert:  # can only contain converters for inputs other than "actuator_input"
+      inputs: {in_3: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
+               in_2: $(obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
+      color: green
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+#      input_converters:  # can only contain converters for inputs other than "actuator input" ("in_1" in this case)
 #        action_2:
-#          converter_type: eagerx_core.converter/SpaceUInt64Converter
+#          converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
 #          test_arg: 'test'
       test_arg: 'CHANGED ARGUMENT'
-
+    ref_vel:
+      node_config: eagerx_core/sim_actuator
+      inputs: {in_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
+               in_2: $(obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
+      color: green
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      test_arg: 'CHANGED ARGUMENT'
   states:
     N9:
-      state_type: eagerx_core.rxsimstate/RxSimState
+      state_type: eagerx_core.basesimstate/TestSimState
       test_arg: 'CHANGED ARGUMENT'
 
     N10:
-      state_type: eagerx_core.rxsimstate/RxSimState
+      state_type: eagerx_core.basesimstate/TestSimState
       test_arg: 'CHANGED ARGUMENT'
 

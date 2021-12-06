@@ -2,6 +2,7 @@
 import rospy
 import rosparam
 from rosgraph.masterapi import Error
+from sensor_msgs.msg import Image
 
 # EAGERX
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
@@ -10,14 +11,16 @@ from eagerx_core.utils.utils import load_yaml
 from eagerx_core.rxnode import RxNode
 from eagerx_core.rxbridge import RxBridge
 from eagerx_core.rxsupervisor import RxSupervisor
-from eagerx_core import RxMessageBroker
+from eagerx_core.rxmessage_broker import RxMessageBroker
+from eagerx_core.constants import process
 
 # OTHER IMPORTS
 import abc
+import numpy as np
 from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
 import gym
-import multiprocessing
+import logging
 
 
 class RxEnv(object):
@@ -36,24 +39,29 @@ class RxEnv(object):
         states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
         return states
 
+    @staticmethod
+    def create_render(rate):
+        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate)
+        return render
+
     def __init__(self, name: str, rate: float,
                  observations: RxNodeParams,
                  actions: RxNodeParams,
                  bridge: RxBridgeParams,
                  nodes: List[RxNodeParams],
-                 objects: List[RxObjectParams]) -> None:
+                 objects: List[RxObjectParams],
+                 render_node: RxNodeParams = None) -> None:
+        assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = '/' + name
         self.rate = rate
+        self.render_node = render_node
         self.initialized = False
         self._bridge_name = bridge.name
-        self._is_initialized = dict()
-        self._launch_nodes = dict()
-        self._sp_nodes = dict()
-        self._event = multiprocessing.Event()
 
         # Initialize supervisor node
-        self.mb, self.supervisor_node, _ = self._init_supervisor(nodes, objects)
+        self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)
+        self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize bridge
         self._init_bridge(bridge, nodes)
@@ -61,18 +69,22 @@ class RxEnv(object):
         # Initialize action & observation node
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
-        # Initialize nodes
-        initialize_nodes(nodes, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxNode)
+        # Register render node
+        if self.render_node: self.register_nodes(render_node)
+
+        # Register nodes
+        self.register_nodes(nodes)
 
         # Register objects
         self.register_objects(objects)
 
-    def _init_supervisor(self, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
+    def _init_supervisor(self, bridge: RxBridgeParams, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
         # Initialize supervisor
         supervisor = self.create_supervisor()
 
         # Get all states from objects & nodes
-        for i in nodes + objects:
+        for i in [bridge] + nodes + objects:
+            if 'states' not in i.params['default']: continue
             for cname in i.params['default']['states']:
                 name = '%s/%s' % (i.name, cname)
                 address = '%s/states/%s' % (i.name, cname)
@@ -102,7 +114,7 @@ class RxEnv(object):
                                     space_converter = node_yaml['states'][simnode_cname]['space_converter']
 
                                     rospy.logwarn('Adding state "%s" to simulation nodes can potentially make the environment for object "%s" non-agnostic. Check "%s.yaml" in package "%s" for more info.' % (name, i.name, config_name, package_name))
-                                    assert name not in supervisor.params[ 'states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                                    assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
 
                                     supervisor.params['states'][name] = dict(address=address, msg_type=msg_type,
                                                                              converter=space_converter)
@@ -115,6 +127,10 @@ class RxEnv(object):
         except Error:
             pass
 
+        # Upload log_level
+        log_level = logging.getLogger('rosout').getEffectiveLevel()
+        rosparam.upload_params(self.ns, {'log_level': log_level})
+
         # Initialize message broker
         mb = RxMessageBroker(owner='%s/%s' % (self.ns, 'env'))
 
@@ -122,7 +138,7 @@ class RxEnv(object):
         supervisor.params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_supervisor = RxSupervisor(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb, scheduler=None)
+        rx_supervisor = RxSupervisor(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb)
         rx_supervisor.node_initialized()
 
         # Connect io
@@ -133,12 +149,13 @@ class RxEnv(object):
         # Check that reserved keywords are not already defined.
         assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
         assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
+        assert not bridge.params['default']['process'] == process.BRIDGE, 'Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}.'
 
         # Extract node_names
         node_names = ['env/actions', 'env/observations', 'env/supervisor']
         target_addresses = []
         for i in nodes:
-            node_names.append(i.params['default']['name'])
+            # node_names.append(i.params['default']['name'])
             if 'targets' in i.params['default']:
                 for cname in i.params['default']['targets']:
                     address = i.params['targets'][cname]['address']
@@ -146,7 +163,7 @@ class RxEnv(object):
         bridge.params['default']['node_names'] = node_names
         bridge.params['default']['target_addresses'] = target_addresses
 
-        initialize_nodes(bridge, self.ns, self.name, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes, rxnode_cls=RxBridge)
+        initialize_nodes(bridge, process.ENVIRONMENT, self.ns, self.name, self.mb, self.supervisor_node.is_initialized, self.supervisor_node.sp_nodes, self.supervisor_node.launch_nodes, rxnode_cls=RxBridge)
         wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
     def _init_actions_and_observations(self, actions: RxNodeParams, observations: RxNodeParams, message_broker):
@@ -162,14 +179,14 @@ class RxEnv(object):
         observations.params['default']['rate'] = self.rate
         obs_params = observations.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, obs_params)
-        rx_obs = RxNode(name='%s/%s' % (self.ns, observations.name), message_broker=message_broker, scheduler=None)
+        rx_obs = RxNode(name='%s/%s' % (self.ns, observations.name), message_broker=message_broker)
         rx_obs.node_initialized()
 
         # Create action node
         actions.params['default']['rate'] = self.rate
         act_params = actions.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, act_params)
-        rx_act = RxNode(name='%s/%s' % (self.ns, actions.name), message_broker=message_broker, scheduler=None)
+        rx_act = RxNode(name='%s/%s' % (self.ns, actions.name), message_broker=message_broker)
         rx_act.node_initialized()
 
         return rx_act.node, rx_obs.node, rx_act, rx_obs
@@ -218,7 +235,7 @@ class RxEnv(object):
         assert not self.initialized, 'Environment already initialized. Cannot re-initialize pipelines. '
 
         # Wait for nodes to be initialized
-        [node.node_initialized() for name, node in self._sp_nodes.items()]
+        [node.node_initialized() for name, node in self.supervisor_node.sp_nodes.items()]
         wait_for_node_initialization(self._is_initialized)
 
         # Initialize single process communication
@@ -256,23 +273,51 @@ class RxEnv(object):
         self.supervisor_node.step()
         return self._get_observation()
 
-    def _close(self):
-        for name in self._launch_nodes:
-            self._launch_nodes[name].shutdown()
+    def _shutdown(self):
+        for name in self.supervisor_node.launch_nodes:
+            self.supervisor_node.launch_nodes[name].shutdown()
         try:
             rosparam.delete_param('/')
             rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
         except:
             pass
 
+    def register_nodes(self, nodes: Union[List[RxNodeParams], RxNodeParams]) -> None:
+        # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
+        if not isinstance(nodes, list):
+            nodes = [nodes]
+
+        # Register nodes
+        [self.supervisor_node.register_node(n) for n in nodes]
+
     def register_objects(self, objects: Union[List[RxObjectParams], RxObjectParams]) -> None:
-        # todo: There might be timing issues... Currently solved with condition.
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(objects, list):
             objects = [objects]
 
         # Register objects
         [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
+
+    def render(self, mode="human"):
+        if self.render_node:
+            if mode == "human":
+                self.supervisor_node.start_render()
+            elif mode == "rgb_array":
+                ros_im = self.supervisor_node.get_last_image()
+                if ros_im.height == 0 or ros_im.width == 0:
+                    # todo: check if channel dim first or last.
+                    im = np.empty(shape=(0, 0, 3), dtype=np.uint8)
+                else:
+                    im = np.frombuffer(ros_im.data, dtype=np.uint8).reshape(ros_im.height, ros_im.width, -1)
+                return im
+            else:
+                raise ValueError('Render mode "%s" not recognized.' % mode)
+        else:
+            rospy.logwarn_once('No render node active, so not rendering.')
+            if mode == "rgb_array":
+                return Image()
+            else:
+                return
 
     @abc.abstractmethod
     def reset(self) -> Dict:
@@ -283,7 +328,10 @@ class RxEnv(object):
         pass
 
     def close(self):
-        self._close()
+        self.supervisor_node.stop_render()
+
+    def shutdown(self):
+        self._shutdown()
 
 
 class EAGERxEnv(RxEnv):
@@ -293,6 +341,7 @@ class EAGERxEnv(RxEnv):
                  bridge: RxBridgeParams,
                  nodes: List[RxNodeParams],
                  objects: List[RxObjectParams],
+                 render: RxNodeParams = None,
                  reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
                  is_done_fn: Callable = lambda obs, action, steps: False,
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
@@ -301,7 +350,7 @@ class EAGERxEnv(RxEnv):
         self.reward_fn = reward_fn
         self.is_done_fn = is_done_fn
         self.reset_fn = reset_fn
-        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects)
+        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects, render)
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         # Send actions and wait for observations

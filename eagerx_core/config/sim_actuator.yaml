@@ -1,10 +1,9 @@
-node_type: eagerx_core.rxnode/ProcessNode
+node_type: eagerx_core.basenode/ProcessNode
 default:
   rate:
-  inputs: [tick, action_1, action_2]
-  outputs: [action_1]
-  single_process: True
-  launch_locally: True
+  inputs: [tick, in_1, in_2, in_3]
+  outputs: [out_1]
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
   test_arg: 'TEST ARGUMENT'
 
@@ -12,13 +11,16 @@ inputs:
   tick:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-  action_1:
+  in_1:
     msg_type: std_msgs.msg/UInt64
     repeat: all
-  action_2:
+  in_2:
     msg_type: std_msgs.msg/UInt64
+    repeat: all
+  in_3:
+    msg_type: std_msgs.msg/String
     repeat: all
 
 outputs:
-  action_1:
+  out_1:
     msg_type: std_msgs.msg/UInt64

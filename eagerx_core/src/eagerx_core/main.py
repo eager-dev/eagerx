@@ -1,26 +1,27 @@
 # ROS packages required
 import rospy
-from eagerx_core.core import RxBridge, RxNode, RxObject
-from eagerx_core.rxenv import EAGERxEnv
+from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
-
+from eagerx_core.constants import process
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define converter (optional)
-    IntUInt64Converter = {'converter_type': 'eagerx_core.converter/IntUInt64Converter', 'test_arg': 'test'}
+    ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
+    StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
-    # Type of simulation (optional)
-    sp = True
+    # Process configuration (optional)
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
-    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, single_process=sp, outputs=['out_1', 'out_2'])
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, single_process=sp, targets=['target_1'])
-    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=3.3, single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=6,   single_process=sp, output_converters={'out_1': IntUInt64Converter})
-    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   single_process=sp, inputs=['in_1', 'in_2'])
+    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p, outputs=['out_1', 'out_2'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
+    N4 = RxNode.create('N4', 'eagerx_core', 'process',   rate=0.9, process=node_p, output_converters={'out_1': StringUInt64Converter})
+    N5 = RxNode.create('N5', 'eagerx_core', 'process',   rate=1.1, process=node_p, inputs=['in_1'])
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=1,   process=node_p, inputs=['in_1', 'in_2'])
 
     # Define object
     viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'])
@@ -28,8 +29,12 @@ if __name__ == '__main__':
     # Define action/observations
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
+    # Define render (optional)
+    render = EAGERxEnv.create_render(rate=1)
+
     # Connect nodes
-    connections = [{'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
+    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
+                   {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
                    {'source': (viper, 'sensors', 'N7'), 'target': (KF, 'inputs', 'in_1')},
                    {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
                    {'source': (actions, 'act_1'),       'target': (N1, 'inputs', 'in_1')},
@@ -37,13 +42,13 @@ if __name__ == '__main__':
                    {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
                    {'source': (N1, 'out_2'),            'target': (N3, 'feedthroughs', 'out_1')},
                    {'source': (N3, 'out_1'),            'target': (N4, 'inputs', 'in_1')},
-                   {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': IntUInt64Converter},
-                   {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': IntUInt64Converter, 'delay': 1.0},
+                   {'source': (N4, 'out_1'),            'target': (N5, 'inputs', 'in_1'), 'converter': StringUInt64Converter},
+                   {'source': (N5, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
                    ]
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, single_process=True)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, process=bridge_p)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -52,46 +57,64 @@ if __name__ == '__main__':
                     observations=observations,
                     bridge=bridge,
                     nodes=[N1, N3, N4, N5, KF],
-                    objects=[viper])
+                    objects=[viper],
+                    render=render,
+                    reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
+                                          'bridge/param_1': env.state_space.sample()['bridge/param_1'],
+                                          'N1/state_1': env.state_space.sample()['N1/state_1']}
+                    )
 
     # First reset
     obs = env.reset()
+    env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
         for i in range(2):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
+            rgb = env.render(mode='rgb_array')
         obs = env.reset()
     print('\n[Finished]')
 
-    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
-    # todo: Visualize and perform checks on DAGs (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
+    # True & real_time_factor!= 0: rospy.rate behavior --> implement rospy.sleep() inside bridge tick
+    # False & real_time_factor=0: ERROR --> cannot run as fast as possible asynchronous (without a common clock)
+    # True & real_time_factor = 0,  # --> as fast as possible and disregard real_time_factor
 
+    # todo: add reactive & real_time_factor to default bridge.yaml & BridgeBaseClass
+    # todo: change reset msg recv logic from msg_rcv=msg_send to msg_rcv > msg_send.
     # todo: implement real_time rx pipeline
-
-    # todo: ADJUSTMENTS RX
-    # todo: cleanup eagerx_core.__init__: refactor to separate rxpipelines.py, rxoperators.py
-    # todo: create publishers in RxMessageBroker (outputs,  node_outputs)
-    # todo: print statements of callback inside ProcessNode: color specified as additional argument
-
-    # todo: NODE CLASS
-    # todo: pass (default) args to node_cls(...). Currently done via the paramserver? Make explicit in constructor.
-    # todo: change structure of callback/reset input: unpack to descriptive arguments e.g. reset(tick, state)
-
-    # todo: make baseclasses for bridge, node, simstate
-    # todo: add msg_types as static properties to node.py implementation (make class more descriptive)
-    # todo: replace reset info with rospy.logdebug(...), so that we log it if warn level is debug
+    #  - Latch Nc.interval on initial /rx/bridge/outputs/tick
+    #  - Instead of counting msgs, we open/close buffer
+    #  - If buffer is empty, we repeat_last/None
+    #  - Filter None messages --> no problem because flags are not counting msg_send==msg_recv
+    #  - Latch input channels that are non-reactive & non-deterministic.
+    #  - How to deal with delay?
+    #  - Can we throttle output at provided real_timefactor * rate? What happens if output is slower/faster?
 
     # todo: CREATE GITHUB ISSUES FOR:
-    # todo: create a register_node function in the RxNode class to initialize a node inside the process of another node.
-    # todo; how to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
+    # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
+    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
+    #       (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
+    # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout
+    #       reached (count how many repeats)
+    # todo: Currently, we add bridge node twice to message_broker with '/dynamically_registered' appended to avoid a
+    #       namespace clash between done flags used in both real_reset & state_reset
+    # todo: Create batch dimension on all nodes (with $(batch_dim) in .yaml used in e.g. converter definitions), so that
+    #       complete envs can be batched. Bridge must have a grid edge length param, simnodes that use global position
+    #       info must correct for grid position.
 
     # todo: THINGS TO KEEP IN MIND:
+    # todo: The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
     # todo: The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
     #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
-    # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()". Hence, we cannot
-    #  completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but chance is very slim,
-    #  and only at the moment of initialization).
+    # todo: Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()".
+    #  Hence, we cannot completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but
+    #  chance is very slim, and only at the moment of initialization).
     # todo: Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
     #  Hence, we cannot adaptively register new objects or controllers after some episodes.
+    # todo: If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
+    # todo: Only objects can have nonreactive inputs. In that case, the bridge is responsible for sending flag msgs (num_msgs_send).
+    #  The bridges knows which inputs are nonreactive when the object is registered.
 

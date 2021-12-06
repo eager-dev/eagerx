@@ -2,8 +2,8 @@ node_type: eagerx_core.rxsupervisor/SupervisorNode
 default:
   outputs: [step]
   states: []
-  single_process: true
-  launch_locally: true
+  process: 1  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  color: yellow
 outputs:
   step:
     msg_type: std_msgs.msg/UInt64

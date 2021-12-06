@@ -3,7 +3,8 @@ import rosparam
 import rospkg
 import rospy
 from rosgraph.masterapi import Error
-from roslaunch.substitution_args import resolve_args
+from roslaunch.substitution_args import resolve_args, _resolve_args
+from roslaunch.substitution_args import _collect_args
 
 # OTHER
 import time
@@ -12,6 +13,7 @@ import importlib
 import inspect
 from time import sleep
 from six import raise_from
+from copy import deepcopy
 
 
 def get_attribute_from_module(module, attribute):
@@ -21,9 +23,10 @@ def get_attribute_from_module(module, attribute):
 
 
 def initialize_converter(args):
+    converter_args = deepcopy(args)
+    converter_args.pop('converter_type')
     converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
-    del args['converter_type']
-    return converter_cls(**args)
+    return converter_cls(**converter_args)
 
 
 def initialize_state(args):
@@ -32,18 +35,12 @@ def initialize_state(args):
     return state_cls(**args)
 
 
-def get_opposite_msg_cls(msg_type, args):
+def get_opposite_msg_cls(msg_type, converter_cls):
     if isinstance(msg_type, str):
         msg_type = get_attribute_from_module(*msg_type.split('/'))
-    converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
-    if msg_type == converter_cls.MSG_TYPE_A:
-        return converter_cls.MSG_TYPE_B
-    elif msg_type == converter_cls.MSG_TYPE_B:
-        return converter_cls.MSG_TYPE_A
-    else:
-        raise ValueError(
-            'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
-            (msg_type, converter_cls.MSG_TYPE_A, converter_cls.MSG_TYPE_B))
+    if isinstance(converter_cls, dict):
+        converter_cls = get_attribute_from_module(*converter_cls['converter_type'].split('/'))
+    return converter_cls.get_opposite_msg_type(converter_cls, msg_type)
 
 
 def get_module_type_string(cls):
@@ -124,3 +121,44 @@ def substitute_xml_args(param):
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
                 param[key] = resolve_args(param[key])
+
+
+def resolve_yaml_args(arg_str, context, commands):
+    valid = ['env_name', 'obj_name']
+    resolved = arg_str
+    for a in _collect_args(arg_str):
+        splits = [s for s in a.split(' ') if s]
+        if not splits[0] in valid:
+            raise ValueError("Unknown substitution command [%s]. Valid commands are %s"%(a, valid))
+        command = splits[0]
+        args = splits[1:]
+        if command in commands:
+            resolved = commands[command](resolved, a, args, context)
+    return resolved
+
+
+def substitute_yaml_args(param, context):
+    commands = {
+        'env_name': lambda resolved, a, args, context: resolved.replace("$(%s)" % a, context[a]),
+        'obj_name': lambda resolved, a, args, context: resolved.replace("$(%s)" % a, context[a]),
+    }
+
+    # substitute string
+    if isinstance(param, str):
+        param = resolve_yaml_args(param, context, commands)
+        return param
+
+    # For every key in the dictionary (not performing deepcopy!)
+    if isinstance(param, dict):
+        for key in param:
+            # If the value is of type `(Ordered)dict`, then recurse with the value
+            if isinstance(param[key], dict):
+                substitute_yaml_args(param[key], context)
+            # Otherwise, add the element to the result
+            elif isinstance(param[key], str):
+                param[key] = resolve_args(param[key], context, commands)
+
+
+def get_ROS_log_level(name):
+    ns = '/'.join(name.split('/')[:2])
+    return get_param_with_blocking(ns + '/log_level')

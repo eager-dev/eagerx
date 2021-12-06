@@ -10,6 +10,7 @@ from eagerx_core.params import RxNodeParams, RxObjectParams
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, \
     substitute_xml_args
 from eagerx_core.rxnode import RxNode
+from eagerx_core.constants import process
 
 # OTHER
 from time import sleep
@@ -52,6 +53,7 @@ def configure_connections(connections):
                     msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_A, node.params['outputs'][cname]['converter']))
                 else:
                     msg_type_B = msg_type_A
+                assert cname in node.params['default']['outputs'], '"%s" was not selected as %s in node "%s" during its initialization.' % (cname, 'output', node.name)
         elif isinstance(source[0], RxObjectParams):  # source=Object
             obj = source[0]
             component = source[1]
@@ -59,6 +61,7 @@ def configure_connections(connections):
             address = '%s/%s/%s' % (obj.name, component, cname)
             msg_type_A = obj.params[component][cname]['msg_type']
             msg_type_B = msg_type_A
+            assert cname in obj.params['default'][component], '"%s" was not selected in %s of object "%s" during its initialization.' % (cname, component, obj.name)
         else:
             raise ValueError('Connection entry "%s" is misspecified/unsupported. Source and target must either be an object or node.' % io)
 
@@ -101,15 +104,21 @@ def configure_connections(connections):
                 msg_type_B = target[0].params[action_component][cname]['msg_type']
                 space_converter = target[0].params[action_component][cname]['space_converter']
                 msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+                if converter:  # Overwrite msg_type_B if input converter specified
+                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_B, converter))
                 if action_cname in action_node.params['outputs']:
-                    assert msg_type_B == action_node.params['outputs'][action_cname]['msg_type'], 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
-                    assert space_converter == action_node.params['outputs'][action_cname]['converter'], 'Conflicting %s for action "%s".' % ('space_converters', action_cname)
+                    assert get_cls_from_string(msg_type_B) == get_cls_from_string(action_node.params['outputs'][action_cname]['msg_type']), 'Conflicting %s for action "%s". Occurs with connection %s' % ('msg_types', action_cname, io)
+                    if not space_converter == action_node.params['outputs'][action_cname]['converter']:
+                        # Overwrite msg_type_B if input converter specified
+                        rospy.logwarn('Conflicting %s for action "%s". Overwriting space_converter of %s[%s][%s]' % ('space_converters', action_cname, node.name, component, cname))
+                        target[0].params[action_component][cname]['space_converter'] = action_node.params['outputs'][action_cname]['converter']
                 else:
                     action_node.params['default']['outputs'].append(action_cname)
                     action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
 
             # Fill in target node properties
             node.params[component][cname]['address'] = address
+            assert (component == 'feedthroughs' and cname in node.params['default']['outputs']) or cname in node.params['default'][component], '"%s" was not selected in %s of node "%s" during its initialization.' % (cname, component, node.name)
             if converter:
                 node.params[component][cname]['converter'] = converter
             assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
@@ -141,15 +150,21 @@ def configure_connections(connections):
                 msg_type_B = target[0].params['actuators'][cname]['msg_type']
                 space_converter = target[0].params['actuators'][cname]['space_converter']
                 msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
+                if converter:  # Overwrite msg_type_B if input converter specified
+                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_B, converter))
                 if action_cname in action_node.params['outputs']:
-                    assert msg_type_B == action_node.params['outputs'][action_cname]['msg_type'], 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
-                    assert space_converter == action_node.params['outputs'][action_cname]['converter'], 'Conflicting %s for action "%s".' % ('space_converters', action_cname)
+                    assert get_cls_from_string(msg_type_B) == get_cls_from_string(action_node.params['outputs'][action_cname]['msg_type']), 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
+                    if not space_converter == action_node.params['outputs'][action_cname]['converter']:
+                        # Overwrite msg_type_B if input converter specified
+                        rospy.logwarn('Conflicting %s for action "%s". Overwriting space_converter of %s[%s][%s]' % ( 'space_converters', action_cname, obj.name, component, cname))
+                        target[0].params['actuators'][cname]['space_converter'] = action_node.params['outputs'][action_cname]['converter']
                 else:
                     action_node.params['default']['outputs'].append(action_cname)
                     action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
 
             # Fill in target object properties
             obj.params[component][cname]['address'] = address
+            assert cname in obj.params['default'][component], '"%s" was not selected in %s of object "%s" during its initialization.' % (cname, component, obj.name)
             if converter:
                 obj.params[component][cname]['converter'] = converter
             assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
@@ -174,30 +189,33 @@ def launch_node(launch_file, args):
     roslaunch_args = cli_args[1:]
     roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-    roslaunch.configure_logging(uuid)
+    # roslaunch.configure_logging(uuid)  # THIS RESETS the log level. Can we do without this line? Are ROS logs stil being made?
     launch = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
     return launch
 
 
 def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodeParams, Dict]]],
+                     process_id: int,
                      ns: str,
                      owner: str,
                      message_broker: Any,
                      is_initialized: Dict,
                      sp_nodes: Dict,
                      launch_nodes: Dict,
-                     rxnode_cls: Any = RxNode):
+                     in_object: bool = False,
+                     rxnode_cls: Any = RxNode,
+                     ):
     if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
 
     for node in nodes:
         # Check if we still need to upload params to rosparam server (env)
         if not isinstance(node, dict):
-            params = node.get_params(ns=ns)
+            params = node.get_params(ns=ns, in_object=in_object)
 
             # Check if node name is unique
             name = node.name
-            assert rospy.get_param(('%s/%s/rate') % (ns, name), None) is None, 'Node name "%s" already exists. Node names must be unique.' % ns + '/' + name
+            assert rospy.get_param(('%s/%s/rate') % (ns, name), None) is None, 'Node name "%s" already exists. Node names must be unique.' % (ns + '/' + name)
 
             # Upload params to rosparam server
             rosparam.upload_params(ns, params)
@@ -207,10 +225,6 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         else:
             params = node
             name = params['name']
-        launch_file = params['launch_file']
-        launch_locally = params['launch_locally']
-        single_process = params['single_process']
-
         # Flag to check if node is initialized
         is_initialized[name] = False
 
@@ -224,26 +238,31 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
         rospy.Subscriber(node_address + '/initialized', UInt64, partial(initialized, name=name))
 
         # Initialize node
-        if single_process:  # Initialize inside this process
-            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, scheduler=None)
+        if params['process'] == process_id:  # Initialize inside this process
+            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker)
             sp_nodes[node_address].node_initialized()
-        else:
-            if launch_locally and launch_file:  # Launch node as separate process
-                owner_with_node_ns = '/'.join(owner.split('/') + name.split('/')[:-1])
-                name_without_node_ns = name.split('/')[-1]
-                launch_nodes[ns + '/' + name] = launch_node(launch_file, args=['node_name:=' + name_without_node_ns,
-                                                                               'owner:=' + owner_with_node_ns])
-                launch_nodes[ns + '/' + name].start()
+        elif params['process'] == process.NEW_PROCESS and process_id == process.ENVIRONMENT:  # Only environment can launch new processes (as it is the main_thread)
+            assert 'launch_file' in params, 'No launch_file defined. Node "%s" can only be launched as a separate process if a launch_file is specified.' % name
+            owner_with_node_ns = '/'.join(owner.split('/') + name.split('/')[:-1])
+            name_without_node_ns = name.split('/')[-1]
+            launch_nodes[ns + '/' + name] = launch_node(params['launch_file'],
+                                                        args=['node_name:=' + name_without_node_ns,
+                                                              'owner:=' + owner_with_node_ns])
+            launch_nodes[ns + '/' + name].start()
+        elif params['process'] == process.EXTERNAL:
+            rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
+        # else: node is launched in another (already launched) node's process (e.g. bridge process).
 
 
-def wait_for_node_initialization(is_initialized):
+def wait_for_node_initialization(is_initialized, wait_time=0.3):
     iter = 0
+
     # Wait for nodes to be initialized
     while True:
         if iter == 0:
             sleep(0.1)
         else:
-            sleep(0.3)
+            sleep(wait_time)
         iter += 1
         not_init = []
         for name, flag in is_initialized.items():

@@ -1,12 +1,25 @@
-node_type: eagerx_core.rxbridge/BridgeNode
+node_type: eagerx_core.basebridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
-  num_substeps: 10
-  single_process: False
-  launch_locally: True
+  states: [param_1]
+  process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
+  color: magenta
+  reactive: True
+  real_time_factor: 0  # 0 =as fast as possible
+  num_substeps: 10
+  nonreactive_address: '/nonreactive_input_topic'  # Only required to test nonreactive inputs
 
 outputs:
   tick:
     msg_type: std_msgs.msg/UInt64
+
+states:
+  param_1:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]

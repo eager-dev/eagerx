@@ -5,36 +5,49 @@ from __future__ import print_function
 # ROS imports
 import rospy
 import rosparam
-from std_msgs.msg import UInt64, String
+from std_msgs.msg import UInt64, String, Bool
 
 # Rx imports
-from eagerx_core.params import RxObjectParams
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter
-from eagerx_core import get_param_with_blocking
+from eagerx_core.constants import process
+from eagerx_core.rxnode import RxNode
+import eagerx_core.rxmessage_broker
+import eagerx_core.rxoperators
+import eagerx_core.rxpipelines
+from eagerx_core.basenode import NodeBase
+from eagerx_core.params import RxObjectParams, RxNodeParams
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes
-from eagerx_core.converter import IdentityConverter
+from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.srv import ImageUInt8
 import eagerx_core
 
 # OTHER
 from threading import Event
 
 
-class SupervisorNode(object):
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.ns = '/'.join(name.split('/')[:2])
-        self.params = get_param_with_blocking(self.name)
+class SupervisorNode(NodeBase):
+    def __init__(self, ns, states, **kwargs):
         self.subjects = None
 
-        self._is_initialized = dict()
-        self._launch_nodes = dict()
-        self._sp_nodes = dict()
+        # Render
+        self._render_service_ready = False
+        self.render_toggle = False
+        self.get_last_image_service = rospy.ServiceProxy('%s/env/render/get_last_image' % ns, ImageUInt8)
+        self.render_toggle_pub = rospy.Publisher('%s/env/render/toggle' % ns, Bool, queue_size=0)
+
+        # Initialize nodes
+        self.is_initialized = dict()
+        self.launch_nodes = dict()
+        self.sp_nodes = dict()
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
-        for i in self.params['states']:
-            if 'converter' in i:
-                converter = initialize_converter(i['converter'])
+        for i in states:
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['converter'] = initialize_converter(i['converter'])
+                converter = i['converter']
+            elif 'converter' in i and not isinstance(i['converter'], dict):
+                converter = i['converter']
             else:
                 converter = None
             self.state_buffer[i['name']] = {'msg': None, 'converter': converter}
@@ -43,9 +56,30 @@ class SupervisorNode(object):
         self._reset_event = Event()
         self._obs_event = Event()
         self._step_counter = 0
+        super().__init__(ns=ns, states=states, **kwargs)
 
     def _set_subjects(self, subjects):
         self.subjects = subjects
+
+    def start_render(self):
+        if not self.render_toggle:
+            self.render_toggle = True
+            self.render_toggle_pub.publish(Bool(data=self.render_toggle))
+
+    def stop_render(self):
+        if self.render_toggle:
+            self.render_toggle = False
+            self.render_toggle_pub.publish(Bool(data=self.render_toggle))
+
+    def get_last_image(self):
+        if not self._render_service_ready:
+            rospy.wait_for_service('%s/env/render/get_last_image' % self.ns)
+        return self.get_last_image_service().image
+
+    def register_node(self, node: RxNodeParams):
+        node_name = node.name
+        initialize_nodes(node, process.ENVIRONMENT, self.ns, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
+        self.subjects['register_node'].on_next(String(self.ns + '/' + node_name))
 
     def register_object(self, object: RxObjectParams, bridge_name: str):
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
@@ -53,30 +87,14 @@ class SupervisorNode(object):
         obj_name = object.name
         assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, 'Object name "%s" already exists. Object names must be unique.' % self.ns + '/' + obj_name
 
-        params, nodes = object.get_params(ns=self.ns, bridge=bridge_name)
-
         # Upload object params to rosparam server
+        params, nodes = object.get_params(ns=self.ns, bridge=bridge_name)
         rosparam.upload_params(self.ns, params)
 
         # Upload node parameters to ROS param server
-        for node in nodes:
-            params = node.get_params(ns=self.ns, in_object=True)
-            node_name = node.name
-
-            # Check if node name is unique
-            assert rospy.get_param(self.ns + '/' + node_name, None) is None, 'Node name "%s" already exists. Node names must be unique.' % self.ns + '/' + node_name
-
-            # Upload params to rosparam server
-            rosparam.upload_params(self.ns, params)
-
-            # If simulation node must run in separate process, the environment must launch it (i.e. the main thread).
-            if not params[node_name]['single_process']:
-                assert not params[node_name]['launch_locally'], 'If simulation node "%s" must run in a separate process, the environment must launch it (i.e. the main thread). Hence, launch_locally in "%s.yaml" via the config of the object must be set to "False".' % (node_name, params[node_name]['config_name'])
-                params[node_name]['launch_locally'] = True
-                initialize_nodes(params[node_name], self.ns, self.ns, message_broker=None, is_initialized=self._is_initialized,
-                                 sp_nodes=self._sp_nodes, launch_nodes=self._launch_nodes)
-
-        self.subjects['register'].on_next(String(self.ns + '/' + obj_name))
+        initialize_nodes(nodes, process.ENVIRONMENT, self.ns, self.ns, message_broker=self.message_broker, in_object=True,
+                         is_initialized=self.is_initialized, sp_nodes=self.sp_nodes, launch_nodes=self.launch_nodes)
+        self.subjects['register_object'].on_next(String(self.ns + '/' + obj_name))
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states
@@ -123,17 +141,17 @@ class SupervisorNode(object):
 
 
 class RxSupervisor(object):
-    def __init__(self, name, message_broker, scheduler=None, **kwargs):
+    def __init__(self, name, message_broker):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.mb = message_broker
         self.initialized = False
 
         # Prepare input & output topics
-        outputs, states, self.node = self._prepare_io_topics(self.name, **kwargs)
+        outputs, states, self.node = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx_core.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states, node_name=self.name, scheduler=scheduler)
+        rx_objects, env_subjects = eagerx_core.rxpipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
         self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -146,27 +164,27 @@ class RxSupervisor(object):
             rospy.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
-    def _prepare_io_topics(self, name, **kwargs):
+    def _prepare_io_topics(self, name):
         params = get_param_with_blocking(name)
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(name, **kwargs)
+        node = node_cls(ns=self.ns, message_broker=self.mb, **params)
 
         # Prepare output topics
         for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
+            if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            else:
+            elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
 
         # Prepare state topics
         for i in params['states']:
             i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i:
+            if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            else:
+            elif 'converter' not in i:
                 i['converter'] = IdentityConverter()
 
         return tuple(params['outputs']), tuple(params['states']), node
@@ -176,7 +194,7 @@ if __name__ == '__main__':
 
     rospy.init_node('env', log_level=rospy.INFO)
 
-    message_broker = eagerx_core.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx_core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxSupervisor(name=rospy.get_name(), message_broker=message_broker)
 

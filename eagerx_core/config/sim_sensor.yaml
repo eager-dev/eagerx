@@ -1,11 +1,10 @@
-node_type: eagerx_core.rxnode/ProcessNode
+node_type: eagerx_core.basenode/ProcessNode
 default:
   rate:
   inputs: [tick, in_1]
   outputs: [out_1]
   states: []
-  single_process: True
-  launch_locally: True
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
   test_arg: 'TEST ARGUMENT'
 
@@ -22,10 +21,10 @@ outputs:
     msg_type: std_msgs.msg/UInt64
 
 states:
-  error:
+  state_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.converter/SpaceUInt64Converter
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64
       low: [0]
       high: [100]
