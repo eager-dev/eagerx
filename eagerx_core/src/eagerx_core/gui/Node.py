@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
+import inspect
 from copy import deepcopy
-from functools import partial
-from eagerx_gui.Terminal import *
+from eagerx_core.gui.Terminal import *
+from eagerx_core import constants
 from pyqtgraph.pgcollections import OrderedDict
 from pyqtgraph.debug import *
 from pyqtgraph import ComboBox, SpinBox
 import numpy as np
+from eagerx_core.utils.utils import get_yaml_type
+from eagerx_core.params import RxInput, RxOutput, RxState, RxFeedthrough
 
 
 def strDict(d):
@@ -70,33 +73,17 @@ class Node(QtCore.QObject):
         self._yaml = yaml
         self._graph = None
         self._graph = weakref.ref(graph)
-
-        if not('node_type' in params.keys()):
-            node_type = 'object'
-        elif params['default']['config_name'] == 'actions':
-            node_type = 'actions'
-        elif params['default']['config_name'] == 'observations':
-            node_type = 'observations'
-        elif 'targets' in params.keys():
-            node_type = 'real_reset'
-        else:
-            node_type = 'node'
-        self._node_type = node_type
-        self._is_object = node_type == 'object'
-
-        allow_add_terminal = False
-        allow_remove = True
-        if self._node_type in ['actions', 'observations']:
-            allow_add_terminal = True
-            allow_remove = False
-        elif self._is_object:
-            allow_add_terminal = True
-
-        self._allow_add_terminal = allow_add_terminal
-        self._allow_remove = allow_remove
         self.exception = None
 
-        if not self._node_type in ['actions', 'observations']:
+        if 'config_name' in params['default'] and params['default']['config_name'] in ['actions', 'observations']:
+            self._node_type = params['default']['config_name']
+            self._allow_add_terminal = True
+            self._allow_remove = False
+            self._is_object = False
+        else:
+            self._node_type = get_yaml_type(yaml)
+            self._allow_add_terminal = self._is_object = self._node_type == 'object'
+            self._allow_remove = True
             self.__initialize_terminals()
 
     def __next_terminal_name(self, name):
@@ -110,12 +97,12 @@ class Node(QtCore.QObject):
 
     def __initialize_terminals(self):
         if 'default' in self._params:
-            for terminal_type in ['outputs', 'inputs', 'sensors', 'actuators', 'states', 'targets']:
+            for terminal_type in set.union(constants.TERMS_IN, constants.TERMS_OUT):
                 if terminal_type in self._params['default']:
                     for terminal in self._params['default'][terminal_type]:
                         name = terminal_type + '/' + terminal
                         self.addTerminal(name=name)
-                        if self._node_type == 'real_reset' and terminal_type == 'outputs':
+                        if self._node_type == 'reset_node' and terminal_type == 'outputs':
                             name = 'feedthroughs/' + terminal
                             self.addTerminal(name=name)
 
@@ -143,6 +130,11 @@ class Node(QtCore.QObject):
 
         self._params['default'][terminal_type].remove(terminal_name)
 
+        if not terminal_type in self._yaml:
+            self._params.pop(terminal_type)
+        elif terminal_name not in self._yaml[terminal_type]:
+            self._params[terminal_type].pop(terminal_name)
+
         self.graphicsItem().updateTerminals()
         self.sigTerminalRemoved.emit(self, term)
 
@@ -160,15 +152,18 @@ class Node(QtCore.QObject):
         old_name_split = old_name.split('/')
         old_terminal_type = old_name_split[0]
         old_terminal_name = old_name_split[-1]
-        
+
         new_name_split = new_name.split('/')
         new_terminal_type = new_name_split[0]
         new_terminal_name = new_name_split[-1]
 
         assert old_terminal_type == new_terminal_type, 'Terminal type should not change after renaming the terminal.'
+        terminal_type = old_terminal_type
 
-        self._params['default'][new_terminal_type].append(new_terminal_name)
-        self._params['default'][old_terminal_type].remove(old_terminal_name)
+        self._params['default'][terminal_type].append(new_terminal_name)
+        self._params['default'][terminal_type].remove(old_terminal_name)
+        self._params[terminal_type][new_terminal_name] = self._params[terminal_type][old_terminal_name]
+        self._params[terminal_type].pop(old_terminal_name)
 
         self.graphicsItem().updateTerminals()
         self.sigTerminalRenamed.emit(term, old_name)
@@ -183,20 +178,47 @@ class Node(QtCore.QObject):
         terminal_type = name_split[0]
         terminal_name = name_split[-1]
 
-        if terminal_type in ['inputs', 'feedthroughs', 'actuators', 'targets']:
+        if terminal_type in constants.TERMS_IN:
             opts['io'] = 'in'
         else:
             opts['io'] = 'out'
         term = Terminal(self, name, **opts)
         self.terminals[name] = term
 
+        if terminal_type in self._params['default'] and terminal_name not in self._params['default'][terminal_type]:
+            self._params['default'][terminal_type].append(terminal_name)
+        if terminal_type not in self._params:
+            self._params[terminal_type] = {}
+        if terminal_name not in self._params[terminal_type]:
+            self._params[terminal_type][terminal_name] = {}
+
+        if terminal_type in ['inputs', 'actuators']:
+            init_function = RxInput.__init__
+        elif terminal_type in ['outputs', 'sensors']:
+            init_function = RxOutput.__init__
+        elif terminal_type in ['feedthroughs']:
+            init_function = RxFeedthrough.__init__
+        elif terminal_type in ['states', 'targets']:
+            init_function = RxState.__init__
+        else:
+            init_function = None
+
+        if init_function is not None:
+            argspec = inspect.getfullargspec(init_function)
+            default_values = argspec.defaults
+            default_keys = argspec.args[-len(default_values):]
+            for key, value in zip(default_keys, default_values):
+                if key in ['msg_module']:
+                    continue
+                elif key not in self._params[terminal_type][terminal_name]:
+                    if key == 'rate' and value is None:
+                        value = 1
+                    self._params[terminal_type][terminal_name][key] = value
+
         if term.isInput():
             self._inputs[name] = term
         elif term.isOutput():
             self._outputs[name] = term
-
-        if terminal_type in self._params['default'] and terminal_name not in self._params['default'][terminal_type]:
-            self._params['default'][terminal_type].append(terminal_name)
 
         self.graphicsItem().updateTerminals()
         self.sigTerminalAdded.emit(self, term)
@@ -466,10 +488,11 @@ class NodeGraphicsItem(GraphicsObject):
         GraphicsObject.__init__(self)
         self._node_type = node.node_type()
         self._params = node.params()
+        self._yaml = node.yaml()
 
         if self._node_type == 'node':
             color = np.array([0, 255, 255])
-        elif self._node_type == 'real_reset':
+        elif self._node_type == 'reset_node':
             color = np.array([0, 255, 0])
         elif self._node_type == 'object':
             color = np.array([255, 255, 0])
@@ -500,41 +523,64 @@ class NodeGraphicsItem(GraphicsObject):
         self.menu = None
         self.buildMenu()
         self.initial_z_value = self.zValue()
+        self.initialise_param_window()
 
-        graph = node.graph()
+    def initialise_param_window(self):
+        graph = self.node.graph()
         self.param_window = QtGui.QMainWindow(graph().widget().cwWin)
         self.param_window.setWindowTitle('Parameters {}'.format(self.node.name()))
-        # self.param_window.resize(500, 400)
         cw = QtGui.QWidget()
-        layout = QtGui.QGridLayout()
-        cw.setLayout(layout)
+        self.layout = QtGui.QGridLayout()
+        cw.setLayout(self.layout)
         self.param_window.setCentralWidget(cw)
-        self.param_window.resize(400, 400)
         self.labels = []
+        self.widgets = []
         row = 1
-        n_labels = len(node.params()['default'])
-        for key, value in node.params()['default'].items():
-            # layout.setRowMinimumHeight(row, 12)
+        for key, value in self.node.params()['default'].items():
             label = QtGui.QLabel(key)
-            self.labels.append(label)
-            layout.addWidget(label, row, 1, n_labels, 2)
             if isinstance(value, bool):
                 items = ['True', 'False']
                 widget = ComboBox(items=items, default=str(value))
+                widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
+            elif key in constants.GUI_NODE_ITEMS:
+                items = constants.GUI_NODE_ITEMS[key]
+                widget = ComboBox(items=items, default=str(value))
+                widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
             elif isinstance(value, int):
                 widget = SpinBox(value=value, int=True, dec=True)
+                widget.sigValueChanged.connect(partial(self.value_changed, key=key))
             elif isinstance(value, float):
                 widget = SpinBox(value=value, dec=True)
-            elif key in ['sensors', 'actuators', 'states', 'inputs', 'outputs', 'feedthroughs', 'targets', 'name', 'package_name', 'config_name']:
+                widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+            elif key in constants.PARAMS_CONSTANT:
                 widget = QtGui.QLineEdit(str(value))
                 widget.setEnabled(False)
             else:
                 widget = QtGui.QLineEdit(str(value))
-            # font = widget.font()
-            # font.setPointSize(12)
-            # widget.setFont(font)
-            layout.addWidget(widget, row, 2, n_labels, 2)
+                widget.textChanged.connect(partial(self.text_changed, key=key))
+            for grid_object in [label, widget]:
+                font = grid_object.font()
+                font.setPointSize(12)
+                grid_object.setFont(font)
+            self.layout.addWidget(label, row, 0)
+            self.layout.addWidget(widget, row, 1)
+            self.labels.append(label)
+            self.widgets.append(widget)
             row += 1
+
+    def update_param_window(self):
+        for idx, label in enumerate(self.labels):
+            if label.text() in set.union(constants.TERMS_IN, constants.TERMS_OUT):
+                self.widgets[idx].setText(str(self.node.params()['default'][label.text()]))
+
+    def combo_box_value_changed(self, int, items, key):
+        self.node.params()['default'][key] = items[int]
+
+    def value_changed(self, widget, key):
+        self.node.params()['default'][key] = widget.value()
+
+    def text_changed(self, text, key):
+        self.node.params()['default'][key] = text
 
     def labelFocusOut(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
@@ -633,6 +679,7 @@ class NodeGraphicsItem(GraphicsObject):
     def mouseDoubleClickEvent(self, ev):
         if int(ev.button()) == int(QtCore.Qt.LeftButton):
             ev.accept()
+            self.update_param_window()
             self.param_window.show()
 
     def mouseDragEvent(self, ev):
@@ -682,24 +729,16 @@ class NodeGraphicsItem(GraphicsObject):
                     terminal_name = 'inputs/' + terminal
                 else:
                     terminal_name = 'outputs/' + terminal
-                self.menu.addAction('Add {}'.format(terminal), partial(self.__add_terminal_from_menu,
-                                                                       name=terminal_name))
-            elif self._node_type == 'object':
-                for terminal_type in ['actuators', 'sensors', 'states']:
-                    terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
-                    for terminal in self._params[terminal_type].keys():
-                        terminal_name = str(terminal_type) + '/' + terminal
-                    act = terminal_menu.addAction(terminal, partial(self.__add_terminal_from_menu, name=terminal_name))
-                    if terminal_name in self.node.terminals.keys():
-                        act.setEnabled(False)
-                    self.menu.addMenu(terminal_menu)
+                self.menu.addAction('Add {}'.format(terminal), partial(self.node.addTerminal, name=terminal_name))
             else:
-                for terminal_type in ['inputs', 'outputs']:
-                    terminal_name = str(terminal_type) + '/' + terminal_type[:-1]
-                    self.menu.addAction('Add {}'.format(terminal_type[:-1]), partial(self.__add_terminal_from_menu,
-                                                                                     name=terminal_name))
+                for terminal_type in set.union(constants.TERMS[self._node_type]['in'],
+                                               constants.TERMS[self._node_type]['out']):
+                    terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
+                    for terminal in self._yaml[terminal_type]:
+                        terminal_name = str(terminal_type) + '/' + terminal
+                        act = terminal_menu.addAction(terminal, partial(self.node.addTerminal, name=terminal_name))
+                        if terminal_name in self.node.terminals.keys():
+                            act.setEnabled(False)
+                        self.menu.addMenu(terminal_menu)
         if self.node._allow_remove:
             self.menu.addAction("Remove {}".format(self.node.name()), self.node.close)
-
-    def __add_terminal_from_menu(self, name='Input'):
-        self.node.addTerminal(name=name)

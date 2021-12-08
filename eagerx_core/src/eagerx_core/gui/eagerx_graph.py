@@ -4,8 +4,6 @@
 
 # -*- coding: utf-8 -*-
 
-import os
-
 # Import pyqtgraph modules
 from pyqtgraph.Qt import QT_LIB
 from pyqtgraph.flowchart.Node import *
@@ -17,23 +15,25 @@ from pyqtgraph.python2_3 import asUnicode
 from pyqtgraph.debug import printExc
 
 # Import eagerx modules
-from eagerx_gui.Node import Node as EagerxNode
-from eagerx_gui.Terminal import Terminal as EagerxTerminal
-from eagerx_gui import eagerx_graph_view
+from eagerx_core.gui import eagerx_graph_view
+from eagerx_core.gui.Node import Node as EagerxNode
+from eagerx_core.gui.Terminal import Terminal as EagerxTerminal
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import load_yaml
+from eagerx_core.core import EAGERxEnv
 
 # pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
-    from eagerx_gui import EagerxGraphCtrlTemplate_pyside as EagerxGraphCtrlTemplate
+    from eagerx_core.gui import EagerxGraphCtrlTemplate_pyside as EagerxGraphCtrlTemplate
 elif QT_LIB == 'PySide2':
-    from eagerx_gui import EagerxGraphCtrlTemplate_pyside2 as EagerxGraphCtrlTemplate
+    from eagerx_core.gui import EagerxGraphCtrlTemplate_pyside2 as EagerxGraphCtrlTemplate
 elif QT_LIB == 'PyQt5':
-    from eagerx_gui import EagerxGraphCtrlTemplate_pyqt5 as EagerxGraphCtrlTemplate
+    from eagerx_core.gui import EagerxGraphCtrlTemplate_pyqt5 as EagerxGraphCtrlTemplate
 else:
-    from eagerx_gui import EagerxGraphCtrlTemplate_pyqt as EagerxGraphCtrlTemplate
+    from eagerx_core.gui import EagerxGraphCtrlTemplate_pyqt as EagerxGraphCtrlTemplate
 
-def strDict(d):
+
+def str_dict(d):
     return dict([(str(k), v) for k, v in d.items()])
 
 
@@ -47,7 +47,8 @@ class EagerxGraph(Node):
     def __init__(self, name='env', file_path=None, library=None):
         self.library = library
         self.filePath = file_path
-        Node.__init__(self, name, allowAddInput=True, allowAddOutput=True)  # create node without terminals; we'll add these later
+        Node.__init__(self, name, allowAddInput=True, allowAddOutput=True)  # create node without terminals; we'll
+        # add these later
 
         self.inputWasSet = False  # flag allows detection of changes in the absence of input change.
         self._nodes = {}
@@ -59,9 +60,9 @@ class EagerxGraph(Node):
         self.widget()
 
         # Create actions and observations nodes
-        actions = RxNodeParams.create('{}/actions'.format(name), package_name='eagerx_core', config_name='actions')
+        actions = EAGERxEnv.create_actions()
         actions_yaml = load_yaml('eagerx_core', 'actions')
-        observations = RxNodeParams.create('{}/observations'.format(name), 'eagerx_core', 'observations')
+        observations = EAGERxEnv.create_observations()
         observations_yaml = load_yaml('eagerx_core', 'observations')
         self.inputNode = EagerxNode(actions.name, params=actions.params, yaml=actions_yaml, graph=self)
         self.outputNode = EagerxNode(observations.name, params=observations.params, yaml=observations_yaml, graph=self)
@@ -70,16 +71,16 @@ class EagerxGraph(Node):
         self.addNode(self.outputNode, self.outputNode.name(), [300, 0])
         
         self.outputNode.sigOutputChanged.connect(self.outputChanged)
-        self.outputNode.sigTerminalRenamed.connect(self.internalTerminalRenamed)
-        self.inputNode.sigTerminalRenamed.connect(self.internalTerminalRenamed)
-        self.outputNode.sigTerminalRemoved.connect(self.internalTerminalRemoved)
-        self.inputNode.sigTerminalRemoved.connect(self.internalTerminalRemoved)
-        self.outputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
-        self.inputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
+        self.outputNode.sigTerminalRenamed.connect(self.internal_terminal_renamed)
+        self.inputNode.sigTerminalRenamed.connect(self.internal_terminal_renamed)
+        self.outputNode.sigTerminalRemoved.connect(self.internal_terminal_removed)
+        self.inputNode.sigTerminalRemoved.connect(self.internal_terminal_removed)
+        self.outputNode.sigTerminalAdded.connect(self.internal_terminal_added)
+        self.inputNode.sigTerminalAdded.connect(self.internal_terminal_added)
 
         self.viewBox.autoRange(padding=0.04)
       
-    def setLibrary(self, lib):
+    def set_library(self, lib):
         self.library = lib
         self.widget().chartWidget.buildMenu()
       
@@ -109,49 +110,49 @@ class EagerxGraph(Node):
         name = term.name()
         if opts['io'] == 'in':  ## inputs to the flowchart become outputs on the input node
             opts['io'] = 'out'
-            self.inputNode.sigTerminalAdded.disconnect(self.internalTerminalAdded)
+            self.inputNode.sigTerminalAdded.disconnect(self.internal_terminal_added)
             try:
                 self.inputNode.addTerminal(name, **opts)
             finally:
-                self.inputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
+                self.inputNode.sigTerminalAdded.connect(self.internal_terminal_added)
                 
         else:
             opts['io'] = 'in'
-            self.outputNode.sigTerminalAdded.disconnect(self.internalTerminalAdded)
+            self.outputNode.sigTerminalAdded.disconnect(self.internal_terminal_added)
             try:
                 self.outputNode.addTerminal(name, **opts)
             finally:
-                self.outputNode.sigTerminalAdded.connect(self.internalTerminalAdded)
+                self.outputNode.sigTerminalAdded.connect(self.internal_terminal_added)
         return term
 
     def removeTerminal(self, name):
         term = self[name]
-        inTerm = self.internalTerminal(term)
+        in_term = self.internalTerminal(term)
         Node.removeTerminal(self, name)
-        inTerm.node().removeTerminal(inTerm.name())
+        in_term.node().removeTerminal(in_term.name())
         
-    def internalTerminalRenamed(self, term, oldName):
-        self[oldName].rename(term.name())
+    def internal_terminal_renamed(self, term, old_name):
+        self[old_name].rename(term.name())
         
-    def internalTerminalAdded(self, node, term):
+    def internal_terminal_added(self, node, term):
         if term._io == 'in':
             io = 'out'
         else:
             io = 'in'
         Node.addTerminal(self, term.name(), io=io)
         
-    def internalTerminalRemoved(self, node, term):
+    def internal_terminal_removed(self, node, term):
         try:
             Node.removeTerminal(self, term.name())
         except KeyError:
             pass
         
-    def terminalRenamed(self, term, oldName):
-        newName = term.name()
-        Node.terminalRenamed(self, self[oldName], oldName)
+    def terminalRenamed(self, term, old_name):
+        new_name = term.name()
+        Node.terminalRenamed(self, self[old_name], old_name)
         for n in [self.inputNode, self.outputNode]:
-            if oldName in n.terminals:
-                n[oldName].rename(newName)
+            if old_name in n.terminals:
+                n[old_name].rename(new_name)
 
     def createNode(self, name, params, yaml, pos=None):
         """Create a new Node and add it to this flowchart.
@@ -202,10 +203,10 @@ class EagerxGraph(Node):
                 pass
         self.sigChartChanged.emit(self, 'remove', node)
         
-    def nodeRenamed(self, node, oldName):
-        del self._nodes[oldName]
+    def nodeRenamed(self, node, old_name):
+        del self._nodes[old_name]
         self._nodes[node.name()] = node
-        self.widget().nodeRenamed(node, oldName)
+        self.widget().nodeRenamed(node, old_name)
         self.sigChartChanged.emit(self, 'rename', node)
         
     def arrangeNodes(self):
@@ -735,7 +736,7 @@ class EagerxGraphWidget(dockarea.DockArea):
         self.subMenus = []
         self.nodeMenu = []
         for node_type, library in self.chart.library.items():
-            menu = QtGui.QMenu('Add {}'.format(node_type))
+            menu = QtGui.QMenu('Add {}'.format(node_type.replace('_', ' ')))
             buildSubMenu(library, menu, self.subMenus, pos=pos)
             menu.triggered.connect(self.nodeMenuTriggered)
             self.nodeMenu.append(menu)
@@ -809,7 +810,9 @@ class EagerxGraphWidget(dockarea.DockArea):
             self.hoverItem = item
             if hasattr(item, 'term') and isinstance(item.term, EagerxTerminal):
                 text = 'name: ' + item.term.terminal_name()
-                for key, value in item.term.info().items():
+                for key, value in item.term.params().items():
+                    if key == 'msg_type':
+                        value = item.term.connection_msg_type()
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return

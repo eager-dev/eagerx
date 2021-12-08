@@ -8,12 +8,14 @@ from roslaunch.substitution_args import _collect_args
 
 # OTHER
 import time
-from functools import reduce
 import importlib
 import inspect
+import glob
+from functools import reduce
 from time import sleep
 from six import raise_from
 from copy import deepcopy
+from pathlib import Path
 
 
 def get_attribute_from_module(module, attribute):
@@ -162,3 +164,38 @@ def substitute_yaml_args(param, context):
 def get_ROS_log_level(name):
     ns = '/'.join(name.split('/')[:2])
     return get_param_with_blocking(ns + '/log_level')
+
+
+def get_yaml_type(yaml):
+    if 'node_type' in yaml:
+        if 'targets' in yaml:
+            type = 'reset_node'
+        else:
+            type = 'node'
+    else:
+        type = 'object'
+    return type
+
+
+def get_nodes_and_objects_library():
+    library = {'reset_node': {}, 'node': {}, 'object': {}}
+    path_to_eagerx = substitute_xml_args('$(find eagerx_core)')
+    search_path = Path(path_to_eagerx).parent / '*' / 'config' / '*.yaml'
+    node_paths = glob.glob(str(search_path))
+    for path in node_paths:
+        package = None
+        node = None
+        for split in path.split('/'):
+            if split.startswith('eagerx'):
+                package = split
+            elif split.endswith('.yaml'):
+                node = split[:-5]
+        if package == 'eagerx_core' and node in ['actions', 'observations', 'bridge', 'supervisor']:
+            continue
+        if package is not None and node is not None:
+            yaml = load_yaml(package, node)
+            yaml_type = get_yaml_type(yaml)
+            if package not in library[yaml_type].keys():
+                library[yaml_type][package] = []
+            library[yaml_type][package].append({'name': node, 'yaml': yaml})
+    return library
