@@ -134,11 +134,15 @@ class RxEnv(object):
         # Initialize message broker
         mb = RxMessageBroker(owner='%s/%s' % (self.ns, 'env'))
 
+        # Get info from bridge on reactive properties
+        is_reactive = bridge.params['default']['is_reactive']
+        real_time_factor = bridge.params['default']['real_time_factor']
+
         # Create env node
         supervisor.params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_supervisor = RxSupervisor(name='%s/%s' % (self.ns, supervisor.name), message_broker=mb)
+        rx_supervisor = RxSupervisor('%s/%s' % (self.ns, supervisor.name), mb, is_reactive, real_time_factor)
         rx_supervisor.node_initialized()
 
         # Connect io
@@ -264,7 +268,7 @@ class RxEnv(object):
 
     def _step(self, action: Dict) -> Dict:
         # Check that nodes were previously initialized.
-        assert self.initialized, 'Not yet initialized. Call .initialize_node_pipelines() before calling .step().'
+        assert self.initialized, 'Not yet initialized. Call .reset() before calling .step().'
 
         # Set actions in buffer
         self._set_action(action)

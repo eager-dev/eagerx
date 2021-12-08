@@ -16,7 +16,7 @@ from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 class NodeBase:
     def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
-                 inputs, outputs, states, feedthroughs,  targets, launch_file=None,
+                 inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, launch_file=None,
                  color='grey', print_mode=TERMCOLOR, log_level=ERROR):
         """
         All parameters that were uploaded via RxNodeParams.get_params(ns=..) to the rosparam server are stored in this object.
@@ -38,6 +38,8 @@ class NodeBase:
         self.states = states
         self.feedthroughs = feedthroughs
         self.targets = targets
+        self.is_reactive = is_reactive
+        self.real_time_factor = real_time_factor
         self.color = color
         self.print_mode = print_mode
         self.log_level = log_level
@@ -255,6 +257,7 @@ class RealResetNode(Node):
                 t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -339,7 +342,8 @@ class ProcessNode(Node):
 
         # Verify that # of ticks equals internal counter
         if not self.num_ticks == node_tick:
-            rospy.logerr('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
+            rospy.logerr('[%s][callback]: ticks not equal (self.num_ticks=%d, node_tick=%d).' % (self.name, self.num_ticks, node_tick))
+            pass
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * (1 / self.rate)
@@ -348,7 +352,8 @@ class ProcessNode(Node):
             if name in inputs:
                 t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
-                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
