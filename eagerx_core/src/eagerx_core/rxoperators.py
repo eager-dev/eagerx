@@ -284,7 +284,8 @@ def regroup_msgs(name, dt_i=None, dt_n=None):
                         t_i = [count * dt_i if count is not None else None for count in counts]
                         res['t_i'] = t_i
                         res['dt_i'] = dt_i
-                        assert len(t_i) == 0 or all(t <= t_n for t in t_i if t is not None), 'Not all t_msgs are smaller or equal to t_n: %s' % str(res)
+                        # todo: use? also in async case?
+                        # assert len(t_i) == 0 or all(t <= t_n for t in t_i if t is not None), 'Not all t_msgs are smaller or equal to t_n: %s' % str(res)
 
                 # Check that all num_msgs are the same
                 if 'num_msgs' in value[0]:
@@ -426,6 +427,8 @@ def gen_msg(Ir):
 def get_repeat_fn(repeat, name):
     if repeat == 'all':
         repeat_fn = lambda x: [dict(x[0], **{'msg': msg[name]}) for msg in x[1]]
+    elif repeat == 'last':
+        repeat_fn = lambda x: [dict(x[0], **{'msg': x[1][-1][name]})]
     elif repeat == 'empty':
         repeat_fn = lambda x: [dict(x[0], **{'msg': (None, None)})]
     else:
@@ -433,7 +436,14 @@ def get_repeat_fn(repeat, name):
     return repeat_fn
 
 
-def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase):
+def create_channel(ns, Nc, dt_n, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
+    if is_reactive:
+        return create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, node)
+    else:
+        return create_async_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
+
+
+def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, node: NodeBase):
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
@@ -461,13 +471,20 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase
         print(e)
 
     # Create input channel
-    num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                       ops.start_with(0),
-                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
-    msg = num_msgs.pipe(gen_msg(Ir))
+    if real_time_factor == 0:
+        num_msgs = Nc.pipe(ops.observe_on(scheduler),
+                           ops.start_with(0),
+                           ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
+    else:
+        num_msgs = Nc.pipe(ops.observe_on(scheduler),
+                           # ops.start_with(0),
+                           ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
+    msg = num_msgs.pipe(gen_msg(Ir)) #, spy('gen_msg', node, log_level=DEBUG))  # todo: add ops.share() to gen_msg?
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
+                            # spy('bf_rpt', node, log_level=DEBUG),
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
+                            # spy('after_rpt', node, log_level=DEBUG),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
                             ops.share())
@@ -482,12 +499,74 @@ def create_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, node: NodeBase
     return channel, flag
 
 
-def init_channels(ns, Nc, dt_n, inputs, scheduler, node: NodeBase, is_feedthrough=False):
+def create_async_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, E, node: NodeBase):
+    if is_feedthrough:
+        name = inpt['feedthrough_to']
+    else:
+        name = inpt['name']
+
+    # Readable format
+    Is = inpt['reset']
+    Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
+                          ops.skip_until(E),
+                          # spy('Ir_%s' % name, node),
+                          ops.map(inpt['converter'].convert),
+                          ops.scan(lambda acc, msg: (acc[0] + 1, msg), (-1, None)),
+                          ops.share(),
+                          )
+
+    # Get rate from rosparam server
+    try:
+        # if 'is_reactive' in inpt and not inpt['is_reactive']:
+        if 'rate' in inpt:
+            rate = inpt['rate']
+        else:
+            rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
+            rate = get_param_with_blocking(rate_str)
+        dt_i = 1 / rate
+    except Exception as e:
+        print(e)
+        raise ValueError('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
+
+    # Create input channel
+    num_msgs = Nc.pipe(ops.observe_on(scheduler),
+                       # ops.start_with(0),
+                       spy('Nct_%s' % name, node),
+                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}),
+                       ops.share())
+    msg = Ir.pipe(#spy('Ir_%s' % name, node),
+                  ops.buffer(num_msgs),
+                  # spy('buf_%s' % name, node),
+                  ops.zip(num_msgs),  # ([(0, data: "string: 0"), (0, data: "string: 1")], {'node_tick': 0, 'num_msgs': 0})
+                  ops.map(lambda x: [dict(x[1], **{'msg': msg}) for msg in x[0]]),  # [{'node_tick': 0, 'num_msgs': 0, 'msg': (0, data: "string: 0")}, {'node_tick': 0, 'num_msgs': 0, 'msg': (0, data: "string: 1")}]
+                  ops.filter(lambda x: len(x) > 0),
+                  spy('fil_%s' % name, node),
+                  ops.share()
+                  )
+    channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
+                            ops.with_latest_from(msg.pipe(ops.start_with([]))),  # todo: msg gets dropped here
+                            ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
+                            ops.merge(msg),
+                            regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
+                            spy('%s' % name, node),
+                            ops.share())
+
+    # Create reset flag
+    flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
+                   ops.start_with(0),
+                   ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+                   # ops.filter(lambda value: value[0] == value[1]),
+                   ops.map(lambda x: {name: x[0]})
+                   )
+    return channel, flag
+
+
+def init_channels(ns, Nc, dt_n, inputs, is_reactive, real_time_factor, E, scheduler, node: NodeBase, is_feedthrough=False):
     # Create channels
     channels = []
     flags = []
     for i in inputs:
-        channel, flag = create_channel(ns, Nc, dt_n, i, scheduler, node=node, is_feedthrough=is_feedthrough)
+        channel, flag = create_channel(ns, Nc, dt_n, i, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
         channels.append(channel)
         if is_feedthrough:
             name = i['address']
@@ -500,7 +579,7 @@ def init_channels(ns, Nc, dt_n, inputs, scheduler, node: NodeBase, is_feedthroug
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, scheduler, node: NodeBase):
+def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, scheduler, node: NodeBase):
     # Create real reset pipeline
     dispose = []
     if real_reset:
@@ -511,8 +590,7 @@ def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, schedule
                 raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (dt_n, dt_i))
 
         # Create zipped action channel
-        # todo: in real world implementation, how to deal with action feedthrough? Perhaps not zip, but feedthrough every action individually.
-        zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, scheduler, node, is_feedthrough=True)
+        zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, is_reactive, real_time_factor, E, scheduler, node, is_feedthrough=True)
 
         # Create switch subject
         target_signal = rx.zip(*[t['msg'] for t in targets])
@@ -813,3 +891,79 @@ def filter_dict_on_key(key):
         return rx.create(subscribe)
 
     return _filter_dict_on_key
+
+
+def throttle_callback_trigger(dt_n, Nc, Nr, E, is_reactive, real_time_factor, node: NodeBase):
+    if is_reactive and real_time_factor == 0:
+        Nct = Nc
+    elif is_reactive and real_time_factor > 0:
+        Nct = rx.interval(dt_n / real_time_factor).pipe(#ops.skip_until(E),
+                                                        ops.scan(lambda acc, x: acc + 1, -1),
+                                                        ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
+                                                                                   ops.start_with(0))),
+                                                        ops.distinct_until_changed(key_mapper=lambda x: x,
+                                                                                   comparer=lambda x, y: (
+                                                                                               x[0] == y[0] or x[1] ==
+                                                                                               y[1])),
+                                                        ops.map(lambda x: x[1]),
+                                                        ops.share(),
+                                                        )
+    else:
+        assert real_time_factor > 0, "The real_time_factor must be larger than zero when *not* running reactive (i.e. asychronous)."
+        Nct = rx.interval(dt_n / real_time_factor).pipe(ops.skip_until(E),
+                                                        ops.scan(lambda acc, x: acc + 1, -1),
+                                                        ops.combine_latest(Nc.pipe(ops.merge(Nr.pipe(spy('Nr', node))),
+                                                                                   ops.scan(lambda acc, x: acc + 1, 0),
+                                                                                   ops.start_with(0))),
+                                                        ops.distinct_until_changed(key_mapper=lambda x: x,
+                                                                                   comparer=lambda x, y: (
+                                                                                               x[0] == y[0] or x[1] ==
+                                                                                               y[1])),
+                                                        ops.map(lambda x: x[0]),
+                                                        # spy('Nct', node),
+                                                        ops.share())
+    return Nct
+
+
+def feedback_callback_trigger(Nr, inputs, feedthrough):
+    repeat_inputs = [i['name'] for i in inputs if i['repeat'] != 'empty']
+    repeat_fts = [i['feedthrough_to'] for i in feedthrough if i['repeat'] != 'empty']
+    def _feedback_callback_trigger(source):
+        def subscribe(observer, scheduler=None):
+            if len(repeat_inputs) > 0:
+                flag_inputs = [False]
+            else:
+                flag_inputs = [True]
+            if len(repeat_fts) > 0:
+                flag_fts = [False]
+            else:
+                flag_fts = [True]
+
+            def on_next(value):
+                if value[1] is None:  # normal
+                    if not flag_inputs[0]:
+                        if all([len(value[0][i]['msg']) > 0 for i in repeat_inputs]):  # check if number of msgs > 0
+                            flag_inputs[0] = True
+                            observer.on_next(value)
+                        else:
+                            Nr.on_next(value)
+                    else:
+                        observer.on_next(value)
+                else:  # ft mode
+                    if not flag_fts[0]:
+                        if all([len(value[1][i]['msg']) > 0 for i in repeat_fts]):  # check if number of msgs > 0
+                            flag_fts[0] = True
+                            observer.on_next(value)
+                        else:
+                            Nr.on_next(value)
+                    else:
+                        observer.on_next(value)
+
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+
+        return rx.create(subscribe)
+    return _feedback_callback_trigger

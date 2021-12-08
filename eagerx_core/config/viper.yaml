@@ -12,6 +12,11 @@ sensors: # inputs of env
   N6:
     rate: 1
     msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]
   N7:
     rate: 2
     msg_type: std_msgs.msg/UInt64
@@ -74,7 +79,7 @@ bridge:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       inputs: {in_1: $(obj_name)/sensors/N6}  # $(obj_name) is replaced at run-time with object name
       color: cyan
-      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'
 
   actuators:  # Inputs as defined above
@@ -83,7 +88,7 @@ bridge:
       inputs: {in_3: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
                in_2: $(obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
       color: green
-      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
 #      input_converters:  # can only contain converters for inputs other than "actuator input" ("in_1" in this case)
 #        action_2:
 #          converter_type: eagerx_core.baseconverter/SpaceUInt64Converter

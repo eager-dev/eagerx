@@ -141,14 +141,14 @@ class SupervisorNode(NodeBase):
 
 
 class RxSupervisor(object):
-    def __init__(self, name, message_broker):
+    def __init__(self, name, message_broker, is_reactive, real_time_factor):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
         self.mb = message_broker
         self.initialized = False
 
         # Prepare input & output topics
-        outputs, states, self.node = self._prepare_io_topics(self.name)
+        outputs, states, self.node = self._prepare_io_topics(self.name, is_reactive, real_time_factor)
 
         # Initialize reactive pipeline
         rx_objects, env_subjects = eagerx_core.rxpipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
@@ -164,12 +164,13 @@ class RxSupervisor(object):
             rospy.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
-    def _prepare_io_topics(self, name):
+    def _prepare_io_topics(self, name, is_reactive, real_time_factor):
         params = get_param_with_blocking(name)
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
-        node = node_cls(ns=self.ns, message_broker=self.mb, **params)
+        node = node_cls(ns=self.ns, message_broker=self.mb, is_reactive=is_reactive, real_time_factor=real_time_factor,
+                        **params)
 
         # Prepare output topics
         for i in params['outputs']:

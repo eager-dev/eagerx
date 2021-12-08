@@ -75,7 +75,7 @@ def configure_connections(connections):
             if isinstance(source[0], RxNodeParams):
                 space_converter = source[0].params['outputs'][source[1]]['space_converter']
             elif isinstance(source[0], RxObjectParams):
-                space_converter = source[0].params['sensors'][source[1]]['space_converter']
+                space_converter = source[0].params['sensors'][source[2]]['space_converter']
             else:
                 raise ValueError('Cannot infer properties from source "%s".' % source)
             msg_type_C = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))

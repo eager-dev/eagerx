@@ -17,20 +17,20 @@ from eagerx_core.utils.utils import initialize_state
 
 
 class BridgeBase(NodeBase):
-    def __init__(self, simulator, target_addresses, node_names, reactive, real_time_factor, **kwargs):
+    def __init__(self, simulator, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
         self.simulator = simulator
         self.target_addresses = target_addresses
         self.node_names = node_names
-        self.reactive = reactive
+        self.is_reactive = is_reactive
         self.real_time_factor = real_time_factor
 
         # Check real_time_factor & reactive args
-        assert reactive or (not reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set reactive=True or real_time_factor > 0'
+        assert is_reactive or (not is_reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
 
         # Initialized nodes
         self.is_initialized = dict()
 
-        super(BridgeBase, self).__init__(**kwargs)
+        super(BridgeBase, self).__init__(is_reactive=is_reactive, real_time_factor=real_time_factor, **kwargs)
 
     def register_node(self, node_params):
         # Initialize nodes
@@ -124,7 +124,7 @@ class TestBridgeNode(BridgeBase):
         # Initialize any simulator here, that is passed as reference to each simnode
         simulator = None
 
-        # If real_time bridge, assert that real_time_factor == 1 & reactive=False.
+        # If real_time bridge, assert that real_time_factor == 1 & is_reactive=False.
 
         # Initialize nonreactive input
         self.nonreactive_pub = rospy.Publisher(kwargs['ns'] + nonreactive_address, UInt64, queue_size=0, latch=True)
@@ -161,7 +161,7 @@ class TestBridgeNode(BridgeBase):
 
         # Verify that # of ticks equals internal counter
         if not self.num_ticks == node_tick:
-            print('[%s]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
+            rospy.logerr('[%s][callback]: ticks not equal (self.num_ticks=%d, node_tick=%d).' % (self.name, self.num_ticks, node_tick))
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * (1 / self.rate)
@@ -170,7 +170,7 @@ class TestBridgeNode(BridgeBase):
             if name in kwargs:
                 t_i = kwargs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
-                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
