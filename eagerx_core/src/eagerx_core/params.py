@@ -516,10 +516,10 @@ class RxObjectParams(Params):
         obj_params['states'] = [s.get_params(ns) for s in states]
 
         # Remove clutter from parameters
-        obj_params[bridge] = params[bridge].copy()
+        obj_params['bridge'] = params[bridge].copy()
         for c in ('sensors', 'actuators', 'states'):
-            if c in obj_params[bridge]:
-                del obj_params[bridge][c]
+            if c in obj_params['bridge']:
+                del obj_params['bridge'][c]
             if c in obj_params:
                 if c == 'states': continue
                 del obj_params[c]

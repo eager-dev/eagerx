@@ -90,16 +90,16 @@ class Node(NodeBase):
 
 
 class SimNode(Node):
-    def __init__(self, **kwargs):
-        self.simulator = None
-        self.object_params = None
+    def __init__(self, simulator=None, object_params=None, **kwargs):
+        self.simulator = simulator
+        self.object_params = object_params
         super().__init__(**kwargs)
 
-    def set_object_params(self, object_params):
-        self.object_params = object_params
-
-    def set_simulator(self, simulator):
-        self.simulator = simulator
+    # def set_object_params(self, object_params):
+    #     self.object_params = object_params
+    #
+    # def set_simulator(self, simulator):
+    #     self.simulator = simulator
 
     @abc.abstractmethod
     def reset(self, **kwargs):
@@ -280,11 +280,8 @@ class RealResetNode(Node):
         return output_msgs
 
 
-class ProcessNode(Node):
+class ProcessNode(SimNode):
     def __init__(self, test_arg, **kwargs):
-        # If node is simulator, we will probably use this in callback & reset
-        self.simulator = None
-
         # Message counter
         self.num_ticks = 0
         self.num_resets = 0
@@ -295,9 +292,6 @@ class ProcessNode(Node):
         self.iter_ticks = 0
         self.print_iter = 20
         super().__init__(**kwargs)
-
-    def set_simulator(self, simulator):
-        self.simulator = simulator
 
     def reset(self, state_1: UInt64 = None, state_2: UInt64 = None) -> Dict[str, UInt64]:
         self.num_resets += 1

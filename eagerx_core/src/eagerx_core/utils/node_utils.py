@@ -204,6 +204,7 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
                      launch_nodes: Dict,
                      in_object: bool = False,
                      rxnode_cls: Any = RxNode,
+                     node_args: Dict = None,
                      ):
     if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
@@ -239,7 +240,9 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
 
         # Initialize node
         if params['process'] == process_id:  # Initialize inside this process
-            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker)
+            if node_args is None:
+                node_args = dict()
+            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, **node_args)
             sp_nodes[node_address].node_initialized()
         elif params['process'] == process.NEW_PROCESS and process_id == process.ENVIRONMENT:  # Only environment can launch new processes (as it is the main_thread)
             assert 'launch_file' in params, 'No launch_file defined. Node "%s" can only be launched as a separate process if a launch_file is specified.' % name
