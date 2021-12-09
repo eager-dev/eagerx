@@ -89,8 +89,7 @@ if __name__ == '__main__':
     # False & real_time_factor=0: ERROR --> cannot run as fast as possible asynchronous (without a common clock)
     # True & real_time_factor = 0,  # --> as fast as possible and disregard real_time_factor
 
-    # Todo: WHERE DID I STOP? Why does create_async_channel deadlock!?
-
+    # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
     # todo: msg_type check for "{'source': (actions, 'act_1'), 'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter},"
     #       Here, we do use both the converter and space_converters ---> will result in error and must be checked before initialization.
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)

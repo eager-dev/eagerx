@@ -54,6 +54,7 @@ class BridgeBase(NodeBase):
         for i in state_params:
             i['state']['name'] = i['name']
             i['state']['simulator'] = self.simulator
+            i['state']['object_params'] = object_params
             i['state']['ns'] = self.ns
             i['state'] = initialize_state(i['state'])
 
