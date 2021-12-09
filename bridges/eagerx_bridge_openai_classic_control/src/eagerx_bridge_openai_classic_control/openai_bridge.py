@@ -44,7 +44,7 @@ class OpenAIBridge(BridgeBase):
 
     def callback(self, node_tick: int, t_n: float,  **kwargs: Dict[str, Union[List[Message], float, int]]):
         for obj_name, sim in self.simulator.items():
-            next_action = sim['env']['next_action']
+            next_action = sim['next_action']
             obs, reward, is_done, _ = sim['env'].step(next_action)
             sim['last_obs'] = obs
             sim['last_reward'] = reward

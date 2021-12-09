@@ -7,7 +7,7 @@ from eagerx_core.constants import process
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Process configuration (optional)
     node_p = process.NEW_PROCESS
@@ -18,33 +18,28 @@ if __name__ == '__main__':
     # pid = RxNode.create('pid', 'eagerx_node_pid', 'process', rate=1.0, process=node_p)
 
     # Define object
-    # todo: Create object (.yaml)
-    # todo: Implement eagerx_bridge_openai_classic_gym.converters/OpenAISpaceFloat32MultiArray (.py)
-    # todo: Implement eagerx_bridge_openai_classic_control/TorqueControl (.yaml & .py)
-    # todo: Implement eagerx_bridge_openai_classic_control/JointSensor (.yaml & .py) --> get obs from env and convert to ROS message in callback
-    # todo: Implement eagerx_bridge_openai_classic.simstates/PendulumState
-    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum')
+    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'])
 
     # Define action/observations
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
     # Define render (optional)
-
-    # todo: Implement eagerx_bridge_openai_classic_control/RenderSensor (.yaml & .py)
-    # render = EAGERxEnv.create_render(rate=1)
+    render = EAGERxEnv.create_render(rate=20)
 
     # Connect nodes
-    # todo: Create connections
     connections = [{'source': (pendulum, 'sensors', 'pos_vel'), 'target': (observations, 'pos_vel'), 'delay': 0.0},
-                   {'source': (actions, 'torque'),              'target': (pendulum, 'actuators', 'torque'), 'delay': 1.0},
+                   {'source': (actions, 'torque'),              'target': (pendulum, 'actuators', 'torque'), 'delay': 0.0},
+                   {'source': (pendulum, 'sensors', 'image'),   'target': (render, 'inputs', 'image')}
                    ]
     configure_connections(connections)
 
     # Define bridge
-    # todo: Add object_params & simulator as kwargs to simstate --> so that we have them at initialization.
-    # todo: add check on msg_type of object node vs msg_type inside node_config
-    # todo: Create bridge_openai_classic_control (yaml & .py)
-    bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'openai_bridge', rate=20, process=bridge_p, is_reactive=True, real_time_factor=0)
+    # todo: setting env, sensor, actuator, and bridge rates to "20" somehow deadlocks (at supervisor?) setting env to a lower rate solves the problem...?
+    # todo: change info msgs printed in .step() and reset() in supervisor to rospy.logdebug
+    # todo: render --> add default_arg "visualize=False"
+    # todo: env.render(mode="rgb_array") is not starting the render.
+    # todo: make real_time_factor implementation faster, with time.sleep?
+    bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'openai_bridge', rate=1, process=bridge_p, is_reactive=True, real_time_factor=0)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -55,7 +50,7 @@ if __name__ == '__main__':
                     nodes=[],
                     # nodes=[PID],
                     objects=[pendulum],
-                    # render=render,
+                    render=render,
                     # reset_fn=lambda env: {#'obj/N9': env.state_space.sample()['obj/N9'],
                     #                       'bridge/param_1': env.state_space.sample()['bridge/param_1']}
                     )
@@ -63,9 +58,9 @@ if __name__ == '__main__':
     # First reset
     obs = env.reset()
     env.render(mode='human')
-    for j in range(20000):
+    for j in range(20):
         print('\n[Episode %s]' % j)
-        for i in range(1000):
+        for i in range(200):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             rgb = env.render(mode='rgb_array')
