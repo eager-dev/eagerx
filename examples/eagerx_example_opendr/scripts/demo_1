@@ -1,0 +1,72 @@
+# ROS packages required
+import rospy
+from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
+from eagerx_core.utils.node_utils import configure_connections, launch_roscore
+from eagerx_core.constants import process
+
+if __name__ == '__main__':
+    roscore = launch_roscore()  # First launch roscore
+
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+
+    # Process configuration (optional)
+    node_p = process.NEW_PROCESS
+    bridge_p = process.ENVIRONMENT
+
+    # Define nodes
+    # todo: Create pid node (ROS package, .yaml, .py)
+    # pid = RxNode.create('pid', 'eagerx_node_pid', 'process', rate=1.0, process=node_p)
+
+    # Define object
+    # todo: Create object (.yaml)
+    # todo: Implement eagerx_bridge_openai_classic_gym.converters/OpenAISpaceFloat32MultiArray (.py)
+    # todo: Implement eagerx_bridge_openai_classic_control/TorqueControl (.yaml & .py)
+    # todo: Implement eagerx_bridge_openai_classic_control/JointSensor (.yaml & .py) --> get obs from env and convert to ROS message in callback
+    # todo: Implement eagerx_bridge_openai_classic.simstates/PendulumState
+    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum')
+
+    # Define action/observations
+    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
+
+    # Define render (optional)
+    # todo: Implement eagerx_bridge_openai_classic_control/RenderSensor (.yaml & .py)
+    # render = EAGERxEnv.create_render(rate=1)
+
+    # Connect nodes
+    # todo: Create connections
+    connections = [{'source': (pendulum, 'sensors', 'pos_vel'), 'target': (observations, 'pos_vel'), 'delay': 0.0},
+                   {'source': (actions, 'torque'),              'target': (pendulum, 'actuators', 'torque'), 'delay': 1.0},
+                   ]
+    configure_connections(connections)
+
+    # Define bridge
+    # todo: Now, is always bridge.name="bridge", but must be changed to config name --> in main branch.
+    # todo: Add object_params & simulator as kwargs to simnode --> so that we have them at initialization.
+    # todo: Create bridge_openai_classic_control (yaml & .py)
+    bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'bridge', rate=20, process=bridge_p, is_reactive=True, real_time_factor=0)
+
+    # Initialize Environment
+    env = EAGERxEnv(name='rx',
+                    rate=1,
+                    actions=actions,
+                    observations=observations,
+                    bridge=bridge,
+                    nodes=[],
+                    # nodes=[PID],
+                    objects=[pendulum],
+                    # render=render,
+                    # reset_fn=lambda env: {#'obj/N9': env.state_space.sample()['obj/N9'],
+                    #                       'bridge/param_1': env.state_space.sample()['bridge/param_1']}
+                    )
+
+    # First reset
+    obs = env.reset()
+    env.render(mode='human')
+    for j in range(20000):
+        print('\n[Episode %s]' % j)
+        for i in range(1000):
+            action = env.action_space.sample()
+            obs, reward, done, info = env.step(action)
+            rgb = env.render(mode='rgb_array')
+        obs = env.reset()
+    print('\n[Finished]')

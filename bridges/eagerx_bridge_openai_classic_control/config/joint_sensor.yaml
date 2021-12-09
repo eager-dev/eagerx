@@ -1,0 +1,17 @@
+node_type: eagerx_bridge_openai_classic_control.simnodes/JointSensor
+default:
+  rate:
+  inputs: [tick]
+  outputs: [joint_obs]
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  launch_file: '$(find eagerx_core)/launch/rxnode.launch'
+  mode: {pos: 0, vel: 1}  # {key: index}
+
+inputs:
+  tick:
+    msg_type: std_msgs.msg/UInt64
+    repeat: all
+
+outputs:
+  joint_obs:
+    msg_type: std_msgs.msg/Float64MultiArray
