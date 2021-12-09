@@ -57,7 +57,7 @@ class RxEnv(object):
         self.rate = rate
         self.render_node = render_node
         self.initialized = False
-        self._bridge_name = bridge.name
+        self._bridge_name = '%s/%s' % (bridge.params['default']['package_name'], bridge.params['default']['config_name'])  # bridge.name
 
         # Initialize supervisor node
         self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)

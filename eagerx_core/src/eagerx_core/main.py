@@ -15,8 +15,8 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process', rate=1.0, process=node_p)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=20)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=5)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',

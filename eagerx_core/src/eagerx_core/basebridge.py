@@ -60,14 +60,9 @@ class BridgeBase(NodeBase):
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
+        node_args = dict(object_params=params, simulator=self.simulator)
+        initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args)
         for name, node in sp_nodes.items():
-            # Set object parameters
-            if hasattr(node.node, 'set_object_params'):
-                node.node.set_object_params(params)
-            # Set simulator
-            if hasattr(node.node, 'set_simulator'):
-                node.node.set_simulator(self.simulator)
             # Initialize
             node.node_initialized()
         wait_for_node_initialization(self.is_initialized)
