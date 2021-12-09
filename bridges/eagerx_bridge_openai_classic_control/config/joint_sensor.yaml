@@ -14,4 +14,4 @@ inputs:
 
 outputs:
   joint_obs:
-    msg_type: std_msgs.msg/Float64MultiArray
+    msg_type: std_msgs.msg/Float32MultiArray

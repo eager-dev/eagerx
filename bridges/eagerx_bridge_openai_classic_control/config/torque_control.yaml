@@ -11,9 +11,9 @@ inputs:
     msg_type: std_msgs.msg/UInt64
     repeat: all
   torque:
-    msg_type: std_msgs.msg/Float64
+    msg_type: std_msgs.msg/Float32MultiArray
     repeat: last
 
 outputs:
   torque_applied:
-    msg_type: std_msgs.msg/Float64
+    msg_type: std_msgs.msg/Float32MultiArray

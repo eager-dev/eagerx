@@ -31,6 +31,12 @@ class OpenAIBridge(BridgeBase):
         return object_params
 
     def pre_reset(self):
+        for obj_name, sim in self.simulator.items():
+            obs = sim['env'].reset()
+            sim['last_obs'] = obs
+            sim['next_action'] = None
+            sim['last_reward'] = None
+            sim['last_is_done'] = None
         return
 
     def reset(self):
@@ -40,9 +46,9 @@ class OpenAIBridge(BridgeBase):
         for obj_name, sim in self.simulator.items():
             next_action = sim['env']['next_action']
             obs, reward, is_done, _ = sim['env'].step(next_action)
-            sim['env']['last_obs'] = obs
-            sim['env']['last_reward'] = reward
-            sim['env']['last_is_done'] = is_done
+            sim['last_obs'] = obs
+            sim['last_reward'] = reward
+            sim['last_is_done'] = is_done
 
         # Fill output msg with number of node ticks
         return dict(tick=UInt64(data=node_tick+1))

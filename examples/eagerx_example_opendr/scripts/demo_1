@@ -29,6 +29,7 @@ if __name__ == '__main__':
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
 
     # Define render (optional)
+
     # todo: Implement eagerx_bridge_openai_classic_control/RenderSensor (.yaml & .py)
     # render = EAGERxEnv.create_render(rate=1)
 
@@ -40,10 +41,10 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    # todo: Now, is always bridge.name="bridge", but must be changed to config name --> in main branch.
-    # todo: Add object_params & simulator as kwargs to simnode --> so that we have them at initialization.
+    # todo: Add object_params & simulator as kwargs to simstate --> so that we have them at initialization.
+    # todo: add check on msg_type of object node vs msg_type inside node_config
     # todo: Create bridge_openai_classic_control (yaml & .py)
-    bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'bridge', rate=20, process=bridge_p, is_reactive=True, real_time_factor=0)
+    bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'openai_bridge', rate=20, process=bridge_p, is_reactive=True, real_time_factor=0)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',

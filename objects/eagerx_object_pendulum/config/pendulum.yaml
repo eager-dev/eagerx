@@ -35,7 +35,7 @@ states:  # reset states inside bridge
 #########################
 ### Engine definition ###
 #########################
-bridge:
+eagerx_bridge_openai_classic_control/openai_bridge:
   id: 'Pendulum-v0'
   sensors:
     pos_vel:

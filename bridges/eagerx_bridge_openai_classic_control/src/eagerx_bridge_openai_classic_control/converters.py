@@ -1,5 +1,5 @@
 # ROS IMPORTS
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 
 # RX IMPORTS
 from eagerx_core.baseconverter import SpaceConverter
@@ -24,7 +24,7 @@ class OpenAISpaceFloat32MultiArray(SpaceConverter):
             self.low = np.array(low)
             self.high = np.array(high)
             self.shape = shape
-            self.dtype = dtype
+        self.dtype = dtype
 
     def get_space(self):
         if self.space is not None:
@@ -36,4 +36,4 @@ class OpenAISpaceFloat32MultiArray(SpaceConverter):
         return Float32MultiArray(data=msg)
 
     def B_to_A(self, msg):
-        return np.array([msg.data], dtype=self.dtype)
+        return np.array(msg.data, dtype=self.dtype)
