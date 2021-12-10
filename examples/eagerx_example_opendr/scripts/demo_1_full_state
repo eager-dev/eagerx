@@ -12,10 +12,15 @@ if __name__ == '__main__':
     # Define nodes
     # todo: Create pid node (.yaml, .py)
     # todo: Create classifier node (.yaml, .py)
-    # pid = RxNode.create('pid', 'eagerx_node_pid', 'process', rate=1.0, process=process.NEW_PROCESS)
+    # todo: space converter Image --> float [0,1] to ImageUInt8, shape according to dataset
+    # todo: flatten wrapper --> look in old eager repo
+    # todo: implement reward function --> quadratic pendulum reward
+    # todo: implement is_done --> after 200 episodes
+    # pid = RxNode.create('pid', 'eagerx_node_pid', 'pid', rate=1.0, process=process.NEW_PROCESS)
+    # pid = RxNode.create('pid', 'eagerx_node_classifier', 'pendulum', rate=10.0, process=process.NEW_PROCESS)
 
     # Define object
-    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'])
+    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'], always_render=True)
 
     # Define action/observations
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
@@ -24,8 +29,9 @@ if __name__ == '__main__':
     render = EAGERxEnv.create_render(display=False)
 
     # Connect nodes
-    connections = [{'source': (pendulum, 'sensors', 'pos_vel'), 'target': (observations, 'pos_vel'), 'delay': 0},
-                   {'source': (actions, 'torque'),              'target': (pendulum, 'actuators', 'torque'), 'delay': 0},
+    connections = [{'source': (pendulum, 'sensors', 'pos_vel'), 'target': (observations, 'pos_vel')},
+                   {'source': (pendulum, 'sensors', 'image'),   'target': (observations, 'image')},
+                   {'source': (actions, 'torque'),              'target': (pendulum, 'actuators', 'torque')},
                    {'source': (pendulum, 'sensors', 'image'),   'target': (render, 'inputs', 'image')}
                    ]
     configure_connections(connections)

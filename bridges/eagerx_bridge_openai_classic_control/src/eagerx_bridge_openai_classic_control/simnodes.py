@@ -1,4 +1,6 @@
 from typing import Dict, List, Union
+import skimage.transform
+import numpy as np
 
 # IMPORT ROS
 import rospy
@@ -60,10 +62,11 @@ class JointSensor(SimNode):
 
 
 class OpenAIRenderer(SimNode):
-    def __init__(self, mode, ns, object_params, **kwargs):
+    def __init__(self, shape, ns, object_params, **kwargs):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
-        self.mode = mode
+        self.shape = tuple(shape)
+        self.always_render = object_params['always_render']
         self.render_toggle = False
         self.id = object_params['bridge']['id']
         self.obj_name = object_params['name']
@@ -82,12 +85,28 @@ class OpenAIRenderer(SimNode):
         # This sensor is stateless (in contrast to e.g. a PID controller).
         pass
 
+    def _show_ros_image(self, msg):
+        import matplotlib.pyplot as plt
+        rgb_back = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, -1)
+        plt.imshow(rgb_back)
+        plt.show()
+
     def callback(self, node_tick: int, t_n: float,
                  tick: Dict[str, Union[List[UInt64], float, int]] = None) -> Dict[str, Image]:
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        if self.render_toggle:
+        if self.always_render or self.render_toggle:
             rgb = self.simulator[self.obj_name]['env'].render(mode="rgb_array")
-            msg = Image()
+
+            # Resize image if not matching desired self.shape (defined in .yaml)
+            if rgb.shape[:2] != tuple(self.shape):
+                kwargs = dict(output_shape=self.shape, mode='edge', order=1, preserve_range=True)
+                rgb = skimage.transform.resize(rgb, **kwargs).astype(rgb.dtype)
+
+            # Prepare ROS msg
+            height = rgb.shape[0]
+            width = rgb.shape[1]
+            msg = Image(data=rgb.reshape(-1).tolist(), height=height, width=width)
+            # self._show_ros_image(msg)
         else:
             msg = Image()
         return dict(image=msg)

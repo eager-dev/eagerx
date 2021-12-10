@@ -2,6 +2,7 @@ default:
   sensors: [pos_vel]
   actuators: [torque]
   states: [pos_vel]
+  always_render: False
 
 #########################
 ## Agnostic definition ##
@@ -17,6 +18,12 @@ sensors: # inputs of env
   image:
     rate: 10
     msg_type: sensor_msgs.msg/Image
+    space_converter:
+      converter_type: eagerx_bridge_openai_classic_control.converters/SpaceImage
+      low: 0
+      high: 1
+      shape: [28, 28, 3]
+      dtype: 'float32'
 
 actuators: # outputs of env
   torque:
@@ -51,7 +58,7 @@ eagerx_bridge_openai_classic_control/openai_bridge:
       node_config: eagerx_bridge_openai_classic_control/openai_renderer # These nodes cannot have an internal state
       color: cyan
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
-      mode: {pos: 0, vel: 1}  # {key: index}
+      shape: [28, 28]
 
   actuators:  # Inputs as defined above
     torque:
