@@ -401,6 +401,33 @@ def _window_with_variable_count() -> Callable[[Observable], Observable]:
     return window_with_variable_count
 
 
+def ops_expected_inputs(dt_i, dt_n, inpt, node):
+    delay = inpt['delay']
+    in_name = inpt['name']
+    node_name = node.ns_name
+    def _expected_inputs(source):
+        def subscribe(observer, scheduler=None):
+            def on_next(value):
+                if node_name == '/rx/obj/sensors/N6' and in_name == 'in_1' and value == 43:
+                    print('wait')
+                if node_name == '/rx/env/observations' and in_name == 'actions_set' and value == 43:
+                    print('wait')
+                if node_name == '/rx/obj/actuators/N8' and in_name == 'actions_set' and value == 43:
+                    print('wait')
+
+                num_msgs = expected_inputs(value, dt_i, dt_n, delay)
+                output = {'node_tick': value, 'num_msgs': num_msgs}
+                observer.on_next(output)
+
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+        return rx.create(subscribe)
+    return _expected_inputs
+
+
 def expected_inputs(idx_n, dt_i, dt_n, delay):
     if idx_n == 0:
         return 1
@@ -410,8 +437,11 @@ def expected_inputs(idx_n, dt_i, dt_n, delay):
         N_t = idx_n + 1
         # Note: idx_n=1 after initial tick, corresponding to T=0
         # Hence, T_t=dt_n * (idx_n-1), T_t+1=dt_n * idx_n
-        sum_t_min_1 = max(0, int((dt_n * (N_t_min_1 - 1) - delay) / dt_i))  # Current timestep
-        sum_t = max(0, int((dt_n * (N_t - 1) - delay) / dt_i))  # Next timestep
+        # todo: we use round to avoid problems with finite precision... strange
+        sum_t_min_1 = max(0, int(round(((dt_n * (N_t_min_1 - 1) - delay) / dt_i), 12)))  # Current timestep
+        # sum_t_min_1 = max(0, int(((dt_n * (N_t_min_1 - 1) - delay) / dt_i)))  # Current timestep
+        sum_t = max(0, int(round((dt_n * (N_t - 1) - delay) / dt_i, 12)))  # Next timestep
+        # sum_t = max(0, int((dt_n * (N_t - 1) - delay) / dt_i))  # Next timestep
         return sum_t - sum_t_min_1
 
 
@@ -468,6 +498,7 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
             rate = get_param_with_blocking(rate_str)
         dt_i = 1 / rate
     except Exception as e:
+        dt_i = None
         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
         print(e)
 
@@ -475,18 +506,19 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
     if real_time_factor == 0:
         num_msgs = Nc.pipe(ops.observe_on(scheduler),
                            ops.start_with(0),
-                           ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
+                           ops_expected_inputs(dt_i, dt_n, inpt, node))
     else:
         num_msgs = Nc.pipe(ops.observe_on(scheduler),
                            # ops.start_with(0),
-                           ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
+                           ops_expected_inputs(dt_i, dt_n, inpt, node))
     msg = num_msgs.pipe(gen_msg(Ir))  # todo: add ops.share() to gen_msg?
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
-                            ops.share())
+                            ops.share()
+                            )
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
