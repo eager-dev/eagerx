@@ -33,11 +33,11 @@ GUI_NODE_ITEMS = {
     'log_level': ['0', '10', '20', '30', '40', '50'],
 }
 GUI_TERM_ITEMS = {
-    'repeat': ['all', 'empty'],
+    'repeat': ['all', 'empty', 'last'],
 }
 
 # Constant yaml parameters
-PARAMS_CONSTANT = set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'config_name'})
+PARAMS_CONSTANT = set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'config_name', 'launch_file'})
 
 # PROCESS
 class process:

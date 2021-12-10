@@ -20,7 +20,6 @@ from eagerx_core.gui.Node import Node as EagerxNode
 from eagerx_core.gui.Terminal import Terminal as EagerxTerminal
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import load_yaml
-from eagerx_core.core import EAGERxEnv
 
 # pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
@@ -60,9 +59,9 @@ class EagerxGraph(Node):
         self.widget()
 
         # Create actions and observations nodes
-        actions = EAGERxEnv.create_actions()
+        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
         actions_yaml = load_yaml('eagerx_core', 'actions')
-        observations = EAGERxEnv.create_observations()
+        observations = RxNodeParams.create('env/observations', package_name='eagerx_core', config_name='observations')
         observations_yaml = load_yaml('eagerx_core', 'observations')
         self.inputNode = EagerxNode(actions.name, params=actions.params, yaml=actions_yaml, graph=self)
         self.outputNode = EagerxNode(observations.name, params=observations.params, yaml=observations_yaml, graph=self)
