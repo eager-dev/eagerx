@@ -6,6 +6,8 @@ default:
   process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   color: red
   log_level: 0  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+  display: True
+
 inputs:
   image:
     msg_type: sensor_msgs.msg/Image

@@ -72,7 +72,8 @@ eagerx_core/bridge:
       states: [state_1]
       inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
       color: cyan
-      nonreactive_rates: {in_1: 2}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
+      log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+      nonreactive_rates: {in_1: 10}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'
     N7:
@@ -88,6 +89,7 @@ eagerx_core/bridge:
       inputs: {in_3: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
                in_2: $(obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
       color: green
+      log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
 #      input_converters:  # can only contain converters for inputs other than "actuator input" ("in_1" in this case)
 #        action_2:
