@@ -17,6 +17,7 @@ from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, 
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 
 # OTHER IMPORTS
+import time
 from termcolor import cprint
 import datetime
 import logging
@@ -479,12 +480,10 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
         num_msgs = Nc.pipe(ops.observe_on(scheduler),
                            # ops.start_with(0),
                            ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
-    msg = num_msgs.pipe(gen_msg(Ir)) #, spy('gen_msg', node, log_level=DEBUG))  # todo: add ops.share() to gen_msg?
+    msg = num_msgs.pipe(gen_msg(Ir))  # todo: add ops.share() to gen_msg?
     channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
                             ops.with_latest_from(msg),
-                            # spy('bf_rpt', node, log_level=DEBUG),
                             ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
-                            # spy('after_rpt', node, log_level=DEBUG),
                             ops.merge(msg),
                             regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
                             ops.share())
@@ -493,6 +492,7 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
                    ops.start_with(0),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+                   spy('raw [%s]' % name.split('/')[-1][:12].ljust(4), node),
                    ops.filter(lambda value: value[0] == value[1]),
                    ops.map(lambda x: {name: x[0]})
                    )
@@ -893,10 +893,46 @@ def filter_dict_on_key(key):
     return _filter_dict_on_key
 
 
+def throttle_with_time(dt, node: NodeBase):
+    def _throttle_with_time(source):
+        def subscribe(observer, scheduler=None):
+            next_tick = [None]
+            end = [None]
+            cum_delay = [0]
+            cum_sleep = [0]
+
+            def on_next(value):
+                end[0] = time.time()
+                if next_tick[0] is None:
+                    next_tick[0] = end[0] + dt
+                overdue = end[0] - next_tick[0]
+                if overdue < 0:  # sleep if overdue is negative
+                    time.sleep(-overdue)
+                    cum_sleep[0] += overdue
+                    next_tick[0] = end[0] + dt
+                else:  # If we are overdue, then next tick is shifted by overdue
+                    cum_delay[0] += overdue
+                    next_tick[0] = end[0] + dt + overdue
+                observer.on_next((value, cum_delay, cum_sleep))
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+        return rx.create(subscribe)
+    return _throttle_with_time
+
+
 def throttle_callback_trigger(dt_n, Nc, Nr, E, is_reactive, real_time_factor, node: NodeBase):
     if is_reactive and real_time_factor == 0:
         Nct = Nc
     elif is_reactive and real_time_factor > 0:
+        # Nct = Nc.pipe(ops.merge(Nr.pipe(spy('Nr', node))),
+        #               ops.scan(lambda acc, x: acc + 1, 0),
+        #               throttle_with_time(dt_n / real_time_factor, node),
+        #               ops.map(lambda x: x[0]),
+        #               ops.start_with(0),
+        #               ops.share())
         Nct = rx.interval(dt_n / real_time_factor).pipe(#ops.skip_until(E),
                                                         ops.scan(lambda acc, x: acc + 1, -1),
                                                         ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
@@ -967,3 +1003,24 @@ def feedback_callback_trigger(Nr, inputs, feedthrough):
 
         return rx.create(subscribe)
     return _feedback_callback_trigger
+
+
+def add_offset(offset, skip=0):
+    def _add_offset(source):
+        def subscribe(observer, scheduler=None):
+            counter = [0]
+            def on_next(value):
+                counter[0] += 1
+                if counter[0] > skip:
+                    observer.on_next(value + offset)
+                else:
+                    observer.on_next(value)
+
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+
+        return rx.create(subscribe)
+    return _add_offset

@@ -307,6 +307,7 @@ class RxEnv(object):
             if mode == "human":
                 self.supervisor_node.start_render()
             elif mode == "rgb_array":
+                self.supervisor_node.start_render()
                 ros_im = self.supervisor_node.get_last_image()
                 if ros_im.height == 0 or ros_im.width == 0:
                     # todo: check if channel dim first or last.

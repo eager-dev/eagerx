@@ -153,7 +153,6 @@ class TestBridgeNode(BridgeBase):
     def callback(self, node_tick: int, t_n: float,  **kwargs: Dict[str, Union[List[Message], float, int]]):
         # Publish nonreactive input
         self.nonreactive_pub.publish(UInt64(data=node_tick))
-        self.nonreactive_pub.publish(UInt64(data=node_tick*2))
 
         # Verify that # of ticks equals internal counter
         if not self.num_ticks == node_tick:

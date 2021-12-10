@@ -10,11 +10,12 @@ from rx.subject import ReplaySubject, Subject, BehaviorSubject
 # EAGERX IMPORTS
 from eagerx_core.utils.utils import get_param_with_blocking
 from eagerx_core.constants import DEBUG
+
 from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
     init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
     init_callback_pipeline, get_object_params, extract_inputs_and_reactive_proxy, initialize_reactive_proxy_reset, \
     switch_with_check_pipeline, node_reset_flags, filter_dict_on_key, get_node_params, extract_node_reset, \
-    throttle_callback_trigger, feedback_callback_trigger
+    throttle_callback_trigger, feedback_callback_trigger, add_offset
 
 
 def init_node_pipeline(ns, dt_n, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, E, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, is_reactive, real_time_factor, event_scheduler=None):
@@ -211,10 +212,10 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
 
     # Send output flags
     for i in outputs:
-        offset = RrRn.pipe(ops.map(lambda x: int(i['start_with_msg'])), ops.start_with(0))
-        RrRn.pipe(ops.zip(offset),
-                  ops.map(lambda x: UInt64(data=x[0] + x[1])),
-                  ).subscribe(i['reset'])
+        RrRn.pipe(spy('off [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
+                  add_offset(int(i['start_with_msg']), skip=1),
+                  spy('cum [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
+                  ops.map(lambda x: UInt64(data=x))).subscribe(i['reset'])
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn,

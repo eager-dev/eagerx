@@ -115,6 +115,8 @@ class ObservationsNode(Node):
         # Define observation buffers
         self.observation_buffer = dict()
         for i in inputs:
+            if i['name'] == 'actions_set':
+                continue
             if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
@@ -145,6 +147,8 @@ class ActionsNode(Node):
         # Define action/observation buffers
         self.action_buffer = dict()
         for i in outputs:
+            if i['name'] == 'set':
+                continue
             if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
@@ -159,17 +163,20 @@ class ActionsNode(Node):
         # Set all messages to None
         for name, buffer in self.action_buffer.items():
             buffer['msg'] = None
+        # start_with an initial action message, so that the first observation can pass.
+        return dict(set=UInt64())
 
     def callback(self, node_tick: int, t_n: float, **kwargs):
         # Fill output_msg with buffered actions
-        output_msgs = dict()
+        output_msgs = dict(set=UInt64())
         for name, buffer in self.action_buffer.items():
             output_msgs[name] = buffer['msg']
         return output_msgs
 
 
 class RenderNode(Node):
-    def __init__(self, ns, name, **kwargs):
+    def __init__(self, display, ns, name, **kwargs):
+        self.display = display
         self.last_image = Image(data=[])
         self.render_toggle = False
         rospy.Service('%s/%s/get_last_image' % (ns, name), ImageUInt8, self._get_last_image)
@@ -191,9 +198,8 @@ class RenderNode(Node):
 
     def callback(self, node_tick: int, t_n: float, image: Image = None):
         self.last_image = image['msg'][-1]
-        if self.render_toggle:
-            # todo: render image
-            pass
+        if self.display and self.render_toggle:
+            rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64)

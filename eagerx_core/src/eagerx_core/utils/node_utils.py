@@ -94,6 +94,7 @@ def configure_connections(connections):
                 assert component in ['inputs', 'feedthroughs'], 'Cannot connect an action to anything other than inputs/feedthroughs. Entry "%s" is misspecified.' % io
                 action_node = source[0]
                 action_cname = source[1]
+                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
 
                 if component == 'feedthroughs':
                     action_component = 'outputs'
@@ -145,6 +146,7 @@ def configure_connections(connections):
             if source[0].name == 'env/actions':  # source=actions node
                 action_node = source[0]
                 action_cname = source[1]
+                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
 
                 # Infer source properties from target object
                 msg_type_B = target[0].params['actuators'][cname]['msg_type']

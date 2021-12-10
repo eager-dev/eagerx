@@ -19,9 +19,9 @@ if __name__ == '__main__':
     bridge_p = process.ENVIRONMENT
 
     # Define nodes
-    N1 = RxNode.create('N1', 'eagerx_core', 'process', rate=1.0, process=node_p)
+    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
     N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
-    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=4.0,   process=node_p, inputs=['in_1', 'in_2'])
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=4.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
 
     # Define object
     viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
@@ -37,12 +37,14 @@ if __name__ == '__main__':
                    {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
                    {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 1.0},
                    ]
+
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
     #                {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
     #                {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
     #                {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
     #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
     #                ]
+
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
     #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
     #                {'source': (KF, 'out_1'),            'target': (observations, 'obs_2'), 'delay': 0.0},
@@ -56,7 +58,7 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=1, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=5)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=10, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=1)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(1000):
+        for i in range(20):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
@@ -89,10 +91,20 @@ if __name__ == '__main__':
     # False & real_time_factor=0: ERROR --> cannot run as fast as possible asynchronous (without a common clock)
     # True & real_time_factor = 0,  # --> as fast as possible and disregard real_time_factor
 
+    # todo: PENDULUM
+    # todo: setting env, sensor, actuator, and bridge rates to "20" somehow deadlocks (at supervisor?) setting env to a lower rate solves the problem...?
+    # todo: change opendr brache name to opendr v1.0
+    # todo: set-up readthedocs, and basic documentation
+
+    # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
+    # todo: get msg_type from python implementation?
     # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
     # todo: msg_type check for "{'source': (actions, 'act_1'), 'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter},"
     #       Here, we do use both the converter and space_converters ---> will result in error and must be checked before initialization.
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
+
+    # todo: ASYNCHRONOUS IMPLEMENTATION
+    # todo: make real_time_factor implementation faster, with time.sleep?
     # todo: change reset msg recv logic from msg_rcv=msg_send to msg_rcv > msg_send --> Can be problematic if we miss first few messages.
     # todo: why not latch init_msg to 'rx/end_reset'?
     # todo: add 'ops.share" with gen_msg
@@ -105,7 +117,9 @@ if __name__ == '__main__':
     #  - What is the effect of async simulation with action & observation node?
     #    If running async, sample last action from action_node? Threadsafe?
 
+
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: Implement display functionality inside the render node.
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
     # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
