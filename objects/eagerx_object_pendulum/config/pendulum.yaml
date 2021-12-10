@@ -8,19 +8,19 @@ default:
 #########################
 sensors: # inputs of env
   pos_vel:
-    rate: 1
+    rate: 20
     msg_type: std_msgs.msg/Float32MultiArray
     space_converter:
       converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
       id: 'Pendulum-v0'
       space: 'observation'
   image:
-    rate: 1
+    rate: 10
     msg_type: sensor_msgs.msg/Image
 
 actuators: # outputs of env
   torque:
-    rate: 1
+    rate: 20
     msg_type: std_msgs.msg/Float32MultiArray
     space_converter:
       converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
@@ -40,6 +40,7 @@ states:  # reset states inside bridge
 #########################
 eagerx_bridge_openai_classic_control/openai_bridge:
   id: 'Pendulum-v0'
+  dt: 0.05
   sensors:
     pos_vel:
       node_config: eagerx_bridge_openai_classic_control/joint_sensor # These nodes cannot have an internal state

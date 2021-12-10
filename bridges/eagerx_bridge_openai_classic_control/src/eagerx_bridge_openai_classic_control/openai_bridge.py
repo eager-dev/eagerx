@@ -26,6 +26,9 @@ class OpenAIBridge(BridgeBase):
         obj_name = object_params['name']
         id = object_params['bridge']['id']
 
+        # Assert that dt of OpenAI environment is same as 1/rate of bridge
+        assert (1 / self.rate) == object_params['bridge']['dt'], 'Cannnot register object "%s" because the dt of gym_env "%s" and bridge "%s" are not equal (%s vs %s).' % (obj_name, id, self.name, (1 / self.rate), object_params['bridge']['dt'])
+
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(env=gym.make(id), last_obs=None, last_reward=None, last_is_done=None, next_action=None)
         return object_params

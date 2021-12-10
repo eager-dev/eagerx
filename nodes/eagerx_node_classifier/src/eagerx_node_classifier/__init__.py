@@ -3,7 +3,7 @@
 # from pkgutil import extend_path
 # from sys import path as sys_path
 #
-# __extended_path = '/home/bas/eagerx_ws/devel/lib/python2.7/dist-packages/eagerx_converter_base'.split(';')
+# __extended_path = '/home/bas/eagerx_ws/devel/lib/python2.7/dist-packages/eagerx_object_pendulum'.split(';')
 # for p in reversed(__extended_path):
 #     sys_path.insert(0, p)
 #     del p
