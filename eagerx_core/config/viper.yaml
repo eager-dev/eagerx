@@ -10,7 +10,7 @@ default:
 #########################
 sensors: # inputs of env
   N6:
-    rate: 1
+    rate: 20
     msg_type: std_msgs.msg/UInt64
     space_converter:
       converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
@@ -28,7 +28,7 @@ sensors: # inputs of env
 
 actuators: # outputs of env
   N8:
-    rate: 1
+    rate: 20
     msg_type: std_msgs.msg/String
     space_converter:
       converter_type: eagerx_core.baseconverter/SpaceStringConverter
@@ -73,7 +73,7 @@ eagerx_core/bridge:
       inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
       color: cyan
       log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
-      nonreactive_rates: {in_1: 10}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
+      nonreactive_rates: {in_1: 20}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'
     N7:
