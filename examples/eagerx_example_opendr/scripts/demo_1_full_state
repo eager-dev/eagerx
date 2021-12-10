@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # ROS packages required
 import rospy
 from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
@@ -17,7 +19,7 @@ if __name__ == '__main__':
     # todo: implement reward function --> quadratic pendulum reward
     # todo: implement is_done --> after 200 episodes
     # pid = RxNode.create('pid', 'eagerx_node_pid', 'pid', rate=1.0, process=process.NEW_PROCESS)
-    # pid = RxNode.create('pid', 'eagerx_node_classifier', 'pendulum', rate=10.0, process=process.NEW_PROCESS)
+    # classifier = RxNode.create('classifier', 'eagerx_node_classifier', 'pendulum', rate=10.0, process=process.NEW_PROCESS)
 
     # Define object
     pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'], always_render=True)
