@@ -40,8 +40,8 @@ class RxEnv(object):
         return states
 
     @staticmethod
-    def create_render(rate):
-        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate)
+    def create_render(rate=1, **kwargs):
+        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate, **kwargs)
         return render
 
     def __init__(self, name: str, rate: float,
