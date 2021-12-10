@@ -11,7 +11,7 @@ default:
 inputs:
   in_1:
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    repeat: last
     space_converter:
       converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
       dtype: uint64

@@ -1,10 +1,15 @@
 node_type: eagerx_core.basenode/ObservationsNode
 default:
-  inputs: []
+  inputs: [actions_set]
   outputs: [set]
   process: 1  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   color: yellow
-inputs: {}
+  log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+inputs:
+  actions_set:
+    address: env/actions/outputs/set
+    msg_type: std_msgs.msg/UInt64
+    repeat: all
 outputs:
   set:
     msg_type: std_msgs.msg/UInt64
