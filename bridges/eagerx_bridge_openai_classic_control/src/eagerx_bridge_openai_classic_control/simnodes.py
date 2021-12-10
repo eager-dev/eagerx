@@ -51,7 +51,7 @@ class JointSensor(SimNode):
     def callback(self, node_tick: int, t_n: float,
                  tick: Dict[str, Union[List[UInt64], float, int]] = None) -> Dict[str, Float32MultiArray]:
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        if self.id == 'Pendulum-v0':
+        if self.id == 'Pendulum-v1':
             if len(self.mode) == 2:
                 obs = self.simulator[self.obj_name]['last_obs']
             else:

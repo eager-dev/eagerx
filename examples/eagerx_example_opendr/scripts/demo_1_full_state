@@ -14,7 +14,6 @@ if __name__ == '__main__':
     # Define nodes
     # todo: Create pid node (.yaml, .py)
     # todo: Create classifier node (.yaml, .py)
-    # todo: space converter Image --> float [0,1] to ImageUInt8, shape according to dataset
     # todo: flatten wrapper --> look in old eager repo
     # todo: implement reward function --> quadratic pendulum reward
     # todo: implement is_done --> after 200 episodes
