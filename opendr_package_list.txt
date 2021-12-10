@@ -1,1 +1,6 @@
 eagerx_core
+bridges/eagerx_bridge_openai_classic_control
+examples/eagerx_example_opendr
+nodes/eagerx_node_classifier
+nodes/eagerx_node_pid
+objects/eagerx_object_pendulum
