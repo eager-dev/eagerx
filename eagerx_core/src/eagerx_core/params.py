@@ -215,7 +215,7 @@ class RxNodeParams(Params):
             for cname in params['outputs']:
                 params['feedthroughs'][cname] = dict()
 
-        # Re-direct dict entries (converters, addresses, delays, nonreactive_rates, input_msg_types)
+        # Re-direct dict entries (converters, addresses, delays, nonreactive_rates)
         # Will remove re-directed dicts.
         keys_to_pop = []
         for key, entry in kwargs.items():
@@ -454,6 +454,10 @@ class RxObjectParams(Params):
             if 'input_converters' not in p_bridge:
                 p_bridge['input_converters'] = dict()
 
+            # create empty dict if no input converters have been defined yet
+            if 'delays' not in p_bridge:
+                p_bridge['delays'] = dict()
+
             # Define node inputs mapping
             inputs_dict = {'tick': 'bridge/outputs/tick'}
             check_None_trigger = False
@@ -464,6 +468,8 @@ class RxObjectParams(Params):
                     p_bridge['inputs'][act_cname] = p_env['address']
                     if 'converter' in p_env:
                         p_bridge['input_converters'][act_cname] = p_env['converter']
+                    if 'delay' in p_env:
+                        p_bridge['delays'][act_cname] = p_env['delay']
                 else:  # prepend node name to inputs (which have to originate from inside the object)
                     p_bridge['inputs'][act_cname] = substitute_yaml_args(address, {'env_name': ns, 'obj_name': name})
             assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
@@ -510,10 +516,10 @@ class RxObjectParams(Params):
         obj_params['states'] = [s.get_params(ns) for s in states]
 
         # Remove clutter from parameters
-        obj_params[bridge] = params[bridge].copy()
+        obj_params['bridge'] = params[bridge].copy()
         for c in ('sensors', 'actuators', 'states'):
-            if c in obj_params[bridge]:
-                del obj_params[bridge][c]
+            if c in obj_params['bridge']:
+                del obj_params['bridge'][c]
             if c in obj_params:
                 if c == 'states': continue
                 del obj_params[c]

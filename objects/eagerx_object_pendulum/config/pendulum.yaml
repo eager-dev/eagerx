@@ -1,0 +1,67 @@
+default:
+  sensors: [pos_vel]
+  actuators: [torque]
+  states: [pos_vel]
+
+#########################
+## Agnostic definition ##
+#########################
+sensors: # inputs of env
+  pos_vel:
+    rate: 20
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
+      id: 'Pendulum-v0'
+      space: 'observation'
+  image:
+    rate: 10
+    msg_type: sensor_msgs.msg/Image
+
+actuators: # outputs of env
+  torque:
+    rate: 20
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
+      id: 'Pendulum-v0'
+      space: 'action'
+
+states:  # reset states inside bridge
+  pos_vel:
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
+      low: [-3.14, -1]
+      high: [3.14, 1]
+
+#########################
+### Engine definition ###
+#########################
+eagerx_bridge_openai_classic_control/openai_bridge:
+  id: 'Pendulum-v0'
+  dt: 0.05
+  sensors:
+    pos_vel:
+      node_config: eagerx_bridge_openai_classic_control/joint_sensor # These nodes cannot have an internal state
+      color: cyan
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      mode: {pos: 0, vel: 1}  # {key: index}
+    image:
+      node_config: eagerx_bridge_openai_classic_control/openai_renderer # These nodes cannot have an internal state
+      color: cyan
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      mode: {pos: 0, vel: 1}  # {key: index}
+
+  actuators:  # Inputs as defined above
+    torque:
+      node_config: eagerx_bridge_openai_classic_control/torque_control
+      inputs: {torque: } # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
+      color: green
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+
+  states:
+    pos_vel:
+      state_type: eagerx_bridge_openai_classic_control.simstates/PendulumState
+      use_sampled_state: True  #  False="env.reset()", False= manual reset to received state
+

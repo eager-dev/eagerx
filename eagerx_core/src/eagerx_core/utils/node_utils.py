@@ -53,6 +53,7 @@ def configure_connections(connections):
                     msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_A, node.params['outputs'][cname]['converter']))
                 else:
                     msg_type_B = msg_type_A
+                assert cname in node.params['default']['outputs'], '"%s" was not selected as %s in node "%s" during its initialization.' % (cname, 'output', node.name)
         elif isinstance(source[0], RxObjectParams):  # source=Object
             obj = source[0]
             component = source[1]
@@ -60,6 +61,7 @@ def configure_connections(connections):
             address = '%s/%s/%s' % (obj.name, component, cname)
             msg_type_A = obj.params[component][cname]['msg_type']
             msg_type_B = msg_type_A
+            assert cname in obj.params['default'][component], '"%s" was not selected in %s of object "%s" during its initialization.' % (cname, component, obj.name)
         else:
             raise ValueError('Connection entry "%s" is misspecified/unsupported. Source and target must either be an object or node.' % io)
 
@@ -73,7 +75,7 @@ def configure_connections(connections):
             if isinstance(source[0], RxNodeParams):
                 space_converter = source[0].params['outputs'][source[1]]['space_converter']
             elif isinstance(source[0], RxObjectParams):
-                space_converter = source[0].params['sensors'][source[1]]['space_converter']
+                space_converter = source[0].params['sensors'][source[2]]['space_converter']
             else:
                 raise ValueError('Cannot infer properties from source "%s".' % source)
             msg_type_C = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
@@ -92,6 +94,7 @@ def configure_connections(connections):
                 assert component in ['inputs', 'feedthroughs'], 'Cannot connect an action to anything other than inputs/feedthroughs. Entry "%s" is misspecified.' % io
                 action_node = source[0]
                 action_cname = source[1]
+                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
 
                 if component == 'feedthroughs':
                     action_component = 'outputs'
@@ -116,10 +119,9 @@ def configure_connections(connections):
 
             # Fill in target node properties
             node.params[component][cname]['address'] = address
+            assert (component == 'feedthroughs' and cname in node.params['default']['outputs']) or cname in node.params['default'][component], '"%s" was not selected in %s of node "%s" during its initialization.' % (cname, component, node.name)
             if converter:
                 node.params[component][cname]['converter'] = converter
-                # Change message type to pre-converter type (as conversion happens after de-serialization)
-                # node.params[component][cname]['msg_type'] = msg_type_B
             assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 node.params['inputs'][cname]['delay'] = delay
@@ -144,6 +146,7 @@ def configure_connections(connections):
             if source[0].name == 'env/actions':  # source=actions node
                 action_node = source[0]
                 action_cname = source[1]
+                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
 
                 # Infer source properties from target object
                 msg_type_B = target[0].params['actuators'][cname]['msg_type']
@@ -163,10 +166,9 @@ def configure_connections(connections):
 
             # Fill in target object properties
             obj.params[component][cname]['address'] = address
+            assert cname in obj.params['default'][component], '"%s" was not selected in %s of object "%s" during its initialization.' % (cname, component, obj.name)
             if converter:
                 obj.params[component][cname]['converter'] = converter
-                # Change message type to pre-converter type (as conversion happens after de-serialization)
-                # obj.params[component][cname]['msg_type'] = msg_type_B
             assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 obj.params['actuators'][cname]['delay'] = delay
@@ -204,6 +206,7 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
                      launch_nodes: Dict,
                      in_object: bool = False,
                      rxnode_cls: Any = RxNode,
+                     node_args: Dict = None,
                      ):
     if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
@@ -239,7 +242,9 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
 
         # Initialize node
         if params['process'] == process_id:  # Initialize inside this process
-            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker)
+            if node_args is None:
+                node_args = dict()
+            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, **node_args)
             sp_nodes[node_address].node_initialized()
         elif params['process'] == process.NEW_PROCESS and process_id == process.ENVIRONMENT:  # Only environment can launch new processes (as it is the main_thread)
             assert 'launch_file' in params, 'No launch_file defined. Node "%s" can only be launched as a separate process if a launch_file is specified.' % name

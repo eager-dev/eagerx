@@ -1,9 +1,9 @@
 node_type: eagerx_core.basenode/ActionsNode
 default:
   inputs: [observations_set, step]
-  outputs: []
+  outputs: [set]
   process: 1  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
-  color: yellow
+  color: red
 inputs:
   observations_set:
     address: env/observations/outputs/set
@@ -13,4 +13,7 @@ inputs:
     address: env/supervisor/outputs/step
     msg_type: std_msgs.msg/UInt64
     repeat: all
-outputs: {}
+outputs:
+  set:
+    msg_type: std_msgs.msg/UInt64
+    start_with_msg: True

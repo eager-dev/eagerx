@@ -16,7 +16,7 @@ from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 class NodeBase:
     def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
-                 inputs, outputs, states, feedthroughs,  targets, launch_file=None,
+                 inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, launch_file=None,
                  color='grey', print_mode=TERMCOLOR, log_level=ERROR):
         """
         All parameters that were uploaded via RxNodeParams.get_params(ns=..) to the rosparam server are stored in this object.
@@ -38,6 +38,8 @@ class NodeBase:
         self.states = states
         self.feedthroughs = feedthroughs
         self.targets = targets
+        self.is_reactive = is_reactive
+        self.real_time_factor = real_time_factor
         self.color = color
         self.print_mode = print_mode
         self.log_level = log_level
@@ -88,16 +90,16 @@ class Node(NodeBase):
 
 
 class SimNode(Node):
-    def __init__(self, **kwargs):
-        self.simulator = None
-        self.object_params = None
+    def __init__(self, simulator=None, object_params=None, **kwargs):
+        self.simulator = simulator
+        self.object_params = object_params
         super().__init__(**kwargs)
 
-    def set_object_params(self, object_params):
-        self.object_params = object_params
-
-    def set_simulator(self, simulator):
-        self.simulator = simulator
+    # def set_object_params(self, object_params):
+    #     self.object_params = object_params
+    #
+    # def set_simulator(self, simulator):
+    #     self.simulator = simulator
 
     @abc.abstractmethod
     def reset(self, **kwargs):
@@ -113,6 +115,8 @@ class ObservationsNode(Node):
         # Define observation buffers
         self.observation_buffer = dict()
         for i in inputs:
+            if i['name'] == 'actions_set':
+                continue
             if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
@@ -143,6 +147,8 @@ class ActionsNode(Node):
         # Define action/observation buffers
         self.action_buffer = dict()
         for i in outputs:
+            if i['name'] == 'set':
+                continue
             if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
@@ -157,17 +163,20 @@ class ActionsNode(Node):
         # Set all messages to None
         for name, buffer in self.action_buffer.items():
             buffer['msg'] = None
+        # start_with an initial action message, so that the first observation can pass.
+        return dict(set=UInt64())
 
     def callback(self, node_tick: int, t_n: float, **kwargs):
         # Fill output_msg with buffered actions
-        output_msgs = dict()
+        output_msgs = dict(set=UInt64())
         for name, buffer in self.action_buffer.items():
             output_msgs[name] = buffer['msg']
         return output_msgs
 
 
 class RenderNode(Node):
-    def __init__(self, ns, name, **kwargs):
+    def __init__(self, display, ns, name, **kwargs):
+        self.display = display
         self.last_image = Image(data=[])
         self.render_toggle = False
         rospy.Service('%s/%s/get_last_image' % (ns, name), ImageUInt8, self._get_last_image)
@@ -189,9 +198,8 @@ class RenderNode(Node):
 
     def callback(self, node_tick: int, t_n: float, image: Image = None):
         self.last_image = image['msg'][-1]
-        if self.render_toggle:
-            # todo: render image
-            pass
+        if self.display and self.render_toggle:
+            rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64)
@@ -255,6 +263,7 @@ class RealResetNode(Node):
                 t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -277,11 +286,8 @@ class RealResetNode(Node):
         return output_msgs
 
 
-class ProcessNode(Node):
+class ProcessNode(SimNode):
     def __init__(self, test_arg, **kwargs):
-        # If node is simulator, we will probably use this in callback & reset
-        self.simulator = None
-
         # Message counter
         self.num_ticks = 0
         self.num_resets = 0
@@ -292,9 +298,6 @@ class ProcessNode(Node):
         self.iter_ticks = 0
         self.print_iter = 20
         super().__init__(**kwargs)
-
-    def set_simulator(self, simulator):
-        self.simulator = simulator
 
     def reset(self, state_1: UInt64 = None, state_2: UInt64 = None) -> Dict[str, UInt64]:
         self.num_resets += 1
@@ -339,7 +342,8 @@ class ProcessNode(Node):
 
         # Verify that # of ticks equals internal counter
         if not self.num_ticks == node_tick:
-            rospy.logerr('[%s][callback]: ticks not equal (%d, %d).' % (self.name, self.num_ticks, node_tick))
+            rospy.logerr('[%s][callback]: ticks not equal (self.num_ticks=%d, node_tick=%d).' % (self.name, self.num_ticks, node_tick))
+            pass
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * (1 / self.rate)
@@ -348,7 +352,8 @@ class ProcessNode(Node):
             if name in inputs:
                 t_i = inputs[name]['t_i']
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
-                    print('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
