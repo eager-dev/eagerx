@@ -408,12 +408,13 @@ def ops_expected_inputs(dt_i, dt_n, inpt, node):
     def _expected_inputs(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                if node_name == '/rx/obj/sensors/N6' and in_name == 'in_1' and value == 43:
-                    print('wait')
-                if node_name == '/rx/env/observations' and in_name == 'actions_set' and value == 43:
-                    print('wait')
-                if node_name == '/rx/obj/actuators/N8' and in_name == 'actions_set' and value == 43:
-                    print('wait')
+                # todo: set all rates to 20, and see that everything goes wrong at step 43.
+                # if node_name == '/rx/obj/sensors/N6' and in_name == 'in_1' and value == 43:
+                #     print('wait')
+                # if node_name == '/rx/env/observations' and in_name == 'actions_set' and value == 43:
+                #     print('wait')
+                # if node_name == '/rx/obj/actuators/N8' and in_name == 'actions_set' and value == 43:
+                #     print('wait')
 
                 num_msgs = expected_inputs(value, dt_i, dt_n, delay)
                 output = {'node_tick': value, 'num_msgs': num_msgs}
