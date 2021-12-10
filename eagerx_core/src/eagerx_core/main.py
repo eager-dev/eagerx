@@ -3,6 +3,7 @@ import rospy
 from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 from eagerx_core.constants import process
+from eagerx_core.wrappers.flatten import Flatten
 
 
 if __name__ == '__main__':
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     # Connect nodes
     connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
                    {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 1.0},
+                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
                    ]
 
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
@@ -58,11 +59,11 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=10, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=1)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=1)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
-                    rate=1,
+                    rate=20,
                     actions=actions,
                     observations=observations,
                     bridge=bridge,
@@ -70,17 +71,18 @@ if __name__ == '__main__':
                     # nodes=[KF],
                     # nodes=[N3, KF],
                     objects=[viper],
-                    render=render,
+                    # render=render,
                     reset_fn=lambda env: {#'obj/N9': env.state_space.sample()['obj/N9'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1']}
                     )
+    env = Flatten(env)
 
     # First reset
     obs = env.reset()
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(20):
+        for i in range(200):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
