@@ -4,7 +4,7 @@ import rospy
 from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 from eagerx_core.constants import process
-from eagerx_bridge_openai_classic_control.wrappers.flatten import Flatten
+from eagerx_core.wrappers.flatten import Flatten
 import numpy as np
 
 
@@ -33,7 +33,6 @@ if __name__ == '__main__':
 
     # Define nodes
     # todo: Create pid node (.yaml, .py)
-    # todo: flatten wrapper --> look in old eager repo
     # pid = RxNode.create('pid', 'eagerx_node_pid', 'pid', rate=1.0, process=process.NEW_PROCESS)
     classifier = RxNode.create('classifier', 'eagerx_node_classifier', 'classifier', rate=10, process=process.NEW_PROCESS)
 
@@ -48,7 +47,7 @@ if __name__ == '__main__':
 
     # Connect nodes
     connections = [{'source': (pendulum, 'sensors', 'pos_vel'),  'target': (observations, 'pos_vel')},
-                   # {'source': (pendulum, 'sensors', 'image'),    'target': (observations, 'image')},
+                   {'source': (pendulum, 'sensors', 'image'),    'target': (observations, 'image')},
                    {'source': (classifier, 'estimated_pos_vel'), 'target': (observations, 'classifier')},
                    {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (classifier, 'inputs', 'pos_vel')},
                    {'source': (pendulum, 'sensors', 'image'),    'target': (classifier, 'inputs', 'image')},
@@ -61,17 +60,8 @@ if __name__ == '__main__':
     bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'openai_bridge', rate=20, process=process.NEW_PROCESS)
 
     # Initialize Environment
-    env = EAGERxEnv(name='rx',
-                    rate=20,
-                    actions=actions,
-                    observations=observations,
-                    bridge=bridge,
-                    nodes=[classifier],
-                    objects=[pendulum],
-                    render=render,
-                    reward_fn=reward_fn,
-                    is_done_fn=is_done_fn,
-                    )
+    env = EAGERxEnv(name='rx', rate=20, actions=actions, observations=observations, bridge=bridge, nodes=[classifier],
+                    objects=[pendulum], render=render, reward_fn=reward_fn, is_done_fn=is_done_fn)
     env = Flatten(env)
 
     # First reset
