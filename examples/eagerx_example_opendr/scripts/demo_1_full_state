@@ -50,7 +50,8 @@ if __name__ == '__main__':
     # Connect nodes
     connections = [{'source': (pendulum, 'sensors', 'image'),    'target': (render, 'inputs', 'image')},
                    # DIRECTLY WITH LOW-DIM OBSERVATIONS
-                   {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (observations, 'pos_vel')}]
+                   {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (observations, 'pos_vel')},
+                   {'source': (actions, 'torque'),               'target': (pendulum, 'actuators', 'torque')}]
     configure_connections(connections)
 
     # Define bridge
