@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-import rospy
-from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
+from eagerx_core.core import RxBridge, RxObject, EAGERxEnv
 from eagerx_core.utils.node_utils import configure_connections, launch_roscore
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
+
+import rospy
 import numpy as np
+import stable_baselines3 as sb
 
 
 def angle_normalize(x):
@@ -16,13 +18,18 @@ def reward_fn(prev_obs, obs, action, steps):
     cos_th, sin_th = prev_obs['pos_vel'][0][:2]
     th = np.arctan2(sin_th, cos_th)
     thdot = prev_obs['pos_vel'][0][2]
-    u = action['torque'][0]
+    if 'torque' in [action]:
+        u = action['torque'][0]
+    elif 'ref' in [action]:
+        u = action['ref'][0]
+    else:
+        u = 0
     cost = angle_normalize(th) ** 2 + 0.1 * thdot ** 2 + 0.001 * (u ** 2)
     return -cost
 
 
-def is_done_fn(obs, action, steps):
-    is_done = steps >= 200
+def is_done_fn(obs, action, steps, rate):
+    is_done = steps >= (rate * 200 / 20)
     return is_done
 
 
@@ -31,13 +38,8 @@ if __name__ == '__main__':
 
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
-    # Define nodes
-    # todo: Create pid node (.yaml, .py)
-    # pid = RxNode.create('pid', 'eagerx_node_pid', 'pid', rate=1.0, process=process.NEW_PROCESS)
-    classifier = RxNode.create('classifier', 'eagerx_node_classifier', 'classifier', rate=10, process=process.NEW_PROCESS)
-
     # Define object
-    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'], always_render=True)
+    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'])
 
     # Define action/observations
     actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
@@ -46,31 +48,32 @@ if __name__ == '__main__':
     render = EAGERxEnv.create_render(display=False)
 
     # Connect nodes
-    connections = [{'source': (pendulum, 'sensors', 'pos_vel'),  'target': (observations, 'pos_vel')},
-                   {'source': (pendulum, 'sensors', 'image'),    'target': (observations, 'image')},
-                   {'source': (classifier, 'estimated_pos_vel'), 'target': (observations, 'classifier')},
-                   {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (classifier, 'inputs', 'pos_vel')},
-                   {'source': (pendulum, 'sensors', 'image'),    'target': (classifier, 'inputs', 'image')},
-                   {'source': (actions, 'torque'),               'target': (pendulum, 'actuators', 'torque')},
-                   {'source': (pendulum, 'sensors', 'image'),    'target': (render, 'inputs', 'image')}
-                   ]
+    connections = [{'source': (pendulum, 'sensors', 'image'),    'target': (render, 'inputs', 'image')},
+                   # DIRECTLY WITH LOW-DIM OBSERVATIONS
+                   {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (observations, 'pos_vel')}]
     configure_connections(connections)
 
     # Define bridge
     bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'openai_bridge', rate=20, process=process.NEW_PROCESS)
 
     # Initialize Environment
-    env = EAGERxEnv(name='rx', rate=20, actions=actions, observations=observations, bridge=bridge, nodes=[classifier],
-                    objects=[pendulum], render=render, reward_fn=reward_fn, is_done_fn=is_done_fn)
+    env_rate = 20
+    env = EAGERxEnv(name='rx', rate=env_rate, actions=actions, observations=observations, bridge=bridge, render=render,
+                    nodes=[], objects=[pendulum],
+                    reward_fn=reward_fn, is_done_fn=lambda obs, action, steps: is_done_fn(obs, action, steps, env_rate))
     env = Flatten(env)
 
-    # First reset
+    # Use stable-baselines
+    model = sb.SAC("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=int(200*env_rate*200/20))
+
+    # Evaluate performance
     obs = env.reset()
     env.render(mode='human')
     for j in range(20):
         print('\n[Episode %s]' % j)
         for i in range(200):
-            action = env.action_space.sample()
+            action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
         obs = env.reset()
     print('\n[Finished]')

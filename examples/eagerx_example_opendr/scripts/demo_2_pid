@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+
+from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
+from eagerx_core.utils.node_utils import configure_connections, launch_roscore
+from eagerx_core.constants import process
+from eagerx_core.wrappers.flatten import Flatten
+
+import rospy
+import numpy as np
+import stable_baselines3 as sb
+
+
+def angle_normalize(x):
+    return ((x + np.pi) % (2 * np.pi)) - np.pi
+
+
+def reward_fn(prev_obs, obs, action, steps):
+    cos_th, sin_th = prev_obs['pos_vel'][0][:2]
+    th = np.arctan2(sin_th, cos_th)
+    thdot = prev_obs['pos_vel'][0][2]
+    if 'torque' in [action]:
+        u = action['torque'][0]
+    elif 'ref' in [action]:
+        u = action['ref'][0]
+    else:
+        u = 0
+    cost = angle_normalize(th) ** 2 + 0.1 * thdot ** 2 + 0.001 * (u ** 2)
+    return -cost
+
+
+def is_done_fn(obs, action, steps, rate):
+    is_done = steps >= (rate * 200 / 20)
+    return is_done
+
+
+if __name__ == '__main__':
+    roscore = launch_roscore()  # First launch roscore
+
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+
+    # Define nodes
+    pid = RxNode.create('pid', 'eagerx_node_pid', 'pid', rate=20, process=process.NEW_PROCESS)
+
+    # Define object
+    pendulum = RxObject.create('pendulum', 'eagerx_object_pendulum', 'pendulum', sensors=['pos_vel', 'image'])
+
+    # Define action/observations
+    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
+
+    # Define render (optional)
+    render = EAGERxEnv.create_render(display=False)
+
+    # Connect nodes
+    connections = [{'source': (pendulum, 'sensors', 'image'),    'target': (render, 'inputs', 'image')},
+                   # DIRECTLY WITH LOW-DIM OBSERVATIONS
+                   {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (observations, 'pos_vel')},
+                   # PID (no classifier)
+                   {'source': (actions, 'ref'),                  'target': (pid, 'inputs', 'yref')},
+                   {'source': (pendulum, 'sensors', 'pos_vel'),  'target': (pid, 'inputs', 'y')},
+                   {'source': (pid, 'u'),                        'target': (pendulum, 'actuators', 'torque')},
+                   {'source': (pid, 'u'),                        'target': (pendulum, 'actuators', 'torque')}]
+    configure_connections(connections)
+
+    # Define bridge
+    bridge = RxBridge.create('eagerx_bridge_openai_classic_control', 'openai_bridge', rate=20, process=process.NEW_PROCESS)
+
+    # Initialize Environment
+    env_rate = 20
+    env = EAGERxEnv(name='rx', rate=env_rate, actions=actions, observations=observations, bridge=bridge, render=render,
+                    nodes=[pid], objects=[pendulum],
+                    reward_fn=reward_fn, is_done_fn=lambda obs, action, steps: is_done_fn(obs, action, steps, env_rate))
+    env = Flatten(env)
+
+    # Use stable-baselines
+    model = sb.SAC("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=int(200*env_rate*200/20))
+
+    # Evaluate performance
+    obs = env.reset()
+    env.render(mode='human')
+    for j in range(20):
+        print('\n[Episode %s]' % j)
+        for i in range(200):
+            action, _states = model.predict(obs, deterministic=True)
+            obs, reward, done, info = env.step(action)
+        obs = env.reset()
+    print('\n[Finished]')
