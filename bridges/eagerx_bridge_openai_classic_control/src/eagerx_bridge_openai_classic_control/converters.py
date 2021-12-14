@@ -1,5 +1,5 @@
 # ROS IMPORTS
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Float32
 from sensor_msgs.msg import Image
 
 # RX IMPORTS
@@ -84,3 +84,24 @@ class SpaceImage(SpaceConverter):
                 message = 'Cannot convert observations from {} to {}.'
                 raise NotImplementedError(message.format(image.dtype, dtype))
         return image
+
+
+class SpaceFloat32(SpaceConverter):
+    MSG_TYPE_A = np.ndarray
+    MSG_TYPE_B = Float32
+
+    def __init__(self, low=None, high=None, dtype='float32'):
+        self.low = low
+        self.high = high
+        assert isinstance(low, (int, float)), 'Low must be of type (int, float).'
+        assert isinstance(high, (int, float)), 'High must be of type (int, float).'
+        self.dtype = dtype
+
+    def get_space(self):
+        return Box(self.low, self.high, shape=None, dtype=self.dtype)
+
+    def A_to_B(self, msg):
+        return Float32(data=msg)
+
+    def B_to_A(self, msg):
+        return msg.data

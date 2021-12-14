@@ -1,0 +1,24 @@
+node_type: eagerx_node_pid.node/PIDNode
+default:
+  rate:
+  inputs: [yref, y]
+  outputs: [u]
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  launch_file: '$(find eagerx_core)/launch/rxnode.launch'
+  gains: [0, 8, 1, 0]  # [u0, Kp, Kd, Ki]
+
+inputs:
+  yref:
+    msg_type: std_msgs.msg/Float32MultiArray
+    repeat: all
+    space_converter:
+      converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
+      low: [-4]
+      high: [4]
+  y:
+    msg_type: std_msgs.msg/Float32MultiArray
+    repeat: all
+
+outputs:
+  u:
+      msg_type: std_msgs.msg/Float32MultiArray

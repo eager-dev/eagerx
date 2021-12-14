@@ -23,7 +23,7 @@ import gym
 import logging
 
 
-class RxEnv(object):
+class RxEnv(gym.Env):
     @staticmethod
     def create_actions():
         actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')

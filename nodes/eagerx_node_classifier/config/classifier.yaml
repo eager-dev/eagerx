@@ -1,0 +1,29 @@
+node_type: eagerx_node_classifier.node/Classifier
+default:
+  rate:
+  inputs: [image, pos_vel]
+  outputs: [estimated_pos_vel]
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  launch_file: '$(find eagerx_core)/launch/rxnode.launch'
+  data_path: '$(find eagerx_object_pendulum)/data/dataset_with_actions.h5'
+  show: False
+  epochs: 20
+  num_examples: 12000
+  window_length: 3
+  cam_rate: 20
+
+inputs:
+  image:
+    msg_type: sensor_msgs.msg/Image
+    repeat: empty
+  pos_vel:
+    msg_type: std_msgs.msg/Float32MultiArray
+    repeat: all
+
+outputs:
+  estimated_pos_vel:
+      msg_type: std_msgs.msg/Float32MultiArray
+      space_converter:
+        converter_type: eagerx_bridge_openai_classic_control.converters/OpenAISpaceFloat32MultiArray
+        id: 'Pendulum-v1'
+        space: 'observation'

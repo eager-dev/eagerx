@@ -274,7 +274,7 @@ def wait_for_node_initialization(is_initialized, wait_time=0.3):
             if not flag:
                 not_init.append(name)
         if len(not_init) > 0:
-            rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
+            rospy.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break
 

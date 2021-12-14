@@ -16,7 +16,7 @@ sensors: # inputs of env
       id: 'Pendulum-v1'
       space: 'observation'
   image:
-    rate: 10
+    rate: 20
     msg_type: sensor_msgs.msg/Image
     space_converter:
       converter_type: eagerx_bridge_openai_classic_control.converters/SpaceImage
