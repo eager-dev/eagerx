@@ -1,7 +1,24 @@
+from typing import Dict
 import gym
 import gym.spaces
-from gym.core import ActionWrapper
+from gym.core import ActionWrapper, ObservationWrapper
 from gym.wrappers import FlattenObservation
+
+
+class TakeLastObservations(ObservationWrapper):
+    """
+    Observation wrapper that takes the last msg as the observation.
+
+    :param env: The environment to flatten
+    """
+
+    def __init__(self, env: gym.Env) -> None:
+        super(TakeLastObservations, self).__init__(env)
+
+    def observation(self, observation: Dict) -> Dict:
+        for cname, value in observation.items():
+            observation[cname] = [value[-1]]
+        return observation
 
 
 class FlattenAction(ActionWrapper):
