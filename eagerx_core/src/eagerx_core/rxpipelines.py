@@ -212,9 +212,9 @@ def init_node(ns, dt_n, node, inputs, outputs, feedthrough=tuple(), state_inputs
 
     # Send output flags
     for i in outputs:
-        RrRn.pipe(spy('off [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
+        RrRn.pipe(#spy('off [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
                   add_offset(int(i['start_with_msg']), skip=1),
-                  spy('cum [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
+                  #spy('cum [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
                   ops.map(lambda x: UInt64(data=x))).subscribe(i['reset'])
 
     # Reset node pipeline

@@ -9,15 +9,15 @@ from eagerx_core.wrappers.flatten import Flatten
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define converter (optional)
     ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
@@ -34,17 +34,17 @@ if __name__ == '__main__':
     render = EAGERxEnv.create_render(rate=1)
 
     # Connect nodes
-    # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
-    #                ]
-
     connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-                   {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
-                   {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
-                   {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
-                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
+                   {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
+                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
                    ]
+
+    # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
+    #                {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
+    #                {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
+    #                {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
+    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
+    #                ]
 
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
     #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
@@ -67,8 +67,8 @@ if __name__ == '__main__':
                     actions=actions,
                     observations=observations,
                     bridge=bridge,
-                    # nodes=[],
-                    nodes=[KF],
+                    nodes=[],
+                    # nodes=[KF],
                     # nodes=[N3, KF],
                     objects=[viper],
                     # render=render,
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(200):
+        for i in range(20):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')

@@ -95,12 +95,6 @@ class SimNode(Node):
         self.object_params = object_params
         super().__init__(**kwargs)
 
-    # def set_object_params(self, object_params):
-    #     self.object_params = object_params
-    #
-    # def set_simulator(self, simulator):
-    #     self.simulator = simulator
-
     @abc.abstractmethod
     def reset(self, **kwargs):
         pass
@@ -236,7 +230,7 @@ class RealResetNode(Node):
                     # Memory usage request
                     mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
 
-                    rospy.logdebug("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
+                    rospy.loginfo("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
                         self.name, self.num_resets, iter_time, mem_use[0], mem_use[1]))
 
                     self.iter_ticks = 0
@@ -312,7 +306,7 @@ class ProcessNode(SimNode):
                     # Memory usage request
                     mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
 
-                    rospy.logdebug("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
+                    rospy.loginfo("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
                     self.name, self.num_resets, iter_time, mem_use[0], mem_use[1]))
 
                     self.iter_ticks = 0
