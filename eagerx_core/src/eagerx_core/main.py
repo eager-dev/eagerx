@@ -16,13 +16,13 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=1.0, process=node_p, targets=['target_1'])
-    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=4.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=20.0, process=node_p, targets=['target_1'])
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
 
     # Define object
     viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
@@ -34,17 +34,17 @@ if __name__ == '__main__':
     render = EAGERxEnv.create_render(rate=1)
 
     # Connect nodes
-    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-                   {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
-                   ]
-
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
-    #                {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
-    #                {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
-    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
+    #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
+    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
     #                ]
+
+    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
+                   {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
+                   {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
+                   {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
+                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
+                   ]
 
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
     #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=1)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=0)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -67,12 +67,13 @@ if __name__ == '__main__':
                     actions=actions,
                     observations=observations,
                     bridge=bridge,
-                    nodes=[],
-                    # nodes=[KF],
+                    # nodes=[],
+                    nodes=[KF],
                     # nodes=[N3, KF],
                     objects=[viper],
                     # render=render,
-                    reset_fn=lambda env: {#'obj/N9': env.state_space.sample()['obj/N9'],
+                    reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
+                                          'obj/N10': env.state_space.sample()['obj/N10'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1']}
                     )
     env = Flatten(env)
@@ -93,13 +94,9 @@ if __name__ == '__main__':
     # False & real_time_factor=0: ERROR --> cannot run as fast as possible asynchronous (without a common clock)
     # True & real_time_factor = 0,  # --> as fast as possible and disregard real_time_factor
 
-    # todo: PENDULUM
-    # todo: setting env, sensor, actuator, and bridge rates to "20" somehow deadlocks (at supervisor?) setting env to a lower rate solves the problem...?
-    # todo: change opendr brache name to opendr v1.0
-    # todo: set-up readthedocs, and basic documentation
-
+    # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
-    # todo: get msg_type from python implementation?
+    # todo: get msg_type from python implementation? --> Avoid differences between .yaml and .py --> Or create a check when creating such a node?
     # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
     # todo: msg_type check for "{'source': (actions, 'act_1'), 'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter},"
     #       Here, we do use both the converter and space_converters ---> will result in error and must be checked before initialization.
@@ -119,11 +116,11 @@ if __name__ == '__main__':
     #  - What is the effect of async simulation with action & observation node?
     #    If running async, sample last action from action_node? Threadsafe?
 
-
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: Create a general OpenAI bridge
     # todo: Implement display functionality inside the render node.
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
-    # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write?
+    # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write? NamedTuples are immutable (but their elements probably aren't)
     # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
     # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
     #       (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
@@ -150,6 +147,7 @@ if __name__ == '__main__':
     #  - nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
     #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
     #  not be agnostic (as they would break in the case is_reactive=True).
+    #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
 
     # todo: REPO STRUCTURE
     #  - eagerx_core --> should be installed as a ros package via sudo apt-get install eagerx_core --> (add supported ros version?)

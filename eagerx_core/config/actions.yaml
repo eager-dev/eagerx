@@ -8,11 +8,11 @@ inputs:
   observations_set:
     address: env/observations/outputs/set
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    window: 0
   step:
     address: env/supervisor/outputs/step
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    window: 0
 outputs:
   set:
     msg_type: std_msgs.msg/UInt64

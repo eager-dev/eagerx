@@ -38,7 +38,7 @@ def configure_connections(connections):
         target = io['target']
         converter = io['converter'] if 'converter' in io else None
         delay = io['delay'] if 'delay' in io else None
-        repeat = io['repeat'] if 'repeat' in io else None
+        window = io['window'] if 'window' in io else None
 
         # PROCESS SOURCE
         if isinstance(source[0], RxNodeParams):  # source=Node
@@ -83,8 +83,8 @@ def configure_connections(connections):
             node.params['inputs'][cname] = dict(address=address, msg_type=msg_type_B, converter=space_converter)
             if delay:
                 node.params['inputs'][cname]['delay'] = delay
-            if repeat:
-                node.params['inputs'][cname]['repeat'] = repeat
+            if window:
+                node.params['inputs'][cname]['window'] = window
         elif isinstance(target[0], RxNodeParams) and not target[0].name == 'env/observations':  # target=Node
             node = target[0]
             component = target[1]
@@ -125,9 +125,9 @@ def configure_connections(connections):
             assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 node.params['inputs'][cname]['delay'] = delay
-            assert repeat is None or (repeat is not None and component == 'inputs'), 'Cannot specify a repeat for entry "%s".' % io
-            if repeat:
-                node.params['inputs'][cname]['repeat'] = repeat
+            assert window is None or (window is not None and component == 'inputs'), 'Cannot specify a window for entry "%s".' % io
+            if window:
+                node.params['inputs'][cname]['window'] = window
             if component == 'feedthroughs':
                 msg_type_C = node.params['outputs'][cname]['msg_type']
             else:
@@ -172,9 +172,9 @@ def configure_connections(connections):
             assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 obj.params['actuators'][cname]['delay'] = delay
-            assert repeat is None or (repeat is not None and component == 'actuators'), 'Cannot specify a repeat for entry "%s".' % io
-            if repeat:
-                obj.params['actuators'][cname]['repeat'] = repeat
+            assert window is None or (window is not None and component == 'actuators'), 'Cannot specify a window for entry "%s".' % io
+            if window:
+                obj.params['actuators'][cname]['window'] = window
             msg_type_C = obj.params[component][cname]['msg_type']
 
             # Verify that msg_type after converter matches the one specified in the .yaml

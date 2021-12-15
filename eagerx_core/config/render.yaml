@@ -11,7 +11,7 @@ default:
 inputs:
   image:
     msg_type: sensor_msgs.msg/Image
-    repeat: all
+    window: 1
 outputs:
   done:
     msg_type: std_msgs.msg/UInt64

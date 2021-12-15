@@ -9,7 +9,7 @@ inputs:
   actions_set:
     address: env/actions/outputs/set
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    window: 0
 outputs:
   set:
     msg_type: std_msgs.msg/UInt64

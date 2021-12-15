@@ -1,7 +1,7 @@
 import abc
 import os
 import time
-from typing import Dict, List, Union
+from typing import Dict, List, Union, NamedTuple
 
 import numpy as np
 import psutil
@@ -11,7 +11,7 @@ from genpy.message import Message
 from sensor_msgs.msg import Image
 
 from eagerx_core.constants import TERMCOLOR, ERROR
-from eagerx_core.utils.utils import initialize_converter
+from eagerx_core.utils.utils import initialize_converter, typehint, Info
 from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 class NodeBase:
@@ -57,10 +57,10 @@ class Node(NodeBase):
     def reset_cb(self, **kwargs):
         keys_to_pop = []
         for cname, msg in kwargs.items():
-            if msg['done']:
+            if msg.info.done:
                 keys_to_pop.append(cname)
             else:
-                kwargs[cname] = msg['msg'][0]
+                kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
         return self.reset(**kwargs)
 
@@ -124,18 +124,18 @@ class ObservationsNode(Node):
                 converter = i['converter']
             else:
                 converter = None
-            self.observation_buffer[i['name']] = {'msg': None, 'converter': converter}
+            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter}
         super().__init__(inputs=inputs, **kwargs)
 
     def reset(self):
         # Set all messages to None
         for name, buffer in self.observation_buffer.items():
-            buffer['msg'] = None
+            buffer['msgs'] = None
 
     def callback(self, node_tick: int, t_n: float, **kwargs):
         # Set all observations to messages in inputs
         for name, buffer in self.observation_buffer.items():
-            buffer['msg'] = kwargs[name]['msg']
+            buffer['msgs'] = kwargs[name].msgs
 
         # Send output_msg
         output_msgs = dict(set=UInt64())
@@ -197,7 +197,7 @@ class RenderNode(Node):
         self.last_image = Image()
 
     def callback(self, node_tick: int, t_n: float, image: Image = None):
-        self.last_image = image['msg'][-1]
+        self.last_image = image['msgs'][-1]
         if self.display and self.render_toggle:
             rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
 
@@ -244,9 +244,9 @@ class RealResetNode(Node):
         self.num_ticks = 0
 
     def callback(self, node_tick: int, t_n: float,
-                 in_1: Dict[str, Union[List[UInt64], float, int]] = None,
-                 in_2: Dict[str, Union[List[UInt64], float, int]] = None,
-                 target_1: Dict[str, Union[List[UInt64], float, int]] = None) -> Dict[str, UInt64]:
+                 in_1: typehint(UInt64) = None,
+                 in_2: typehint(UInt64) = None,
+                 target_1: typehint(UInt64) = None) -> Dict[str, UInt64]:
         # output type is always Dict[str, Union[UInt64, output_msg_types]] because done flags are also inside the output_msgs
         inputs = {'in_1': in_1,
                   'in_2': in_2}
@@ -260,7 +260,7 @@ class RealResetNode(Node):
         for i in self.inputs:
             name = i['name']
             if name in inputs:
-                t_i = inputs[name]['t_i']
+                t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
                     pass
@@ -328,10 +328,10 @@ class ProcessNode(SimNode):
         return init_msgs
 
     def callback(self, node_tick: int, t_n: float,
-                 in_1: Dict[str, Union[List[UInt64], float, int]] = None,
-                 in_2: Dict[str, Union[List[UInt64], float, int]] = None,
-                 in_3: Dict[str, Union[List[String], float, int]] = None,
-                 tick: Dict[str, Union[List[UInt64], float, int]] = None) -> Dict[str, UInt64]:
+                 in_1: typehint(UInt64) = None,
+                 in_2: typehint(UInt64) = None,
+                 in_3: typehint(UInt64) = None,
+                 tick: typehint(UInt64) = None) -> Dict[str, UInt64]:
         inputs = {'in_1': in_1,
                   'in_2': in_2,
                   'tick': tick}
@@ -350,10 +350,9 @@ class ProcessNode(SimNode):
         for i in self.inputs:
             name = i['name']
             if name in inputs:
-                t_i = inputs[name]['t_i']
+                t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()

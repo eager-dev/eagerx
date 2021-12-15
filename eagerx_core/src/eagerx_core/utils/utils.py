@@ -7,6 +7,7 @@ from roslaunch.substitution_args import resolve_args, _resolve_args
 from roslaunch.substitution_args import _collect_args
 
 # OTHER
+from typing import List, NamedTuple, Any
 import time
 from functools import reduce
 import importlib
@@ -162,3 +163,13 @@ def substitute_yaml_args(param, context):
 def get_ROS_log_level(name):
     ns = '/'.join(name.split('/')[:2])
     return get_param_with_blocking(ns + '/log_level')
+
+
+Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[float]), ('t_in', List[float]), ('done', bool)])
+Info.__new__.__defaults__ = (None,) * len(Info._fields)
+Msg = NamedTuple('Msg', [('info', Info), ('msgs', List[Any])])
+# StateMsg = NamedTuple('StateMsg', [('msg', Msg), ('done', bool)])
+
+
+def typehint(msg_type):
+    return NamedTuple('Msg', [('info', Info), ('msgs', List[msg_type])])

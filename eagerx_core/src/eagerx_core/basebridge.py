@@ -13,7 +13,7 @@ from std_msgs.msg import UInt64
 from eagerx_core.constants import process
 from eagerx_core.basenode import NodeBase
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx_core.utils.utils import initialize_state
+from eagerx_core.utils.utils import initialize_state, typehint
 
 
 class BridgeBase(NodeBase):
@@ -72,20 +72,20 @@ class BridgeBase(NodeBase):
     def pre_reset_cb(self, **kwargs):
         keys_to_pop = []
         for cname, msg in kwargs.items():
-            if msg['done']:
+            if msg.info.done:
                 keys_to_pop.append(cname)
             else:
-                kwargs[cname] = msg['msg'][0]
+                kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
         return self.pre_reset(**kwargs)
 
     def reset_cb(self, **kwargs):
         keys_to_pop = []
         for cname, msg in kwargs.items():
-            if msg['done']:
+            if msg.info.done:
                 keys_to_pop.append(cname)
             else:
-                kwargs[cname] = msg['msg'][0]
+                kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
         return self.reset(**kwargs)
 
@@ -150,7 +150,7 @@ class TestBridgeNode(BridgeBase):
         self.nonreactive_pub.publish(UInt64(data=0))
         return 'POST RESET RETURN VALUE'
 
-    def callback(self, node_tick: int, t_n: float,  **kwargs: Dict[str, Union[List[Message], float, int]]):
+    def callback(self, node_tick: int, t_n: float,  **kwargs: typehint(Message)):
         # Publish nonreactive input
         self.nonreactive_pub.publish(UInt64(data=node_tick))
 
@@ -163,7 +163,7 @@ class TestBridgeNode(BridgeBase):
         for i in self.inputs:
             name = i['name']
             if name in kwargs:
-                t_i = kwargs[name]['t_i']
+                t_i = kwargs[name].info.t_in
                 if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 

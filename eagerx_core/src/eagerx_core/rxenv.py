@@ -232,7 +232,7 @@ class RxEnv(gym.Env):
         # Get observations from buffer
         observation = dict()
         for name, buffer in self.obs_node.observation_buffer.items():
-            observation[name] = buffer['msg']
+            observation[name] = buffer['msgs']
         return observation
 
     def _initialize(self) -> None:

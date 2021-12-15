@@ -69,7 +69,7 @@ class RxMessageBroker(object):
         for i in inputs:
             address = i['address']
             assert address not in self.node_io[node_name]['inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'inputs')
-            n['inputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'repeat': i['repeat'], 'status': 'disconnected'}
+            n['inputs'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'window': i['window'], 'status': 'disconnected'}
             n['inputs'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in outputs:
             address = i['address']
@@ -85,7 +85,7 @@ class RxMessageBroker(object):
         for i in feedthrough:
             address = i['address']
             assert address not in self.node_io[node_name]['feedthrough'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'feedthrough')
-            n['feedthrough'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'repeat': i['repeat'], 'status': 'disconnected'}
+            n['feedthrough'][address] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'window': i['window'], 'status': 'disconnected'}
             n['feedthrough'][address + '/reset'] = {'rx': i['reset'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
         for i in state_outputs:
             address = i['address']
@@ -177,17 +177,17 @@ class RxMessageBroker(object):
                         converter_str = ('| %s ' % entry['converter'].__class__.__name__).ljust(23, ' ')
                     else:
                         converter_str = ('| %s ' % '').ljust(23, ' ')
-                    if 'repeat' in entry:
-                        repeat_str = ('| %s ' % entry['repeat']).ljust(8, ' ')
+                    if 'window' in entry:
+                        window_str = ('| %s ' % entry['window']).ljust(8, ' ')
                     else:
-                        repeat_str = ('| %s ' % '').ljust(8, ' ')
+                        window_str = ('| %s ' % '').ljust(8, ' ')
                     if 'rate' in entry:
                         rate_str = '|' + ('%s' % entry['rate']).center(3, ' ')
                     else:
                         rate_str = '|' + ''.center(3, ' ')
                     status_str = ('| %s' % status).ljust(60, ' ')
 
-                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + repeat_str + status_str
+                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + window_str + status_str
                     cprint(log_msg, color)
             print(' '.center(140, " "))
 
@@ -247,12 +247,12 @@ class RxMessageBroker(object):
                         converter_str = ('| %s ' % entry['converter'].__class__.__name__).ljust(23, ' ')
                     else:
                         converter_str = ('| %s ' % '').ljust(23, ' ')
-                    if 'repeat' in entry:
-                        repeat_str = ('| %s ' % entry['repeat']).ljust(8, ' ')
+                    if 'window' in entry:
+                        window_str = ('| %s ' % entry['window']).ljust(8, ' ')
                     else:
-                        repeat_str = ('| %s ' % '').ljust(8, ' ')
+                        window_str = ('| %s ' % '').ljust(8, ' ')
 
-                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + repeat_str + status_str
+                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + window_str + status_str
                     print_status and cprint(log_msg, color)
 
                     # Remove address from disconnected
