@@ -20,10 +20,10 @@ class RxNode(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, inputs, outputs, feedthroughs, states, targets, self.node = self._prepare_io_topics(self.name, **kwargs)
+        rate, inputs, outputs, feedthroughs, states, targets, self.node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx_core.rxpipelines.init_node(self.ns, dt, self.node, inputs, outputs, feedthrough=feedthroughs,
+        rx_objects = eagerx_core.rxpipelines.init_node(self.ns, rate, self.node, inputs, outputs, feedthrough=feedthroughs,
                                                        state_inputs=states, targets=targets)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -39,7 +39,6 @@ class RxNode(object):
     def _prepare_io_topics(self, name, **kwargs):
         params = get_param_with_blocking(name)
         rate = params['rate']
-        dt = 1 / rate
 
         # Get info from bridge on reactive properties
         is_reactive = get_param_with_blocking(self.ns + '/bridge/is_reactive')
@@ -99,7 +98,7 @@ class RxNode(object):
                 i['converter'] = IdentityConverter()
             # else:  # Converter already initialized
 
-        return dt, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']), tuple(
+        return rate, tuple(params['inputs']), tuple(params['outputs']), tuple(params['feedthroughs']), tuple(
             params['states']), tuple(params['targets']), node
 
 

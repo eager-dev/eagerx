@@ -9,15 +9,15 @@ from eagerx_core.wrappers.flatten import Flatten
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define converter (optional)
     ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(20):
+        for i in range(2000000):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')

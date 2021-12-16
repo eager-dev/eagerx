@@ -331,7 +331,7 @@ def remap_cb_input(mode=0):
     return _remap_cb_input
 
 
-def regroup_inputs(node: NodeBase, dt_n=0, is_input=True, perfom_checks=False):
+def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perfom_checks=False):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -342,7 +342,7 @@ def regroup_inputs(node: NodeBase, dt_n=0, is_input=True, perfom_checks=False):
                 # Regroups all inputs into a single dict
                 if is_input:
                     node_tick = value[0].info.node_tick
-                    t_n = round(node_tick * dt_n, 12)
+                    t_n = round(node_tick / rate_node, 12)
                     res = dict(node_tick=node_tick, t_n=t_n)
                 else:
                     res = dict()
@@ -372,7 +372,7 @@ def regroup_inputs(node: NodeBase, dt_n=0, is_input=True, perfom_checks=False):
     return _regroup_inputs
 
 
-def expected_inputs(idx_n, dt_i, dt_n, delay):
+def expected_inputs(idx_n, rate_in, rate_node, delay):
     if idx_n == 0:
         return 1
     else:
@@ -382,15 +382,19 @@ def expected_inputs(idx_n, dt_i, dt_n, delay):
         # Note: idx_n=1 after initial tick, corresponding to T=0
         # Hence, T_t=dt_n * (idx_n-1), T_t+1=dt_n * idx_n
         # todo: we use round to avoid problems with finite precision... strange
-        sum_t_min_1 = max(0, int(round(((dt_n * (N_t_min_1 - 1) - delay) / dt_i), 12)))  # Current timestep
+        sum_t_min_1 = max(0, int((rate_in * (N_t_min_1 - 1) - rate_in * delay) // rate_node))  # Current timestep
+        # sum_t_min_1 = max(0, int(((rate_in * (N_t_min_1 - 1) - rate_in * delay) / rate_node)))  # Current timestep
+        # sum_t_min_1 = max(0, int(round(((dt_n * (N_t_min_1 - 1) - delay) / dt_i), 11)))  # Current timestep
         # sum_t_min_1 = max(0, int(((dt_n * (N_t_min_1 - 1) - delay) / dt_i)))  # Current timestep
-        sum_t = max(0, int(round((dt_n * (N_t - 1) - delay) / dt_i, 12)))  # Next timestep
+        sum_t = max(0, int((rate_in * (N_t - 1) - rate_in * delay) // rate_node))  # Next timestep
+        # sum_t = max(0, int((rate_in * (N_t - 1) - rate_in * delay) / rate_node))  # Next timestep
+        # sum_t = max(0, int(round((dt_n * (N_t - 1) - delay) / dt_i, 11)))  # Next timestep
         # sum_t = max(0, int((dt_n * (N_t - 1) - delay) / dt_i))  # Next timestep
         return sum_t - sum_t_min_1
 
 
-def generate_msgs(source_Nc: Observable, dt_n: float, name: str, rate: float, window: int, delay: float, reactive: bool):
-    dt_i = 1 / rate
+def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, reactive: bool):
+    dt_i = 1 / rate_in
 
     def _generate_msgs(source_msg: Observable):
         def subscribe(observer: typing.Observer,
@@ -423,17 +427,17 @@ def generate_msgs(source_Nc: Observable, dt_n: float, name: str, rate: float, wi
                         if window > 0:
                             wmsgs = list(msgs_window.extend(msgs))
                             wt_i = list(t_i_window.extend(t_i))
-                            wt_n = list(t_n_window.extend([tick*dt_n] * len(msgs)))
+                            wt_n = list(t_n_window.extend([tick/rate_node] * len(msgs)))
                         else:
                             wmsgs = msgs
                             wt_i = t_i
-                            wt_n = [round(tick*dt_n, 12)] * len(msgs)
-                        res = Msg(Info(name, tick, rate, wt_n, wt_i), wmsgs)
+                            wt_n = [round(tick/rate_node, 12)] * len(msgs)
+                        res = Msg(Info(name, tick, rate_in, wt_n, wt_i), wmsgs)
                         observer.on_next(res)
 
             # Determine Nc logic
             def on_next_Nc(x):
-                num_msgs = expected_inputs(x, dt_i, dt_n, delay)
+                num_msgs = expected_inputs(x, rate_in, rate_node, delay)
                 tick_queue.append(x)
                 num_queue.append(num_msgs)
                 next(num_msgs)
@@ -448,7 +452,6 @@ def generate_msgs(source_Nc: Observable, dt_n: float, name: str, rate: float, wi
                 t_i_queue.append(round(x[0] * dt_i, 12))
                 next(x)
 
-            subscriptions = []
             sad = SingleAssignmentDisposable()
             sad.disposable = source_msg.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
             subscriptions.append(sad)
@@ -458,14 +461,14 @@ def generate_msgs(source_Nc: Observable, dt_n: float, name: str, rate: float, wi
     return _generate_msgs
 
 
-def create_channel(ns, Nc, dt_n, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
+def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
     if is_reactive:
-        return create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, node)
+        return create_reactive_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, node)
     else:
-        return create_async_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
+        return create_async_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
 
 
-def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, node: NodeBase):
+def create_reactive_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, node: NodeBase):
     # todo: remove ops.observe_on?
     if is_feedthrough:
         name = inpt['feedthrough_to']
@@ -501,7 +504,7 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
     else:
         Nc = Nc.pipe(ops.observe_on(scheduler))
 
-    channel = Ir.pipe(generate_msgs(Nc, dt_n, name, rate, window=0, delay=inpt['delay'], reactive=True), ops.share())
+    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=0, delay=inpt['delay'], reactive=True), ops.share())
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
@@ -512,12 +515,12 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
     return channel, flag
 
 
-def init_channels(ns, Nc, dt_n, inputs, is_reactive, real_time_factor, E, scheduler, node: NodeBase, is_feedthrough=False):
+def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, E, scheduler, node: NodeBase, is_feedthrough=False):
     # Create channels
     channels = []
     flags = []
     for i in inputs:
-        channel, flag = create_channel(ns, Nc, dt_n, i, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
+        channel, flag = create_channel(ns, Nc, rate_node, i, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
         channels.append(channel)
         if is_feedthrough:
             name = i['address']
@@ -526,7 +529,7 @@ def init_channels(ns, Nc, dt_n, inputs, is_reactive, real_time_factor, E, schedu
         flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node))
         flags.append(flag)
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
-    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, dt_n=dt_n), ops.share())
+    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, rate_node=rate_node), ops.share())
     return zipped_channels, zipped_flags
 
 
@@ -873,17 +876,11 @@ def throttle_with_time(dt, node: NodeBase):
     return _throttle_with_time
 
 
-def throttle_callback_trigger(dt_n, Nc, Nr, E, is_reactive, real_time_factor, node: NodeBase):
+def throttle_callback_trigger(rate_node, Nc, Nr, E, is_reactive, real_time_factor, node: NodeBase):
     if is_reactive and real_time_factor == 0:
         Nct = Nc
     elif is_reactive and real_time_factor > 0:
-        # Nct = Nc.pipe(ops.merge(Nr.pipe(spy('Nr', node))),
-        #               ops.scan(lambda acc, x: acc + 1, 0),
-        #               throttle_with_time(dt_n / real_time_factor, node),
-        #               ops.map(lambda x: x[0]),
-        #               ops.start_with(0),
-        #               ops.share())
-        Nct = rx.interval(dt_n / real_time_factor).pipe(#ops.skip_until(E),
+        Nct = rx.interval(rate_node * real_time_factor).pipe(#ops.skip_until(E),
                                                         ops.scan(lambda acc, x: acc + 1, -1),
                                                         ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
                                                                                    ops.start_with(0))),
@@ -896,7 +893,7 @@ def throttle_callback_trigger(dt_n, Nc, Nr, E, is_reactive, real_time_factor, no
                                                         )
     else:
         assert real_time_factor > 0, "The real_time_factor must be larger than zero when *not* running reactive (i.e. asychronous)."
-        Nct = rx.interval(dt_n / real_time_factor).pipe(ops.skip_until(E),
+        Nct = rx.interval(rate_node * real_time_factor).pipe(ops.skip_until(E),
                                                         ops.scan(lambda acc, x: acc + 1, -1),
                                                         ops.combine_latest(Nc.pipe(ops.merge(Nr.pipe(spy('Nr', node))),
                                                                                    ops.scan(lambda acc, x: acc + 1, 0),
@@ -988,7 +985,7 @@ def _window_with_variable_count() -> Callable[[Observable], Observable]:
     return window_with_variable_count
 
 
-def ops_expected_inputs(dt_i, dt_n, inpt, node):
+def ops_expected_inputs(rate_in, rate_node, inpt, node):
     delay = inpt['delay']
     in_name = inpt['name']
     node_name = node.ns_name
@@ -1003,7 +1000,7 @@ def ops_expected_inputs(dt_i, dt_n, inpt, node):
                 # if node_name == '/rx/obj/actuators/N8' and in_name == 'actions_set' and value == 43:
                 #     print('wait')
 
-                num_msgs = expected_inputs(value, dt_i, dt_n, delay)
+                num_msgs = expected_inputs(value, rate_in, rate_node, delay)
                 output = {'node_tick': value, 'num_msgs': num_msgs}
                 observer.on_next(output)
 

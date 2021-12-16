@@ -24,10 +24,10 @@ class RxBridge(object):
         self.initialized = False
 
         # Prepare input & output topics
-        dt, inputs, outputs, states, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
+        rate, inputs, outputs, states, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx_core.rxpipelines.init_bridge(self.ns, dt, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
+        rx_objects = eagerx_core.rxpipelines.init_bridge(self.ns, rate, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
         self.mb.add_rx_objects(node_name=name + '/dynamically_registered', node=self)
         self.mb.connect_io()
@@ -53,7 +53,6 @@ class RxBridge(object):
         node_names = params['node_names']
         target_addresses = params['target_addresses']
         rate = params['rate']
-        dt = 1 / rate
 
         # Get node
         node_cls = get_attribute_from_module(params['module'], params['node_type'])
@@ -88,7 +87,7 @@ class RxBridge(object):
                 i['converter'] = IdentityConverter()
             # else:  # Converter already initialized
 
-        return dt, params['inputs'], tuple(params['outputs']), tuple(params['states']), node_names, target_addresses, node
+        return rate, params['inputs'], tuple(params['outputs']), tuple(params['states']), node_names, target_addresses, node
 
     def _close(self):
         return True

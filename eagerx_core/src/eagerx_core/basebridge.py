@@ -3,6 +3,9 @@ import abc
 import os
 from typing import Dict, Union, List
 import psutil
+import time
+import numpy as np
+from tabulate import tabulate
 
 # ROS IMPORTS
 import rospy
@@ -30,6 +33,18 @@ class BridgeBase(NodeBase):
         # Initialized nodes
         self.is_initialized = dict()
 
+        # Message counter
+        self.num_ticks = 0
+
+        # Track memory usage  & speed
+        self.total_ticks = 0
+        self.py = psutil.Process(os.getpid())
+        self.pid = os.getpid()
+        self.iter_start = None
+        self.iter_ticks = 0
+        self.print_iter = 200
+        self.history = []
+        self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
         super(BridgeBase, self).__init__(is_reactive=is_reactive, real_time_factor=real_time_factor, **kwargs)
 
     def register_node(self, node_params):
@@ -80,6 +95,7 @@ class BridgeBase(NodeBase):
         return self.pre_reset(**kwargs)
 
     def reset_cb(self, **kwargs):
+        self.num_ticks = 0
         keys_to_pop = []
         for cname, msg in kwargs.items():
             if msg.info.done:
@@ -91,7 +107,42 @@ class BridgeBase(NodeBase):
 
     def callback_cb(self, node_tick, t_n, **kwargs):
         # todo: reactive=True & real_time_factor!= 0: rospy.rate behavior --> implement with rospy.sleep()?
-        return self.callback(node_tick, t_n, **kwargs)
+        self.iter_ticks += 1
+        if self.log_memory and self.iter_ticks % self.print_iter == 0:
+            if self.iter_start:
+                # Time steps
+                iter_stop = time.time()
+                if self.iter_ticks > 0:
+                    iter_time = float((iter_stop - self.iter_start) / self.iter_ticks)
+                else:
+                    iter_time = float(iter_stop - self.iter_start)
+
+                # Memory usage request
+                mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
+
+                # Print info
+                self.total_ticks += self.iter_ticks
+                self.iter_ticks = 0
+
+                # Log history
+                if len(self.history) > 0:
+                    delta_mem_rss = round(mem_use[0] - self.history[-1][3], 2)
+                    delta_mem_vms = round(mem_use[1] - self.history[-1][6], 2)
+                    delta_iter_time = round(iter_time - self.history[-1][9], 5)
+                    cum_mem_rss = round(mem_use[0] - self.history[0][3], 2)
+                    cum_mem_vms = round(mem_use[1] - self.history[0][6], 2)
+                    cum_iter_time = round(iter_time - self.history[0][9], 5)
+                    self.history.append([self.pid, self.name, self.total_ticks,
+                                         round(mem_use[0], 1), delta_mem_rss, cum_mem_rss,
+                                         round(mem_use[1], 1), delta_mem_vms, cum_mem_vms,
+                                         iter_time, delta_iter_time, cum_iter_time])
+                else:
+                    self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
+                rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
+            self.iter_start = time.time()
+        output = self.callback(node_tick, t_n, **kwargs)
+        self.num_ticks += 1
+        return output
 
     @abc.abstractmethod
     def add_object_to_simulator(self, object_params, node_params, state_params) -> Dict:
@@ -124,16 +175,6 @@ class TestBridgeNode(BridgeBase):
 
         # Initialize nonreactive input
         self.nonreactive_pub = rospy.Publisher(kwargs['ns'] + nonreactive_address, UInt64, queue_size=0, latch=True)
-
-        # Message counter
-        self.num_ticks = 0
-        self.num_resets = 0
-
-        # Memory usage
-        self.py = psutil.Process(os.getpid())
-        self.iter_start = None
-        self.iter_ticks = 0
-        self.print_iter = 20
         super(TestBridgeNode, self).__init__(simulator=simulator, **kwargs)
 
     def add_object_to_simulator(self, object_params, node_params, state_params):
@@ -146,7 +187,6 @@ class TestBridgeNode(BridgeBase):
 
     def reset(self, param_1: UInt64 = None):
         # Publish nonreactive input (this is only required for simulation setup)
-        self.num_ticks = 0
         self.nonreactive_pub.publish(UInt64(data=0))
         return 'POST RESET RETURN VALUE'
 
@@ -175,6 +215,4 @@ class TestBridgeNode(BridgeBase):
             msg = UInt64()
             msg.data = Nc
             output_msgs[name] = msg
-        self.num_ticks += 1
-        self.iter_ticks += 1
         return output_msgs
