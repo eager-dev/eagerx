@@ -15,7 +15,7 @@ from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, swi
     init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
     init_callback_pipeline, get_object_params, extract_inputs_and_reactive_proxy, initialize_reactive_proxy_reset, \
     switch_with_check_pipeline, node_reset_flags, filter_dict_on_key, get_node_params, extract_node_reset, \
-    throttle_callback_trigger, feedback_callback_trigger, add_offset
+    throttle_callback_trigger, add_offset
 
 
 def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, E, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, is_reactive, real_time_factor, event_scheduler=None):
@@ -23,10 +23,10 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
     Rn = ReplaySubject()     # Reset flag for the node (Nc=Ns and r_signal)
     Nc = Subject()           # Number completed callbacks (i.e. send Topics):
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
-    Nr = Subject()           # Retry if callback input does not meet requirements (i.e. if repeat='last' but at t=0 no msg has been received)
+    # Nr = Subject()           # Retry if callback input does not meet requirements (i.e. if repeat='last' but at t=0 no msg has been received)
 
     # Throttle the callback trigger
-    Nct = throttle_callback_trigger(rate_node, Nc, Nr, E, is_reactive, real_time_factor, node)
+    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node)
 
     # Create input channels
     zipped_inputs, zipped_input_flags = init_channels(ns, Nct, rate_node, inputs, is_reactive, real_time_factor, E, node=node, scheduler=event_scheduler)
@@ -46,10 +46,6 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
 
     # Create reset signal
     Rr, P = PR.pipe(ops.partition(lambda value: isinstance(value, bool)))
-
-    # If reactive, and we receive no msgs during initial tick for input/feedthrough with repeat='last'/'all', redirect to Nr
-    if not is_reactive:
-        P = P.pipe(feedback_callback_trigger(Nr, inputs, feedthrough))
 
     # Create accumulator: (acc)
     d_Ns = P.pipe(ops.scan(lambda acc, x: acc + 1, 0)).subscribe(Ns)
@@ -85,7 +81,8 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
     d_flag = rx.zip(zipped_input_flags, zipped_action_flags).pipe(ops.map(lambda x: merge_dicts(x[0], x[1]))).subscribe(F, scheduler=event_scheduler)
 
     # Dispose
-    dispose = [Rn, Nc, Ns, Nr, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
+    # dispose = [Rn, Nc, Ns, Nr, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
+    dispose = [Rn, Nc, Ns, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
     return {'Rn': Rn, 'dispose': dispose}
 
 
@@ -212,9 +209,7 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
 
     # Send output flags
     for i in outputs:
-        RrRn.pipe(#spy('off [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
-                  add_offset(int(i['start_with_msg']), skip=1),
-                  #spy('cum [%s]' % i['name'].split('/')[-1][:12].ljust(4), node),
+        RrRn.pipe(add_offset(int(i['start_with_msg']), skip=1),
                   ops.map(lambda x: UInt64(data=x))).subscribe(i['reset'])
 
     # Reset node pipeline
@@ -260,17 +255,15 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
     return rx_objects
 
 
-def init_bridge_pipeline(ns, rate_node, node, zipped_channels, outputs, Nct_ho, Nr_ho, DF, RRn_ho, SS_ho, SS_CL_ho, state_inputs, is_reactive, real_time_factor, E, event_scheduler=None):
+def init_bridge_pipeline(ns, rate_node, node, zipped_channels, outputs, Nct_ho, DF, RRn_ho, SS_ho, SS_CL_ho, state_inputs, is_reactive, real_time_factor, E, event_scheduler=None):
     # Node ticks
     RRn = Subject()
     RRn_ho.on_next(RRn)
     Nc = Subject()              # Number completed callbacks (i.e. send Topics): initialized at zero to kick of chain reaction
     Ns = BehaviorSubject(0)     # Number of started callbacks (i.e. number of planned Topics).
-    Nr = Subject()              # Retry if callback input does not meet requirements (i.e. if repeat='last' but at t=0 no msg has been received)
-    Nr_ho.on_next(Nr)
 
     # Throttle the callback trigger
-    Nct = throttle_callback_trigger(rate_node, Nc, Nr, E, is_reactive, real_time_factor, node)
+    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node)
     Nct_ho.on_next(Nct)
 
     # Create a tuple with None, to be consistent with feedthrough pipeline of init_node_pipeline
@@ -287,11 +280,6 @@ def init_bridge_pipeline(ns, rate_node, node, zipped_channels, outputs, Nct_ho, 
 
     # Create reset signal
     RRr, P = PR.pipe(ops.partition(lambda value: isinstance(value, bool)))
-
-    # If reactive, and we receive no msgs during initial tick for input/feedthrough with repeat='last'/'all', redirect to Nr
-    # todo: not needed? Bridge steps regardless whether it has received any inputs
-    # if not is_reactive:
-    #     P = P.pipe(feedback_callback_trigger(Nr, P, inputs))
 
     # Create accumulator: (acc)
     d_Ns = P.pipe(ops.scan(lambda acc, x: acc + 1, 0)).subscribe(Ns)
@@ -519,9 +507,7 @@ def init_bridge(ns, rate_node, node, inputs_init, outputs, state_inputs, node_na
     node_outputs.append(end_reset)
 
     # Dynamically initialize new input pipeline
-    # todo: add check_Nc & check_Nr to reset flag?
     check_Nct, Nct, Nct_ho = switch_with_check_pipeline()
-    check_Nr, Nr, Nr_ho = switch_with_check_pipeline()
     inputs_flags = inputs.pipe(ops.zip(reset_trigger),
                                ops.map(lambda i: i[0]),
                                ops.map(lambda inputs: init_channels(ns, Nct, rate_node, inputs, is_reactive, real_time_factor, end_reset['msg'], event_scheduler, node)),
@@ -538,7 +524,7 @@ def init_bridge(ns, rate_node, node, inputs_init, outputs, state_inputs, node_na
 
     # Initialize rest of episode pipeline
     pipeline_trigger = rx.zip(check_z_flags, check_z_inputs)
-    reset_obs = pipeline_trigger.pipe(ops.map(lambda x: init_bridge_pipeline(ns, rate_node, node, z_inputs, outputs, Nct_ho, Nr_ho, DF, RRn_ho, SS_ho, SS_CL_ho, state_inputs, is_reactive, real_time_factor, end_reset['msg'], event_scheduler=event_scheduler)),
+    reset_obs = pipeline_trigger.pipe(ops.map(lambda x: init_bridge_pipeline(ns, rate_node, node, z_inputs, outputs, Nct_ho, DF, RRn_ho, SS_ho, SS_CL_ho, state_inputs, is_reactive, real_time_factor, end_reset['msg'], event_scheduler=event_scheduler)),
                                       trace_observable('init_bridge_pipeline', node), ops.share())
 
     # Dynamically initialize new state pipeline
