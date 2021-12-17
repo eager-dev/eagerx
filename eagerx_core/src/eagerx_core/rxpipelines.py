@@ -8,7 +8,6 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
 
 # EAGERX IMPORTS
-from eagerx_core.utils.utils import get_param_with_blocking
 from eagerx_core.constants import DEBUG
 
 from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
@@ -23,7 +22,6 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
     Rn = ReplaySubject()     # Reset flag for the node (Nc=Ns and r_signal)
     Nc = Subject()           # Number completed callbacks (i.e. send Topics):
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
-    # Nr = Subject()           # Retry if callback input does not meet requirements (i.e. if repeat='last' but at t=0 no msg has been received)
 
     # Throttle the callback trigger
     Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node)
@@ -52,16 +50,20 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
 
     # Create callback stream
     input_stream = Ns.pipe(ops.skip(1), ops.zip(P), ops.share())
-    d_msg = init_callback_pipeline(ns, node.callback_cb, cb_ft, input_stream, real_reset, targets, state_outputs, outputs, event_scheduler, node=node)
+    d_msg, output_stream = init_callback_pipeline(ns, node.callback_cb, cb_ft, input_stream, real_reset, targets, state_outputs, outputs, event_scheduler, node=node)
 
     # Publish output msg as ROS topic and to subjects if single process
-    output_msgs = []
     for o in outputs:
-        if o['start_with_msg']:
-            output_msgs.append(o['msg'].pipe(ops.skip(1)))
-        else:
-            output_msgs.append(o['msg'])
-    Nc_obs = rx.zip(*output_msgs).pipe(ops.scan(lambda acc, x: acc + 1, 0))
+        d = output_stream.pipe(ops.pluck(o['name']),
+                               ops.filter(lambda x: x is not None),
+                               ops.map(o['converter'].convert),
+                               ops.share(),
+                               ).subscribe(o['msg'])
+        # Add disposable
+        d_msg += [d]
+
+    # Publish output msg as ROS topic and to subjects if single process
+    Nc_obs = output_stream.pipe(ops.scan(lambda acc, x: acc + 1, 0))
 
     # Increase ticks
     d_Nc = Nc_obs.subscribe(Nc, scheduler=event_scheduler)
@@ -286,10 +288,20 @@ def init_bridge_pipeline(ns, rate_node, node, zipped_channels, outputs, Nct_ho, 
 
     # Create callback stream
     input_stream = Ns.pipe(ops.skip(1), ops.zip(P), ops.share())
-    d_msg = init_callback_pipeline(ns, node.callback_cb, cb_ft, input_stream, False, tuple(), tuple(), outputs, event_scheduler, node)
+    d_msg, output_stream = init_callback_pipeline(ns, node.callback_cb, cb_ft, input_stream, False, tuple(), tuple(), outputs, event_scheduler, node)
+
+    # Publish output msg as ROS topic and to subjects if single process
+    for o in outputs:
+        d = output_stream.pipe(ops.pluck(o['name']),
+                               ops.filter(lambda x: x is not None),
+                               ops.map(o['converter'].convert),
+                               ops.share(),
+                               ).subscribe(o['msg'])
+        # Add disposable
+        d_msg += [d]
 
     # After outputs have been send, increase the completed callback counter
-    Nc_obs = rx.zip(*[o['msg'] for o in outputs]).pipe(ops.scan(lambda acc, x: acc + 1, 0))
+    Nc_obs = output_stream.pipe(ops.scan(lambda acc, x: acc + 1, 0))
 
     # Increase ticks
     d_Nc = Nc_obs.subscribe(Nc, scheduler=event_scheduler)
@@ -306,6 +318,7 @@ def init_bridge_pipeline(ns, rate_node, node, zipped_channels, outputs, Nct_ho, 
     SS_CL_ho.on_next(ss_flags.pipe(ops.start_with(None)))
 
     # Dispose
+    # todo: output CompositeDisposable
     dispose = [RRn, Nc, Ns, d_RRn, d_Nc, d_Ns] + d_msg
     return {'dispose': dispose}
 

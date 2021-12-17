@@ -16,8 +16,8 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
@@ -34,10 +34,10 @@ if __name__ == '__main__':
     render = EAGERxEnv.create_render(rate=1)
 
     # Connect nodes
-    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-                   {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-                   {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
-                   ]
+    # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
+    #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
+    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
+    #                ]
 
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
     #                {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
@@ -46,16 +46,16 @@ if __name__ == '__main__':
     #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
     #                ]
 
-    # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-    #                {'source': (KF, 'out_1'),            'target': (observations, 'obs_2'), 'delay': 0.0},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
-    #                {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
-    #                {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
-    #                {'source': (actions, 'act_1'),       'target': (N3, 'feedthroughs', 'out_1')},
-    #                {'source': (N3, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
-    #                ]
+    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
+                   {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
+                   {'source': (KF, 'out_1'),            'target': (observations, 'obs_2'), 'delay': 0.0},
+                   {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
+                   {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
+                   {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
+                   {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
+                   {'source': (actions, 'act_1'),       'target': (N3, 'feedthroughs', 'out_1')},
+                   {'source': (N3, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
+                   ]
     configure_connections(connections)
 
     # Define bridge
@@ -67,9 +67,9 @@ if __name__ == '__main__':
                     actions=actions,
                     observations=observations,
                     bridge=bridge,
-                    nodes=[],
+                    # nodes=[],
                     # nodes=[KF],
-                    # nodes=[N3, KF],
+                    nodes=[N3, KF],
                     objects=[viper],
                     # render=render,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
@@ -101,7 +101,6 @@ if __name__ == '__main__':
     # todo: msg_type check for "{'source': (actions, 'act_1'), 'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter},"
     #       Here, we do use both the converter and space_converters ---> will result in error and must be checked before initialization.
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
-    # todo: delay
 
     # todo: ASYNCHRONOUS IMPLEMENTATION
     # todo: make real_time_factor implementation faster, with time.sleep?
@@ -118,6 +117,7 @@ if __name__ == '__main__':
     #    If running async, sample last action from action_node? Threadsafe?
 
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.
     # todo: Create a general OpenAI bridge
     # todo: Implement display functionality inside the render node.
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
@@ -149,6 +149,7 @@ if __name__ == '__main__':
     #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
     #  not be agnostic (as they would break in the case is_reactive=True).
     #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
+    #  - Nonreactive inputs that 'start_with_msg' could mess up the reset.
 
     # todo: REPO STRUCTURE
     #  - eagerx_core --> should be installed as a ros package via sudo apt-get install eagerx_core --> (add supported ros version?)

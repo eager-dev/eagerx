@@ -37,12 +37,16 @@ ros_log_fns = {SILENT: lambda print_str: None,
                FATAL: rospy.logfatal}
 
 
-def cb_ft(cb_input):
+def cb_ft(cb_input, is_reactive):
     # Fill output msg with number of node ticks
     output_msgs = dict()
     for key, msg in cb_input.items():
         if key not in ['node_tick', 't_n']:
-            output_msgs[key] = msg.msgs[-1]
+            if len(msg.msgs) > 0:
+                output_msgs[key] = msg.msgs[-1]
+            else:
+                assert not is_reactive, 'Actions must always be fed through if we are running reactively.'
+                output_msgs[key] = None
     return output_msgs
 
 
@@ -534,18 +538,18 @@ def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, E, s
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, scheduler, node: NodeBase):
+def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, scheduler, node: NodeBase):
     # Create real reset pipeline
     dispose = []
     if real_reset:
         for i in feedthrough:
             rate_str = '%s/rate/%s' % (ns, i['address'][len(ns) + 1:])
-            dt_i = 1 / get_param_with_blocking(rate_str)
-            if not dt_i == dt_n:
-                raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (dt_n, dt_i))
+            rate_in = get_param_with_blocking(rate_str)
+            if not rate_in == rate_node:
+                raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (rate_node, rate_node))
 
         # Create zipped action channel
-        zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, is_reactive, real_time_factor, E, scheduler, node, is_feedthrough=True)
+        zipped_channels, zipped_flags = init_channels(ns, Nc, rate_node, feedthrough, is_reactive, real_time_factor, E, scheduler, node, is_feedthrough=True)
 
         # Create switch subject
         target_signal = rx.zip(*[t['msg'] for t in targets])
@@ -642,10 +646,10 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
         # Either feedthrough action or run callback
         ft_stream = ft_stream.pipe(ops.map(lambda x: x[1][1]),
                                    spy('CB_FT', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
-                                   ops.map(lambda val: cb_ft(val)), ops.share())
+                                   ops.map(lambda val: cb_ft(val, node.is_reactive)), ops.share())
         reset_stream = reset_stream.pipe(ops.map(lambda x: x[1][0]),
                                          ops.combine_latest(target_stream),
-                                         spy('CB_RESET', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
+                                         spy('CB_RESET', node, log_level=DEBUG, mapper=remap_cb_input(mode=2)),
                                          ops.map(lambda val: cb_tick(**val[0], **val[1])), ops.share())
         output_stream = rx.merge(reset_stream, ft_stream)
 
@@ -663,18 +667,7 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
                                     spy('CB_TICK', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
                                     ops.map(lambda val: cb_tick(**val)),
                                     ops.share())
-
-    # Publish output msg as ROS topic and to subjects if single process
-    for o in outputs:
-        d = output_stream.pipe(ops.pluck(o['name']),
-                               ops.map(o['converter'].convert),
-                               ops.share(),
-                               ).subscribe(o['msg'])
-
-        # Add disposable
-        d_msg += [d]
-
-    return d_msg
+    return d_msg, output_stream
 
 
 def get_node_params(msg):
@@ -880,24 +873,8 @@ def throttle_with_time(dt, node: NodeBase):
 def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node: NodeBase):
     if is_reactive and real_time_factor == 0:
         Nct = Nc
-    # elif is_reactive and real_time_factor > 0:
-        # Nct = Nc.pipe(ops.merge(Nr.pipe(spy('Nr', node))),
-        #               ops.scan(lambda acc, x: acc + 1, 0),
-        #               throttle_with_time(1/(rate_node * real_time_factor), node),
-        #               ops.map(lambda x: x[0]),
-        #               ops.start_with(0),
-        #               ops.share())
-        # Nct = rx.interval(1 / (rate_node * real_time_factor)).pipe(  # ops.skip_until(E),
-        #     ops.scan(lambda acc, x: acc + 1, -1),
-        #     ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
-        #                                ops.start_with(0))),
-        #     ops.distinct_until_changed(key_mapper=lambda x: x,
-        #                                comparer=lambda x, y: (
-        #                                        x[0] == y[0] or x[1] ==
-        #                                        y[1])),
-        #     ops.map(lambda x: x[1]),
-        #     ops.share())
     else:
+        # todo: either pass through throttle, or Nc depending on "is_reactive".
         assert real_time_factor > 0, "The real_time_factor must be larger than zero when *not* running reactive (i.e. asychronous)."
         Nct = rx.interval(1 / (rate_node * real_time_factor)).pipe(  # ops.skip_until(E),
             ops.scan(lambda acc, x: acc + 1, -1),
