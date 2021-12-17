@@ -16,12 +16,12 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=20.0, process=node_p, targets=['target_1'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=10.0, process=node_p, targets=['target_1'])
     KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
 
     # Define object
@@ -59,11 +59,11 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=0)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=2)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
-                    rate=20,
+                    rate=10,
                     actions=actions,
                     observations=observations,
                     bridge=bridge,
@@ -83,16 +83,12 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(2):
+        for i in range(200000):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
         obs = env.reset()
     print('\n[Finished]')
-
-    # True & real_time_factor!= 0: rospy.rate behavior --> implement rospy.sleep() inside bridge tick
-    # False & real_time_factor=0: ERROR --> cannot run as fast as possible asynchronous (without a common clock)
-    # True & real_time_factor = 0,  # --> as fast as possible and disregard real_time_factor
 
     # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
@@ -103,18 +99,7 @@ if __name__ == '__main__':
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: ASYNCHRONOUS IMPLEMENTATION
-    # todo: make real_time_factor implementation faster, with time.sleep?
-    # todo: change reset msg recv logic from msg_rcv=msg_send to msg_rcv > msg_send --> Can be problematic if we miss first few messages.
-    # todo: why not latch init_msg to 'rx/end_reset'?
-    # todo: add 'ops.share" with gen_msg
-    # todo: what to do with assertion in "rxoperators.regroup_msgs"
-    # todo: implement real_time rx pipeline
-    #  - Filter None messages --> no problem because flags are not counting msg_send==msg_recv
-    #  - Latch input channels that are non-reactive & non-deterministic.
-    #  - How to deal with delay? --> Ignore when running async? Or implement as delay block? Must be removed when running in reality.
-    #  - What action to feedthrough if we receive 0 or 2? Always select the action we received last? What to do at t=0?
-    #  - What is the effect of async simulation with action & observation node?
-    #    If running async, sample last action from action_node? Threadsafe?
+    # todo: What is the effect of async simulation with action & observation node?
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.
@@ -132,6 +117,8 @@ if __name__ == '__main__':
     # todo: Create batch dimension on all nodes (with $(batch_dim) in .yaml used in e.g. converter definitions), so that
     #       complete envs can be batched. Bridge must have a grid edge length param, simnodes that use global position
     #       info must correct for grid position.
+    # todo: Create an option to turn on/off delays when running async.
+    # todo: Create a node diagonostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
 
     # todo: THINGS TO KEEP IN MIND:
     #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
@@ -150,6 +137,7 @@ if __name__ == '__main__':
     #  not be agnostic (as they would break in the case is_reactive=True).
     #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
     #  - Nonreactive inputs that 'start_with_msg' could mess up the reset.
+    #  - Delays are ignored when running async.
 
     # todo: REPO STRUCTURE
     #  - eagerx_core --> should be installed as a ros package via sudo apt-get install eagerx_core --> (add supported ros version?)

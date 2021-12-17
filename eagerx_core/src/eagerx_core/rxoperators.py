@@ -283,10 +283,10 @@ def remap_state(name, is_reactive, real_time_factor):
                 msg = value[0][1]
                 done = value[1]
                 wc_stamp = time.time()
-                if real_time_factor > 0:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                else:
+                if is_reactive:
                     sim_stamp = None
+                else:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
                 stamp = Stamp(seq[0], sim_stamp, wc_stamp)
                 res = create_msg_tuple(name, node_tick, [msg], [stamp], done=done)
                 seq[0] += 1
@@ -309,10 +309,10 @@ def remap_target(name, is_reactive, real_time_factor):
                 node_tick = value[0]
                 msg = value[1]
                 wc_stamp = time.time()
-                if real_time_factor > 0:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                else:
+                if is_reactive:
                     sim_stamp = None
+                else:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
                 stamp = Stamp(seq[0], sim_stamp, wc_stamp)
                 res = create_msg_tuple(name, node_tick, [msg], [stamp])
                 seq[0] += 1
@@ -456,7 +456,7 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                                 t_i = t_i_queue[:num_msgs]
                                 msgs_queue[:] = msgs_queue[num_msgs:]
                                 t_i_queue[:] = t_i_queue[num_msgs:]
-                            else:
+                            else:  # Empty complete buffer
                                 msgs = msgs_queue
                                 t_i = t_i_queue
                                 msgs_queue[:] = []
@@ -468,10 +468,10 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                         # Determine t_n stamp
                         wc_stamp = time.time()
                         seq = tick
-                        if real_time_factor > 0:
-                            sim_stamp = (wc_stamp - start) / real_time_factor
-                        else:
+                        if is_reactive:
                             sim_stamp = round(tick/rate_node, 12)
+                        else:
+                            sim_stamp = (wc_stamp - start) / real_time_factor
                         t_n = Stamp(seq, sim_stamp, wc_stamp)
 
                         if window > 0:
@@ -503,10 +503,10 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                 msgs_queue.append(x[1])
                 wc_stamp = time.time()
                 seq = x[0]
-                if real_time_factor > 0:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                else:
+                if is_reactive:
                     sim_stamp = round(x[0] * dt_i, 12)
+                else:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
                 t_i_queue.append(Stamp(seq, sim_stamp, wc_stamp))
                 next(x)
 
@@ -522,8 +522,6 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
     # if is_reactive:
     return create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
-    # else:
-    #     return create_async_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
 
 
 def create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
@@ -934,10 +932,8 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, n
             ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
                                        ops.start_with(0))),
             ops.distinct_until_changed(key_mapper=lambda x: x,
-                                       comparer=lambda x, y: (
-                                               x[0] == y[0] or x[1] ==
-                                               y[1])),
-            ops.map(lambda x: x[0]),
+                                       comparer=lambda x, y: (x[0] == y[0] or x[1] == y[1])),
+            ops.map(lambda x: x[1]),
             ops.share())
     return Nct
 
