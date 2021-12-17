@@ -13,7 +13,7 @@ from rx.internal.concurrency import synchronized
 from eagerx_core.basenode import NodeBase
 from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.params import RxInput
-from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS, process
+from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS, process
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp
 
 # OTHER IMPORTS
@@ -32,6 +32,7 @@ print_modes = {TERMCOLOR: 'eagerx_core.TERMCOLOR',
 ros_log_fns = {SILENT: lambda print_str: None,
                DEBUG: rospy.logdebug,
                INFO: rospy.loginfo,
+               WARN: rospy.logwarn,
                ERROR: rospy.logerr,
                FATAL: rospy.logfatal}
 
@@ -911,7 +912,8 @@ def throttle_with_time(dt, node: NodeBase):
                 else:  # If we are overdue, then next tick is shifted by overdue
                     cum_delay[0] += overdue
                     next_tick[0] = end[0] + dt + overdue
-                observer.on_next((value, cum_delay, cum_sleep))
+                observer.on_next(value)
+                # observer.on_next((value, cum_delay, cum_sleep))
             return source.subscribe(
                 on_next,
                 observer.on_error,
@@ -925,16 +927,16 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, n
     if is_reactive and real_time_factor == 0:
         Nct = Nc
     else:
-        # todo: either pass through throttle, or Nc depending on "is_reactive".
         assert real_time_factor > 0, "The real_time_factor must be larger than zero when *not* running reactive (i.e. asychronous)."
-        Nct = rx.interval(1 / (rate_node * real_time_factor)).pipe(  # ops.skip_until(E),
-            ops.scan(lambda acc, x: acc + 1, -1),
-            ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
-                                       ops.start_with(0))),
-            ops.distinct_until_changed(key_mapper=lambda x: x,
-                                       comparer=lambda x, y: (x[0] == y[0] or x[1] == y[1])),
-            ops.map(lambda x: x[1]),
-            ops.share())
+        wc_dt = 1 / (rate_node * real_time_factor)
+        # Nct = Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0),
+        #               throttle_with_time(wc_dt, node),
+        #               ops.start_with(0),
+                      # ops.share())
+        wc_dt = max(0.001, wc_dt - 0.0015)
+        Nct = rx.interval(wc_dt).pipe(throttled_Nc(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0)),
+                                                   is_reactive, rate_node, node),
+                                      ops.share())
     return Nct
 
 
@@ -959,66 +961,71 @@ def add_offset(offset, skip=0):
     return _add_offset
 
 
-def create_async_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, E, node: NodeBase):
-    raise ValueError('Not implemented yet (repeat --> window).')
-    if is_feedthrough:
-        name = inpt['feedthrough_to']
-    else:
-        name = inpt['name']
+def throttled_Nc(source_Nc: Observable, is_reactive, rate_node: float, node: NodeBase, rate_tol: float = 0.95, log_level: int = WARN):
+    node_name = node.ns_name
+    color = 'red'  # node.color
+    print_mode = node.print_mode
+    effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+    log_freq = 2 * int(max(1, int(rate_node)))
 
-    # Readable format
-    Is = inpt['reset']
-    Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                          ops.skip_until(E),
-                          # spy('Ir_%s' % name, node),
-                          ops.map(inpt['converter'].convert),
-                          ops.scan(lambda acc, msg: (acc[0] + 1, msg), (-1, None)),
-                          ops.share(),
-                          )
+    def _throttled_Nc(source_interval: Observable):
+        def subscribe(observer: typing.Observer,
+                      scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
+            Nc_queue = deque(maxlen=1)
+            interval_queue = deque(maxlen=log_freq)
+            lock = RLock()
+            last_interval = [0]
+            last_Nc = [0]
 
-    # Get rate from rosparam server
-    try:
-        # if 'is_reactive' in inpt and not inpt['is_reactive']:
-        if 'rate' in inpt:
-            rate = inpt['rate']
-        else:
-            rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
-            rate = get_param_with_blocking(rate_str)
-        dt_i = 1 / rate
-    except Exception as e:
-        print(e)
-        raise ValueError('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
+            def next(i):
+                if len(Nc_queue) > 0:
+                    if len(interval_queue) > 0:
+                        try:
+                            Nc = Nc_queue.pop()
+                            interval = interval_queue[0]
+                            interval_queue.clear()
+                            if not is_reactive and (interval+1) % log_freq == 0:
+                                window_interval = interval - last_interval[0]
+                                window_Nc = Nc - last_Nc[0]
+                                last_interval[0] = interval
+                                last_Nc[0] = Nc
+                                ratio = window_Nc / window_interval
+                                window_length = log_freq / rate_node
+                                if ratio < rate_tol and node.log_level >= effective_log_level and log_level >= effective_log_level:
+                                    print_str = 'Running at roughly %.2f%% of the set node rate (%s Hz) over the last %s (simulated) seconds. ' % (ratio*100, rate_node, window_length)
+                                    print_info(node_name, color, 'node rate', trace_type='', value=print_str, print_mode=print_mode, log_level=log_level)
+                        except Exception as ex:  # pylint: disable=broad-except
+                            observer.on_error(ex)
+                            return
+                        observer.on_next(Nc)
+                elif not is_reactive and len(interval_queue) == log_freq and rate_node > 1:
+                    interval = interval_queue[0]
+                    interval_queue.clear()
+                    interval_queue.append(interval)
+                    if node.log_level >= effective_log_level and log_level >= effective_log_level:
+                        print_str = 'Node has not returned from a callback in the last (simulated) second.'
+                        print_info(node_name, color, 'stale node', trace_type='', value=print_str, print_mode=print_mode, log_level=log_level)
 
-    # Create input channel
-    num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                       # ops.start_with(0),
-                       spy('Nct_%s' % name, node),
-                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}),
-                       ops.share())
-    msg = Ir.pipe(#spy('Ir_%s' % name, node),
-                  ops.buffer(num_msgs),
-                  # spy('buf_%s' % name, node),
-                  ops.zip(num_msgs),  # ([(0, data: "string: 0"), (0, data: "string: 1")], {'node_tick': 0, 'num_msgs': 0})
-                  ops.map(lambda x: [dict(x[1], **{'msgs': msg}) for msg in x[0]]),  # [{'node_tick': 0, 'num_msgs': 0, 'msg': (0, data: "string: 0")}, {'node_tick': 0, 'num_msgs': 0, 'msg': (0, data: "string: 1")}]
-                  ops.filter(lambda x: len(x) > 0),
-                  spy('fil_%s' % name, node),
-                  ops.share()
-                  )
-    channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
-                            ops.with_latest_from(msg.pipe(ops.start_with([]))),  # todo: msg gets dropped here
-                            ops.map(get_repeat_fn(inpt['repeat'], 'msgs')),
-                            ops.merge(msg),
-                            remap_state_target(name, dt_i=dt_i, dt_n=dt_n),
-                            spy('%s' % name, node),
-                            ops.share())
+            @synchronized(lock)
+            def on_next_Nc(x):
+                Nc_queue.append(x)
+                next(x)
 
-    # Create reset flag
-    flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
-                   ops.start_with(0),
-                   ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   # ops.filter(lambda value: value[0] == value[1]),
-                   ops.map(lambda x: {name: x[0]})
-                   )
-    return channel, flag
+            subscriptions = []
+            sad = SingleAssignmentDisposable()
+            sad.disposable = source_Nc.subscribe(on_next_Nc, observer.on_error, observer.on_completed, scheduler)
+            subscriptions.append(sad)
 
+            @synchronized(lock)
+            def on_next_interval(x):
+                interval_queue.append(x)
+                next(x)
+
+            sad = SingleAssignmentDisposable()
+            sad.disposable = source_interval.subscribe(on_next_interval, observer.on_error, observer.on_completed, scheduler)
+            subscriptions.append(sad)
+
+            return CompositeDisposable(subscriptions)
+        return rx.create(subscribe)
+    return _throttled_Nc
 

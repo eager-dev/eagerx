@@ -9,19 +9,20 @@ from eagerx_core.wrappers.flatten import Flatten
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define converter (optional)
     ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
+    rate = 10
     node_p = process.NEW_PROCESS
     bridge_p = process.NEW_PROCESS
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=10.0, process=node_p, targets=['target_1'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=rate, process=node_p, targets=['target_1'])
     KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
 
     # Define object
@@ -59,11 +60,12 @@ if __name__ == '__main__':
     configure_connections(connections)
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p, is_reactive=True, real_time_factor=2)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p,
+                             is_reactive=True, real_time_factor=0)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
-                    rate=10,
+                    rate=rate,
                     actions=actions,
                     observations=observations,
                     bridge=bridge,
@@ -90,12 +92,28 @@ if __name__ == '__main__':
         obs = env.reset()
     print('\n[Finished]')
 
-    # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
-    # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
+    # todo: CONVERTERS
+    #  - Create a .yaml interface for converters, similar to objects & nodes
+    #  - Create a converter baseclass for processor converters that map to the same datatype
+    #     --> assert in regular converter that msg_types are not equal
+    #     --> Implement same functions for processor class as for converters
+
+    # todo: IMPROVE CONFIGURE CONNECTIONS
+    #  - Separate logic if dealing with either action or observation node
+    #  - Separate checks on msg_types to the end (addresses set for all selected I/O, actuators/sensors, etc...)
     # todo: get msg_type from python implementation? --> Avoid differences between .yaml and .py --> Or create a check when creating such a node?
     # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
     # todo: msg_type check for "{'source': (actions, 'act_1'), 'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter},"
     #       Here, we do use both the converter and space_converters ---> will result in error and must be checked before initialization.
+
+    # todo: OTHER
+    # todo: initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
+    # todo: OpenAI gym bridge + Wrapper that excludes is_done & reward from observations --> Sum received rewards.
+    # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
+
+    # todo: REACTIVE PROTOCOL
+    # todo: Remove observe_on and experiment with other schedulers.
+    # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: ASYNCHRONOUS IMPLEMENTATION
@@ -117,7 +135,7 @@ if __name__ == '__main__':
     # todo: Create batch dimension on all nodes (with $(batch_dim) in .yaml used in e.g. converter definitions), so that
     #       complete envs can be batched. Bridge must have a grid edge length param, simnodes that use global position
     #       info must correct for grid position.
-    # todo: Create an option to turn on/off delays when running async.
+    # todo: Create an option to turn on/off delays when running async --> rx.operators.delay(duetime, scheduler=None)
     # todo: Create a node diagonostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
 
     # todo: THINGS TO KEEP IN MIND:
@@ -138,11 +156,4 @@ if __name__ == '__main__':
     #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
     #  - Nonreactive inputs that 'start_with_msg' could mess up the reset.
     #  - Delays are ignored when running async.
-
-    # todo: REPO STRUCTURE
-    #  - eagerx_core --> should be installed as a ros package via sudo apt-get install eagerx_core --> (add supported ros version?)
-    #    Perhaps, with installing eagerx_core, subdirectories "bridge", "object", "Nodes" is created where other objects etc.. are installed in.
-    #  - eagerx_bridge_... --> should be installed as a ros package via sudo apt-get install eagerx_bridge_... (add supported ros version?)
-    #  - eagerx_object_... --> should be cloned inside workspace where you wish to use that object --> motivation: you want easy access to object config yaml
-    #  - eagerx_node_... --> should be cloned inside workspace where you wish to use that node --> motivation: you want easy access to node config yaml
 
