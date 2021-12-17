@@ -83,7 +83,6 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
     d_flag = rx.zip(zipped_input_flags, zipped_action_flags).pipe(ops.map(lambda x: merge_dicts(x[0], x[1]))).subscribe(F, scheduler=event_scheduler)
 
     # Dispose
-    # dispose = [Rn, Nc, Ns, Nr, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
     dispose = [Rn, Nc, Ns, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
     return {'Rn': Rn, 'dispose': dispose}
 

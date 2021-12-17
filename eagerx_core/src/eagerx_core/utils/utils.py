@@ -164,11 +164,12 @@ def get_ROS_log_level(name):
     ns = '/'.join(name.split('/')[:2])
     return get_param_with_blocking(ns + '/log_level')
 
-
-Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[float]), ('t_in', List[float]), ('done', bool)])
+Stamp = NamedTuple('Stamp', [('seq', int), ('sim_stamp', float), ('wc_stamp', float)])
+Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
+Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[Stamp]), ('t_in', List[Stamp]), ('done', bool)])
+# Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[float]), ('t_in', List[float]), ('done', bool)])
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
 Msg = NamedTuple('Msg', [('info', Info), ('msgs', List[Any])])
-# StateMsg = NamedTuple('StateMsg', [('msg', Msg), ('done', bool)])
 
 
 def typehint(msg_type):

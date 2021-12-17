@@ -278,9 +278,8 @@ class RealResetNode(Node):
             name = i['name']
             if name in inputs:
                 t_i = inputs[name].info.t_in
-                if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
+                if len(t_i) > 0 and not all(t.sim_stamp <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -338,7 +337,7 @@ class ProcessNode(SimNode):
             name = i['name']
             if name in inputs:
                 t_i = inputs[name].info.t_in
-                if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
+                if len(t_i) > 0 and not all(t.sim_stamp <= t_n for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
 
         # Fill output msg with number of node ticks

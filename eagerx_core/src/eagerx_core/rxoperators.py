@@ -5,8 +5,7 @@ from std_msgs.msg import Bool, UInt64
 # RX IMPORTS
 import rx
 from rx import Observable, typing, operators as ops, create
-from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable, CompositeDisposable
-from rx.internal.utils import add_ref
+from rx.disposable import Disposable, SingleAssignmentDisposable, CompositeDisposable
 from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
@@ -15,11 +14,11 @@ from eagerx_core.basenode import NodeBase
 from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.params import RxInput
 from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS, process
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp
 
 # OTHER IMPORTS
 import time
-from collections import deque, namedtuple
+from collections import deque
 from termcolor import cprint
 import datetime
 import logging
@@ -269,19 +268,28 @@ def publish_to_topic(topic_type: Any, topic_name: str) -> Callable[[Observable],
     return _publish_to_topic
 
 
-def create_msg_tuple(name: str, node_tick: int, msg: List[Any], done: bool = None):
-    info = Info(name=name, node_tick=node_tick, done=done)
+def create_msg_tuple(name: str, node_tick: int, msg: List[Any], stamp: List[Stamp], done: bool = None):
+    info = Info(name=name, node_tick=node_tick, t_in=stamp, done=done)
     return Msg(info, msg)
 
 
-def remap_state(name):
+def remap_state(name, is_reactive, real_time_factor):
     def _remap_state(source):
         def subscribe(observer, scheduler=None):
+            start = time.time()
+            seq = [0]
             def on_next(value):
                 node_tick = value[0][0]
                 msg = value[0][1]
                 done = value[1]
-                res = create_msg_tuple(name, node_tick, [msg], done=done)
+                wc_stamp = time.time()
+                if real_time_factor > 0:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
+                else:
+                    sim_stamp = None
+                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                res = create_msg_tuple(name, node_tick, [msg], [stamp], done=done)
+                seq[0] += 1
                 observer.on_next(res)
             return source.subscribe(
                 on_next,
@@ -292,13 +300,22 @@ def remap_state(name):
     return _remap_state
 
 
-def remap_target(name):
+def remap_target(name, is_reactive, real_time_factor):
     def _remap_target(source):
         def subscribe(observer, scheduler=None):
+            start = time.time()
+            seq = [0]
             def on_next(value):
                 node_tick = value[0]
                 msg = value[1]
-                res = create_msg_tuple(name, node_tick, [msg])
+                wc_stamp = time.time()
+                if real_time_factor > 0:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
+                else:
+                    sim_stamp = None
+                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                res = create_msg_tuple(name, node_tick, [msg], [stamp])
+                seq[0] += 1
                 observer.on_next(res)
             return source.subscribe(
                 on_next,
@@ -307,6 +324,18 @@ def remap_target(name):
                 scheduler)
         return rx.create(subscribe)
     return _remap_target
+
+
+def filter_info_for_printing(info):
+    info_dict = dict()
+    if info.rate_in:
+        info_dict['rate_in'] = info.rate_in
+    info_dict['t_in'] = [t.sim_stamp for t in info.t_in]
+    if info.t_node:
+        info_dict['t_node'] = [t.sim_stamp for t in info.t_node]
+    if info.done:
+        info_dict['done'] = info.done
+    return info_dict
 
 
 def remap_cb_input(mode=0):
@@ -320,7 +349,7 @@ def remap_cb_input(mode=0):
                 for key, msg in i.items():
                     if key not in ['node_tick', 't_n']:
                         if mode == 0:
-                            i[key] = msg.info
+                            i[key] = filter_info_for_printing(msg.info)
                         else:
                             i[key] = msg.msgs
         else:
@@ -328,14 +357,14 @@ def remap_cb_input(mode=0):
             for key, msg in mapped_value.items():
                 if key not in ['node_tick', 't_n']:
                     if mode == 0:
-                        mapped_value[key] = msg.info
+                        mapped_value[key] = filter_info_for_printing(msg.info)
                     else:
                         mapped_value[key] = msg.msgs
-            return mapped_value
+        return mapped_value
     return _remap_cb_input
 
 
-def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perfom_checks=False):
+def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perform_checks=True):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -354,7 +383,7 @@ def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perfom_checks=Fal
                     res[msg.info.name] = msg
 
                 # Perform checks
-                if perfom_checks and is_input:
+                if perform_checks and is_input:
                     node_ticks = []
                     for msg in value:
                         node_ticks.append(msg.info.node_tick)
@@ -398,12 +427,13 @@ def calculate_inputs(N_node, rate_in, rate_node, delay):
     return N_in
 
 
-def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, reactive: bool):
+def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, is_reactive: bool, real_time_factor: float):
     dt_i = 1 / rate_in
 
     def _generate_msgs(source_msg: Observable):
         def subscribe(observer: typing.Observer,
                       scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
+            start = time.time()
             msgs_queue: List = []
             t_i_queue: List = []
             num_queue: List = []
@@ -415,37 +445,54 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
             @synchronized(lock)
             def next(i):
-                # todo: if not reactive --> keep track of window length
                 if len(num_queue) > 0:
                     if len(msgs_queue) >= num_queue[0]:
                         try:
-                            num_msgs = num_queue.pop(0)
                             tick = tick_queue.pop(0)
-                            msgs = msgs_queue[:num_msgs]
-                            t_i = t_i_queue[:num_msgs]
-                            msgs_queue[:] = msgs_queue[num_msgs:]
-                            t_i_queue[:] = t_i_queue[num_msgs:]
+                            if is_reactive:
+                                # determine num_msgs
+                                num_msgs = num_queue.pop(0)
+                                msgs = msgs_queue[:num_msgs]
+                                t_i = t_i_queue[:num_msgs]
+                                msgs_queue[:] = msgs_queue[num_msgs:]
+                                t_i_queue[:] = t_i_queue[num_msgs:]
+                            else:
+                                msgs = msgs_queue
+                                t_i = t_i_queue
+                                msgs_queue[:] = []
+                                t_i_queue[:] = []
                         except Exception as ex:  # pylint: disable=broad-except
                             observer.on_error(ex)
                             return
 
+                        # Determine t_n stamp
+                        wc_stamp = time.time()
+                        seq = tick
+                        if real_time_factor > 0:
+                            sim_stamp = (wc_stamp - start) / real_time_factor
+                        else:
+                            sim_stamp = round(tick/rate_node, 12)
+                        t_n = Stamp(seq, sim_stamp, wc_stamp)
+
                         if window > 0:
                             wmsgs = list(msgs_window.extend(msgs))
                             wt_i = list(t_i_window.extend(t_i))
-                            wt_n = list(t_n_window.extend([tick/rate_node] * len(msgs)))
+                            wt_n = list(t_n_window.extend([t_n] * len(msgs)))
                         else:
                             wmsgs = msgs
                             wt_i = t_i
-                            wt_n = [round(tick/rate_node, 12)] * len(msgs)
-                        res = Msg(Info(name, tick, rate_in, wt_n, wt_i), wmsgs)
+                            wt_n = [t_n] * len(msgs)
+                        res = Msg(Info(name, tick, rate_in, wt_n, wt_i, None), wmsgs)
                         observer.on_next(res)
 
             # Determine Nc logic
             def on_next_Nc(x):
-                num_msgs = expected_inputs(x, rate_in, rate_node, delay)
+                if is_reactive:
+                    # Caculate expected number of message to be received
+                    num_msgs = expected_inputs(x, rate_in, rate_node, delay)
+                    num_queue.append(num_msgs)
                 tick_queue.append(x)
-                num_queue.append(num_msgs)
-                next(num_msgs)
+                next(x)
 
             subscriptions = []
             sad = SingleAssignmentDisposable()
@@ -454,7 +501,13 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
             def on_next_msg(x):
                 msgs_queue.append(x[1])
-                t_i_queue.append(round(x[0] * dt_i, 12))
+                wc_stamp = time.time()
+                seq = x[0]
+                if real_time_factor > 0:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
+                else:
+                    sim_stamp = round(x[0] * dt_i, 12)
+                t_i_queue.append(Stamp(seq, sim_stamp, wc_stamp))
                 next(x)
 
             sad = SingleAssignmentDisposable()
@@ -467,13 +520,13 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
 
 def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
-    if is_reactive:
-        return create_reactive_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, node)
-    else:
-        return create_async_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
+    # if is_reactive:
+    return create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
+    # else:
+    #     return create_async_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
 
 
-def create_reactive_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, real_time_factor, node: NodeBase):
+def create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
     # todo: remove ops.observe_on?
     if is_feedthrough:
         name = inpt['feedthrough_to']
@@ -509,13 +562,13 @@ def create_reactive_channel(ns, Nc, rate_node, inpt, scheduler, is_feedthrough, 
     else:
         Nc = Nc.pipe(ops.observe_on(scheduler))
 
-    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=0, delay=inpt['delay'], reactive=True), ops.share())
+    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=0, delay=inpt['delay'], is_reactive=True, real_time_factor=real_time_factor), ops.share())
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
                    ops.start_with(0),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   ops.filter(lambda value: value[0] == value[1]),
+                   ops.filter(lambda value: not is_reactive or value[0] == value[1]),
                    ops.map(lambda x: {name: x[0]}))
     return channel, flag
 
@@ -573,7 +626,7 @@ def init_target_channel(states, scheduler, node: NodeBase):
     for s in states:
         c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                          remap_target(s['name']))
+                          remap_target(s['name'], node.is_reactive, node.real_time_factor))
         channels.append(c)
     return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False))
 
@@ -597,7 +650,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node: NodeBase):
                               ops.start_with((-1, None)),
                               ops.combine_latest(d),
                               ops.filter(lambda x: x[0][0] >= 0 or x[1]),
-                              remap_state(s['name']))
+                              remap_state(s['name'], node.is_reactive, node.real_time_factor))
             channels.append(c)
         return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False), ops.merge(rx.never()))
     else:
@@ -617,7 +670,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node: NodeBase):
                               # ops.start_with(dict(name=s['name'], msg=None)),
                               ops.combine_latest(d),
                               ops.filter(lambda x: x[0][0] >= 0 or x[1]),
-                              remap_state(s['name']),
+                              remap_state(s['name'], node.is_reactive, node.real_time_factor),
                               # ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]}))
                               )
 
@@ -649,7 +702,7 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
                                    ops.map(lambda val: cb_ft(val, node.is_reactive)), ops.share())
         reset_stream = reset_stream.pipe(ops.map(lambda x: x[1][0]),
                                          ops.combine_latest(target_stream),
-                                         spy('CB_RESET', node, log_level=DEBUG, mapper=remap_cb_input(mode=2)),
+                                         spy('CB_RESET', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
                                          ops.map(lambda val: cb_tick(**val[0], **val[1])), ops.share())
         output_stream = rx.merge(reset_stream, ft_stream)
 

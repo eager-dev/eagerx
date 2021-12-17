@@ -16,8 +16,8 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
