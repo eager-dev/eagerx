@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import yaml
 from pyqtgraph.Qt import QtCore, QtGui
 import weakref
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
@@ -116,6 +117,9 @@ class Terminal(object):
         (note--this function is called on both terminals)"""
         if self.isInput():
             self.setValue(None)
+        if self.node().node_type() in ['actions', 'observations']:
+            self._msg_type = None
+            self.params()['converter'] = None
         self.node().disconnected(self, term)
 
     def inputChanged(self, term, process=True):
@@ -191,6 +195,13 @@ class Terminal(object):
 
     def terminal_type(self):
         return self._terminal_type
+
+    def connection_info(self):
+        if self.node().node_type() in ['actions', 'observations'] or self._terminal_type == 'outputs':
+            connection_info = (self.node().rx_params(), self._terminal_name)
+        else:
+            connection_info = (self.node().rx_params(), self._terminal_type, self._terminal_name)
+        return connection_info
 
     def graphicsItem(self):
         return self._graphicsItem
@@ -359,9 +370,9 @@ class TerminalGraphicsItem(GraphicsObject):
         for key, value in self.term.params().items():
             if key not in label_names:
                 self.add_widget(key, value, len(self.labels))
-            elif key == 'msg_type':
-                widget = QtGui.QLineEdit(str(self.term.connection_msg_type()))
-                widget.setEnabled(False)
+        for label, widget in zip(self.labels, self.widgets):
+            if label.text() == 'converter':
+                widget.setText(str(self.term.params()[label.text()]))
 
     def add_widget(self, key, value, row):
         label = QtGui.QLabel(key)
@@ -379,15 +390,15 @@ class TerminalGraphicsItem(GraphicsObject):
         elif isinstance(value, float):
             widget = SpinBox(value=value)
             widget.sigValueChanged.connect(partial(self.value_changed, key=key))
-        elif key in ['msg_type', 'space_converter']:
-            if key == 'msg_type':
-                value = self.term.connection_msg_type()
+        elif key == 'msg_type':
+            value = self.term.connection_msg_type()
             widget = QtGui.QLineEdit(str(value))
             widget.setEnabled(False)
         elif key == 'space_converter':
             widget = QtGui.QLineEdit(str(value))
-            if self.term.isState():
+            if not self.term.isState():
                 widget.setEnabled(False)
+            widget.textChanged.connect(partial(self.text_changed, key=key))
         else:
             widget = QtGui.QLineEdit(str(value))
             widget.textChanged.connect(partial(self.text_changed, key=key))
@@ -407,7 +418,16 @@ class TerminalGraphicsItem(GraphicsObject):
         self.term.params()[key] = widget.value()
 
     def text_changed(self, text, key):
-        self.term.params()[key] = text
+        if key == 'converter':
+            old_converter = self.term.params()[key]
+            new_converter = yaml.safe_load(str(text))
+            if 'converter_type' in old_converter and 'converter_type' in new_converter:
+                if not old_converter['converter_type'] == new_converter['converter_type']:
+                    self.term.disconnectAll()
+            else:
+                self.term.disconnectAll()
+        if not key == 'msg_type':
+            self.term.params()[key] = yaml.safe_load(str(text))
 
     def labelFocusOut(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.label, ev)

@@ -22,7 +22,7 @@ ROS = 2
 TERMS = {
     'object': {'in': {'actuators'}, 'out': {'sensors', 'states'}},
     'node': {'in': {'inputs'}, 'out': {'outputs', 'states'}},
-    'reset_node': {'in': {'inputs', 'targets', 'feedthroughs'}, 'out': {'outputs', 'states'}},
+    'reset_node': {'in': {'feedthroughs', 'inputs', 'targets'}, 'out': {'outputs', 'states'}},
 }
 TERMS_IN = set().union(*[TERMS[key]['in'] for key in TERMS])
 TERMS_OUT = set().union(*[TERMS[key]['out'] for key in TERMS])
@@ -31,13 +31,25 @@ TERMS_OUT = set().union(*[TERMS[key]['out'] for key in TERMS])
 GUI_NODE_ITEMS = {
     'color': ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
     'log_level': ['0', '10', '20', '30', '40', '50'],
+    'process': ['0', '1', '2', '3'],
 }
 GUI_TERM_ITEMS = {
     'repeat': ['all', 'empty', 'last'],
 }
 
+# Default arguments to ignore
+GUI_IGNORE_DEFAULT = {
+    'actions': ['start_with_msg', 'space_converter'],
+    'observations': ['rate', 'is_reactive', 'space_converter'],
+}
+
 # Constant yaml parameters
 PARAMS_CONSTANT = set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'config_name', 'launch_file'})
+
+# Config files to ignore in GUI
+GUI_CONFIG_TO_IGNORE = {
+    'eagerx_core': ['actions', 'observations', 'bridge', 'supervisor'],
+}
 
 # PROCESS
 class process:

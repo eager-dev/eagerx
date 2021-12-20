@@ -20,6 +20,8 @@ from eagerx_core.gui.Node import Node as EagerxNode
 from eagerx_core.gui.Terminal import Terminal as EagerxTerminal
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import load_yaml
+from eagerx_core.utils.utils import get_nodes_and_objects_library
+from eagerx_core.utils.node_utils import configure_connections
 
 # pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
@@ -43,10 +45,10 @@ class EagerxGraph(Node):
     sigStateChanged = QtCore.Signal()  # called when output is expected to have changed
     sigChartChanged = QtCore.Signal(object, object, object)  # called when nodes are added, removed, or renamed.
     
-    def __init__(self, name='env', file_path=None, library=None):
-        self.library = library
+    def __init__(self, file_path=None):
+        self.library = get_nodes_and_objects_library()
         self.filePath = file_path
-        Node.__init__(self, name, allowAddInput=True, allowAddOutput=True)  # create node without terminals; we'll
+        Node.__init__(self, 'env', allowAddInput=True, allowAddOutput=True)  # create node without terminals; we'll
         # add these later
 
         self.inputWasSet = False  # flag allows detection of changes in the absence of input change.
@@ -406,19 +408,42 @@ class EagerxGraph(Node):
                     conn.add((t, c))
         return conn
 
+    def return_graph(self):
+        connections_list = self.listConnections()
+        connections = [{'source': c[0].connection_info(), 'target': (c[1]).connection_info()} for c in connections_list]
+        configure_connections(connections)
+
+        graph = {'nodes': [], 'objects': []}
+        node_names = []
+        object_names = []
+        for connection in connections:
+            for io in ['source', 'target']:
+                params = connection[io][0]
+                if params.name == 'env/actions':
+                    graph['actions'] = params
+                elif params.name == 'env/observations':
+                    graph['observations'] = params
+                elif isinstance(params, RxNodeParams) and params.name not in node_names:
+                    graph['nodes'].append(params)
+                    node_names.append(params.name)
+                elif isinstance(params, RxObjectParams) and params.name not in object_names:
+                    graph['nodes'].append(params)
+                    object_names.append(params.name)
+        return graph
+
     def saveState(self):
         """Return a serializable data structure representing the current state of this flowchart. 
         """
         state = Node.saveState(self)
-        state['nodes'] = []
+        state['terminals'] = {}
+        state['nodes'] = {}
         state['connects'] = []
         
         for name, node in self._nodes.items():
             cls = type(node)
             if hasattr(cls, 'saveState'):
                 pos = node.graphicsItem().pos()
-                ns = {'name': name, 'pos': (pos.x(), pos.y()), 'state': node.saveState()}
-                state['nodes'].append(ns)
+                state['nodes'][name] = {'pos': (pos.x(), pos.y()), 'state': node.saveState()}
             
         conn = self.listConnections()
         for a, b in conn:
@@ -438,6 +463,7 @@ class EagerxGraph(Node):
                 self.clear()
             Node.restoreState(self, state)
             nodes = state['nodes']
+            nodes = [dict(**node, name=name) for name, node in nodes.items()]
             nodes.sort(key=lambda a: a['pos'][0])
             for n in nodes:
                 if n['name'] in self._nodes:
@@ -773,7 +799,7 @@ class EagerxGraphWidget(dockarea.DockArea):
 
         yaml = nodeType['yaml']
         if 'node_type' in yaml.keys():
-            rx_node = RxNodeParams.create(name, nodeType['package_name'], nodeType['name'], rate=1)
+            rx_node = RxNodeParams.create(name, nodeType['package_name'], nodeType['name'], rate=1.)
             params = rx_node.params
         else:
             rx_object = RxObjectParams.create(name, nodeType['package_name'], nodeType['name'])

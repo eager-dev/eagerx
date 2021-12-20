@@ -7,6 +7,7 @@ from roslaunch.substitution_args import resolve_args, _resolve_args
 from roslaunch.substitution_args import _collect_args
 
 # OTHER
+import os
 import time
 import importlib
 import inspect
@@ -15,7 +16,7 @@ from functools import reduce
 from time import sleep
 from six import raise_from
 from copy import deepcopy
-from pathlib import Path
+from eagerx_core import constants
 
 
 def get_attribute_from_module(module, attribute):
@@ -179,23 +180,22 @@ def get_yaml_type(yaml):
 
 def get_nodes_and_objects_library():
     library = {'reset_node': {}, 'node': {}, 'object': {}}
-    path_to_eagerx = substitute_xml_args('$(find eagerx_core)')
-    search_path = Path(path_to_eagerx).parent / '*' / 'config' / '*.yaml'
-    node_paths = glob.glob(str(search_path))
-    for path in node_paths:
-        package = None
-        node = None
-        for split in path.split('/'):
-            if split.startswith('eagerx'):
-                package = split
-            elif split.endswith('.yaml'):
-                node = split[:-5]
-        if package == 'eagerx_core' and node in ['actions', 'observations', 'bridge', 'supervisor']:
-            continue
-        if package is not None and node is not None:
-            yaml = load_yaml(package, node)
-            yaml_type = get_yaml_type(yaml)
-            if package not in library[yaml_type].keys():
-                library[yaml_type][package] = []
-            library[yaml_type][package].append({'name': node, 'yaml': yaml})
+    config_dict = {}
+    ros_package_list = rospkg.RosPack().list()
+    eagerx_packages = [package for package in ros_package_list if package.count('eagerx') > 0]
+    for package in eagerx_packages:
+        file_type = '.yaml'
+        package_path = substitute_xml_args('$(find {})'.format(package))
+        files = glob.glob(package_path + "/config/**/*{}".format(file_type), recursive=True)
+        config_dict[package] = [path.split('/')[-1][:-len(file_type)] for path in files]
+    for package, configs in config_dict.items():
+        for config in configs:
+            if package in constants.GUI_CONFIG_TO_IGNORE and config in constants.GUI_CONFIG_TO_IGNORE[package]:
+                continue
+            if package is not None and config is not None:
+                yaml = load_yaml(package, config)
+                yaml_type = get_yaml_type(yaml)
+                if package not in library[yaml_type].keys():
+                    library[yaml_type][package] = []
+                library[yaml_type][package].append({'name': config, 'yaml': yaml})
     return library

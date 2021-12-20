@@ -8,8 +8,7 @@ from pyqtgraph.debug import *
 from pyqtgraph import ComboBox, SpinBox
 import numpy as np
 from eagerx_core.utils.utils import get_yaml_type
-from eagerx_core.params import RxInput, RxOutput, RxState, RxFeedthrough
-
+from eagerx_core.params import RxInput, RxOutput, RxState, RxFeedthrough, RxObjectParams, RxNodeParams
 
 def strDict(d):
     return dict([(str(k), v) for k, v in d.items()])
@@ -196,8 +195,8 @@ class Node(QtCore.QObject):
             init_function = RxInput.__init__
         elif terminal_type in ['outputs', 'sensors']:
             init_function = RxOutput.__init__
-        elif terminal_type in ['feedthroughs']:
-            init_function = RxFeedthrough.__init__
+        # elif terminal_type in ['feedthroughs']:
+        #     init_function = RxFeedthrough.__init__
         elif terminal_type in ['states', 'targets']:
             init_function = RxState.__init__
         else:
@@ -210,9 +209,12 @@ class Node(QtCore.QObject):
             for key, value in zip(default_keys, default_values):
                 if key in ['msg_module']:
                     continue
-                elif key not in self._params[terminal_type][terminal_name]:
+                if self._node_type in constants.GUI_IGNORE_DEFAULT:
+                    if key in constants.GUI_IGNORE_DEFAULT[self._node_type]:
+                        continue
+                if key not in self._params[terminal_type][terminal_name]:
                     if key == 'rate' and value is None:
-                        value = 1
+                        value = 1.
                     self._params[terminal_type][terminal_name][key] = value
 
         if term.isInput():
@@ -283,6 +285,16 @@ class Node(QtCore.QObject):
     def params(self):
         """Return the parameters of this node."""
         return self._params
+
+    def rx_params(self):
+        if self._node_type in ['actions', 'observations']:
+            rx_params = RxNodeParams.create('env/{}'.format(self._node_type), package_name='eagerx_core',
+                                            config_name=self._node_type)
+        elif self._is_object:
+            rx_params = RxObjectParams(name=self._name, params=deepcopy(self._params))
+        else:
+            rx_params = RxNodeParams(name=self._name, params=deepcopy(self._params))
+        return rx_params
 
     def node_type(self):
         return self._node_type
