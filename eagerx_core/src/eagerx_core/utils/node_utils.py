@@ -6,9 +6,8 @@ from roslaunch.core import RLException
 from std_msgs.msg import UInt64
 
 # RXEAGER
-from eagerx_core.params import RxNodeParams, RxObjectParams
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, \
-    substitute_xml_args
+from eagerx_core.params import RxNodeParams
+from eagerx_core.utils.utils import substitute_xml_args
 from eagerx_core.rxnode import RxNode
 from eagerx_core.constants import process
 
@@ -29,161 +28,6 @@ def launch_roscore():
         rospy.logwarn('Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore.')
         pass
     return roscore
-
-
-def configure_connections(connections):
-    # msg_types: A --> B --> C with A=output_type, <output_converter>, B=topic_type, <input_converter>, C=input_type
-    for io in connections:
-        source = io['source']
-        target = io['target']
-        converter = io['converter'] if 'converter' in io else None
-        delay = io['delay'] if 'delay' in io else None
-        window = io['window'] if 'window' in io else None
-
-        # PROCESS SOURCE
-        if isinstance(source[0], RxNodeParams):  # source=Node
-            node = source[0]
-            cname = source[1]
-            address = '%s/outputs/%s' % (node.name, cname)
-
-            # Grab output entry
-            if not node.name == 'env/actions':
-                msg_type_A = node.params['outputs'][cname]['msg_type']
-                if 'converter' in node.params['outputs'][cname]:
-                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_A, node.params['outputs'][cname]['converter']))
-                else:
-                    msg_type_B = msg_type_A
-                assert cname in node.params['default']['outputs'], '"%s" was not selected as %s in node "%s" during its initialization.' % (cname, 'output', node.name)
-        elif isinstance(source[0], RxObjectParams):  # source=Object
-            obj = source[0]
-            component = source[1]
-            cname = source[2]
-            address = '%s/%s/%s' % (obj.name, component, cname)
-            msg_type_A = obj.params[component][cname]['msg_type']
-            msg_type_B = msg_type_A
-            assert cname in obj.params['default'][component], '"%s" was not selected in %s of object "%s" during its initialization.' % (cname, component, obj.name)
-        else:
-            raise ValueError('Connection entry "%s" is misspecified/unsupported. Source and target must either be an object or node.' % io)
-
-        # PREPARE TARGET
-        if isinstance(target[0], RxNodeParams) and target[0].name == 'env/observations':  # target=observations node
-            node = target[0]
-            cname = target[1]
-            assert converter is None, "Cannot have an input converter when the source is an observation of the environment. Namely, because a space_converter is used, that must be defined in node/object.yaml."
-
-            # Infer target properties from source
-            if isinstance(source[0], RxNodeParams):
-                space_converter = source[0].params['outputs'][source[1]]['space_converter']
-            elif isinstance(source[0], RxObjectParams):
-                space_converter = source[0].params['sensors'][source[2]]['space_converter']
-            else:
-                raise ValueError('Cannot infer properties from source "%s".' % source)
-            msg_type_C = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
-            node.params['default']['inputs'].append(cname)
-            node.params['inputs'][cname] = dict(address=address, msg_type=msg_type_B, converter=space_converter)
-            if delay:
-                node.params['inputs'][cname]['delay'] = delay
-            if window:
-                node.params['inputs'][cname]['window'] = window
-        elif isinstance(target[0], RxNodeParams) and not target[0].name == 'env/observations':  # target=Node
-            node = target[0]
-            component = target[1]
-            cname = target[2]
-
-            if source[0].name == 'env/actions':  # source=actions node
-                assert component in ['inputs', 'feedthroughs'], 'Cannot connect an action to anything other than inputs/feedthroughs. Entry "%s" is misspecified.' % io
-                action_node = source[0]
-                action_cname = source[1]
-                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
-
-                if component == 'feedthroughs':
-                    action_component = 'outputs'
-                else:
-                    action_component = 'inputs'
-
-                # Infer source properties from target node
-                msg_type_B = target[0].params[action_component][cname]['msg_type']
-                space_converter = target[0].params[action_component][cname]['space_converter']
-                msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
-                if converter:  # Overwrite msg_type_B if input converter specified
-                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_B, converter))
-                if action_cname in action_node.params['outputs']:
-                    assert get_cls_from_string(msg_type_B) == get_cls_from_string(action_node.params['outputs'][action_cname]['msg_type']), 'Conflicting %s for action "%s". Occurs with connection %s' % ('msg_types', action_cname, io)
-                    if not space_converter == action_node.params['outputs'][action_cname]['converter']:
-                        # Overwrite msg_type_B if input converter specified
-                        rospy.logwarn('Conflicting %s for action "%s". Overwriting space_converter of %s[%s][%s]' % ('space_converters', action_cname, node.name, component, cname))
-                        target[0].params[action_component][cname]['space_converter'] = action_node.params['outputs'][action_cname]['converter']
-                else:
-                    action_node.params['default']['outputs'].append(action_cname)
-                    action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
-
-            # Fill in target node properties
-            node.params[component][cname]['address'] = address
-            assert (component == 'feedthroughs' and cname in node.params['default']['outputs']) or cname in node.params['default'][component], '"%s" was not selected in %s of node "%s" during its initialization.' % (cname, component, node.name)
-            if converter:
-                node.params[component][cname]['converter'] = converter
-            assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
-            if delay:
-                node.params['inputs'][cname]['delay'] = delay
-            assert window is None or (window is not None and component == 'inputs'), 'Cannot specify a window for entry "%s".' % io
-            if window:
-                node.params['inputs'][cname]['window'] = window
-            if component == 'feedthroughs':
-                msg_type_C = node.params['outputs'][cname]['msg_type']
-            else:
-                msg_type_C = node.params[component][cname]['msg_type']
-
-            # Verify that msg_type after converter matches the one specified in the .yaml
-            if msg_type_C and not component == 'feedthroughs':
-                type_out = get_cls_from_string(msg_type_C)
-                type_yaml = get_cls_from_string(node.params[component][cname]['msg_type'])
-                assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of node "%s".' % (type_out, type_yaml, node.name)
-        elif isinstance(target[0], RxObjectParams):  # target=Object
-            obj = target[0]
-            component = target[1]
-            cname = target[2]
-
-            if source[0].name == 'env/actions':  # source=actions node
-                action_node = source[0]
-                action_cname = source[1]
-                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
-
-                # Infer source properties from target object
-                msg_type_B = target[0].params['actuators'][cname]['msg_type']
-                space_converter = target[0].params['actuators'][cname]['space_converter']
-                msg_type_A = get_module_type_string(get_opposite_msg_cls(msg_type_B, space_converter))
-                if converter:  # Overwrite msg_type_B if input converter specified
-                    msg_type_B = get_module_type_string(get_opposite_msg_cls(msg_type_B, converter))
-                if action_cname in action_node.params['outputs']:
-                    assert get_cls_from_string(msg_type_B) == get_cls_from_string(action_node.params['outputs'][action_cname]['msg_type']), 'Conflicting %s for action "%s".' % ('msg_types', action_cname)
-                    if not space_converter == action_node.params['outputs'][action_cname]['converter']:
-                        # Overwrite msg_type_B if input converter specified
-                        rospy.logwarn('Conflicting %s for action "%s". Overwriting space_converter of %s[%s][%s]' % ( 'space_converters', action_cname, obj.name, component, cname))
-                        target[0].params['actuators'][cname]['space_converter'] = action_node.params['outputs'][action_cname]['converter']
-                else:
-                    action_node.params['default']['outputs'].append(action_cname)
-                    action_node.params['outputs'][action_cname] = dict(msg_type=msg_type_B, converter=space_converter)
-
-            # Fill in target object properties
-            obj.params[component][cname]['address'] = address
-            assert cname in obj.params['default'][component], '"%s" was not selected in %s of object "%s" during its initialization.' % (cname, component, obj.name)
-            if converter:
-                obj.params[component][cname]['converter'] = converter
-            assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
-            if delay:
-                obj.params['actuators'][cname]['delay'] = delay
-            assert window is None or (window is not None and component == 'actuators'), 'Cannot specify a window for entry "%s".' % io
-            if window:
-                obj.params['actuators'][cname]['window'] = window
-            msg_type_C = obj.params[component][cname]['msg_type']
-
-            # Verify that msg_type after converter matches the one specified in the .yaml
-            if msg_type_C:
-                type_out = get_cls_from_string(msg_type_C)
-                type_yaml = get_cls_from_string(obj.params[component][cname]['msg_type'])
-                assert type_out == type_yaml, 'Msg_type (after conversion?) "%s" does not match msg_type "%s" specified in the .yaml of object "%s".' % (type_out, type_yaml, obj.name)
-        else:
-            raise ValueError('Connection entry "%s" is misspecified/unsupported. Source and target must either be an object or node.' % io)
 
 
 def launch_node(launch_file, args):
@@ -277,5 +121,3 @@ def wait_for_node_initialization(is_initialized, wait_time=0.3):
             rospy.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break
-
-

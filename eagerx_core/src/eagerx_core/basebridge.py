@@ -1,7 +1,7 @@
 # OTHER IMPORTS
 import abc
 import os
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Optional
 import psutil
 import time
 import numpy as np
@@ -16,7 +16,7 @@ from std_msgs.msg import UInt64
 from eagerx_core.constants import process
 from eagerx_core.basenode import NodeBase
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx_core.utils.utils import initialize_state, typehint
+from eagerx_core.utils.utils import initialize_state, Msg
 
 
 class BridgeBase(NodeBase):
@@ -105,7 +105,7 @@ class BridgeBase(NodeBase):
         [kwargs.pop(key) for key in keys_to_pop]
         return self.reset(**kwargs)
 
-    def callback_cb(self, node_tick, t_n, **kwargs):
+    def callback_cb(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # todo: reactive=True & real_time_factor!= 0: rospy.rate behavior --> implement with rospy.sleep()?
         self.iter_ticks += 1
         if self.log_memory and self.iter_ticks % self.print_iter == 0:
@@ -149,11 +149,11 @@ class BridgeBase(NodeBase):
         pass
 
     @abc.abstractmethod
-    def pre_reset(self, **kwargs: Message):
+    def pre_reset(self, **kwargs: Optional[Msg]):
         pass
 
     @abc.abstractmethod
-    def reset(self, **kwargs: Message):
+    def reset(self, **kwargs: Optional[Msg]):
         pass
 
     @abc.abstractmethod
@@ -167,6 +167,9 @@ class BridgeBase(NodeBase):
 
 
 class TestBridgeNode(BridgeBase):
+    msg_types = {'outputs': {'tick': UInt64},
+                 'states': {'param_1': UInt64}}
+
     def __init__(self, num_substeps, nonreactive_address, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
         simulator = None
@@ -182,15 +185,15 @@ class TestBridgeNode(BridgeBase):
         rospy.loginfo('Adding object "%s" of type "%s.yaml" from package "%s" to the simulator.' % (object_params['name'], object_params['config_name'], object_params['package_name']))
         return object_params
 
-    def pre_reset(self, param_1: UInt64 = None):
+    def pre_reset(self, param_1: Optional[UInt64] = None):
         return 'PRE RESET RETURN VALUE'
 
-    def reset(self, param_1: UInt64 = None):
+    def reset(self, param_1: Optional[UInt64] = None):
         # Publish nonreactive input (this is only required for simulation setup)
         self.nonreactive_pub.publish(UInt64(data=0))
         return 'POST RESET RETURN VALUE'
 
-    def callback(self, node_tick: int, t_n: float,  **kwargs: typehint(Message)):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # Publish nonreactive input
         self.nonreactive_pub.publish(UInt64(data=node_tick))
 

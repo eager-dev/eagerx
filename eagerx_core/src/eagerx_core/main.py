@@ -1,7 +1,8 @@
 # ROS packages required
 import rospy
-from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv
-from eagerx_core.utils.node_utils import configure_connections, launch_roscore
+from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
+from eagerx_core.utils.node_utils import launch_roscore
+from eagerx_core.utils.connection_utils import register_connections
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 
@@ -9,16 +10,16 @@ from eagerx_core.wrappers.flatten import Flatten
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define converter (optional)
     ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    rate = 10
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    rate = 7
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
@@ -28,11 +29,16 @@ if __name__ == '__main__':
     # Define object
     viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
 
-    # Define action/observations
-    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
-
-    # Define render (optional)
-    render = EAGERxEnv.create_render(rate=1)
+    # Define graph
+    graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
+    graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_2', delay=0.0)
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'))
+    graph.connect(action='act_1',                           target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
+    graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(source=(N3.name,    'outputs', 'out_1'),  target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
 
     # Connect nodes
     # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
@@ -47,6 +53,10 @@ if __name__ == '__main__':
     #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
     #                ]
 
+    # Define action/observations
+    # todo: remove once rxgraph is implemented.
+    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
+    render = EAGERxEnv.create_render(rate=1)
     connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
                    {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
                    {'source': (KF, 'out_1'),            'target': (observations, 'obs_2'), 'delay': 0.0},
@@ -54,16 +64,20 @@ if __name__ == '__main__':
                    {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
                    {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
                    {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
-                   {'source': (actions, 'act_1'),       'target': (N3, 'feedthroughs', 'out_1')},
+                   {'source': (actions, 'act_1'),       'target': (N3, 'feedthroughs', 'out_1'), 'delay': 1.0},
                    {'source': (N3, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
                    ]
-    configure_connections(connections)
+    register_connections(connections)
 
     # Define bridge
     bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p,
                              is_reactive=True, real_time_factor=0)
 
     # Initialize Environment
+    # todo: replace {actions,observations,nodes,objects,render} args with 'graph'
+    # todo: once an environment is initialized, 'dispose' of node objects above? or create a deep copy in create?
+    # todo: inside environment
+    # graph.register_connections()
     env = EAGERxEnv(name='rx',
                     rate=rate,
                     actions=actions,
@@ -73,7 +87,7 @@ if __name__ == '__main__':
                     # nodes=[KF],
                     nodes=[N3, KF],
                     objects=[viper],
-                    # render=render,
+                    render=render,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
                                           'obj/N10': env.state_space.sample()['obj/N10'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1']}
@@ -85,7 +99,7 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(200000):
+        for i in range(20):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
@@ -99,25 +113,20 @@ if __name__ == '__main__':
     #     --> Implement same functions for processor class as for converters
 
     # todo: IMPROVE CONFIGURE CONNECTIONS
-    #  - Separate logic if dealing with either action or observation node
-    #  - Separate checks on msg_types to the end (addresses set for all selected I/O, actuators/sensors, etc...)
     # todo: get msg_type from python implementation? --> Avoid differences between .yaml and .py --> Or create a check when creating such a node?
     # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
-    # todo: msg_type check for "{'source': (actions, 'act_1'), 'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter},"
-    #       Here, we do use both the converter and space_converters ---> will result in error and must be checked before initialization.
 
     # todo: OTHER
+    # todo: Change "done" msg_type from UInt64 to Bool.
     # todo: initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
     # todo: OpenAI gym bridge + Wrapper that excludes is_done & reward from observations --> Sum received rewards.
     # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
+    # todo: Separate test bridges into a ROS package outside of eagerx_core
 
     # todo: REACTIVE PROTOCOL
     # todo: Remove observe_on and experiment with other schedulers.
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
-
-    # todo: ASYNCHRONOUS IMPLEMENTATION
-    # todo: What is the effect of async simulation with action & observation node?
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.

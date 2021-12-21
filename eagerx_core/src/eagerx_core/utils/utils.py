@@ -5,9 +5,10 @@ import rospy
 from rosgraph.masterapi import Error
 from roslaunch.substitution_args import resolve_args, _resolve_args
 from roslaunch.substitution_args import _collect_args
+from std_msgs.msg import Bool
 
 # OTHER
-from typing import List, NamedTuple, Any
+from typing import List, NamedTuple, Any, get_type_hints, Optional, Dict, Union
 import time
 from functools import reduce
 import importlib
@@ -164,13 +165,36 @@ def get_ROS_log_level(name):
     ns = '/'.join(name.split('/')[:2])
     return get_param_with_blocking(ns + '/log_level')
 
+
 Stamp = NamedTuple('Stamp', [('seq', int), ('sim_stamp', float), ('wc_stamp', float)])
 Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
 Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[Stamp]), ('t_in', List[Stamp]), ('done', bool)])
-# Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[float]), ('t_in', List[float]), ('done', bool)])
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
 Msg = NamedTuple('Msg', [('info', Info), ('msgs', List[Any])])
 
 
-def typehint(msg_type):
-    return NamedTuple('Msg', [('info', Info), ('msgs', List[msg_type])])
+def arg_typehint(msg_type):
+    return Optional[NamedTuple('Msg', [('info', Info), ('msgs', List[msg_type])])]
+
+
+def return_typehint(msg_type, done=True):
+    if done:
+        return Optional[Dict[str, Union[msg_type, Bool]]]
+    else:
+        return Optional[Dict[str, msg_type]]
+
+
+def check_msg_type(name, component, cname, node_cls, msg_type, msg_module=None):
+    if msg_module:  # the case for feedthroughs
+        msg_type_yaml = get_cls_from_string('%s/%s' % (msg_module, msg_type))
+    else:
+        msg_type_yaml = get_cls_from_string(msg_type)
+    try:
+        msg_type_py = node_cls.get_msg_type(node_cls, component, cname)
+        node_str = get_module_type_string(node_cls)
+        assert msg_type_py == msg_type_yaml, 'Inconsistent msg types (.py="%s" vs (converted) .yaml="%s") specified for node "%s". \n Hint: compare the msg_types within python class "%s" with the msg_types specified in the .yaml under [%s][%s].' % (msg_type_py, msg_type_yaml, name, node_str, component, cname)
+    except Exception as e:
+        if name in ['env/supervisor', 'env/observations', 'env/actions']:
+            return
+        else:
+            raise(e)

@@ -92,8 +92,8 @@ eagerx_core/bridge:
       log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
 #      input_converters:  # can only contain converters for inputs other than "actuator input" ("in_1" in this case)
-#        action_2:
-#          converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+#        in_3:
+#          converter_type: eagerx_core.baseconverter/StringUInt64Converter
 #          test_arg: 'test'
       test_arg: 'CHANGED ARGUMENT'
     ref_vel:

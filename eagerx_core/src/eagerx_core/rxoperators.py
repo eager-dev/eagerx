@@ -428,7 +428,7 @@ def calculate_inputs(N_node, rate_in, rate_node, delay):
     return N_in
 
 
-def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, is_reactive: bool, real_time_factor: float):
+def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, is_reactive: bool, real_time_factor: float, node: NodeBase = None):
     dt_i = 1 / rate_in
 
     def _generate_msgs(source_msg: Observable):
@@ -476,9 +476,12 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                         t_n = Stamp(seq, sim_stamp, wc_stamp)
 
                         if window > 0:
-                            wmsgs = list(msgs_window.extend(msgs))
-                            wt_i = list(t_i_window.extend(t_i))
-                            wt_n = list(t_n_window.extend([t_n] * len(msgs)))
+                            msgs_window.extend(msgs)
+                            t_i_window.extend(t_i)
+                            t_n_window.extend([t_n] * len(msgs))
+                            wmsgs = list(msgs_window)
+                            wt_i = list(t_i_window)
+                            wt_n = list(t_n_window)
                         else:
                             wmsgs = msgs
                             wt_i = t_i
@@ -520,12 +523,12 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
     return _generate_msgs
 
 
-def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
+# def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
     # if is_reactive:
-    return create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
+    # return create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
 
 
-def create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
+def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
     # todo: remove ops.observe_on?
     if is_feedthrough:
         name = inpt['feedthrough_to']
@@ -561,7 +564,7 @@ def create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_fact
     else:
         Nc = Nc.pipe(ops.observe_on(scheduler))
 
-    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=0, delay=inpt['delay'], is_reactive=True, real_time_factor=real_time_factor), ops.share())
+    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=inpt['window'], delay=inpt['delay'], is_reactive=True, real_time_factor=real_time_factor, node=node), ops.share())
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
