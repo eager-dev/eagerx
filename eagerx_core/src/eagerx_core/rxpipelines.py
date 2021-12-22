@@ -33,7 +33,8 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
     zipped_feedthrough, zipped_action_flags, d_rr = init_real_reset(ns, Nct, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, event_scheduler, node=node)
 
     # Zip inputs & action channels
-    zipped_channels = rx.zip(zipped_inputs, zipped_feedthrough).pipe(ops.share(), ops.observe_on(event_scheduler))
+    zipped_channels = rx.zip(zipped_inputs, zipped_feedthrough).pipe(ops.share(),
+                                                                     ops.observe_on(event_scheduler)) # this is required, otherwise a block.
 
     # New routine with merge
     PR = R.pipe(ops.observe_on(event_scheduler),

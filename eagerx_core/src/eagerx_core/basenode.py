@@ -1,7 +1,7 @@
 import abc
 import os
 import time
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 from tabulate import tabulate
 import logging
 
@@ -13,8 +13,9 @@ from genpy.message import Message
 from sensor_msgs.msg import Image
 
 from eagerx_core.constants import TERMCOLOR, ERROR, INFO, DEBUG, SILENT
-from eagerx_core.utils.utils import initialize_converter, typehint, Info
+from eagerx_core.utils.utils import initialize_converter, return_typehint, Msg
 from eagerx_core.srv import ImageUInt8, ImageUInt8Response
+
 
 class NodeBase:
     def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
@@ -48,6 +49,10 @@ class NodeBase:
         effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
         self.log_memory = effective_log_level >= log_level and log_level_memory >= effective_log_level
 
+    @staticmethod
+    def get_msg_type(cls, component, cname):
+        return cls.msg_types[component][cname]
+
 
 class Node(NodeBase):
     def __init__(self, **kwargs):
@@ -71,7 +76,7 @@ class Node(NodeBase):
         self.history = []
         self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
 
-    def reset_cb(self, **kwargs):
+    def reset_cb(self, **kwargs: Optional[Message]):
         self.num_ticks = 0
         keys_to_pop = []
         for cname, msg in kwargs.items():
@@ -121,7 +126,7 @@ class Node(NodeBase):
         return output
 
     @abc.abstractmethod
-    def reset(self, **kwargs: Message):
+    def reset(self, **kwargs: Optional[Message]) -> return_typehint(Message, done=True):
         """
         All states in the .yaml must be defined as optional arguments in the node subclass.
         If additional states may be specified later-on (not yet specified in yaml), then **kwargs must remain in the
@@ -131,7 +136,7 @@ class Node(NodeBase):
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]) -> return_typehint(Message, done=True):
         """
         All inputs in the .yaml must be defined as optional arguments in the node subclass.
         If an input is required, add an assert that checks that input is not None.
@@ -149,15 +154,18 @@ class SimNode(Node):
         super().__init__(**kwargs)
 
     @abc.abstractmethod
-    def reset(self, **kwargs):
+    def reset(self, **kwargs: Optional[Message]):
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         pass
 
 
 class ObservationsNode(Node):
+    msg_types = {'inputs': {'actions_set': UInt64},
+                 'outputs': {'set': UInt64}}
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Define observation buffers
@@ -179,7 +187,7 @@ class ObservationsNode(Node):
         for name, buffer in self.observation_buffer.items():
             buffer['msgs'] = None
 
-    def callback(self, node_tick: int, t_n: float, **kwargs):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # Set all observations to messages in inputs
         for name, buffer in self.observation_buffer.items():
             buffer['msgs'] = kwargs[name].msgs
@@ -190,6 +198,10 @@ class ObservationsNode(Node):
 
 
 class ActionsNode(Node):
+    msg_types = {'inputs': {'observations_set': UInt64,
+                            'step': UInt64},
+                 'outputs': {'set': UInt64}}
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Define action/observation buffers
@@ -213,7 +225,7 @@ class ActionsNode(Node):
         # start_with an initial action message, so that the first observation can pass.
         return dict(set=UInt64())
 
-    def callback(self, node_tick: int, t_n: float, **kwargs):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # Fill output_msg with buffered actions
         output_msgs = dict(set=UInt64())
         for name, buffer in self.action_buffer.items():
@@ -222,6 +234,10 @@ class ActionsNode(Node):
 
 
 class RenderNode(Node):
+
+    msg_types = {'inputs': {'image': Image},
+                 'outputs': {'done': UInt64}}
+
     def __init__(self, display, **kwargs):
         super().__init__(**kwargs)
         self.display = display
@@ -243,8 +259,8 @@ class RenderNode(Node):
     def reset(self):
         self.last_image = Image()
 
-    def callback(self, node_tick: int, t_n: float, image: Image = None):
-        self.last_image = image['msgs'][-1]
+    def callback(self, node_tick: int, t_n: float, image: Optional[Msg] = None):
+        self.last_image = image.msgs[-1]
         if self.display and self.render_toggle:
             rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
 
@@ -254,16 +270,20 @@ class RenderNode(Node):
 
 
 class RealResetNode(Node):
+    msg_types = {'inputs': {'in_1': UInt64,
+                            'in_2': UInt64},
+                 'outputs': {'out_1': UInt64,
+                             'out_2': UInt64},
+                 'states': {'state_1': UInt64},
+                 'targets': {'target_1': UInt64}}
+
     def __init__(self, test_arg, **kwargs):
         super().__init__(**kwargs)
 
-    def reset(self, state_1: UInt64 = None):
+    def reset(self, state_1: Optional[UInt64] = None) -> None:
         return
 
-    def callback(self, node_tick: int, t_n: float,
-                 in_1: typehint(UInt64) = None,
-                 in_2: typehint(UInt64) = None,
-                 target_1: typehint(UInt64) = None) -> Dict[str, UInt64]:
+    def callback(self, node_tick: int, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, target_1: Optional[Msg] = None) -> return_typehint(UInt64, done=True):
         # output type is always Dict[str, Union[UInt64, output_msg_types]] because done flags are also inside the output_msgs
         inputs = {'in_1': in_1,
                   'in_2': in_2}
@@ -301,10 +321,19 @@ class RealResetNode(Node):
 
 
 class ProcessNode(SimNode):
+    msg_types = {'inputs': {'in_1': UInt64,
+                            'in_2': UInt64,
+                            'in_3': String,
+                            'tick': UInt64},
+                 'outputs': {'out_1': UInt64,
+                             'out_2': UInt64},
+                 'states': {'state_1': UInt64,
+                            'state_2': UInt64}}
+
     def __init__(self, test_arg, **kwargs):
         super().__init__(**kwargs)
 
-    def reset(self, state_1: UInt64 = None, state_2: UInt64 = None) -> Dict[str, UInt64]:
+    def reset(self, state_1: Optional[UInt64] = None, state_2: Optional[UInt64] = None) -> return_typehint(UInt64):
         # Send initial message for outputs with 'start_with_msg' = True
         init_msgs = dict()
         for i in self.outputs:
@@ -313,11 +342,7 @@ class ProcessNode(SimNode):
             init_msgs[name] = UInt64(data=999)
         return init_msgs
 
-    def callback(self, node_tick: int, t_n: float,
-                 in_1: typehint(UInt64) = None,
-                 in_2: typehint(UInt64) = None,
-                 in_3: typehint(UInt64) = None,
-                 tick: typehint(UInt64) = None) -> Dict[str, UInt64]:
+    def callback(self, node_tick: int, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, in_3: Optional[Msg] = None, tick: Optional[Msg] = None) -> return_typehint(UInt64):
         inputs = {'in_1': in_1,
                   'in_2': in_2,
                   'tick': tick}

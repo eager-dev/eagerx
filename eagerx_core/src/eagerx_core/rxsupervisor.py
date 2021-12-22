@@ -26,6 +26,8 @@ from threading import Event
 
 
 class SupervisorNode(NodeBase):
+    msg_types = {'outputs': {'step': UInt64}}
+
     def __init__(self, ns, states, **kwargs):
         self.subjects = None
 

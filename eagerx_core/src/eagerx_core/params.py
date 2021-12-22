@@ -1,6 +1,6 @@
 from typing import Dict
 from copy import deepcopy
-from eagerx_core.utils.utils import load_yaml, substitute_yaml_args
+from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type
 
 
 class Params(object):
@@ -272,6 +272,7 @@ class RxNodeParams(Params):
         name = self.name
         package_name = default['package_name']
         config_name = default['config_name']
+        node_cls = get_cls_from_string(params['node_type'])
         default['module'], default['node_type'] = params['node_type'].split('/')
 
         # Process inputs
@@ -280,6 +281,7 @@ class RxNodeParams(Params):
             for cname in default['inputs']:
                 assert cname in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', cname, 'inputs', config_name, package_name)
                 assert 'targets' not in params or cname not in params['targets'], 'Input "%s" cannot have the same name as a selected target. Change either the input or target name under "%s" in "%s.yaml" inside ROS package "%s/config".' % (cname, 'inputs', config_name, package_name)
+                check_msg_type(name, 'inputs', cname, node_cls, params['inputs'][cname]['msg_type'])
                 params['inputs'][cname]['msg_module'], params['inputs'][cname]['msg_type'] = params['inputs'][cname]['msg_type'].split('/')
                 if 'rate' in params['inputs'][cname]:
                     is_reactive = False
@@ -293,6 +295,7 @@ class RxNodeParams(Params):
         if 'outputs' in default:
             for cname in default['outputs']:
                 assert cname in params['outputs'], ('Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('output', cname, 'outputs', config_name, package_name))
+                check_msg_type(name, 'outputs', cname, node_cls, params['outputs'][cname]['msg_type'])
                 params['outputs'][cname]['msg_module'], params['outputs'][cname]['msg_type'] = params['outputs'][cname]['msg_type'].split('/')
                 if in_object and 'sensors' in name.split('/'):  # If node is part of object, only use name of node (e.g. obj/sensors/out_1)
                     address = name
@@ -305,6 +308,7 @@ class RxNodeParams(Params):
         if 'states' in default:
             for cname in default['states']:
                 assert cname in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', cname, 'states', config_name, package_name)
+                check_msg_type(name, 'states', cname, node_cls, params['states'][cname]['msg_type'])
                 params['states'][cname]['msg_module'], params['states'][cname]['msg_type'] = params['states'][cname]['msg_type'].split('/')
                 if 'address' in params['states'][cname]: # if 'env/supervisor', the state address is pre-defined (like an input)
                     assert not in_object, 'Cannot pre-specify a state address for state "%s" when you use the node inside an object.' % cname
@@ -318,6 +322,7 @@ class RxNodeParams(Params):
         if 'targets' in default:
             for cname in default['targets']:
                 assert cname in params['targets'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('target', cname, 'targets', config_name, package_name)
+                check_msg_type(name, 'targets', cname, node_cls, params['targets'][cname]['msg_type'])
                 params['targets'][cname]['msg_module'], params['targets'][cname]['msg_type'] = params['targets'][cname]['msg_type'].split('/')
                 n = RxState(name=cname, **params['targets'][cname])
                 targets.append(n)
@@ -328,6 +333,7 @@ class RxNodeParams(Params):
                 # Add output details (msg_type, space_converter) to feedthroughs
                 assert cname in params['feedthroughs'], 'Feedthrough "%s" must directly correspond to a selected output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (cname, config_name, package_name)
                 msg_module, msg_type = params['outputs'][cname]['msg_module'], params['outputs'][cname]['msg_type']
+                check_msg_type(name, 'outputs', cname, node_cls, msg_type, msg_module=msg_module)
                 if 'space_converter' in params['outputs'][cname]:
                     space_converter = params['outputs'][cname]['space_converter']
                 else:
@@ -350,8 +356,7 @@ class RxNodeParams(Params):
             rate_dict[address] = i['rate']  # {'rate': i['rate']}
         # assert name not in rate_dict, 'Cannot use the same output topic name for a node (%s).' % name
 
-        # Put parameters in node namespace
-        # TODO: WATCH OUT, ORDER OF DICT KEY MATTERS!
+        # Put parameters in node namespace (watch out, order of dict keys probably matters...)
         node_params = {name: default, 'rate': rate_dict}
         return node_params
 
