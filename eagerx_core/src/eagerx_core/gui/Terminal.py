@@ -70,7 +70,7 @@ class Terminal(object):
         else:
             self._msg_type = None
 
-        self._graphicsItem = TerminalGraphicsItem(self, parent=self._node().graphicsItem())
+        self._graphicsItem = TerminalGraphicsItem(self, parent=self._node().graphics_item())
         self.recolor()
 
     def value(self, term=None):
@@ -80,18 +80,19 @@ class Terminal(object):
 
         return self._value
 
-    def setValue(self, val, process=True):
+    def set_value(self, val, process=True):
         """If this is a single-value terminal, val should be a single value."""
-        if not isinstance(self._value, dict):
-            self._value = {}
-        if val is not None:
-            self._value.update(val)
-
-        self.setValueAcceptable(None)  # by default, input values are 'unchecked' until Node.update().
-        if self.isInput() and process:
-            self.node().update()
-
-        self.recolor()
+        # if not isinstance(self._value, dict):
+        #     self._value = {}
+        # if val is not None:
+        #     self._value.update(val)
+        #
+        # self.setValueAcceptable(True)  # by default, input values are 'unchecked' until Node.update().
+        # if self.isInput() and process:
+        #     self.node().update()
+        #
+        # self.recolor()
+        pass
 
     def setOpts(self, **opts):
         self._renamable = opts.get('renamable', self._renamable)
@@ -100,8 +101,8 @@ class Terminal(object):
     def connected(self, term):
         """Called whenever this terminal has been connected to another.
         (note--this function is called on both terminals)"""
-        if self.isInput() and term.isOutput():
-            self.inputChanged(term)
+        if self.is_input() and term.is_output():
+            self.input_changed(term)
         if self.node().node_type() in ['actions', 'observations']:
             if self.params()['converter'] is None:
                 if term.params()['space_converter'] is not None:
@@ -115,23 +116,23 @@ class Terminal(object):
     def disconnected(self, term):
         """Called whenever this terminal has been disconnected from another.
         (note--this function is called on both terminals)"""
-        if self.isInput():
-            self.setValue(None)
+        if self.is_input():
+            self.set_value(None)
         if self.node().node_type() in ['actions', 'observations']:
             self._msg_type = None
             self.params()['converter'] = None
         self.node().disconnected(self, term)
 
-    def inputChanged(self, term, process=True):
+    def input_changed(self, term, process=True):
         """Called whenever there is a change to the input value to this terminal.
         It may often be useful to override this function."""
-        self.setValue(term.value(self), process=process)
+        self.set_value(term.value(self), process=process)
 
-    def valueIsAcceptable(self):
+    def value_is_acceptable(self):
         """Returns True->acceptable  None->unknown  False->Unacceptable"""
         return self.valueOk
 
-    def setValueAcceptable(self, v=True):
+    def set_value_acceptable(self, v=True):
         self.valueOk = v
         self.recolor()
 
@@ -166,25 +167,25 @@ class Terminal(object):
             connection_msg_type = get_module_type_string(msg_type)
         return connection_msg_type
 
-    def isState(self):
+    def is_state(self):
         return self._is_state
 
-    def isFeedthrough(self):
+    def is_feedthrough(self):
         return self._is_feedthrough
 
-    def isInput(self):
+    def is_input(self):
         return self._io == 'in'
 
-    def isOutput(self):
+    def is_output(self):
         return self._io == 'out'
 
-    def isRenamable(self):
+    def is_renamable(self):
         return self._renamable
 
-    def isRemovable(self):
+    def is_removable(self):
         return self._removable
 
-    def isConnectable(self):
+    def is_connectable(self):
         return self._connectable
 
     def name(self):
@@ -203,69 +204,69 @@ class Terminal(object):
             connection_info = (self.node().rx_params(), self._terminal_type, self._terminal_name)
         return connection_info
 
-    def graphicsItem(self):
+    def graphics_item(self):
         return self._graphicsItem
 
-    def isConnected(self):
+    def is_connected(self):
         return len(self.connections()) > 0
 
-    def connectedTo(self, term):
+    def connected_to(self, term):
         return term in self.connections()
 
-    def hasInput(self):
+    def has_input(self):
         for t in self.connections():
-            if t.isOutput():
+            if t.is_output():
                 return True
         return False
 
-    def inputTerminals(self):
+    def input_terminals(self):
         """Return the terminal(s) that give input to this one."""
-        return [t for t in self.connections() if t.isOutput()]
+        return [t for t in self.connections() if t.is_output()]
 
-    def dependentNodes(self):
+    def dependent_nodes(self):
         """Return the list of nodes which receive input from this terminal."""
-        return set([t.node() for t in self.connections() if t.isInput()])
+        return set([t.node() for t in self.connections() if t.is_input()])
 
-    def connectTo(self, term, connectionItem=None):
+    def connect_to(self, term, connection_item=None):
         try:
-            if self.connectedTo(term):
+            if self.connected_to(term):
                 raise Exception('Already connected')
             if term is self:
                 raise Exception('Not connecting terminal to self')
             if term.node() is self.node():
                 raise Exception("Can't connect to terminal on same node.")
-            if not term.isState() == self.isState():
+            if not term.is_state() == self.is_state():
                 raise Exception("Cannot connect different input/output types.")
-            if term.isInput() == self.isInput():
+            if term.is_input() == self.is_input():
                 raise Exception("Cannot connect input with input or output with output.")
             if self.connection_msg_type() is not None and term.connection_msg_type() is not None:
                 if not self.connection_msg_type() == term.connection_msg_type():
                     raise Exception("Cannot connect terminals with different message types")
             for t in [self, term]:
-                if t.isInput() and len(t.connections()) > 0:
+                if t.is_input() and len(t.connections()) > 0:
                     raise Exception("Cannot connect %s <-> %s: Terminal %s is already connected to %s" % (
                         self, term, t, list(t.connections().keys())))
         except Exception:
-            if connectionItem is not None:
-                connectionItem.close()
+            if connection_item is not None:
+                connection_item.close()
             raise
 
-        if connectionItem is None:
-            connectionItem = ConnectionItem(self.graphicsItem(), term.graphicsItem())
-            self.graphicsItem().getViewBox().addItem(connectionItem)
+        if connection_item is None:
+            connection_item = ConnectionItem(self.graphics_item(), term.graphics_item())
+            self.graphics_item().getViewBox().addItem(connection_item)
 
-        self._connections[term] = connectionItem
-        term._connections[self] = connectionItem
+        self._connections[term] = connection_item
+        term._connections[self] = connection_item
 
         self.recolor()
 
         self.connected(term)
         term.connected(self)
 
-        return connectionItem
+        return connection_item
 
-    def disconnectFrom(self, term):
-        if not self.connectedTo(term):
+    def disconnect_from(self, term):
+        if not self.connected_to(term):
             return
         item = self._connections[term]
         item.close()
@@ -277,20 +278,20 @@ class Terminal(object):
         self.disconnected(term)
         term.disconnected(self)
 
-    def disconnectAll(self):
+    def disconnect_all(self):
         for t in list(self._connections.keys()):
-            self.disconnectFrom(t)
+            self.disconnect_from(t)
 
     def recolor(self, color=None, recurse=True):
         if color is None:
-            if self.isState():
-                if self.isConnectable():
+            if self.is_state():
+                if self.is_connectable():
                     color = QtGui.QColor(255, 0, 0)
                 else:
                     color = QtGui.QColor(128, 128, 128)
             else:
                 color = QtGui.QColor(0, 0, 255)
-        self.graphicsItem().setBrush(QtGui.QBrush(color))
+        self.graphics_item().setBrush(QtGui.QBrush(color))
 
         if recurse:
             for t in self.connections():
@@ -299,17 +300,17 @@ class Terminal(object):
     def rename(self, name):
         if self._io == 'in':
             if name in self._node().inputs():
-                self.graphicsItem().termRenamed(self._name)
+                self.graphics_item().term_renamed(self._name)
                 return
         elif name in self._node().outputs():
-            self.graphicsItem().termRenamed(self._name)
+            self.graphics_item().term_renamed(self._name)
             return
-        oldName = self._name
+        old_name = self._name
         self._name = name
         self._terminal_name = name.split('/')[-1]
 
-        self.node().terminalRenamed(self, oldName)
-        self.graphicsItem().termRenamed(name)
+        self.node().terminal_renamed(self, old_name)
+        self.graphics_item().term_renamed(name)
 
     def __repr__(self):
         return "<Terminal %s.%s>" % (str(self.node().name()), str(self.terminal_name()))
@@ -318,12 +319,12 @@ class Terminal(object):
         return id(self)
 
     def close(self):
-        self.disconnectAll()
-        item = self.graphicsItem()
+        self.disconnect_all()
+        item = self.graphics_item()
         if item.scene() is not None:
             item.scene().removeItem(item)
 
-    def saveState(self):
+    def save_state(self):
         return {'io': self._io}
 
 
@@ -340,10 +341,10 @@ class TerminalGraphicsItem(GraphicsObject):
         self.label.scale(0.7, 0.7)
         self.newConnection = None
         self.setFiltersChildEvents(True)  # to pick up mouse events on the rectitem
-        if self.term.isRenamable():
+        if self.term.is_renamable():
             self.label.setTextInteractionFlags(QtCore.Qt.TextEditorInteraction)
-            self.label.focusOutEvent = self.labelFocusOut
-            self.label.keyPressEvent = self.labelKeyPress
+            self.label.focusOutEvent = self.label_focus_out
+            self.label.keyPressEvent = self.label_key_press
         self.setZValue(1)
         self.menu = None
 
@@ -351,7 +352,7 @@ class TerminalGraphicsItem(GraphicsObject):
 
     def initialise_param_window(self):
         node = self.term.node()
-        graph = node.graph()
+        graph = node.eagerx_graph()
         self.param_window = QtGui.QMainWindow(graph().widget().cwWin)
         self.param_window.setWindowTitle('Parameters {}'.format(self.terminal_name))
         cw = QtGui.QWidget()
@@ -396,7 +397,7 @@ class TerminalGraphicsItem(GraphicsObject):
             widget.setEnabled(False)
         elif key == 'space_converter':
             widget = QtGui.QLineEdit(str(value))
-            if not self.term.isState():
+            if not self.term.is_state():
                 widget.setEnabled(False)
             widget.textChanged.connect(partial(self.text_changed, key=key))
         else:
@@ -423,29 +424,29 @@ class TerminalGraphicsItem(GraphicsObject):
             new_converter = yaml.safe_load(str(text))
             if 'converter_type' in old_converter and 'converter_type' in new_converter:
                 if not old_converter['converter_type'] == new_converter['converter_type']:
-                    self.term.disconnectAll()
+                    self.term.disconnect_all()
             else:
-                self.term.disconnectAll()
+                self.term.disconnect_all()
         if not key == 'msg_type':
             self.term.params()[key] = yaml.safe_load(str(text))
 
-    def labelFocusOut(self, ev):
+    def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.label, ev)
-        self.labelChanged()
+        self.label_changed()
 
-    def labelKeyPress(self, ev):
+    def label_key_press(self, ev):
         if ev.key() == QtCore.Qt.Key_Enter or ev.key() == QtCore.Qt.Key_Return:
-            self.labelChanged()
+            self.label_changed()
         else:
             QtGui.QGraphicsTextItem.keyPressEvent(self.label, ev)
 
-    def labelChanged(self):
-        newName = str(self.label.toPlainText())
-        if newName != self.term.terminal_name():
-            newName = self.term.terminal_type() + '/' + newName
-            self.term.rename(newName)
+    def label_changed(self):
+        new_name = str(self.label.toPlainText())
+        if new_name != self.term.terminal_name():
+            new_name = self.term.terminal_type() + '/' + new_name
+            self.term.rename(new_name)
 
-    def termRenamed(self, name):
+    def term_renamed(self, name):
         self.label.setPlainText(name.split('/')[-1])
         self.param_window.setWindowTitle('Parameters {}'.format(name.split('/')[-1]))
 
@@ -454,7 +455,7 @@ class TerminalGraphicsItem(GraphicsObject):
         self.box.setBrush(brush)
 
     def disconnect(self, target):
-        self.term.disconnectFrom(target.term)
+        self.term.disconnect_from(target.term)
 
     def boundingRect(self):
         br = self.box.mapRectToParent(self.box.boundingRect())
@@ -470,7 +471,7 @@ class TerminalGraphicsItem(GraphicsObject):
         br = self.box.mapRectToParent(self.box.boundingRect())
         lr = self.label.mapRectToParent(self.label.boundingRect())
 
-        if self.term.isInput():
+        if self.term.is_input():
             self.box.setPos(pos.x(), pos.y() - br.height() / 2.)
             self.label.setPos(pos.x() + br.width(), pos.y() - lr.height() / 2.)
         else:
@@ -513,18 +514,18 @@ class TerminalGraphicsItem(GraphicsObject):
         remAct.triggered.connect(self.removeSelf)
         self.menu.addAction(remAct)
         self.menu.remAct = remAct
-        if not self.term.isRemovable():
+        if not self.term.is_removable():
             remAct.setEnabled(False)
         return self.menu
 
     def removeSelf(self):
-        self.term.node().removeTerminal(self.term)
+        self.term.node().remove_terminal(self.term)
 
     def mouseDragEvent(self, ev):
         if ev.button() != QtCore.Qt.LeftButton:
             ev.ignore()
             return
-        if not self.term.isConnectable():
+        if not self.term.is_connectable():
             return
         ev.accept()
         if ev.isStart():
@@ -541,7 +542,7 @@ class TerminalGraphicsItem(GraphicsObject):
                     if isinstance(i, TerminalGraphicsItem):
                         self.newConnection.setTarget(i)
                         try:
-                            self.term.connectTo(i.term, self.newConnection)
+                            self.term.connect_to(i.term, self.newConnection)
                             got_target = True
                         except Exception:
                             self.scene().removeItem(self.newConnection)
@@ -589,7 +590,7 @@ class ConnectionItem(GraphicsObject):
         self.hovered = False
         self.path = None
         self.shapePath = None
-        if self.source.term.isState():
+        if self.source.term.is_state():
             self.style = {
                 'shape': 'line',
                 'color': (255, 0, 0, 255),

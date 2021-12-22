@@ -10,24 +10,12 @@ import numpy as np
 from eagerx_core.utils.utils import get_yaml_type
 from eagerx_core.params import RxInput, RxOutput, RxState, RxFeedthrough, RxObjectParams, RxNodeParams
 
-def strDict(d):
+
+def str_dict(d):
     return dict([(str(k), v) for k, v in d.items()])
 
 
 class Node(QtCore.QObject):
-    """
-    Node represents the basic processing unit of a flowchart. 
-    A Node subclass implements at least:
-    
-    1) A list of input / ouptut terminals and their properties
-    2) a process() function which takes the names of input terminals as keyword arguments and returns a dict with the names of output terminals as keys.
-
-    A flowchart thus consists of multiple instances of Node subclasses, each of which is connected
-    to other by wires between their terminals. A flowchart is, itself, also a special subclass of Node.
-    This allows Nodes within the flowchart to connect to the input/output nodes of the flowchart itself.
-
-    Optionally, a node class can implement the ctrlWidget() method, which must return a QWidget (usually containing other widgets) that will be displayed in the flowchart control panel. Some nodes implement fairly complex control widgets, but most nodes follow a simple form-like pattern: a list of parameter names and a single value (represented as spin box, check box, etc..) for each parameter. To make this easier, the CtrlNode subclass allows you to instead define a simple data structure that CtrlNode will use to automatically generate the control widget.     """
-
     sigOutputChanged = QtCore.Signal(object)  # self
     sigClosed = QtCore.Signal(object)
     sigRenamed = QtCore.Signal(object, object)
@@ -105,12 +93,12 @@ class Node(QtCore.QObject):
                         if terminal in self._yaml['default'][terminal_type]:
                             continue
                     name = terminal_type + '/' + terminal
-                    self.addTerminal(name=name)
+                    self.add_terminal(name=name)
                     if self._node_type == 'reset_node' and terminal_type == 'outputs':
                         name = 'feedthroughs/' + terminal
-                        self.addTerminal(name=name)
+                        self.add_terminal(name=name)
 
-    def removeTerminal(self, term):
+    def remove_terminal(self, term):
         """Remove the specified terminal from this Node. May specify either the 
         terminal's name or the terminal itself.
         
@@ -127,22 +115,22 @@ class Node(QtCore.QObject):
         terminal_type = name_split[0]
 
         del self.terminals[name]
-        if term.isInput():
+        if term.is_input():
             del self._inputs[name]
-        if term.isOutput():
+        if term.is_output():
             del self._outputs[name]
 
         self._params['default'][terminal_type].remove(terminal_name)
 
-        if not terminal_type in self._yaml:
+        if terminal_type not in self._yaml:
             self._params.pop(terminal_type)
         elif terminal_name not in self._yaml[terminal_type]:
             self._params[terminal_type].pop(terminal_name)
 
-        self.graphicsItem().updateTerminals()
+        self.graphics_item().update_terminals()
         self.sigTerminalRemoved.emit(self, term)
 
-    def terminalRenamed(self, term, old_name):
+    def terminal_renamed(self, term, old_name):
         """Called after a terminal has been renamed        
         
         Causes sigTerminalRenamed to be emitted."""
@@ -169,10 +157,10 @@ class Node(QtCore.QObject):
         self._params[terminal_type][new_terminal_name] = self._params[terminal_type][old_terminal_name]
         self._params[terminal_type].pop(old_terminal_name)
 
-        self.graphicsItem().updateTerminals()
+        self.graphics_item().update_terminals()
         self.sigTerminalRenamed.emit(term, old_name)
 
-    def addTerminal(self, name, **opts):
+    def add_terminal(self, name, **opts):
         """Add a new terminal to this Node with the given name. Extra
         keyword arguments are passed to Terminal.__init__.
                 
@@ -200,8 +188,6 @@ class Node(QtCore.QObject):
             init_function = RxInput.__init__
         elif terminal_type in ['outputs', 'sensors']:
             init_function = RxOutput.__init__
-        # elif terminal_type in ['feedthroughs']:
-        #     init_function = RxFeedthrough.__init__
         elif terminal_type in ['states', 'targets']:
             init_function = RxState.__init__
         else:
@@ -222,12 +208,12 @@ class Node(QtCore.QObject):
                         value = 1.
                     self._params[terminal_type][terminal_name][key] = value
 
-        if term.isInput():
+        if term.is_input():
             self._inputs[name] = term
-        elif term.isOutput():
+        elif term.is_output():
             self._outputs[name] = term
 
-        self.graphicsItem().updateTerminals()
+        self.graphics_item().update_terminals()
         self.sigTerminalAdded.emit(self, term)
         return term
 
@@ -254,7 +240,7 @@ class Node(QtCore.QObject):
         """
         return {}
 
-    def graphicsItem(self):
+    def graphics_item(self):
         """Return the GraphicsItem for this node. Subclasses may re-implement
         this method to customize their appearance in the flowchart."""
         if self._graphicsItem is None:
@@ -304,7 +290,7 @@ class Node(QtCore.QObject):
     def node_type(self):
         return self._node_type
 
-    def graph(self):
+    def eagerx_graph(self):
         """Return the graph."""
         return self._graph
 
@@ -323,21 +309,21 @@ class Node(QtCore.QObject):
 
     def rename(self, name):
         """Rename this node. This will cause sigRenamed to be emitted."""
-        oldName = self._name
+        old_name = self._name
         self._name = name
-        self.sigRenamed.emit(self, oldName)
+        self.sigRenamed.emit(self, old_name)
 
-    def dependentNodes(self):
+    def dependent_nodes(self):
         """Return the list of nodes which provide direct input to this node"""
         nodes = set()
         for t in self.inputs().values():
-            nodes |= set([i.node() for i in t.inputTerminals()])
+            nodes |= set([i.node() for i in t.input_terminals()])
         return nodes
 
     def __repr__(self):
         return "<Node %s @%x>" % (self.name(), id(self))
 
-    def ctrlWidget(self):
+    def ctrl_widget(self):
         """Return this Node's control widget. 
         
         By default, Nodes have no control widget. Subclasses may reimplement this 
@@ -345,91 +331,68 @@ class Node(QtCore.QObject):
         when they are constructing their Node list."""
         return None
 
-    def setInput(self, **args):
+    def set_input(self, **args):
         """Set the values on input terminals. For most nodes, this will happen automatically through Terminal.inputChanged.
         This is normally only used for nodes with no connected inputs."""
         changed = False
         for k, v in args.items():
             term = self._inputs[k]
-            oldVal = term.value()
-            if not fn.eq(oldVal, v):
+            old_val = term.value()
+            if not fn.eq(old_val, v):
                 changed = True
-            term.setValue(v, process=False)
+            term.set_value(v, process=False)
         if changed and '_updatesHandled_' not in args:
             self.update()
 
-    def inputValues(self):
+    def input_values(self):
         """Return a dict of all input values currently assigned to this node."""
         vals = {}
         for n, t in self.inputs().items():
             vals[n] = t.value()
         return vals
 
-    def outputValues(self):
+    def output_values(self):
         """Return a dict of all output values currently generated by this node."""
         vals = {}
         for n, t in self.outputs().items():
             vals[n] = t.value()
         return vals
 
-    def connected(self, localTerm, remoteTerm):
+    def connected(self, local_term, remote_term):
         """Called whenever one of this node's terminals is connected elsewhere."""
         pass
 
-    def disconnected(self, localTerm, remoteTerm):
+    def disconnected(self, local_term, remote_term):
         """Called whenever one of this node's terminals is disconnected from another."""
         pass
 
     def update(self, signal=True):
-        """Collect all input values, attempt to process new output values, and propagate downstream.
-        Subclasses should call update() whenever thir internal state has changed
-        (such as when the user interacts with the Node's control widget). Update
-        is automatically called when the inputs to the node are changed.
-        """
-        # vals = self.inputValues()
-        # try:
-        #     out = self.process(**strDict(vals))
-        #     if out is not None:
-        #         if signal:
-        #             self.setOutput(**out)
-        #         else:
-        #             self.setOutputNoSignal(**out)
-        #     for n, t in self.inputs().items():
-        #         t.setValueAcceptable(True)
-        #     self.clearException()
-        # except:
-        #     for n, t in self.outputs().items():
-        #         t.setValue(None)
-        #     self.setException(sys.exc_info())
-        #
-        #     if signal:
-        #         self.sigOutputChanged.emit(self)  ## triggers flowchart to propagate new data
         pass
 
-    def setOutput(self, **vals):
-        self.setOutputNoSignal(**vals)
-        self.sigOutputChanged.emit(self)  ## triggers flowchart to propagate new data
+    def set_output(self, **vals):
+        self.set_output_no_signal(**vals)
+        self.sigOutputChanged.emit(self)  # triggers flowchart to propagate new data
 
-    def setOutputNoSignal(self, **vals):
+    def set_output_no_signal(self, **vals):
         for k, v in vals.items():
             term = self.outputs()[k]
-            term.setValue(v)
-            term.setValueAcceptable(True)
+            term.set_value(v)
+            term.set_value_acceptable(True)
 
-    def setException(self, exc):
+    def set_exception(self, exc):
         self.exception = exc
         self.recolor()
 
-    def clearException(self):
-        self.setException(None)
+    def clear_exception(self):
+        self.set_exception(None)
 
     def recolor(self):
         if self.exception is None:
-            self.graphicsItem().setPen(QtGui.QPen(QtGui.QColor(0, 0, 0)))
+            self.graphics_item().setPen(QtGui.QPen(QtGui.QColor(0, 0, 0)))
         else:
-            self.graphicsItem().setPen(QtGui.QPen(QtGui.QColor(150, 0, 0), 3))
+            self.graphics_item().setPen(QtGui.QPen(QtGui.QColor(150, 0, 0), 3))
 
-    def saveState(self):
+    def save_state(self):
         """Return a dictionary representing the current state of this node
         (excluding input / output values). This is used for saving/reloading
         flowcharts. The default implementation returns this Node's position,
@@ -437,38 +400,26 @@ class Node(QtCore.QObject):
         
         Subclasses may want to extend this method, adding extra keys to the returned
         dict."""
-        pos = self.graphicsItem().pos()
+        pos = self.graphics_item().pos()
         state = {'pos': (pos.x(), pos.y()), 'params': self._params, 'yaml': self._yaml}
         return state
 
-    def restoreState(self, state):
+    def restore_state(self, state):
         """Restore the state of this node from a structure previously generated
         by saveState(). """
         pos = state.get('pos', (0, 0))
-        self.graphicsItem().setPos(*pos)
+        self.graphics_item().setPos(*pos)
 
-    def saveTerminals(self):
+    def save_terminals(self):
         terms = OrderedDict()
         for n, t in self.terminals.items():
-            terms[n] = (t.saveState())
+            terms[n] = (t.save_state())
         return terms
 
-    def restoreTerminals(self, state):
-        for name in list(self.terminals.keys()):
-            if name not in state:
-                self.removeTerminal(name)
-        for name, opts in state.items():
-            if name in self.terminals:
-                term = self[name]
-                term.setOpts(**opts)
-                continue
-            try:
-                opts = strDict(opts)
-                self.addTerminal(name, **opts)
-            except:
-                printExc("Error restoring terminal %s (%s):" % (str(name), str(opts)))
+    def restore_terminals(self, state):
+        pass
 
-    def clearTerminals(self):
+    def clear_terminals(self):
         for t in self.terminals.values():
             t.close()
         self.terminals = OrderedDict()
@@ -477,20 +428,20 @@ class Node(QtCore.QObject):
 
     def close(self):
         """Cleans up after the node--removes terminals, graphicsItem, widget"""
-        self.disconnectAll()
-        self.clearTerminals()
-        item = self.graphicsItem()
+        self.disconnect_all()
+        self.clear_terminals()
+        item = self.graphics_item()
         if item.scene() is not None:
             item.scene().removeItem(item)
         self._graphicsItem = None
-        w = self.ctrlWidget()
+        w = self.ctrl_widget()
         if w is not None:
             w.setParent(None)
         self.sigClosed.emit(self)
 
-    def disconnectAll(self):
+    def disconnect_all(self):
         for t in self.terminals.values():
-            t.disconnectAll()
+            t.disconnect_all()
 
 
 class NodeGraphicsItem(GraphicsObject):
@@ -511,10 +462,10 @@ class NodeGraphicsItem(GraphicsObject):
         self.nameItem.setDefaultTextColor(QtGui.QColor(50, 50, 50))
         self.nameItem.moveBy(self.bounds.width() / 2. - self.nameItem.boundingRect().width() / 2., 0)
         self.nameItem.setTextInteractionFlags(QtCore.Qt.TextEditorInteraction)
-        self.updateTerminals()
+        self.update_terminals()
 
-        self.nameItem.focusOutEvent = self.labelFocusOut
-        self.nameItem.keyPressEvent = self.labelKeyPress
+        self.nameItem.focusOutEvent = self.label_focus_out
+        self.nameItem.keyPressEvent = self.label_key_press
 
         self.menu = None
         self.buildMenu()
@@ -540,7 +491,7 @@ class NodeGraphicsItem(GraphicsObject):
         self.hovered = False
 
     def initialise_param_window(self):
-        graph = self.node.graph()
+        graph = self.node.eagerx_graph()
         self.param_window = QtGui.QMainWindow(graph().widget().cwWin)
         self.param_window.setWindowTitle('Parameters {}'.format(self.node.name()))
         cw = QtGui.QWidget()
@@ -611,25 +562,25 @@ class NodeGraphicsItem(GraphicsObject):
     def text_changed(self, text, key):
         self.node.params()['default'][key] = text
 
-    def labelFocusOut(self, ev):
+    def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
-        self.labelChanged()
+        self.label_changed()
 
-    def labelKeyPress(self, ev):
+    def label_key_press(self, ev):
         if ev.key() == QtCore.Qt.Key_Enter or ev.key() == QtCore.Qt.Key_Return:
-            self.labelChanged()
+            self.label_changed()
         else:
             QtGui.QGraphicsTextItem.keyPressEvent(self.nameItem, ev)
 
-    def labelChanged(self):
-        newName = str(self.nameItem.toPlainText())
-        graph = self.node.graph()
-        if graph is not None and newName in graph().nodes().keys():
+    def label_changed(self):
+        new_name = str(self.nameItem.toPlainText())
+        graph = self.node.eagerx_graph()
+        if graph is not None and new_name in graph().nodes().keys():
             self.nameItem.setPlainText(self.node.name())
             return
-        if newName != self.node.name():
-            self.node.rename(newName)
-        ### re-center the label
+        if new_name != self.node.name():
+            self.node.rename(new_name)
+        # re-center the label
         bounds = self.boundingRect()
         self.nameItem.setPos(bounds.width() / 2. - self.nameItem.boundingRect().width() / 2., 0)
 
@@ -641,14 +592,14 @@ class NodeGraphicsItem(GraphicsObject):
         self.brush = brush
         self.update()
 
-    def updateTerminals(self):
+    def update_terminals(self):
         bounds = self.bounds
         self.terminals = {}
         inp = self.node.inputs()
         dy = bounds.height() / (len(inp) + 1)
         y = dy
         for i, t in inp.items():
-            item = t.graphicsItem()
+            item = t.graphics_item()
             item.setParentItem(self)
             br = self.bounds
             item.setAnchor(0, y)
@@ -659,7 +610,7 @@ class NodeGraphicsItem(GraphicsObject):
         dy = bounds.height() / (len(out) + 1)
         y = dy
         for i, t in out.items():
-            item = t.graphicsItem()
+            item = t.graphics_item()
             item.setParentItem(self)
             item.setZValue(self.initial_z_value)
             br = self.bounds
@@ -758,14 +709,14 @@ class NodeGraphicsItem(GraphicsObject):
                     terminal_name = 'inputs/' + terminal
                 else:
                     terminal_name = 'outputs/' + terminal
-                self.menu.addAction('Add {}'.format(terminal), partial(self.node.addTerminal, name=terminal_name))
+                self.menu.addAction('Add {}'.format(terminal), partial(self.node.add_terminal, name=terminal_name))
             else:
                 for terminal_type in set.union(constants.TERMS[self._node_type]['in'],
                                                constants.TERMS[self._node_type]['out']):
                     terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
                     for terminal in self._yaml[terminal_type]:
                         terminal_name = str(terminal_type) + '/' + terminal
-                        act = terminal_menu.addAction(terminal, partial(self.node.addTerminal, name=terminal_name))
+                        act = terminal_menu.addAction(terminal, partial(self.node.add_terminal, name=terminal_name))
                         if terminal_name in self.node.terminals.keys():
                             act.setEnabled(False)
                         self.menu.addMenu(terminal_menu)

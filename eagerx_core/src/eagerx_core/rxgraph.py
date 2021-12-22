@@ -8,6 +8,7 @@ from eagerx_core.params import RxNodeParams, RxObjectParams
 from eagerx_core.utils.connection_utils import register_connections
 from eagerx_core.gui.eagerx_graph import EagerxGraph
 
+
 class RxGraph:
     def __init__(self, state: Dict):
         self._state = state
@@ -121,4 +122,4 @@ class RxGraph:
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             QtGui.QApplication.instance().exec_()
 
-        self._state = fc.saveState()
+        state = fc.save_state()
