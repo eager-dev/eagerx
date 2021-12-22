@@ -23,7 +23,7 @@ import gym
 import logging
 
 
-class RxEnv(object):
+class RxEnv(gym.Env):
     @staticmethod
     def create_actions():
         actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
@@ -40,8 +40,8 @@ class RxEnv(object):
         return states
 
     @staticmethod
-    def create_render(rate):
-        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate)
+    def create_render(rate=1, **kwargs):
+        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate, **kwargs)
         return render
 
     def __init__(self, name: str, rate: float,
@@ -57,7 +57,7 @@ class RxEnv(object):
         self.rate = rate
         self.render_node = render_node
         self.initialized = False
-        self._bridge_name = bridge.name
+        self._bridge_name = '%s/%s' % (bridge.params['default']['package_name'], bridge.params['default']['config_name'])  # bridge.name
 
         # Initialize supervisor node
         self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)
@@ -232,7 +232,7 @@ class RxEnv(object):
         # Get observations from buffer
         observation = dict()
         for name, buffer in self.obs_node.observation_buffer.items():
-            observation[name] = buffer['msg']
+            observation[name] = buffer['msgs']
         return observation
 
     def _initialize(self) -> None:
@@ -307,6 +307,7 @@ class RxEnv(object):
             if mode == "human":
                 self.supervisor_node.start_render()
             elif mode == "rgb_array":
+                self.supervisor_node.start_render()
                 ros_im = self.supervisor_node.get_last_image()
                 if ros_im.height == 0 or ros_im.width == 0:
                     # todo: check if channel dim first or last.

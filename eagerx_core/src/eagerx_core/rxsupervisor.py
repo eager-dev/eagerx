@@ -128,16 +128,16 @@ class SupervisorNode(NodeBase):
         self.subjects['start_reset'].on_next(self._get_step_counter_msg())
         self._step_counter = 0
         self._reset_event.wait()
-        print('RESET END')
+        rospy.logdebug('RESET END')
         self._obs_event.wait()
-        print('FIRST OBS RECEIVED!')
+        rospy.logdebug('FIRST OBS RECEIVED!')
 
     def step(self):
         self._obs_event.clear()
         self.subjects['step'].on_next(self._get_step_counter_msg())
         self._step_counter += 1
         self._obs_event.wait()
-        print('STEP END')
+        rospy.logdebug('STEP END')
 
 
 class RxSupervisor(object):

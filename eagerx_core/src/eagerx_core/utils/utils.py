@@ -7,6 +7,7 @@ from roslaunch.substitution_args import resolve_args, _resolve_args
 from roslaunch.substitution_args import _collect_args
 
 # OTHER
+from typing import List, NamedTuple, Any
 import os
 import time
 import importlib
@@ -166,7 +167,6 @@ def get_ROS_log_level(name):
     ns = '/'.join(name.split('/')[:2])
     return get_param_with_blocking(ns + '/log_level')
 
-
 def get_yaml_type(yaml):
     if 'node_type' in yaml:
         if 'targets' in yaml:
@@ -182,7 +182,7 @@ def get_nodes_and_objects_library():
     library = {'reset_node': {}, 'node': {}, 'object': {}}
     config_dict = {}
     ros_package_list = rospkg.RosPack().list()
-    eagerx_packages = [package for package in ros_package_list if package.count('eagerx') > 0]
+    eagerx_packages = [package for package in ros_package_list if 'eagerx' in package]
     for package in eagerx_packages:
         file_type = '.yaml'
         package_path = substitute_xml_args('$(find {})'.format(package))
@@ -199,3 +199,15 @@ def get_nodes_and_objects_library():
                     library[yaml_type][package] = []
                 library[yaml_type][package].append({'name': config, 'yaml': yaml})
     return library
+
+
+Stamp = NamedTuple('Stamp', [('seq', int), ('sim_stamp', float), ('wc_stamp', float)])
+Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
+Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[Stamp]), ('t_in', List[Stamp]), ('done', bool)])
+# Info = NamedTuple('Info', [('name', str), ('node_tick', int), ('rate_in', float), ('t_node', List[float]), ('t_in', List[float]), ('done', bool)])
+Info.__new__.__defaults__ = (None,) * len(Info._fields)
+Msg = NamedTuple('Msg', [('info', Info), ('msgs', List[Any])])
+
+
+def typehint(msg_type):
+    return NamedTuple('Msg', [('info', Info), ('msgs', List[msg_type])])

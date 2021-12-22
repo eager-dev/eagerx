@@ -2,6 +2,8 @@ import abc
 import os
 import time
 from typing import Dict, List, Union
+from tabulate import tabulate
+import logging
 
 import numpy as np
 import psutil
@@ -10,14 +12,14 @@ from std_msgs.msg import UInt64, String, Bool
 from genpy.message import Message
 from sensor_msgs.msg import Image
 
-from eagerx_core.constants import TERMCOLOR, ERROR
-from eagerx_core.utils.utils import initialize_converter
+from eagerx_core.constants import TERMCOLOR, ERROR, INFO, DEBUG, SILENT
+from eagerx_core.utils.utils import initialize_converter, typehint, Info
 from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 class NodeBase:
     def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
                  inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, launch_file=None,
-                 color='grey', print_mode=TERMCOLOR, log_level=ERROR):
+                 color='grey', print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT):
         """
         All parameters that were uploaded via RxNodeParams.get_params(ns=..) to the rosparam server are stored in this object.
         Optional arguments are added, and may not necessarily be uploaded via the rosparam server.
@@ -43,29 +45,80 @@ class NodeBase:
         self.color = color
         self.print_mode = print_mode
         self.log_level = log_level
+        effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+        self.log_memory = effective_log_level >= log_level and log_level_memory >= effective_log_level
 
 
 class Node(NodeBase):
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         """
         All arguments, in addition to the arguments to NodeBase, must be added here as (optional) args.
         Not specifying them here as argument in the constructor will raise an error.
         Make sure to pass down all required arguments to NodeBase.
         """
-        super().__init__(**kwargs)
+
+        # Message counter
+        self.num_ticks = 0
+
+        # Track memory usage  & speed
+        self.total_ticks = 0
+        self.py = psutil.Process(os.getpid())
+        self.pid = os.getpid()
+        self.iter_start = None
+        self.iter_ticks = 0
+        self.print_iter = 200
+        self.history = []
+        self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
 
     def reset_cb(self, **kwargs):
+        self.num_ticks = 0
         keys_to_pop = []
         for cname, msg in kwargs.items():
-            if msg['done']:
+            if msg.info.done:
                 keys_to_pop.append(cname)
             else:
-                kwargs[cname] = msg['msg'][0]
+                kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
         return self.reset(**kwargs)
 
     def callback_cb(self, **kwargs):
-        return self.callback(**kwargs)
+        self.iter_ticks += 1
+        if self.log_memory and self.iter_ticks % self.print_iter == 0:
+            if self.iter_start:
+                # Time steps
+                iter_stop = time.time()
+                if self.iter_ticks > 0:
+                    iter_time = float((iter_stop - self.iter_start) / self.iter_ticks)
+                else:
+                    iter_time = float(iter_stop - self.iter_start)
+
+                # Memory usage request
+                mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
+
+                # Print info
+                self.total_ticks += self.iter_ticks
+                self.iter_ticks = 0
+
+                # Log history
+                if len(self.history) > 0:
+                    delta_mem_rss = round(mem_use[0] - self.history[-1][3], 2)
+                    delta_mem_vms = round(mem_use[1] - self.history[-1][6], 2)
+                    delta_iter_time = round(iter_time - self.history[-1][9], 5)
+                    cum_mem_rss = round(mem_use[0] - self.history[0][3], 2)
+                    cum_mem_vms = round(mem_use[1] - self.history[0][6], 2)
+                    cum_iter_time = round(iter_time - self.history[0][9], 5)
+                    self.history.append([self.pid, self.name, self.total_ticks,
+                                         round(mem_use[0], 1), delta_mem_rss, cum_mem_rss,
+                                         round(mem_use[1], 1), delta_mem_vms, cum_mem_vms,
+                                         iter_time, delta_iter_time, cum_iter_time])
+                else:
+                    self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
+                rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
+            self.iter_start = time.time()
+        output = self.callback(**kwargs)
+        self.num_ticks += 1
+        return output
 
     @abc.abstractmethod
     def reset(self, **kwargs: Message):
@@ -90,16 +143,10 @@ class Node(NodeBase):
 
 
 class SimNode(Node):
-    def __init__(self, **kwargs):
-        self.simulator = None
-        self.object_params = None
-        super().__init__(**kwargs)
-
-    def set_object_params(self, object_params):
-        self.object_params = object_params
-
-    def set_simulator(self, simulator):
+    def __init__(self, simulator=None, object_params=None, **kwargs):
         self.simulator = simulator
+        self.object_params = object_params
+        super().__init__(**kwargs)
 
     @abc.abstractmethod
     def reset(self, **kwargs):
@@ -111,10 +158,13 @@ class SimNode(Node):
 
 
 class ObservationsNode(Node):
-    def __init__(self, inputs, **kwargs):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # Define observation buffers
         self.observation_buffer = dict()
-        for i in inputs:
+        for i in self.inputs:
+            if i['name'] == 'actions_set':
+                continue
             if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
@@ -122,18 +172,17 @@ class ObservationsNode(Node):
                 converter = i['converter']
             else:
                 converter = None
-            self.observation_buffer[i['name']] = {'msg': None, 'converter': converter}
-        super().__init__(inputs=inputs, **kwargs)
+            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter}
 
     def reset(self):
         # Set all messages to None
         for name, buffer in self.observation_buffer.items():
-            buffer['msg'] = None
+            buffer['msgs'] = None
 
     def callback(self, node_tick: int, t_n: float, **kwargs):
         # Set all observations to messages in inputs
         for name, buffer in self.observation_buffer.items():
-            buffer['msg'] = kwargs[name]['msg']
+            buffer['msgs'] = kwargs[name].msgs
 
         # Send output_msg
         output_msgs = dict(set=UInt64())
@@ -141,10 +190,13 @@ class ObservationsNode(Node):
 
 
 class ActionsNode(Node):
-    def __init__(self, outputs, **kwargs):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # Define action/observation buffers
         self.action_buffer = dict()
-        for i in outputs:
+        for i in self.outputs:
+            if i['name'] == 'set':
+                continue
             if 'converter' in i and isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
@@ -153,28 +205,30 @@ class ActionsNode(Node):
             else:
                 converter = None
             self.action_buffer[i['name']] = {'msg': None, 'converter': converter}
-        super().__init__(outputs=outputs, **kwargs)
 
     def reset(self):
         # Set all messages to None
         for name, buffer in self.action_buffer.items():
             buffer['msg'] = None
+        # start_with an initial action message, so that the first observation can pass.
+        return dict(set=UInt64())
 
     def callback(self, node_tick: int, t_n: float, **kwargs):
         # Fill output_msg with buffered actions
-        output_msgs = dict()
+        output_msgs = dict(set=UInt64())
         for name, buffer in self.action_buffer.items():
             output_msgs[name] = buffer['msg']
         return output_msgs
 
 
 class RenderNode(Node):
-    def __init__(self, ns, name, **kwargs):
+    def __init__(self, display, **kwargs):
+        super().__init__(**kwargs)
+        self.display = display
         self.last_image = Image(data=[])
         self.render_toggle = False
-        rospy.Service('%s/%s/get_last_image' % (ns, name), ImageUInt8, self._get_last_image)
-        rospy.Subscriber('%s/%s/toggle' % (ns, name), Bool, self._set_render_toggle)
-        super().__init__(ns=ns, name=name, **kwargs)
+        rospy.Service('%s/%s/get_last_image' % (self.ns, self.name), ImageUInt8, self._get_last_image)
+        rospy.Subscriber('%s/%s/toggle' % (self.ns, self.name), Bool, self._set_render_toggle)
 
     def _set_render_toggle(self, msg):
         if msg.data:
@@ -190,10 +244,9 @@ class RenderNode(Node):
         self.last_image = Image()
 
     def callback(self, node_tick: int, t_n: float, image: Image = None):
-        self.last_image = image['msg'][-1]
-        if self.render_toggle:
-            # todo: render image
-            pass
+        self.last_image = image['msgs'][-1]
+        if self.display and self.render_toggle:
+            rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64)
@@ -201,46 +254,16 @@ class RenderNode(Node):
 
 
 class RealResetNode(Node):
-    # MSG_TYPE = {'in_1': 'std_msgs.msg/UInt64',
-    #             'in_2': 'std_msgs.msg/UInt64',}
-
     def __init__(self, test_arg, **kwargs):
-
-        # Message counter
-        self.num_ticks = 0
-        self.num_resets = 0
-
-        # Memory usage
-        self.py = psutil.Process(os.getpid())
-        self.iter_start = None
-        self.iter_ticks = 0
-        self.print_iter = 20
         super().__init__(**kwargs)
 
     def reset(self, state_1: UInt64 = None):
-        self.num_resets += 1
-        if True:
-            if self.num_resets % self.print_iter == 0:
-                if self.iter_start:
-                    iter_stop = time.time()
-                    if self.iter_ticks > 0:
-                        iter_time = float((iter_stop - self.iter_start) / self.iter_ticks)
-                    else:
-                        iter_time = float(iter_stop - self.iter_start)
-                    # Memory usage request
-                    mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
-
-                    rospy.logdebug("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
-                        self.name, self.num_resets, iter_time, mem_use[0], mem_use[1]))
-
-                    self.iter_ticks = 0
-                self.iter_start = time.time()
-        self.num_ticks = 0
+        return
 
     def callback(self, node_tick: int, t_n: float,
-                 in_1: Dict[str, Union[List[UInt64], float, int]] = None,
-                 in_2: Dict[str, Union[List[UInt64], float, int]] = None,
-                 target_1: Dict[str, Union[List[UInt64], float, int]] = None) -> Dict[str, UInt64]:
+                 in_1: typehint(UInt64) = None,
+                 in_2: typehint(UInt64) = None,
+                 target_1: typehint(UInt64) = None) -> Dict[str, UInt64]:
         # output type is always Dict[str, Union[UInt64, output_msg_types]] because done flags are also inside the output_msgs
         inputs = {'in_1': in_1,
                   'in_2': in_2}
@@ -254,10 +277,9 @@ class RealResetNode(Node):
         for i in self.inputs:
             name = i['name']
             if name in inputs:
-                t_i = inputs[name]['t_i']
-                if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
+                t_i = inputs[name].info.t_in
+                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -275,50 +297,14 @@ class RealResetNode(Node):
             else:
                 msg.data = 0
             output_msgs[name + '/done'] = msg
-        self.num_ticks += 1
-        self.iter_ticks += 1
         return output_msgs
 
 
-class ProcessNode(Node):
+class ProcessNode(SimNode):
     def __init__(self, test_arg, **kwargs):
-        # If node is simulator, we will probably use this in callback & reset
-        self.simulator = None
-
-        # Message counter
-        self.num_ticks = 0
-        self.num_resets = 0
-
-        # Memory usage
-        self.py = psutil.Process(os.getpid())
-        self.iter_start = None
-        self.iter_ticks = 0
-        self.print_iter = 20
         super().__init__(**kwargs)
 
-    def set_simulator(self, simulator):
-        self.simulator = simulator
-
     def reset(self, state_1: UInt64 = None, state_2: UInt64 = None) -> Dict[str, UInt64]:
-        self.num_resets += 1
-        if True:
-            if self.num_resets % self.print_iter == 0:
-                if self.iter_start:
-                    iter_stop = time.time()
-                    if self.iter_ticks > 0:
-                        iter_time = float((iter_stop - self.iter_start) / self.iter_ticks)
-                    else:
-                        iter_time = float(iter_stop - self.iter_start)
-                    # Memory usage request
-                    mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
-
-                    rospy.logdebug("[%s] loop %d: iter_time %.4f sec, rss %.1f MB, vms %.1f MB" % (
-                    self.name, self.num_resets, iter_time, mem_use[0], mem_use[1]))
-
-                    self.iter_ticks = 0
-                self.iter_start = time.time()
-        self.num_ticks = 0
-
         # Send initial message for outputs with 'start_with_msg' = True
         init_msgs = dict()
         for i in self.outputs:
@@ -328,10 +314,10 @@ class ProcessNode(Node):
         return init_msgs
 
     def callback(self, node_tick: int, t_n: float,
-                 in_1: Dict[str, Union[List[UInt64], float, int]] = None,
-                 in_2: Dict[str, Union[List[UInt64], float, int]] = None,
-                 in_3: Dict[str, Union[List[String], float, int]] = None,
-                 tick: Dict[str, Union[List[UInt64], float, int]] = None) -> Dict[str, UInt64]:
+                 in_1: typehint(UInt64) = None,
+                 in_2: typehint(UInt64) = None,
+                 in_3: typehint(UInt64) = None,
+                 tick: typehint(UInt64) = None) -> Dict[str, UInt64]:
         inputs = {'in_1': in_1,
                   'in_2': in_2,
                   'tick': tick}
@@ -350,10 +336,9 @@ class ProcessNode(Node):
         for i in self.inputs:
             name = i['name']
             if name in inputs:
-                t_i = inputs[name]['t_i']
-                if len(t_i) > 0 and not all(t <= t_n for t in t_i if t is not None):
+                t_i = inputs[name].info.t_in
+                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-                    pass
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -361,6 +346,4 @@ class ProcessNode(Node):
         for i in self.outputs:
             name = i['name']
             output_msgs[name] = UInt64(data=Nc)
-        self.num_ticks += 1
-        self.iter_ticks += 1
         return output_msgs

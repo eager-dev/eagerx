@@ -19,8 +19,7 @@ from eagerx_core.gui import eagerx_graph_view
 from eagerx_core.gui.Node import Node as EagerxNode
 from eagerx_core.gui.Terminal import Terminal as EagerxTerminal
 from eagerx_core.params import RxObjectParams, RxNodeParams
-from eagerx_core.utils.utils import load_yaml
-from eagerx_core.utils.utils import get_nodes_and_objects_library
+from eagerx_core.utils.utils import load_yaml, get_nodes_and_objects_library
 from eagerx_core.utils.node_utils import configure_connections
 
 # pyside and pyqt use incompatible ui files.
@@ -36,6 +35,14 @@ else:
 
 def str_dict(d):
     return dict([(str(k), v) for k, v in d.items()])
+
+
+def get_node_state_from_params(rx_params):
+    node_state = {
+        'params': rx_params.params,
+        'yaml': load_yaml(rx_params.params['package_name'], rx_params.params['config_name']),
+    }
+    return node_state
 
 
 class EagerxGraph(Node):
@@ -61,26 +68,25 @@ class EagerxGraph(Node):
         self.widget()
 
         # Create actions and observations nodes
-        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
         actions_yaml = load_yaml('eagerx_core', 'actions')
-        observations = RxNodeParams.create('env/observations', package_name='eagerx_core', config_name='observations')
         observations_yaml = load_yaml('eagerx_core', 'observations')
+        render_yaml = load_yaml('eagerx_core', 'render')
+
+        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
+        observations = RxNodeParams.create('env/observations', package_name='eagerx_core',
+                                           config_name='observations')
+        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=1)
+
         self.inputNode = EagerxNode(actions.name, params=actions.params, yaml=actions_yaml, graph=self)
         self.outputNode = EagerxNode(observations.name, params=observations.params, yaml=observations_yaml, graph=self)
+        self.renderNode = EagerxNode(render.name, params=render.params, yaml=render_yaml, graph=self)
 
-        self.addNode(self.inputNode, self.inputNode.name(), [-150, 0])
-        self.addNode(self.outputNode, self.outputNode.name(), [300, 0])
-        
-        self.outputNode.sigOutputChanged.connect(self.outputChanged)
-        self.outputNode.sigTerminalRenamed.connect(self.internal_terminal_renamed)
-        self.inputNode.sigTerminalRenamed.connect(self.internal_terminal_renamed)
-        self.outputNode.sigTerminalRemoved.connect(self.internal_terminal_removed)
-        self.inputNode.sigTerminalRemoved.connect(self.internal_terminal_removed)
-        self.outputNode.sigTerminalAdded.connect(self.internal_terminal_added)
-        self.inputNode.sigTerminalAdded.connect(self.internal_terminal_added)
+        self.addNode(self.inputNode, self.inputNode.name(), [0, 0])
+        self.addNode(self.outputNode, self.outputNode.name(), [450, 0])
+        self.addNode(self.renderNode, self.renderNode.name(), [450, 150])
 
         self.viewBox.autoRange(padding=0.04)
-      
+
     def set_library(self, lib):
         self.library = lib
         self.widget().chartWidget.buildMenu()
@@ -90,40 +96,21 @@ class EagerxGraph(Node):
         the new values throughout the flowchart, (possibly) causing the output to change.
         """
         self.inputWasSet = True
-        self.inputNode.setOutput(**args)
+        # self.inputNode.setOutput(**args)
         
     def outputChanged(self):
-        ## called when output of internal node has changed
-        vals = self.outputNode.inputValues()
-        self.widget().outputChanged(vals)
-        self.setOutput(**vals)
-        
+        pass
+
     def output(self):
         """Return a dict of the values on the Flowchart's output terminals.
         """
-        return self.outputNode.inputValues()
+        pass
         
     def nodes(self):
         return self._nodes
         
     def addTerminal(self, name, **opts):
         term = Node.addTerminal(self, name, **opts)
-        name = term.name()
-        if opts['io'] == 'in':  ## inputs to the flowchart become outputs on the input node
-            opts['io'] = 'out'
-            self.inputNode.sigTerminalAdded.disconnect(self.internal_terminal_added)
-            try:
-                self.inputNode.addTerminal(name, **opts)
-            finally:
-                self.inputNode.sigTerminalAdded.connect(self.internal_terminal_added)
-                
-        else:
-            opts['io'] = 'in'
-            self.outputNode.sigTerminalAdded.disconnect(self.internal_terminal_added)
-            try:
-                self.outputNode.addTerminal(name, **opts)
-            finally:
-                self.outputNode.sigTerminalAdded.connect(self.internal_terminal_added)
         return term
 
     def removeTerminal(self, name):
@@ -151,9 +138,9 @@ class EagerxGraph(Node):
     def terminalRenamed(self, term, old_name):
         new_name = term.name()
         Node.terminalRenamed(self, self[old_name], old_name)
-        for n in [self.inputNode, self.outputNode]:
-            if old_name in n.terminals:
-                n[old_name].rename(new_name)
+        # for n in [self.inputNode, self.outputNode]:
+        #     if old_name in n.terminals:
+        #         n[old_name].rename(new_name)
 
     def createNode(self, name, params, yaml, pos=None):
         """Create a new Node and add it to this flowchart.
@@ -182,8 +169,8 @@ class EagerxGraph(Node):
         self.viewBox.addItem(item)
         item.moveBy(*pos)
         self._nodes[name] = node
-        if node is not self.inputNode and node is not self.outputNode:
-            self.widget().addNode(node) 
+        # if node is not self.inputNode and node is not self.outputNode:
+        #     self.widget().addNode(node)
         node.sigClosed.connect(self.nodeClosed)
         node.sigRenamed.connect(self.nodeRenamed)
         node.sigOutputChanged.connect(self.nodeOutputChanged)
@@ -214,14 +201,7 @@ class EagerxGraph(Node):
         pass
         
     def internalTerminal(self, term):
-        """If the terminal belongs to the external Node, return the corresponding internal terminal"""
-        if term.node() is self:
-            if term.isInput():
-                return self.inputNode[term.name()]
-            else:
-                return self.outputNode[term.name()]
-        else:
-            return term
+        return term
         
     def connectTerminals(self, term1, term2):
         """Connect two terminals together within this flowchart."""
@@ -237,60 +217,7 @@ class EagerxGraph(Node):
         The return value is a dict with one key per output terminal.
         
         """
-        data = {}  ## Stores terminal:value pairs
-        
-        ## determine order of operations
-        ## order should look like [('p', node1), ('p', node2), ('d', terminal1), ...] 
-        ## Each tuple specifies either (p)rocess this node or (d)elete the result from this terminal
-        # order = self.processOrder()
-        #
-        # ## Record inputs given to process()
-        # for n, t in self.inputNode.outputs().items():
-        #     # if n not in args:
-        #     #     raise Exception("Parameter %s required to process this chart." % n)
-        #     if n in args:
-        #         data[t] = args[n]
-        #
         ret = {}
-        #
-        # ## process all in order
-        # for c, arg in order:
-        #
-        #     if c == 'p':     ## Process a single node
-        #         node = arg
-        #         if node is self.inputNode:
-        #             continue  ## input node has already been processed.
-        #
-        #         ## get input and output terminals for this node
-        #         outs = list(node.outputs().values())
-        #         ins = list(node.inputs().values())
-        #
-        #         # construct input value dictionary
-        #         args = {}
-        #         for inp in ins:
-        #             inputs = inp.inputTerminals()
-        #             if len(inputs) == 0:
-        #                 continue
-        #             else:                   # single-inputs terminals only need the single input value available
-        #                 args[inp.name()] = data[inputs[0]]
-        #
-        #         if node is self.outputNode:
-        #             ret = args  # we now have the return value, but must keep processing in case there are other endpoint nodes in the chart
-        #         else:
-        #             try:
-        #                 result = node.process(display=False, **args)
-        #             except:
-        #                 print("Error processing node %s. Args are: %s" % (str(node), str(args)))
-        #                 raise
-        #             for out in outs:
-        #                 try:
-        #                     data[out] = result[out.name()]
-        #                 except KeyError:
-        #                     pass
-        #     elif c == 'd':   ## delete a terminal result (no longer needed; may be holding a lot of memory)
-        #         if arg in data:
-        #             del data[arg]
-
         return ret
         
     def processOrder(self):
@@ -299,9 +226,9 @@ class EagerxGraph(Node):
         where each tuple specifies either (p)rocess this node or (d)elete the result from this terminal
         """
         
-        ## first collect list of nodes/terminals and their dependencies
+        # first collect list of nodes/terminals and their dependencies
         deps = {}
-        tdeps = {}   ## {terminal: [nodes that depend on terminal]}
+        tdeps = {}   # {terminal: [nodes that depend on terminal]}
         for name, node in self._nodes.items():
             deps[node] = node.dependentNodes()
             for t in node.outputs().values():
@@ -318,7 +245,7 @@ class EagerxGraph(Node):
         for t, nodes in tdeps.items():
             lastInd = 0
             lastNode = None
-            for n in nodes:  ## determine which node is the last to be processed according to order
+            for n in nodes:  # determine which node is the last to be processed according to order
                 if n is self:
                     lastInd = None
                     break
@@ -336,8 +263,7 @@ class EagerxGraph(Node):
         for i, t in dels:
             ops.insert(i, ('d', t))
         return ops
-        
-        
+
     def nodeOutputChanged(self, startNode):
         """Triggered when a node's output values have changed. (NOT called during process())
         Propagates new data forward through network."""
@@ -353,11 +279,11 @@ class EagerxGraph(Node):
                 for t in node.outputs().values():
                     deps[node].extend(t.dependentNodes())
             
-            ## determine order of updates 
+            # determine order of updates
             order = fn.toposort(deps, nodes=[startNode])
             order.reverse()
             
-            ## keep track of terminals that have been updated
+            # keep track of terminals that have been updated
             terms = set(startNode.outputs().values())
 
             for node in order[1:]:
@@ -429,28 +355,21 @@ class EagerxGraph(Node):
                 elif isinstance(params, RxObjectParams) and params.name not in object_names:
                     graph['nodes'].append(params)
                     object_names.append(params.name)
-        return graph
+        return Graph(**graph)
 
     def saveState(self):
         """Return a serializable data structure representing the current state of this flowchart. 
         """
-        state = Node.saveState(self)
-        state['terminals'] = {}
-        state['nodes'] = {}
-        state['connects'] = []
+        state = {'nodes': {}, 'connects': []}
         
         for name, node in self._nodes.items():
             cls = type(node)
             if hasattr(cls, 'saveState'):
-                pos = node.graphicsItem().pos()
-                state['nodes'][name] = {'pos': (pos.x(), pos.y()), 'state': node.saveState()}
+                state['nodes'][name] = node.saveState()
             
         conn = self.listConnections()
         for a, b in conn:
             state['connects'].append((a.node().name(), a.name(), b.node().name(), b.name()))
-
-        state['inputNode'] = self.inputNode.saveState()
-        state['outputNode'] = self.outputNode.saveState()
 
         return state
         
@@ -461,27 +380,22 @@ class EagerxGraph(Node):
         try:
             if clear:
                 self.clear()
-            Node.restoreState(self, state)
             nodes = state['nodes']
             nodes = [dict(**node, name=name) for name, node in nodes.items()]
             nodes.sort(key=lambda a: a['pos'][0])
             for n in nodes:
                 if n['name'] in self._nodes:
-                    self._nodes[n['name']].restoreState(n['state'])
+                    self._nodes[n['name']].restoreState(n)
                     continue
                 try:
-                    params = n['state']['params']
+                    params = n['params']
                     name = n['name']
-                    yaml = n['state']['yaml']
+                    yaml = n['yaml']
                     pos = n['pos']
                     node = self.createNode(name=name, params=params, yaml=yaml, pos=pos)
-                    node.restoreState(n['state'])
+                    node.restoreState(n)
                 except:
                     printExc("Error creating node %s: (continuing anyway)" % n['name'])
-                
-            self.inputNode.restoreState(state.get('inputNode', {}))
-            self.outputNode.restoreState(state.get('outputNode', {}))
-
             for n1, t1, n2, t2 in state['connects']:
                 try:
                     self.connectTerminals(self._nodes[n1][t1], self._nodes[n2][t2])
@@ -537,15 +451,15 @@ class EagerxGraph(Node):
         """Remove all nodes from this flowchart except the original input/output nodes.
         """
         for n in list(self._nodes.values()):
-            if n is self.inputNode or n is self.outputNode:
-                continue
+            # if n is self.inputNode or n is self.outputNode:
+            #     continue
             n.close()  ## calls self.nodeClosed(n) by signal
         self.widget().clear()
         
     def clearTerminals(self):
         Node.clearTerminals(self)
-        self.inputNode.clearTerminals()
-        self.outputNode.clearTerminals()
+        # self.inputNode.clearTerminals()
+        # self.outputNode.clearTerminals()
 
 
 class EagerxGraphicsItem(GraphicsObject):
@@ -557,25 +471,6 @@ class EagerxGraphicsItem(GraphicsObject):
         
     def updateTerminals(self):
         self.terminals = {}
-        # bounds = self.boundingRect()
-        # inp = self.chart.inputs()
-        # dy = bounds.height() / (len(inp)+1)
-        # y = dy
-        # for n, t in inp.items():
-        #     item = t.graphicsItem()
-        #     self.terminals[n] = item
-        #     item.setParentItem(self)
-        #     item.setAnchor(bounds.width(), y)
-        #     y += dy
-        # out = self.chart.outputs()
-        # dy = bounds.height() / (len(out)+1)
-        # y = dy
-        # for n, t in out.items():
-        #     item = t.graphicsItem()
-        #     self.terminals[n] = item
-        #     item.setParentItem(self)
-        #     item.setAnchor(0, y)
-        #     y += dy
         
     def boundingRect(self):
         return QtCore.QRectF()

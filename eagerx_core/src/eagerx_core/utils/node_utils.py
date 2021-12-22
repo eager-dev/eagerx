@@ -38,7 +38,7 @@ def configure_connections(connections):
         target = io['target']
         converter = io['converter'] if 'converter' in io else None
         delay = io['delay'] if 'delay' in io else None
-        repeat = io['repeat'] if 'repeat' in io else None
+        window = io['window'] if 'window' in io else None
 
         # PROCESS SOURCE
         if isinstance(source[0], RxNodeParams):  # source=Node
@@ -83,8 +83,8 @@ def configure_connections(connections):
             node.params['inputs'][cname] = dict(address=address, msg_type=msg_type_B, converter=space_converter)
             if delay:
                 node.params['inputs'][cname]['delay'] = delay
-            if repeat:
-                node.params['inputs'][cname]['repeat'] = repeat
+            if window:
+                node.params['inputs'][cname]['window'] = window
         elif isinstance(target[0], RxNodeParams) and not target[0].name == 'env/observations':  # target=Node
             node = target[0]
             component = target[1]
@@ -94,6 +94,7 @@ def configure_connections(connections):
                 assert component in ['inputs', 'feedthroughs'], 'Cannot connect an action to anything other than inputs/feedthroughs. Entry "%s" is misspecified.' % io
                 action_node = source[0]
                 action_cname = source[1]
+                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
 
                 if component == 'feedthroughs':
                     action_component = 'outputs'
@@ -124,9 +125,9 @@ def configure_connections(connections):
             assert delay is None or (delay is not None and component == 'inputs'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 node.params['inputs'][cname]['delay'] = delay
-            assert repeat is None or (repeat is not None and component == 'inputs'), 'Cannot specify a repeat for entry "%s".' % io
-            if repeat:
-                node.params['inputs'][cname]['repeat'] = repeat
+            assert window is None or (window is not None and component == 'inputs'), 'Cannot specify a window for entry "%s".' % io
+            if window:
+                node.params['inputs'][cname]['window'] = window
             if component == 'feedthroughs':
                 msg_type_C = node.params['outputs'][cname]['msg_type']
             else:
@@ -145,6 +146,7 @@ def configure_connections(connections):
             if source[0].name == 'env/actions':  # source=actions node
                 action_node = source[0]
                 action_cname = source[1]
+                assert action_cname != 'set', 'Invalid action name. Name "set" is a reserved action name. Please specify a different name.'
 
                 # Infer source properties from target object
                 msg_type_B = target[0].params['actuators'][cname]['msg_type']
@@ -170,9 +172,9 @@ def configure_connections(connections):
             assert delay is None or (delay is not None and component == 'actuators'), 'Cannot specify a delay for entry "%s".' % io
             if delay:
                 obj.params['actuators'][cname]['delay'] = delay
-            assert repeat is None or (repeat is not None and component == 'actuators'), 'Cannot specify a repeat for entry "%s".' % io
-            if repeat:
-                obj.params['actuators'][cname]['repeat'] = repeat
+            assert window is None or (window is not None and component == 'actuators'), 'Cannot specify a window for entry "%s".' % io
+            if window:
+                obj.params['actuators'][cname]['window'] = window
             msg_type_C = obj.params[component][cname]['msg_type']
 
             # Verify that msg_type after converter matches the one specified in the .yaml
@@ -204,6 +206,7 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
                      launch_nodes: Dict,
                      in_object: bool = False,
                      rxnode_cls: Any = RxNode,
+                     node_args: Dict = None,
                      ):
     if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
@@ -239,7 +242,9 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
 
         # Initialize node
         if params['process'] == process_id:  # Initialize inside this process
-            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker)
+            if node_args is None:
+                node_args = dict()
+            sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, **node_args)
             sp_nodes[node_address].node_initialized()
         elif params['process'] == process.NEW_PROCESS and process_id == process.ENVIRONMENT:  # Only environment can launch new processes (as it is the main_thread)
             assert 'launch_file' in params, 'No launch_file defined. Node "%s" can only be launched as a separate process if a launch_file is specified.' % name
@@ -269,7 +274,7 @@ def wait_for_node_initialization(is_initialized, wait_time=0.3):
             if not flag:
                 not_init.append(name)
         if len(not_init) > 0:
-            rospy.loginfo('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
+            rospy.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break
 

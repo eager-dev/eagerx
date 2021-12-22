@@ -10,16 +10,16 @@ default:
 inputs:
   tick:
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    window: 0
   in_1:
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    window: 0
   in_2:
     msg_type: std_msgs.msg/UInt64
-    repeat: all
+    window: 0
   in_3:
     msg_type: std_msgs.msg/String
-    repeat: all
+    window: 0
 
 outputs:
   out_1:

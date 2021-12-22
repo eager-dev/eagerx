@@ -4,42 +4,49 @@ from std_msgs.msg import Bool, UInt64
 
 # RX IMPORTS
 import rx
-from rx import Observable, operators as ops, create
-from rx.disposable import Disposable, SingleAssignmentDisposable, RefCountDisposable
-from rx.internal.utils import add_ref
+from rx import Observable, typing, operators as ops, create
+from rx.disposable import Disposable, SingleAssignmentDisposable, CompositeDisposable
 from rx.subject import Subject, BehaviorSubject
+from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
 from eagerx_core.basenode import NodeBase
 from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.params import RxInput
-from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, FATAL, TERMCOLOR, ROS, process
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
+from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS, process
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp
 
 # OTHER IMPORTS
+import time
+from collections import deque
 from termcolor import cprint
 import datetime
 import logging
 import traceback
 from os import getpid
-from threading import current_thread
-from typing import Any, Callable
+from threading import current_thread, RLock
+from typing import Callable, Optional, List, Any
 
 print_modes = {TERMCOLOR: 'eagerx_core.TERMCOLOR',
                ROS: 'eagerx_core.ROS'}
 ros_log_fns = {SILENT: lambda print_str: None,
                DEBUG: rospy.logdebug,
                INFO: rospy.loginfo,
+               WARN: rospy.logwarn,
                ERROR: rospy.logerr,
                FATAL: rospy.logfatal}
 
 
-def cb_ft(cb_input):
+def cb_ft(cb_input, is_reactive):
     # Fill output msg with number of node ticks
     output_msgs = dict()
-    for key, item in cb_input.items():
+    for key, msg in cb_input.items():
         if key not in ['node_tick', 't_n']:
-            output_msgs[key] = item['msg'][0]
+            if len(msg.msgs) > 0:
+                output_msgs[key] = msg.msgs[-1]
+            else:
+                assert not is_reactive, 'Actions must always be fed through if we are running reactively.'
+                output_msgs[key] = None
     return output_msgs
 
 
@@ -66,7 +73,7 @@ def print_info(node_name, color, id=None, trace_type=None, value=None, date=None
         raise ValueError('Print mode not recognized. Only print_modes %s are available.' % (print_modes.values()))
 
 
-def spy(id: str, node: NodeBase, log_level: int = DEBUG):
+def spy(id: str, node: NodeBase, log_level: int = DEBUG, mapper: Callable = lambda msg: msg):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -75,8 +82,9 @@ def spy(id: str, node: NodeBase, log_level: int = DEBUG):
     def _spy(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
+
                 if node.log_level >= effective_log_level and log_level >= effective_log_level:
-                    print_info(node_name, color, id, trace_type='', value=str(value), print_mode=print_mode, log_level=log_level)
+                    print_info(node_name, color, id, trace_type='', value=str(mapper(value)), print_mode=print_mode, log_level=log_level)
                 observer.on_next(value)
 
             return source.subscribe(
@@ -261,86 +269,130 @@ def publish_to_topic(topic_type: Any, topic_name: str) -> Callable[[Observable],
     return _publish_to_topic
 
 
-def regroup_msgs(name, dt_i=None, dt_n=None):
-    def _regroup_msgs(source):
+def create_msg_tuple(name: str, node_tick: int, msg: List[Any], stamp: List[Stamp], done: bool = None):
+    info = Info(name=name, node_tick=node_tick, t_in=stamp, done=done)
+    return Msg(info, msg)
+
+
+def remap_state(name, is_reactive, real_time_factor):
+    def _remap_state(source):
         def subscribe(observer, scheduler=None):
+            start = time.time()
+            seq = [0]
             def on_next(value):
-                res = dict(name=name)
-
-                # Sort all msgs
-                if not isinstance(value, list):
-                    value = [value]
-                msgs = [msg['msg'][1] for msg in value]
-                counts = [msg['msg'][0] for msg in value]
-                res['msg'] = msgs
-
-                # Check that all node_ticks are the same
-                if 'node_tick' in value[0]:
-                    res['node_tick'] = value[0]['node_tick']
-                    assert len(set([msg['node_tick'] for msg in value])) == 1, 'Not all node_ticks are the same: %s' % str(value)
-                    # Check that all timestamps are smaller or equal to node time
-                    if dt_n is not None and dt_i is not None:
-                        t_n = value[0]['node_tick'] * dt_n
-                        t_i = [count * dt_i if count is not None else None for count in counts]
-                        res['t_i'] = t_i
-                        res['dt_i'] = dt_i
-                        # todo: use? also in async case?
-                        # assert len(t_i) == 0 or all(t <= t_n for t in t_i if t is not None), 'Not all t_msgs are smaller or equal to t_n: %s' % str(res)
-
-                # Check that all num_msgs are the same
-                if 'num_msgs' in value[0]:
-                    res['num_msgs'] = value[0]['num_msgs']
-                    assert len(set([msg['num_msgs'] for msg in value])) == 1, 'Not all num_msgs are the same: %s' % str(value)
+                node_tick = value[0][0]
+                msg = value[0][1]
+                done = value[1]
+                wc_stamp = time.time()
+                if is_reactive:
+                    sim_stamp = None
+                else:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
+                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                res = create_msg_tuple(name, node_tick, [msg], [stamp], done=done)
+                seq[0] += 1
                 observer.on_next(res)
-
             return source.subscribe(
                 on_next,
                 observer.on_error,
                 observer.on_completed,
                 scheduler)
-
         return rx.create(subscribe)
+    return _remap_state
 
-    return _regroup_msgs
+
+def remap_target(name, is_reactive, real_time_factor):
+    def _remap_target(source):
+        def subscribe(observer, scheduler=None):
+            start = time.time()
+            seq = [0]
+            def on_next(value):
+                node_tick = value[0]
+                msg = value[1]
+                wc_stamp = time.time()
+                if is_reactive:
+                    sim_stamp = None
+                else:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
+                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                res = create_msg_tuple(name, node_tick, [msg], [stamp])
+                seq[0] += 1
+                observer.on_next(res)
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+        return rx.create(subscribe)
+    return _remap_target
 
 
-def regroup_inputs(node: NodeBase, dt_n=None):
+def filter_info_for_printing(info):
+    info_dict = dict()
+    if info.rate_in:
+        info_dict['rate_in'] = info.rate_in
+    info_dict['t_in'] = [t.sim_stamp for t in info.t_in]
+    if info.t_node:
+        info_dict['t_node'] = [t.sim_stamp for t in info.t_node]
+    if info.done:
+        info_dict['done'] = info.done
+    return info_dict
+
+
+def remap_cb_input(mode=0):
+    def _remap_cb_input(value):
+        # mode=0 (info only), mode=1 (msgs only), mode=2 (all)
+        if mode == 2:
+            return value
+        if isinstance(value, tuple):
+            mapped_value = tuple([value[0].copy(), value[1].copy()])
+            for i in mapped_value:
+                for key, msg in i.items():
+                    if key not in ['node_tick', 't_n']:
+                        if mode == 0:
+                            i[key] = filter_info_for_printing(msg.info)
+                        else:
+                            i[key] = msg.msgs
+        else:
+            mapped_value = value.copy()
+            for key, msg in mapped_value.items():
+                if key not in ['node_tick', 't_n']:
+                    if mode == 0:
+                        mapped_value[key] = filter_info_for_printing(msg.info)
+                    else:
+                        mapped_value[key] = msg.msgs
+        return mapped_value
+    return _remap_cb_input
+
+
+def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perform_checks=True):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
+
     def _regroup_inputs(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                res = dict()
+                # Regroups all inputs into a single dict
+                if is_input:
+                    node_tick = value[0].info.node_tick
+                    t_n = round(node_tick / rate_node, 12)
+                    res = dict(node_tick=node_tick, t_n=t_n)
+                else:
+                    res = dict()
+                for msg in value:
+                    res[msg.info.name] = msg
 
-                # Store node tick and t_n
-                if 'node_tick' in value[0]:
-                    res['node_tick'] = value[0]['node_tick']
-                    res['t_n'] = round(value[0]['node_tick'] * dt_n, 2)
+                # Perform checks
+                if perform_checks and is_input:
+                    node_ticks = []
+                    for msg in value:
+                        node_ticks.append(msg.info.node_tick)
+                    if len(node_ticks) > 0:
+                        if not len(set(node_ticks)) == 1:
+                            print_info(node_name, color, 'regroup_inputs', trace_type='', value='Not all node_ticks are the same: %s' % str(value), print_mode=print_mode, log_level=rospy.ERROR)
 
-                # Regroup msg dicts
-                node_ticks = []
-                for I in value:
-                    try:
-                        name = I['name']
-                    except Exception as e:
-                        pass
-                    res[name] = I
-                    del res[name]['name']
-
-                    # check that num_msg is equal to number of msgs if not zero
-                    if 'num_msgs' in I:
-                        num_msgs = I['num_msgs']
-                        assert num_msgs == 0 or len(I['msg']) == num_msgs, 'num_msgs not equal to len(msgs): %s' % str(I)
-
-                    if 'node_tick' in I:
-                        node_ticks.append(I['node_tick'])
-                        del res[name]['node_tick']
-
-                # Check that all node_ticks are the same
-                if len(node_ticks) > 0:
-                    if not len(set(node_ticks)) == 1:
-                        print_info(node_name, color, 'regroup_inputs', trace_type='', value='Not all node_ticks are the same: %s' % str(value), print_mode=print_mode, log_level=rospy.ERROR)
+                # Send regrouped input
                 observer.on_next(res)
 
             return source.subscribe(
@@ -354,53 +406,7 @@ def regroup_inputs(node: NodeBase, dt_n=None):
     return _regroup_inputs
 
 
-def _window_with_variable_count() -> Callable[[Observable], Observable]:
-    def window_with_variable_count(source: Observable) -> Observable:
-        def subscribe(observer, scheduler=None):
-            m = SingleAssignmentDisposable()
-            refCountDisposable = RefCountDisposable(m)
-            n = [0]  # total_count
-            q = []
-
-            def create_window():
-                s = Subject()
-                q.append(s)
-                observer.on_next(add_ref(s, refCountDisposable))
-
-            create_window()
-
-            def on_next(x):
-                skip = x['num_msgs']
-                for item in q:
-                    item.on_next(x)
-
-                n[0] += 1
-                c = n[0] - skip  # count
-                if c >= 0 and c % skip == 0:  # skip
-                    s = q.pop(0)
-                    s.on_completed()
-                    create_window()
-                    n[0] = 0
-
-            def on_error(exception):
-                while q:
-                    q.pop(0).on_error(exception)
-                observer.on_error(exception)
-
-            def on_completed():
-                while q:
-                    q.pop(0).on_completed()
-                observer.on_completed()
-
-            m.disposable = source.subscribe_(on_next, on_error, on_completed, scheduler)
-            return refCountDisposable
-
-        return Observable(subscribe)
-
-    return window_with_variable_count
-
-
-def expected_inputs(idx_n, dt_i, dt_n, delay):
+def expected_inputs(idx_n, rate_in, rate_node, delay):
     if idx_n == 0:
         return 1
     else:
@@ -409,41 +415,118 @@ def expected_inputs(idx_n, dt_i, dt_n, delay):
         N_t = idx_n + 1
         # Note: idx_n=1 after initial tick, corresponding to T=0
         # Hence, T_t=dt_n * (idx_n-1), T_t+1=dt_n * idx_n
-        sum_t_min_1 = max(0, int((dt_n * (N_t_min_1 - 1) - delay) / dt_i))  # Current timestep
-        sum_t = max(0, int((dt_n * (N_t - 1) - delay) / dt_i))  # Next timestep
+        sum_t_min_1 = calculate_inputs(N_t_min_1, rate_in, rate_node, delay)
+        sum_t = calculate_inputs(N_t, rate_in, rate_node, delay)
         return sum_t - sum_t_min_1
 
 
-def gen_msg(Ir):
-    return rx.pipe(ops.map(lambda x: rx.repeat_value(x, x['num_msgs'])),
-                   ops.merge(max_concurrent=1),
-                   ops.zip(Ir),
-                   ops.map(lambda x: dict(x[0], **{'msg': x[1]})),
-                   _window_with_variable_count(),
-                   ops.flat_map(lambda value: value.pipe(ops.to_iterable(), ops.map(list))),
-                   ops.filter(lambda value: len(value) > 0))
+def calculate_inputs(N_node, rate_in, rate_node, delay):
+    N_in = max(0, int((rate_in * (N_node - 1) - rate_in * delay) // rate_node))  # Current timestep
+    # sum_t_min_1 = max(0, int(((rate_in * (N_t_min_1 - 1) - rate_in * delay) / rate_node)))  # Current timestep
+    # sum_t_min_1 = max(0, int(round(((dt_n * (N_t_min_1 - 1) - delay) / dt_i), 11)))  # Current timestep
+    # sum_t_min_1 = max(0, int(((dt_n * (N_t_min_1 - 1) - delay) / dt_i)))  # Current timestep
+    return N_in
 
 
-def get_repeat_fn(repeat, name):
-    if repeat == 'all':
-        repeat_fn = lambda x: [dict(x[0], **{'msg': msg[name]}) for msg in x[1]]
-    elif repeat == 'last':
-        repeat_fn = lambda x: [dict(x[0], **{'msg': x[1][-1][name]})]
-    elif repeat == 'empty':
-        repeat_fn = lambda x: [dict(x[0], **{'msg': (None, None)})]
-    else:
-        raise ValueError('Not implemented: %s' % repeat)
-    return repeat_fn
+def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, is_reactive: bool, real_time_factor: float):
+    dt_i = 1 / rate_in
+
+    def _generate_msgs(source_msg: Observable):
+        def subscribe(observer: typing.Observer,
+                      scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
+            start = time.time()
+            msgs_queue: List = []
+            t_i_queue: List = []
+            num_queue: List = []
+            tick_queue: List = []
+            msgs_window = deque(maxlen=window)
+            t_i_window = deque(maxlen=window)
+            t_n_window = deque(maxlen=window)
+            lock = RLock()
+
+            @synchronized(lock)
+            def next(i):
+                if len(num_queue) > 0:
+                    if len(msgs_queue) >= num_queue[0]:
+                        try:
+                            tick = tick_queue.pop(0)
+                            if is_reactive:
+                                # determine num_msgs
+                                num_msgs = num_queue.pop(0)
+                                msgs = msgs_queue[:num_msgs]
+                                t_i = t_i_queue[:num_msgs]
+                                msgs_queue[:] = msgs_queue[num_msgs:]
+                                t_i_queue[:] = t_i_queue[num_msgs:]
+                            else:  # Empty complete buffer
+                                msgs = msgs_queue
+                                t_i = t_i_queue
+                                msgs_queue[:] = []
+                                t_i_queue[:] = []
+                        except Exception as ex:  # pylint: disable=broad-except
+                            observer.on_error(ex)
+                            return
+
+                        # Determine t_n stamp
+                        wc_stamp = time.time()
+                        seq = tick
+                        if is_reactive:
+                            sim_stamp = round(tick/rate_node, 12)
+                        else:
+                            sim_stamp = (wc_stamp - start) / real_time_factor
+                        t_n = Stamp(seq, sim_stamp, wc_stamp)
+
+                        if window > 0:
+                            wmsgs = list(msgs_window.extend(msgs))
+                            wt_i = list(t_i_window.extend(t_i))
+                            wt_n = list(t_n_window.extend([t_n] * len(msgs)))
+                        else:
+                            wmsgs = msgs
+                            wt_i = t_i
+                            wt_n = [t_n] * len(msgs)
+                        res = Msg(Info(name, tick, rate_in, wt_n, wt_i, None), wmsgs)
+                        observer.on_next(res)
+
+            # Determine Nc logic
+            def on_next_Nc(x):
+                if is_reactive:
+                    # Caculate expected number of message to be received
+                    num_msgs = expected_inputs(x, rate_in, rate_node, delay)
+                    num_queue.append(num_msgs)
+                tick_queue.append(x)
+                next(x)
+
+            subscriptions = []
+            sad = SingleAssignmentDisposable()
+            sad.disposable = source_Nc.subscribe(on_next_Nc, observer.on_error, observer.on_completed, scheduler)
+            subscriptions.append(sad)
+
+            def on_next_msg(x):
+                msgs_queue.append(x[1])
+                wc_stamp = time.time()
+                seq = x[0]
+                if is_reactive:
+                    sim_stamp = round(x[0] * dt_i, 12)
+                else:
+                    sim_stamp = (wc_stamp - start) / real_time_factor
+                t_i_queue.append(Stamp(seq, sim_stamp, wc_stamp))
+                next(x)
+
+            sad = SingleAssignmentDisposable()
+            sad.disposable = source_msg.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
+            subscriptions.append(sad)
+
+            return CompositeDisposable(subscriptions)
+        return rx.create(subscribe)
+    return _generate_msgs
 
 
-def create_channel(ns, Nc, dt_n, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
-    if is_reactive:
-        return create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, node)
-    else:
-        return create_async_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, E, node)
+def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
+    # if is_reactive:
+    return create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
 
 
-def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, node: NodeBase):
+def create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
+    # todo: remove ops.observe_on?
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
@@ -454,8 +537,7 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
     Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
                           ops.map(inpt['converter'].convert),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                          ops.share(),
-                          )
+                          ops.share())
 
     # Get rate from rosparam server
     try:
@@ -467,106 +549,35 @@ def create_reactive_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_
             rate = get_param_with_blocking(rate_str)
         dt_i = 1 / rate
     except Exception as e:
+        dt_i = None
+        rate = None
         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
         print(e)
 
     # Create input channel
     if real_time_factor == 0:
-        num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                           ops.start_with(0),
-                           ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
+        Nc = Nc.pipe(ops.observe_on(scheduler),
+                     ops.start_with(0))
     else:
-        num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                           # ops.start_with(0),
-                           ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}))
-    msg = num_msgs.pipe(gen_msg(Ir)) #, spy('gen_msg', node, log_level=DEBUG))  # todo: add ops.share() to gen_msg?
-    channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
-                            ops.with_latest_from(msg),
-                            # spy('bf_rpt', node, log_level=DEBUG),
-                            ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
-                            # spy('after_rpt', node, log_level=DEBUG),
-                            ops.merge(msg),
-                            regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
-                            ops.share())
+        Nc = Nc.pipe(ops.observe_on(scheduler))
+
+    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=0, delay=inpt['delay'], is_reactive=True, real_time_factor=real_time_factor), ops.share())
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
                    ops.start_with(0),
                    ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   ops.filter(lambda value: value[0] == value[1]),
-                   ops.map(lambda x: {name: x[0]})
-                   )
+                   ops.filter(lambda value: not is_reactive or value[0] == value[1]),
+                   ops.map(lambda x: {name: x[0]}))
     return channel, flag
 
 
-def create_async_channel(ns, Nc, dt_n, inpt, scheduler, is_feedthrough, real_time_factor, E, node: NodeBase):
-    if is_feedthrough:
-        name = inpt['feedthrough_to']
-    else:
-        name = inpt['name']
-
-    # Readable format
-    Is = inpt['reset']
-    Ir = inpt['msg'].pipe(ops.observe_on(scheduler),
-                          ops.skip_until(E),
-                          # spy('Ir_%s' % name, node),
-                          ops.map(inpt['converter'].convert),
-                          ops.scan(lambda acc, msg: (acc[0] + 1, msg), (-1, None)),
-                          ops.share(),
-                          )
-
-    # Get rate from rosparam server
-    try:
-        # if 'is_reactive' in inpt and not inpt['is_reactive']:
-        if 'rate' in inpt:
-            rate = inpt['rate']
-        else:
-            rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
-            rate = get_param_with_blocking(rate_str)
-        dt_i = 1 / rate
-    except Exception as e:
-        print(e)
-        raise ValueError('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
-
-    # Create input channel
-    num_msgs = Nc.pipe(ops.observe_on(scheduler),
-                       # ops.start_with(0),
-                       spy('Nct_%s' % name, node),
-                       ops.map(lambda i: {'node_tick': i, 'num_msgs': expected_inputs(i, dt_i, dt_n, inpt['delay'])}),
-                       ops.share())
-    msg = Ir.pipe(#spy('Ir_%s' % name, node),
-                  ops.buffer(num_msgs),
-                  # spy('buf_%s' % name, node),
-                  ops.zip(num_msgs),  # ([(0, data: "string: 0"), (0, data: "string: 1")], {'node_tick': 0, 'num_msgs': 0})
-                  ops.map(lambda x: [dict(x[1], **{'msg': msg}) for msg in x[0]]),  # [{'node_tick': 0, 'num_msgs': 0, 'msg': (0, data: "string: 0")}, {'node_tick': 0, 'num_msgs': 0, 'msg': (0, data: "string: 1")}]
-                  ops.filter(lambda x: len(x) > 0),
-                  spy('fil_%s' % name, node),
-                  ops.share()
-                  )
-    channel = num_msgs.pipe(ops.filter(lambda x: x['num_msgs'] == 0),
-                            ops.with_latest_from(msg.pipe(ops.start_with([]))),  # todo: msg gets dropped here
-                            ops.map(get_repeat_fn(inpt['repeat'], 'msg')),
-                            ops.merge(msg),
-                            regroup_msgs(name, dt_i=dt_i, dt_n=dt_n),
-                            spy('%s' % name, node),
-                            ops.share())
-
-    # Create reset flag
-    flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
-                   ops.start_with(0),
-                   ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-                   # ops.filter(lambda value: value[0] == value[1]),
-                   ops.map(lambda x: {name: x[0]})
-                   )
-    return channel, flag
-
-
-def init_channels(ns, Nc, dt_n, inputs, is_reactive, real_time_factor, E, scheduler, node: NodeBase, is_feedthrough=False):
+def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, E, scheduler, node: NodeBase, is_feedthrough=False):
     # Create channels
     channels = []
     flags = []
     for i in inputs:
-        channel, flag = create_channel(ns, Nc, dt_n, i, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
+        channel, flag = create_channel(ns, Nc, rate_node, i, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
         channels.append(channel)
         if is_feedthrough:
             name = i['address']
@@ -575,22 +586,22 @@ def init_channels(ns, Nc, dt_n, inputs, is_reactive, real_time_factor, E, schedu
         flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node))
         flags.append(flag)
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
-    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, dt_n=dt_n), ops.share())
+    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, rate_node=rate_node), ops.share())
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, dt_n, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, scheduler, node: NodeBase):
+def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, scheduler, node: NodeBase):
     # Create real reset pipeline
     dispose = []
     if real_reset:
         for i in feedthrough:
             rate_str = '%s/rate/%s' % (ns, i['address'][len(ns) + 1:])
-            dt_i = 1 / get_param_with_blocking(rate_str)
-            if not dt_i == dt_n:
-                raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (dt_n, dt_i))
+            rate_in = get_param_with_blocking(rate_str)
+            if not rate_in == rate_node:
+                raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (rate_node, rate_node))
 
         # Create zipped action channel
-        zipped_channels, zipped_flags = init_channels(ns, Nc, dt_n, feedthrough, is_reactive, real_time_factor, E, scheduler, node, is_feedthrough=True)
+        zipped_channels, zipped_flags = init_channels(ns, Nc, rate_node, feedthrough, is_reactive, real_time_factor, E, scheduler, node, is_feedthrough=True)
 
         # Create switch subject
         target_signal = rx.zip(*[t['msg'] for t in targets])
@@ -614,10 +625,9 @@ def init_target_channel(states, scheduler, node: NodeBase):
     for s in states:
         c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
                           ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                          ops.map(lambda val: dict(msg=val)),
-                          regroup_msgs(s['name']),)
+                          remap_target(s['name'], node.is_reactive, node.real_time_factor))
         channels.append(c)
-    return rx.zip(*channels).pipe(regroup_inputs(node))
+    return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False))
 
 
 def merge_dicts(dict_1, dict_2):
@@ -636,14 +646,12 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node: NodeBase):
                                ops.scan(lambda acc, x: x if x else acc, False))
             c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
                               ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                              ops.map(lambda val: dict(msg=val)),
-                              regroup_msgs(s['name']),
-                              ops.start_with(dict(name=s['name'], msg=None)),
+                              ops.start_with((-1, None)),
                               ops.combine_latest(d),
-                              ops.filter(lambda x: x[0]['msg'] is not None or x[1]),
-                              ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]})))
+                              ops.filter(lambda x: x[0][0] >= 0 or x[1]),
+                              remap_state(s['name'], node.is_reactive, node.real_time_factor))
             channels.append(c)
-        return rx.zip(*channels).pipe(regroup_inputs(node), ops.merge(rx.never()))
+        return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False), ops.merge(rx.never()))
     else:
         return rx.never().pipe(ops.start_with(dict()))
 
@@ -656,23 +664,25 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node: NodeBase):
                                ops.scan(lambda acc, x: x if x else acc, False))
             c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
                               ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                              ops.map(lambda val: dict(msg=val)),
-                              regroup_msgs(s['name']),
-                              ops.start_with(dict(name=s['name'], msg=None)),
+                              # ops.map(lambda val: dict(msg=val)),
+                              ops.start_with((-1, None)),
+                              # ops.start_with(dict(name=s['name'], msg=None)),
                               ops.combine_latest(d),
-                              ops.filter(lambda x: x[0]['msg'] is not None or x[1]),
-                              ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]})))
+                              ops.filter(lambda x: x[0][0] >= 0 or x[1]),
+                              remap_state(s['name'], node.is_reactive, node.real_time_factor),
+                              # ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]}))
+                              )
 
             done, reset = trigger.pipe(ops.with_latest_from(c),
                                        ops.map(lambda x: x[1]),
-                                       ops.partition(lambda x: x['done']))
-            reset = reset.pipe(ops.map(lambda x: (x, s['state'].reset(state=x['msg'][0], done=x['done']))),
+                                       ops.partition(lambda x: x.info.done))
+            reset = reset.pipe(ops.map(lambda x: (x, s['state'].reset(state=x.msgs[0], done=x.info.done))),
                                ops.map(lambda x: x[0]))
             rs = rx.merge(done.pipe(spy('done [%s]' % s['name'].split('/')[-1][:12].ljust(4), node)),
                           reset.pipe(spy('reset [%s]' % s['name'].split('/')[-1][:12].ljust(4), node)))
 
             channels.append(rs)
-        return rx.zip(*channels).pipe(regroup_inputs(node), ops.merge(rx.never()))
+        return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False), ops.merge(rx.never()))
     else:
         return rx.never().pipe(ops.start_with(dict()))
 
@@ -687,11 +697,11 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
 
         # Either feedthrough action or run callback
         ft_stream = ft_stream.pipe(ops.map(lambda x: x[1][1]),
-                                   spy('CB_FT', node, log_level=DEBUG),
-                                   ops.map(lambda val: cb_ft(val)), ops.share())
+                                   spy('CB_FT', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
+                                   ops.map(lambda val: cb_ft(val, node.is_reactive)), ops.share())
         reset_stream = reset_stream.pipe(ops.map(lambda x: x[1][0]),
                                          ops.combine_latest(target_stream),
-                                         spy('CB_RESET', node, log_level=DEBUG),
+                                         spy('CB_RESET', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
                                          ops.map(lambda val: cb_tick(**val[0], **val[1])), ops.share())
         output_stream = rx.merge(reset_stream, ft_stream)
 
@@ -706,21 +716,10 @@ def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, stat
     else:
         output_stream = stream.pipe(ops.filter(lambda x: x[1][1] is None),
                                     ops.map(lambda x: x[1][0]),
-                                    spy('CB_TICK', node, log_level=DEBUG),
+                                    spy('CB_TICK', node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
                                     ops.map(lambda val: cb_tick(**val)),
                                     ops.share())
-
-    # Publish output msg as ROS topic and to subjects if single process
-    for o in outputs:
-        d = output_stream.pipe(ops.pluck(o['name']),
-                               ops.map(o['converter'].convert),
-                               ops.share(),
-                               ).subscribe(o['msg'])
-
-        # Add disposable
-        d_msg += [d]
-
-    return d_msg
+    return d_msg, output_stream
 
 
 def get_node_params(msg):
@@ -795,7 +794,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
             # Create a new input topic for each SimNode output topic
             n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], msg_module=i['msg_module'],
-                        is_reactive=True, repeat='all').get_params()
+                        is_reactive=True, window=0).get_params()
 
             # Convert to classes
             n['msg_type'] = get_attribute_from_module(n['msg_module'], n['msg_type'])
@@ -831,13 +830,13 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
     return dict(inputs=inputs, reactive_proxy=reactive_proxy, state_inputs=state_inputs, node_flags=node_flags, sp_nodes=sp_nodes, launch_nodes=launch_nodes)
 
 
-def initialize_reactive_proxy_reset(dt_n, RM, reactive_proxy, node):
+def initialize_reactive_proxy_reset(rate_node, RM, reactive_proxy, node):
     for rx in reactive_proxy:
         if 'disposable' in rx:
             continue
-        dt_i = 1 / rx['rate']
+        rate_in = rx['rate']
         rx['disposable'] = RM.pipe(ops.map(lambda msg: msg.data),
-                                   ops.map(lambda idx_n: 1 + int((idx_n - 1) * dt_n / dt_i)),  # We subtract -1 from msg to account for the initial tick.
+                                   ops.map(lambda idx_n: 1 + int((idx_n - 1) * rate_in // rate_node)),  # We subtract -1 from msg to account for the initial tick.
                                    ops.map(lambda i: UInt64(data=i)),
                                    ).subscribe(rx['reset'])
     return None
@@ -893,71 +892,64 @@ def filter_dict_on_key(key):
     return _filter_dict_on_key
 
 
-def throttle_callback_trigger(dt_n, Nc, Nr, E, is_reactive, real_time_factor, node: NodeBase):
+def throttle_with_time(dt, node: NodeBase):
+    def _throttle_with_time(source):
+        def subscribe(observer, scheduler=None):
+            next_tick = [None]
+            end = [None]
+            cum_delay = [0]
+            cum_sleep = [0]
+
+            def on_next(value):
+                end[0] = time.time()
+                if next_tick[0] is None:
+                    next_tick[0] = end[0] + dt
+                overdue = end[0] - next_tick[0]
+                if overdue < 0:  # sleep if overdue is negative
+                    time.sleep(-overdue)
+                    cum_sleep[0] += overdue
+                    next_tick[0] = end[0] + dt
+                else:  # If we are overdue, then next tick is shifted by overdue
+                    cum_delay[0] += overdue
+                    next_tick[0] = end[0] + dt + overdue
+                observer.on_next(value)
+                # observer.on_next((value, cum_delay, cum_sleep))
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+        return rx.create(subscribe)
+    return _throttle_with_time
+
+
+def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node: NodeBase):
     if is_reactive and real_time_factor == 0:
         Nct = Nc
-    elif is_reactive and real_time_factor > 0:
-        Nct = rx.interval(dt_n / real_time_factor).pipe(#ops.skip_until(E),
-                                                        ops.scan(lambda acc, x: acc + 1, -1),
-                                                        ops.combine_latest(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0),
-                                                                                   ops.start_with(0))),
-                                                        ops.distinct_until_changed(key_mapper=lambda x: x,
-                                                                                   comparer=lambda x, y: (
-                                                                                               x[0] == y[0] or x[1] ==
-                                                                                               y[1])),
-                                                        ops.map(lambda x: x[1]),
-                                                        ops.share(),
-                                                        )
     else:
         assert real_time_factor > 0, "The real_time_factor must be larger than zero when *not* running reactive (i.e. asychronous)."
-        Nct = rx.interval(dt_n / real_time_factor).pipe(ops.skip_until(E),
-                                                        ops.scan(lambda acc, x: acc + 1, -1),
-                                                        ops.combine_latest(Nc.pipe(ops.merge(Nr.pipe(spy('Nr', node))),
-                                                                                   ops.scan(lambda acc, x: acc + 1, 0),
-                                                                                   ops.start_with(0))),
-                                                        ops.distinct_until_changed(key_mapper=lambda x: x,
-                                                                                   comparer=lambda x, y: (
-                                                                                               x[0] == y[0] or x[1] ==
-                                                                                               y[1])),
-                                                        ops.map(lambda x: x[0]),
-                                                        # spy('Nct', node),
-                                                        ops.share())
+        wc_dt = 1 / (rate_node * real_time_factor)
+        # Nct = Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0),
+        #               throttle_with_time(wc_dt, node),
+        #               ops.start_with(0),
+                      # ops.share())
+        wc_dt = max(0.001, wc_dt - 0.0015)
+        Nct = rx.interval(wc_dt).pipe(throttled_Nc(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0)),
+                                                   is_reactive, rate_node, node),
+                                      ops.share())
     return Nct
 
 
-def feedback_callback_trigger(Nr, inputs, feedthrough):
-    repeat_inputs = [i['name'] for i in inputs if i['repeat'] != 'empty']
-    repeat_fts = [i['feedthrough_to'] for i in feedthrough if i['repeat'] != 'empty']
-    def _feedback_callback_trigger(source):
+def add_offset(offset, skip=0):
+    def _add_offset(source):
         def subscribe(observer, scheduler=None):
-            if len(repeat_inputs) > 0:
-                flag_inputs = [False]
-            else:
-                flag_inputs = [True]
-            if len(repeat_fts) > 0:
-                flag_fts = [False]
-            else:
-                flag_fts = [True]
-
+            counter = [0]
             def on_next(value):
-                if value[1] is None:  # normal
-                    if not flag_inputs[0]:
-                        if all([len(value[0][i]['msg']) > 0 for i in repeat_inputs]):  # check if number of msgs > 0
-                            flag_inputs[0] = True
-                            observer.on_next(value)
-                        else:
-                            Nr.on_next(value)
-                    else:
-                        observer.on_next(value)
-                else:  # ft mode
-                    if not flag_fts[0]:
-                        if all([len(value[1][i]['msg']) > 0 for i in repeat_fts]):  # check if number of msgs > 0
-                            flag_fts[0] = True
-                            observer.on_next(value)
-                        else:
-                            Nr.on_next(value)
-                    else:
-                        observer.on_next(value)
+                counter[0] += 1
+                if counter[0] > skip:
+                    observer.on_next(value + offset)
+                else:
+                    observer.on_next(value)
 
             return source.subscribe(
                 on_next,
@@ -966,4 +958,74 @@ def feedback_callback_trigger(Nr, inputs, feedthrough):
                 scheduler)
 
         return rx.create(subscribe)
-    return _feedback_callback_trigger
+    return _add_offset
+
+
+def throttled_Nc(source_Nc: Observable, is_reactive, rate_node: float, node: NodeBase, rate_tol: float = 0.95, log_level: int = WARN):
+    node_name = node.ns_name
+    color = 'red'  # node.color
+    print_mode = node.print_mode
+    effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+    log_freq = 2 * int(max(1, int(rate_node)))
+
+    def _throttled_Nc(source_interval: Observable):
+        def subscribe(observer: typing.Observer,
+                      scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
+            Nc_queue = deque(maxlen=1)
+            interval_queue = deque(maxlen=log_freq)
+            lock = RLock()
+            last_interval = [0]
+            last_Nc = [0]
+
+            def next(i):
+                if len(Nc_queue) > 0:
+                    if len(interval_queue) > 0:
+                        try:
+                            Nc = Nc_queue.pop()
+                            interval = interval_queue[0]
+                            interval_queue.clear()
+                            if not is_reactive and (interval+1) % log_freq == 0:
+                                window_interval = interval - last_interval[0]
+                                window_Nc = Nc - last_Nc[0]
+                                last_interval[0] = interval
+                                last_Nc[0] = Nc
+                                ratio = window_Nc / window_interval
+                                window_length = log_freq / rate_node
+                                if ratio < rate_tol and node.log_level >= effective_log_level and log_level >= effective_log_level:
+                                    print_str = 'Running at roughly %.2f%% of the set node rate (%s Hz) over the last %s (simulated) seconds. ' % (ratio*100, rate_node, window_length)
+                                    print_info(node_name, color, 'node rate', trace_type='', value=print_str, print_mode=print_mode, log_level=log_level)
+                        except Exception as ex:  # pylint: disable=broad-except
+                            observer.on_error(ex)
+                            return
+                        observer.on_next(Nc)
+                elif not is_reactive and len(interval_queue) == log_freq and rate_node > 1:
+                    interval = interval_queue[0]
+                    interval_queue.clear()
+                    interval_queue.append(interval)
+                    if node.log_level >= effective_log_level and log_level >= effective_log_level:
+                        print_str = 'Node has not returned from a callback in the last (simulated) second.'
+                        print_info(node_name, color, 'stale node', trace_type='', value=print_str, print_mode=print_mode, log_level=log_level)
+
+            @synchronized(lock)
+            def on_next_Nc(x):
+                Nc_queue.append(x)
+                next(x)
+
+            subscriptions = []
+            sad = SingleAssignmentDisposable()
+            sad.disposable = source_Nc.subscribe(on_next_Nc, observer.on_error, observer.on_completed, scheduler)
+            subscriptions.append(sad)
+
+            @synchronized(lock)
+            def on_next_interval(x):
+                interval_queue.append(x)
+                next(x)
+
+            sad = SingleAssignmentDisposable()
+            sad.disposable = source_interval.subscribe(on_next_interval, observer.on_error, observer.on_completed, scheduler)
+            subscriptions.append(sad)
+
+            return CompositeDisposable(subscriptions)
+        return rx.create(subscribe)
+    return _throttled_Nc
+

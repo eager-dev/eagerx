@@ -74,16 +74,17 @@ class Node(QtCore.QObject):
         self._graph = weakref.ref(graph)
         self.exception = None
 
-        if 'config_name' in params['default'] and params['default']['config_name'] in ['actions', 'observations']:
+        if 'config_name' in params['default'] and \
+                params['default']['config_name'] in ['actions', 'observations', 'render']:
             self._node_type = params['default']['config_name']
-            self._allow_add_terminal = True
+            self._allow_add_terminal = not self._node_type == 'render'
             self._allow_remove = False
             self._is_object = False
         else:
             self._node_type = get_yaml_type(yaml)
             self._allow_add_terminal = self._is_object = self._node_type == 'object'
             self._allow_remove = True
-            self.__initialize_terminals()
+        self.__initialize_terminals()
 
     def __next_terminal_name(self, name):
         """Return an unused terminal name"""
@@ -95,15 +96,19 @@ class Node(QtCore.QObject):
         return name2
 
     def __initialize_terminals(self):
-        if 'default' in self._params:
-            for terminal_type in set.union(constants.TERMS_IN, constants.TERMS_OUT):
-                if terminal_type in self._params['default']:
-                    for terminal in self._params['default'][terminal_type]:
-                        name = terminal_type + '/' + terminal
+        for terminal_type in set.union(constants.TERMS_IN, constants.TERMS_OUT):
+            if self._node_type == 'render' and terminal_type == 'outputs':
+                continue
+            if terminal_type in self._params['default']:
+                for terminal in self._params['default'][terminal_type]:
+                    if self._node_type in ['actions', 'observations']:
+                        if terminal in self._yaml['default'][terminal_type]:
+                            continue
+                    name = terminal_type + '/' + terminal
+                    self.addTerminal(name=name)
+                    if self._node_type == 'reset_node' and terminal_type == 'outputs':
+                        name = 'feedthroughs/' + terminal
                         self.addTerminal(name=name)
-                        if self._node_type == 'reset_node' and terminal_type == 'outputs':
-                            name = 'feedthroughs/' + terminal
-                            self.addTerminal(name=name)
 
     def removeTerminal(self, term):
         """Remove the specified terminal from this Node. May specify either the 
@@ -434,11 +439,6 @@ class Node(QtCore.QObject):
         dict."""
         pos = self.graphicsItem().pos()
         state = {'pos': (pos.x(), pos.y()), 'params': self._params, 'yaml': self._yaml}
-        termsEditable = self._allow_add_terminal
-        for term in list(self._inputs.values()) + list(self._outputs.values()):
-            termsEditable |= term._renamable | term._removable
-        if termsEditable:
-            state['terminals'] = self.saveTerminals()
         return state
 
     def restoreState(self, state):
@@ -446,8 +446,6 @@ class Node(QtCore.QObject):
         by saveState(). """
         pos = state.get('pos', (0, 0))
         self.graphicsItem().setPos(*pos)
-        if 'terminals' in state:
-            self.restoreTerminals(state['terminals'])
 
     def saveTerminals(self):
         terms = OrderedDict()
@@ -502,21 +500,7 @@ class NodeGraphicsItem(GraphicsObject):
         self._params = node.params()
         self._yaml = node.yaml()
 
-        if self._node_type == 'node':
-            color = np.array([0, 255, 255])
-        elif self._node_type == 'reset_node':
-            color = np.array([0, 255, 0])
-        elif self._node_type == 'object':
-            color = np.array([255, 255, 0])
-        else:
-            color = np.array([200, 200, 200])
-
-        self.pen = fn.mkPen(0, 0, 0)
-        self.selectPen = fn.mkPen(200, 200, 200, width=2)
-        self.brush = fn.mkBrush(np.append(color, 200))
-        self.hoverBrush = fn.mkBrush(np.append(color, 225))
-        self.selectBrush = fn.mkBrush(np.append(color, 255))
-        self.hovered = False
+        self.set_color()
 
         self.node = node
         flags = self.ItemIsMovable | self.ItemIsSelectable | self.ItemIsFocusable | self.ItemSendsGeometryChanges
@@ -537,6 +521,24 @@ class NodeGraphicsItem(GraphicsObject):
         self.initial_z_value = self.zValue()
         self.initialise_param_window()
 
+    def set_color(self):
+        if 'color' in self._params['default'] and self._params['default']['color'] in constants.GUI_COLORS:
+            color = np.array(constants.GUI_COLORS[self._params['default']['color']])
+        else:
+            color = np.array([200, 200, 200])
+
+        self.selectPen = fn.mkPen(200, 200, 200, width=2)
+        self.brush = fn.mkBrush(np.append(color, 200))
+        self.hoverBrush = fn.mkBrush(np.append(color, 225))
+        self.selectBrush = fn.mkBrush(np.append(color, 255))
+
+        self.pen = fn.mkPen(0, 0, 0)
+        self.selectPen = fn.mkPen(200, 200, 200, width=2)
+        self.brush = fn.mkBrush(np.append(color, 200))
+        self.hoverBrush = fn.mkBrush(np.append(color, 225))
+        self.selectBrush = fn.mkBrush(np.append(color, 255))
+        self.hovered = False
+
     def initialise_param_window(self):
         graph = self.node.graph()
         self.param_window = QtGui.QMainWindow(graph().widget().cwWin)
@@ -556,8 +558,17 @@ class NodeGraphicsItem(GraphicsObject):
                 widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
             elif key in constants.GUI_NODE_ITEMS:
                 items = constants.GUI_NODE_ITEMS[key]
+                if isinstance(items, dict):
+                    converter = items
+                    index = list(items.values()).index(value)
+                    items = list(items.keys())
+                    value = items[index]
+                else:
+                    converter = None
                 widget = ComboBox(items=items, default=str(value))
-                widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
+                widget.activated.connect(
+                    partial(self.combo_box_value_changed, key=key, items=items, converter=converter)
+                )
             elif isinstance(value, int):
                 widget = SpinBox(value=value, int=True, dec=True)
                 widget.sigValueChanged.connect(partial(self.value_changed, key=key))
@@ -585,8 +596,14 @@ class NodeGraphicsItem(GraphicsObject):
             if label.text() in set.union(constants.TERMS_IN, constants.TERMS_OUT):
                 self.widgets[idx].setText(str(self.node.params()['default'][label.text()]))
 
-    def combo_box_value_changed(self, int, items, key):
-        self.node.params()['default'][key] = items[int]
+    def combo_box_value_changed(self, int, items, key, converter=None):
+        value = items[int]
+        if converter is not None:
+            value = converter[value]
+        self.node.params()['default'][key] = value
+        if key == 'color':
+            self.set_color()
+            self.update()
 
     def value_changed(self, widget, key):
         self.node.params()['default'][key] = widget.value()

@@ -16,7 +16,7 @@ class RxInput(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 repeat: str = 'all',
+                 window: int = 0,
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  is_reactive: bool = True,
@@ -93,7 +93,7 @@ class RxFeedthrough(Params):
                  address: str,
                  msg_type: str,
                  feedthrough_to: str,
-                 repeat: str = 'all',
+                 window: int = 1,
                  msg_module: str = 'std_msgs.msg',
                  converter: Dict = None,
                  is_reactive: bool = True,
@@ -516,10 +516,10 @@ class RxObjectParams(Params):
         obj_params['states'] = [s.get_params(ns) for s in states]
 
         # Remove clutter from parameters
-        obj_params[bridge] = params[bridge].copy()
+        obj_params['bridge'] = params[bridge].copy()
         for c in ('sensors', 'actuators', 'states'):
-            if c in obj_params[bridge]:
-                del obj_params[bridge][c]
+            if c in obj_params['bridge']:
+                del obj_params['bridge'][c]
             if c in obj_params:
                 if c == 'states': continue
                 del obj_params[c]

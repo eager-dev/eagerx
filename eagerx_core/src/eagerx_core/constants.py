@@ -30,11 +30,23 @@ TERMS_OUT = set().union(*[TERMS[key]['out'] for key in TERMS])
 # Possible entries in GUI
 GUI_NODE_ITEMS = {
     'color': ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-    'log_level': ['0', '10', '20', '30', '40', '50'],
-    'process': ['0', '1', '2', '3'],
+    'log_level': {'silent': 0, 'debug': 10, 'info': 20, 'warn': 30, 'error': 40, 'fatal': 50},
+    'process': {'new process': 0, 'environment': 1, 'bridge': 2, 'external': 3},
 }
 GUI_TERM_ITEMS = {
-    'repeat': ['all', 'empty', 'last'],
+    'repeat': ['all', 'empty', 'window'],
+}
+
+# Corresponding RGB values for colors
+GUI_COLORS = {
+    'black': [0, 0, 0],
+    'red': [255, 0, 0],
+    'green': [0, 128, 0],
+    'yellow': [255, 255, 0],
+    'blue': [0, 0, 255],
+    'magenta': [255, 0, 255],
+    'cyan': [0, 255, 255],
+    'white': [255, 255, 255],
 }
 
 # Default arguments to ignore
@@ -48,7 +60,7 @@ PARAMS_CONSTANT = set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'confi
 
 # Config files to ignore in GUI
 GUI_CONFIG_TO_IGNORE = {
-    'eagerx_core': ['actions', 'observations', 'bridge', 'supervisor'],
+    'eagerx_core': ['actions', 'observations', 'bridge', 'supervisor', 'render'],
 }
 
 # PROCESS
