@@ -1,9 +1,12 @@
+import sys
 import yaml
 from yaml import dump
 from typing import List, Union, Dict, Tuple, Optional
+from pyqtgraph.Qt import QtGui, QtCore
+
 from eagerx_core.params import RxNodeParams, RxObjectParams
 from eagerx_core.utils.connection_utils import register_connections
-
+from eagerx_core.gui.eagerx_graph import EagerxGraph
 
 class RxGraph:
     def __init__(self, state: Dict):
@@ -98,4 +101,24 @@ class RxGraph:
     def gui(self):
         # todo: Open GUI by passing it the self._state
         # todo: When the GUI is closed, overwrite self._state
-        pass
+        app = QtGui.QApplication([])
+
+        # Create main window with grid layout
+        win = QtGui.QMainWindow()
+        win.setWindowTitle('EAGERx Graph')
+        cw = QtGui.QWidget()
+        win.setCentralWidget(cw)
+        layout = QtGui.QGridLayout()
+        cw.setLayout(layout)
+
+        fc = EagerxGraph()
+        w = fc.widget()
+
+        # Add flowchart control panel to the main window
+        layout.addWidget(fc.widget(), 0, 0, 2, 1)
+        win.show()
+
+        if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+            QtGui.QApplication.instance().exec_()
+
+        self._state = fc.saveState()

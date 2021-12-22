@@ -3,6 +3,14 @@
 """
 
 # -*- coding: utf-8 -*-
+# TODO: Check if flowchart can run in notebook
+# TODO: Add render node
+# TODO: Draw graph based on list of nodes and objects
+# TODO: Nice to have: show rate in outputs
+# TODO: Nice to have: allow to add terminals in nodes
+# TODO: Nice to have: Input terminals get address on connection
+# TODO: Nice to have: Generate rate based on connection (not changeable)
+# TODO: Nice to have: Show addresses and update on changes in connection (not changeable)
 
 # Import pyqtgraph modules
 from pyqtgraph.Qt import QT_LIB
@@ -20,7 +28,6 @@ from eagerx_core.gui.Node import Node as EagerxNode
 from eagerx_core.gui.Terminal import Terminal as EagerxTerminal
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import load_yaml, get_nodes_and_objects_library
-from eagerx_core.utils.node_utils import configure_connections
 
 # pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
@@ -169,8 +176,8 @@ class EagerxGraph(Node):
         self.viewBox.addItem(item)
         item.moveBy(*pos)
         self._nodes[name] = node
-        # if node is not self.inputNode and node is not self.outputNode:
-        #     self.widget().addNode(node)
+        if node not in [self.inputNode, self.outputNode, self.renderNode]:
+            self.widget().addNode(node)
         node.sigClosed.connect(self.nodeClosed)
         node.sigRenamed.connect(self.nodeRenamed)
         node.sigOutputChanged.connect(self.nodeOutputChanged)
@@ -333,29 +340,6 @@ class EagerxGraph(Node):
                 for c in t.connections():
                     conn.add((t, c))
         return conn
-
-    def return_graph(self):
-        connections_list = self.listConnections()
-        connections = [{'source': c[0].connection_info(), 'target': (c[1]).connection_info()} for c in connections_list]
-        configure_connections(connections)
-
-        graph = {'nodes': [], 'objects': []}
-        node_names = []
-        object_names = []
-        for connection in connections:
-            for io in ['source', 'target']:
-                params = connection[io][0]
-                if params.name == 'env/actions':
-                    graph['actions'] = params
-                elif params.name == 'env/observations':
-                    graph['observations'] = params
-                elif isinstance(params, RxNodeParams) and params.name not in node_names:
-                    graph['nodes'].append(params)
-                    node_names.append(params.name)
-                elif isinstance(params, RxObjectParams) and params.name not in object_names:
-                    graph['nodes'].append(params)
-                    object_names.append(params.name)
-        return Graph(**graph)
 
     def saveState(self):
         """Return a serializable data structure representing the current state of this flowchart. 
