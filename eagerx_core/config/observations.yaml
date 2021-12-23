@@ -1,5 +1,6 @@
 node_type: eagerx_core.basenode/ObservationsNode
 default:
+  rate:
   inputs: [actions_set]
   outputs: [set]
   process: 1  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}

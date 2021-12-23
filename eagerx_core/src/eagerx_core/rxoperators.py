@@ -769,7 +769,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         name = i['name']
 
         # Convert to classes
-        i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+        i['msg_type'] = get_attribute_from_module(i['msg_type'])
         if 'converter' in i and isinstance(i['converter'], dict):
             i['converter'] = initialize_converter(i['converter'])
         elif 'converter' not in i:
@@ -793,14 +793,13 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         node_flags.append(nf)
 
         for i in params['outputs']:
-            assert not params['process'] == process.BRIDGE or 'converter' not in i, 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
+            assert not params['process'] == process.BRIDGE or i['converter'] == {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'}, 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
 
             # Create a new input topic for each SimNode output topic
-            n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], msg_module=i['msg_module'],
-                        is_reactive=True, window=0).get_params()
+            n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], is_reactive=True, window=0).get_params()
 
             # Convert to classes
-            n['msg_type'] = get_attribute_from_module(n['msg_module'], n['msg_type'])
+            n['msg_type'] = get_attribute_from_module(n['msg_type'])
             if 'converter' in i and isinstance(i['converter'], dict):
                 n['converter'] = initialize_converter(i['converter'])
             if 'converter' in i and not isinstance(i['converter'], dict):
@@ -816,7 +815,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         for i in params['inputs']:
             if not i['is_reactive']:
                 # Convert to classes
-                i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
+                i['msg_type'] = get_attribute_from_module(i['msg_type'])
                 if 'converter' in i and isinstance(i['converter'], dict):
                     i['converter'] = initialize_converter(i['converter'])
                 elif 'converter' not in i:

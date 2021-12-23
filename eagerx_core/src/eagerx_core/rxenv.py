@@ -26,12 +26,12 @@ import logging
 class RxEnv(gym.Env):
     @staticmethod
     def create_actions():
-        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
+        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions', rate=1.0)
         return actions
 
     @staticmethod
     def create_observations():
-        observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations')
+        observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations', rate=1.0)
         return observations
 
     @staticmethod

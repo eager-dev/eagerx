@@ -1,6 +1,6 @@
 from yaml import dump
 import rospy
-from eagerx_core.params import RxNodeParams, RxObjectParams
+from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string
 from eagerx_core.constants import source_types, target_types
 
@@ -178,6 +178,7 @@ def sensor_to_observation(obj, obj_comp, obj_cname, node, node_cname, node_comp=
     # Fill in target node properties
     node.params['default'][node_comp].append(node_cname)
     node.params[node_comp][node_cname] = dict(address=address, msg_type=get_module_type_string(msg_type_B), converter=converter)
+    add_default_args(node.params[node_comp][node_cname], component=node_comp)
     if delay:
         node.params[node_comp][node_cname]['delay'] = delay
     if window:
@@ -211,6 +212,7 @@ def action_to_input(src_node, src_node_cname, target_node, target_node_comp, tar
     else:
         src_node.params['default']['outputs'].append(src_node_cname)
         src_node.params['outputs'][src_node_cname] = dict(msg_type=get_module_type_string(msg_type_B), converter=space_converter)
+        add_default_args(src_node.params['outputs'][src_node_cname], component='outputs')
         msg_type_A = get_opposite_msg_cls(msg_type_C, space_converter)
         if converter:
             assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type when also using the space_converter.'
@@ -255,6 +257,7 @@ def action_to_feedthrough(src_node, src_node_cname, target_node, target_node_com
     else:
         src_node.params['default']['outputs'].append(src_node_cname)
         src_node.params['outputs'][src_node_cname] = dict(msg_type=get_module_type_string(msg_type_B), converter=space_converter)
+        add_default_args(src_node.params['outputs'][src_node_cname], component='outputs')
         msg_type_A = get_opposite_msg_cls(msg_type_C, space_converter)
         if converter:
             assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type when also using the space_converter.'
@@ -299,6 +302,7 @@ def action_to_actuator(node, node_cname, obj, obj_comp, obj_cname, node_comp='ou
     else:
         node.params['default']['outputs'].append(node_cname)
         node.params['outputs'][node_cname] = dict(msg_type=get_module_type_string(msg_type_B), converter=space_converter)
+        add_default_args(node.params['outputs'][node_cname], component='outputs')
         msg_type_A = get_opposite_msg_cls(msg_type_C, space_converter)
         if converter:
             assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type when also using the space_converter.'
@@ -321,10 +325,7 @@ def output_to_input(src_node, src_node_cname, target_node, target_node_comp, tar
 
     address = '%s/%s/%s' % (src_node.name, src_node_comp, src_node_cname)
     msg_type_A = get_cls_from_string(src_node.params[src_node_comp][src_node_cname]['msg_type'])
-    if 'converter' in src_node.params[src_node_comp][src_node_cname]:
-        msg_type_B = get_opposite_msg_cls(msg_type_A, src_node.params[src_node_comp][src_node_cname]['converter'])
-    else:
-        msg_type_B = msg_type_A
+    msg_type_B = get_opposite_msg_cls(msg_type_A, src_node.params[src_node_comp][src_node_cname]['converter'])
 
     # Fill in target node properties
     target_node.params[target_node_comp][target_node_cname]['address'] = address
@@ -350,10 +351,7 @@ def output_to_actuator(node, node_cname, obj, obj_comp, obj_cname, node_comp='ou
 
     address = '%s/%s/%s' % (node.name, node_comp, node_cname)
     msg_type_A = get_cls_from_string(node.params[node_comp][node_cname]['msg_type'])
-    if 'converter' in node.params[node_comp][node_cname]:
-        msg_type_B = get_opposite_msg_cls(msg_type_A, node.params[node_comp][node_cname]['converter'])
-    else:
-        msg_type_B = msg_type_A
+    msg_type_B = get_opposite_msg_cls(msg_type_A, node.params[node_comp][node_cname]['converter'])
 
     # Fill in target node properties
     obj.params[obj_comp][obj_cname]['address'] = address
@@ -379,10 +377,7 @@ def output_to_feedthrough(src_node, src_node_cname, target_node, target_node_com
 
     address = '%s/%s/%s' % (src_node.name, src_node_comp, src_node_cname)
     msg_type_A = get_cls_from_string(src_node.params[src_node_comp][src_node_cname]['msg_type'])
-    if 'converter' in src_node.params[src_node_comp][src_node_cname]:
-        msg_type_B = get_opposite_msg_cls(msg_type_A, src_node.params[src_node_comp][src_node_cname]['converter'])
-    else:
-        msg_type_B = msg_type_A
+    msg_type_B = get_opposite_msg_cls(msg_type_A, src_node.params[src_node_comp][src_node_cname]['converter'])
 
     # Fill in target node properties
     target_node.params[target_node_comp][target_node_cname]['address'] = address
@@ -408,10 +403,7 @@ def output_to_observation(src_node, src_node_cname, target_node, target_node_cna
 
     address = '%s/%s/%s' % (src_node.name, src_node_comp, src_node_cname)
     msg_type_A = get_cls_from_string(src_node.params[src_node_comp][src_node_cname]['msg_type'])
-    if 'converter' in src_node.params[src_node_comp][src_node_cname]:
-        msg_type_B = get_opposite_msg_cls(msg_type_A, src_node.params[src_node_comp][src_node_cname]['converter'])
-    else:
-        msg_type_B = msg_type_A
+    msg_type_B = get_opposite_msg_cls(msg_type_A, src_node.params[src_node_comp][src_node_cname]['converter'])
     if converter is None:
         converter = src_node.params[src_node_comp][src_node_cname]['space_converter']
     msg_type_C = get_opposite_msg_cls(msg_type_B, converter)
@@ -419,6 +411,7 @@ def output_to_observation(src_node, src_node_cname, target_node, target_node_cna
     # Fill in target node properties
     target_node.params['default'][target_node_comp].append(target_node_cname)
     target_node.params[target_node_comp][target_node_cname] = dict(address=address, msg_type=get_module_type_string(msg_type_B), converter=converter)
+    add_default_args(target_node.params[target_node_comp][target_node_cname], component=target_node_comp)
     if delay:
         target_node.params[target_node_comp][target_node_cname]['delay'] = delay
     if window:

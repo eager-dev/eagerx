@@ -18,7 +18,7 @@ from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 
 class NodeBase:
-    def __init__(self, ns, message_broker, name, config_name, package_name, node_type, module, rate, process,
+    def __init__(self, ns, message_broker, name, config_name, package_name, node_type, rate, process,
                  inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, launch_file=None,
                  color='grey', print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT):
         """
@@ -32,7 +32,6 @@ class NodeBase:
         self.config_name = config_name
         self.package_name = package_name
         self.node_type = node_type
-        self.module = module
         self.rate = rate
         self.process = process
         self.launch_file = launch_file

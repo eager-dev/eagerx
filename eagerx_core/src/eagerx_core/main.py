@@ -5,7 +5,7 @@ from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.utils.connection_utils import register_connections
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
-
+from yaml import dump
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
@@ -31,6 +31,7 @@ if __name__ == '__main__':
 
     # Define graph
     graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
     graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_2', delay=0.0)
@@ -107,6 +108,7 @@ if __name__ == '__main__':
     print('\n[Finished]')
 
     # todo: CONVERTERS
+    #  - Initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
     #  - Create a .yaml interface for converters, similar to objects & nodes
     #  - Create a converter baseclass for processor converters that map to the same datatype
     #     --> assert in regular converter that msg_types are not equal
@@ -118,17 +120,16 @@ if __name__ == '__main__':
 
     # todo: OTHER
     # todo: Change "done" msg_type from UInt64 to Bool.
-    # todo: initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
     # todo: OpenAI gym bridge + Wrapper that excludes is_done & reward from observations --> Sum received rewards.
     # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
     # todo: Separate test bridges into a ROS package outside of eagerx_core
 
     # todo: REACTIVE PROTOCOL
-    # todo: Remove observe_on and experiment with other schedulers.
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: Change 'default' to 'config' after yaml has been loaded.
     # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.
     # todo: Create a general OpenAI bridge
     # todo: Implement display functionality inside the render node.

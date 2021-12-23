@@ -45,13 +45,11 @@ class SupervisorNode(NodeBase):
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
         for i in states:
-            if 'converter' in i and isinstance(i['converter'], dict):
+            if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
                 converter = i['converter']
-            elif 'converter' in i and not isinstance(i['converter'], dict):
-                converter = i['converter']
             else:
-                converter = None
+                converter = i['converter']
             self.state_buffer[i['name']] = {'msg': None, 'converter': converter}
 
         # Required for reset
@@ -170,25 +168,21 @@ class RxSupervisor(object):
         params = get_param_with_blocking(name)
 
         # Get node
-        node_cls = get_attribute_from_module(params['module'], params['node_type'])
+        node_cls = get_attribute_from_module(params['node_type'])
         node = node_cls(ns=self.ns, message_broker=self.mb, is_reactive=is_reactive, real_time_factor=real_time_factor,
                         **params)
 
         # Prepare output topics
         for i in params['outputs']:
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i and isinstance(i['converter'], dict):
+            i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            elif 'converter' not in i:
-                i['converter'] = IdentityConverter()
 
         # Prepare state topics
         for i in params['states']:
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i and isinstance(i['converter'], dict):
+            i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            elif 'converter' not in i:
-                i['converter'] = IdentityConverter()
 
         return tuple(params['outputs']), tuple(params['states']), node
 
