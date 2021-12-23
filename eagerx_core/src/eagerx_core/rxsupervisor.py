@@ -15,7 +15,7 @@ import eagerx_core.rxoperators
 import eagerx_core.rxpipelines
 from eagerx_core.basenode import NodeBase
 from eagerx_core.params import RxObjectParams, RxNodeParams
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, get_opposite_msg_cls
 from eagerx_core.utils.node_utils import initialize_nodes
 from eagerx_core.baseconverter import IdentityConverter
 from eagerx_core.srv import ImageUInt8

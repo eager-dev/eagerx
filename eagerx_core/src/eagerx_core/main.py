@@ -5,6 +5,7 @@ from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.utils.connection_utils import register_connections
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
+
 from yaml import dump
 
 if __name__ == '__main__':
@@ -35,60 +36,63 @@ if __name__ == '__main__':
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
     graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_2', delay=0.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'))
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=9999.9)
     graph.connect(action='act_1',                           target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(action='act_1',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
-    graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'targets', 'target_1'))
     graph.connect(source=(N3.name,    'outputs', 'out_1'),  target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
 
-    # Connect nodes
-    # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'delay': 0.0},
-    #                ]
+    # Remove & add action (with action terminal removal)
+    graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)
 
-    # connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-    #                {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
-    #                {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
-    #                {'source': (KF, 'out_1'),            'target': (observations, 'obs_1'), 'delay': 0.0},
-    #                {'source': (actions, 'act_1'),       'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
-    #                ]
+    # Remove & add observation (with observation terminal removal)
+    graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
+    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None, delay=None, window=None)
 
-    # Define action/observations
-    # todo: remove once rxgraph is implemented.
-    actions, observations = EAGERxEnv.create_actions(), EAGERxEnv.create_observations()
-    render = EAGERxEnv.create_render(rate=1)
-    connections = [{'source': (viper, 'sensors', 'N6'), 'target': (render, 'inputs', 'image'), 'converter': ImageUInt64Converter},
-                   {'source': (viper, 'sensors', 'N6'), 'target': (observations, 'obs_1'), 'delay': 0.0},
-                   {'source': (KF, 'out_1'),            'target': (observations, 'obs_2'), 'delay': 0.0},
-                   {'source': (viper, 'sensors', 'N6'), 'target': (KF, 'inputs', 'in_1')},
-                   {'source': (actions, 'act_1'),       'target': (KF, 'inputs', 'in_2')},
-                   {'source': (viper, 'sensors', 'N6'), 'target': (N3, 'inputs', 'in_1')},
-                   {'source': (viper, 'states', 'N9'),  'target': (N3, 'targets', 'target_1')},
-                   {'source': (actions, 'act_1'),       'target': (N3, 'feedthroughs', 'out_1'), 'delay': 1.0},
-                   {'source': (N3, 'out_1'),            'target': (viper, 'actuators', 'N8'), 'converter': StringUInt64Converter, 'delay': 1.0},
-                   ]
-    register_connections(connections)
+    # Remove & add action (without action terminal removal)
+    graph._disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)
+
+    # Remove & add observation (without observation terminal removal)
+    graph._disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
+    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None, delay=None, window=None)
+
+    # Remove & add other input
+    graph.disconnect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
+    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
+
+    # Completely remove & add new action (GUI METHOD)
+    graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
+    graph._add_action(action='act_1')
+    graph._connect_action(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None)  # add input_converter here if specified
+    graph._connect(source=('env/actions', 'outputs', 'act_1'), target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)  # add input_converter, delay, window here if specified
+
+    # Completely remove & add new action (GUI METHOD)
+    graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
+    graph._add_action(action='act_1')
+    graph._connect_action(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None)  # add input_converter here if specified
+    graph._connect(source=('env/actions', 'outputs', 'act_1'), target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)  # add input_converter, delay, window here if specified
+
+    # Completely remove & add new observation (GUI METHOD)
+    graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
+    graph._add_observation(observation='obs_1')
+    converter = graph._connect_observation(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None)  # add input_converter here if specified
+    graph._connect(source=(viper.name, 'sensors', 'N6'), target=('env/observations', 'inputs', 'obs_1'), converter=converter, delay=None, window=None)  # add input_converter, delay, window here if specified
+
+    # Test save & load functionality
+    graph.save('./test.graph')
+    graph.load('./test.graph')
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, num_substeps=10, process=bridge_p,
-                             is_reactive=True, real_time_factor=0)
+    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
-    # todo: replace {actions,observations,nodes,objects,render} args with 'graph'
-    # todo: once an environment is initialized, 'dispose' of node objects above? or create a deep copy in create?
-    # todo: inside environment
-    # graph.register_connections()
     env = EAGERxEnv(name='rx',
                     rate=rate,
-                    actions=actions,
-                    observations=observations,
+                    graph=graph,
                     bridge=bridge,
-                    # nodes=[],
-                    # nodes=[KF],
-                    nodes=[N3, KF],
-                    objects=[viper],
-                    render=render,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
                                           'obj/N10': env.state_space.sample()['obj/N10'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1']}
@@ -145,6 +149,7 @@ if __name__ == '__main__':
     # todo: Create batch dimension on all nodes (with $(batch_dim) in .yaml used in e.g. converter definitions), so that
     #       complete envs can be batched. Bridge must have a grid edge length param, simnodes that use global position
     #       info must correct for grid position.
+    # todo: Implement rxpipeline in c++ for increased speed. Interface with both python & cpp Node baseclasses.
     # todo: Create an option to turn on/off delays when running async --> rx.operators.delay(duetime, scheduler=None)
     # todo: Create a node diagonostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
 

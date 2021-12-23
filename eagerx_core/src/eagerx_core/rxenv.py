@@ -6,6 +6,7 @@ from sensor_msgs.msg import Image
 
 # EAGERX
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
+from eagerx_core.rxgraph import RxGraph
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import load_yaml
 from eagerx_core.rxnode import RxNode
@@ -25,39 +26,22 @@ import logging
 
 class RxEnv(gym.Env):
     @staticmethod
-    def create_actions():
-        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions', rate=1.0)
-        return actions
-
-    @staticmethod
-    def create_observations():
-        observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations', rate=1.0)
-        return observations
-
-    @staticmethod
     def create_supervisor():
         states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
         return states
 
-    @staticmethod
-    def create_render(rate=1, **kwargs):
-        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate, **kwargs)
-        return render
-
     def __init__(self, name: str, rate: float,
-                 observations: RxNodeParams,
-                 actions: RxNodeParams,
-                 bridge: RxBridgeParams,
-                 nodes: List[RxNodeParams],
-                 objects: List[RxObjectParams],
-                 render_node: RxNodeParams = None) -> None:
+                 graph: RxGraph,
+                 bridge: RxBridgeParams) -> None:
         assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = '/' + name
         self.rate = rate
-        self.render_node = render_node
         self.initialized = False
         self._bridge_name = '%s/%s' % (bridge.params['default']['package_name'], bridge.params['default']['config_name'])  # bridge.name
+
+        # Register graph
+        nodes, objects, actions, observations, self.render_node = graph.register_graph()
 
         # Initialize supervisor node
         self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)
@@ -70,7 +54,7 @@ class RxEnv(gym.Env):
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
         # Register render node
-        if self.render_node: self.register_nodes(render_node)
+        if self.render_node: self.register_nodes(self.render_node)
 
         # Register nodes
         self.register_nodes(nodes)
@@ -341,12 +325,8 @@ class RxEnv(gym.Env):
 
 class EAGERxEnv(RxEnv):
     def __init__(self, name: str, rate: float,
-                 observations: RxNodeParams,
-                 actions: RxNodeParams,
+                 graph: RxGraph,
                  bridge: RxBridgeParams,
-                 nodes: List[RxNodeParams],
-                 objects: List[RxObjectParams],
-                 render: RxNodeParams = None,
                  reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
                  is_done_fn: Callable = lambda obs, action, steps: False,
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
@@ -355,7 +335,7 @@ class EAGERxEnv(RxEnv):
         self.reward_fn = reward_fn
         self.is_done_fn = is_done_fn
         self.reset_fn = reset_fn
-        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects, render)
+        super(EAGERxEnv, self).__init__(name, rate, graph, bridge)
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         # Send actions and wait for observations

@@ -52,22 +52,23 @@ class RxNode(object):
         # Prepare input topics
         for i in params['inputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
             if isinstance(i['converter'], dict):
-                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             # else:  # Converter already initialized
 
         # Prepare output topics
         for i in params['outputs']:
             i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
             if isinstance(i['converter'], dict):
-                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             # else:  # Converter already initialized
 
         # Prepare state topics
         for i in params['states']:
             i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
             if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
             # else:  # Converter already initialized
@@ -75,16 +76,16 @@ class RxNode(object):
         # Prepare target topics
         for i in params['targets']:
             i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
             if isinstance(i['converter'], dict):
-                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             # else:  # Converter already initialized
 
         # Prepare feedthrough topics
         for i in params['feedthroughs']:
             i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
             if isinstance(i['converter'], dict):
-                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
                 i['converter'] = initialize_converter(i['converter'])
             # else:  # Converter already initialized
 

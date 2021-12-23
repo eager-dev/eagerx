@@ -800,12 +800,10 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
             # Convert to classes
             n['msg_type'] = get_attribute_from_module(n['msg_type'])
-            if 'converter' in i and isinstance(i['converter'], dict):
+            if isinstance(i['converter'], dict):
                 n['converter'] = initialize_converter(i['converter'])
-            if 'converter' in i and not isinstance(i['converter'], dict):
+            else:
                 n['converter'] = i['converter']
-            elif 'converter' not in i:
-                n['converter'] = IdentityConverter()
 
             # Initialize rx objects
             n['msg'] = Subject()  # Ir
@@ -816,10 +814,8 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
             if not i['is_reactive']:
                 # Convert to classes
                 i['msg_type'] = get_attribute_from_module(i['msg_type'])
-                if 'converter' in i and isinstance(i['converter'], dict):
+                if isinstance(i['converter'], dict):
                     i['converter'] = initialize_converter(i['converter'])
-                elif 'converter' not in i:
-                    i['converter'] = IdentityConverter()
 
                 # Initialize rx reset output for reactive input
                 i['reset'] = Subject()
