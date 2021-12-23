@@ -1,4 +1,4 @@
 *.pyc
 *.idea
 calibrate.launch
-*/test.graph
+test.graph
