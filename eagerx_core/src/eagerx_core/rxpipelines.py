@@ -186,7 +186,7 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
         i['done'] = D
 
         # Initialize done flag for desired state
-        done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=UInt64, msg=D)
+        done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=Bool, msg=D)
         state_outputs.append(done_output)
 
     # Prepare initial flags
@@ -576,7 +576,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     for s in state_outputs:
         # Prepare done flag
         s['done'] = Subject()
-        done_outputs.append(dict(name=s['name'], address=s['address'] + '/done', msg_type=UInt64, msg=s['done']))
+        done_outputs.append(dict(name=s['name'], address=s['address'] + '/done', msg_type=Bool, msg=s['done']))
 
         # Prepare state message (IMPORTANT: after done flag, we modify address afterwards)
         s['msg'] = Subject()

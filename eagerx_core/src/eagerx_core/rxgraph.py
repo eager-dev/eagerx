@@ -404,7 +404,7 @@ class RxGraph:
             address = '%s/%s/%s' % (source_name, source_comp, source_cname)
             state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
 
-        # Check if valid graph. todo: informative error message
+        # Check if valid graph.
         assert self.is_valid(state), 'Graph not valid.'
 
         # Initialize param objects
@@ -460,7 +460,7 @@ class RxGraph:
 
     def update(self, entities: Optional[List[str]]=None):
         # todo: updates the default params to the yaml as specified in the config.
-        # todo: update actual params with additional default arss & new I/O & name changes & new bridge implementations
+        # todo: update actual params with additional default args & new I/O & name changes & new bridge implementations
         # todo: if None, update all entities
         assert False, 'Not implemented'
 
@@ -507,10 +507,7 @@ class RxGraph:
             msg_type_str += '>> input_converter:  %s \n         ||\n         \/\n' % converter_in
             msg_type_str += '>> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n' % msg_type_in
             msg_type_str += '>> msg_type_target:  %s (as specified in target)\n' % msg_type_in_target
-            try:
-                assert msg_type_in == msg_type_in_target, msg_type_str
-            except:
-                pass
+            assert msg_type_in == msg_type_in_target, msg_type_str
         return True
 
     @staticmethod

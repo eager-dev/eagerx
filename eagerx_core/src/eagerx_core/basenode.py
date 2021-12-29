@@ -310,11 +310,11 @@ class RealResetNode(Node):
         # Fill state done msg with number of node ticks
         for i in self.targets:
             name = i['name']
-            msg = UInt64()
+            msg = Bool()
             if self.num_ticks > 2:
-                msg.data = 1
+                msg.data = True
             else:
-                msg.data = 0
+                msg.data = False
             output_msgs[name + '/done'] = msg
         return output_msgs
 
