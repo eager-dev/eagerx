@@ -113,12 +113,8 @@ if __name__ == '__main__':
     # todo: CONVERTERS
     #  - Initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
     #  - Create a .yaml interface for converters, similar to objects & nodes
-    #  - Create a converter baseclass for processor converters that map to the same datatype
-    #     --> assert in regular converter that msg_types are not equal
-    #     --> Implement same functions for processor class as for converters
 
     # todo: OTHER
-    # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
     # todo: Separate test bridges into a ROS package outside of eagerx_core
 
     # todo: REACTIVE PROTOCOL
