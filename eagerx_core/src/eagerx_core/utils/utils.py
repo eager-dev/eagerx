@@ -186,11 +186,8 @@ def return_typehint(msg_type, done=True):
         return Optional[Dict[str, msg_type]]
 
 
-def check_msg_type(name, component, cname, node_cls, msg_type, msg_module=None):
-    if msg_module:  # the case for feedthroughs
-        msg_type_yaml = get_cls_from_string('%s/%s' % (msg_module, msg_type))
-    else:
-        msg_type_yaml = get_cls_from_string(msg_type)
+def check_msg_type(name, component, cname, node_cls, msg_type):
+    msg_type_yaml = get_cls_from_string(msg_type)
     try:
         msg_type_py = node_cls.get_msg_type(node_cls, component, cname)
         node_str = get_module_type_string(node_cls)

@@ -256,8 +256,9 @@ class RxGraph:
                 window: Optional[int] = None,
                 delay: Optional[float] = None):
         """
-        Method to connect a source to a target. For actions/observations, first a disconnected entry must be created,
-        after which an additional call to connect_action/observation is required. For more info, see self.connect.
+        Method to connect a source to a target. For actions/observations, first a (new) disconnected entry must be created,
+        after which an additional call to connect_action/observation is required before calling this method.
+        For more info, see self.connect.
         """
         if isinstance(source, tuple):
             source = list(source)

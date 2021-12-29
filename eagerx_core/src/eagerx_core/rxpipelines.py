@@ -440,7 +440,7 @@ def init_bridge(ns, rate_node, node, inputs_init, outputs, state_inputs, node_na
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
-    # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will deadlock then.
+    # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will cause a deadlock in that case.
     rx_objects = SR.pipe(ops.with_latest_from(REG_cum),
                          ops.combine_latest(rx_objects),
                          ops.filter(lambda x: x[0][1] == x[1][1]),

@@ -117,12 +117,7 @@ if __name__ == '__main__':
     #     --> assert in regular converter that msg_types are not equal
     #     --> Implement same functions for processor class as for converters
 
-    # todo: IMPROVE CONFIGURE CONNECTIONS
-    # todo: get msg_type from python implementation? --> Avoid differences between .yaml and .py --> Or create a check when creating such a node?
-    # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
-
     # todo: OTHER
-    # todo: Change "done" msg_type from UInt64 to Bool.
     # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
     # todo: Separate test bridges into a ROS package outside of eagerx_core
 
@@ -131,6 +126,7 @@ if __name__ == '__main__':
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: Get msg_type from python implementation to avoid differences between .yaml and .py
     # todo: Change 'default' to 'config' after yaml has been loaded.
     # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.
     # todo: Create a general OpenAI bridge + wrapper that excludes is_done & reward from observations --> sum received rewards.

@@ -1,4 +1,4 @@
-from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type
+from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type, get_opposite_msg_cls, initialize_converter
 from typing import Dict
 from copy import deepcopy
 import inspect
@@ -286,13 +286,10 @@ class RxNodeParams(Params):
                 assert cname in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', cname, 'inputs', config_name, package_name)
                 assert 'targets' not in params or cname not in params['targets'], 'Input "%s" cannot have the same name as a selected target. Change either the input or target name under "%s" in "%s.yaml" inside ROS package "%s/config".' % (cname, 'inputs', config_name, package_name)
                 check_msg_type(name, 'inputs', cname, node_cls, params['inputs'][cname]['msg_type'])
-                try:
-                    if params['inputs'][cname]['rate']:
-                        params['inputs'][cname]['is_reactive'] = False
-                    else:
-                        params['inputs'][cname]['is_reactive'] = True
-                except:
-                    pass
+                if params['inputs'][cname]['rate']:
+                    params['inputs'][cname]['is_reactive'] = False
+                else:
+                    params['inputs'][cname]['is_reactive'] = True
                 n = RxInput(name=cname, **params['inputs'][cname])
                 inputs.append(n)
 
@@ -448,6 +445,28 @@ class RxObjectParams(Params):
             node = RxNodeParams.create(node_name, package, config_name, **p_bridge)
             sensors.append(node)
 
+            # Check consistency between simulation node .yaml and object .yaml
+            converter_env = initialize_converter(p_env['converter'])
+            msg_type_env = get_cls_from_string(p_env['msg_type'])
+            assert len(node.params['default']['outputs']) == 1, 'Node "%s" cannot have more than 1 output. Nodes that simulate sensor outputs can only have a single output.' % node_name
+            assert p_env['converter'] == {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'}, 'Node "%s" has an output converter "%s". Sensor nodes cannot have an output converter.' % (node_name, converter_env)
+            cname_node = node.params['default']['outputs'][0]
+            params_node = node.params['outputs'][cname_node]
+            msg_type_node = get_cls_from_string(params_node['msg_type'])
+            converter_node = initialize_converter(params_node['converter'])
+            msg_type_conv_node = get_opposite_msg_cls(msg_type_node, converter_node)
+            msg_type_conv_env = get_opposite_msg_cls(msg_type_env, converter_env)
+
+            msg_type_str = '\n\nMsg_types of object node="%s" ---> node config="%s.yaml":\n\n' % (node_name, config_name)
+            msg_type_str += '>> msg_type object:  %s (as specified in %s.yaml)   \n         || \n         \/\n' % (msg_type_env, params['default']['config_name'])
+            msg_type_str += '>> output_converter: %s                                 \n         || \n         \/\n' % converter_env.__class__
+            msg_type_str += '>> msg_type_ros:     %s (inferred via object %s.yaml)   \n         /\ \n         || (These msg_types must be equal, but they are not!!)\n         \/\n' % (msg_type_conv_env, params['default']['config_name'])
+            msg_type_str += '>> msg_type_ros:     %s (inferred via node %s.yaml)     \n         /\ \n         ||\n' % (msg_type_conv_node, config_name)
+            msg_type_str += '>> output_converter: %s                                 \n         /\ \n         ||\n' % converter_node.__class__
+            msg_type_str += '>> msg_type node:    %s (as specified in %s.yaml)   \n' % (msg_type_node, config_name)
+
+            assert msg_type_conv_env == msg_type_conv_node, msg_type_str
+
         # Create actuators
         component = 'actuators'
         actuators = []
@@ -473,10 +492,12 @@ class RxObjectParams(Params):
             # Define node inputs mapping
             inputs_dict = {'tick': 'bridge/outputs/tick'}
             check_None_trigger = False
+            cname_node = None
             for act_cname, address in p_bridge['inputs'].items():
                 if address is None:
                     assert not check_None_trigger, 'Can only have a single (actuator) input (identified with an empty value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
                     check_None_trigger = True
+                    cname_node = act_cname
                     p_bridge['inputs'][act_cname] = p_env['address']
                     if 'converter' in p_env:
                         p_bridge['input_converters'][act_cname] = p_env['converter']
@@ -491,6 +512,24 @@ class RxObjectParams(Params):
             # Create node
             node = RxNodeParams.create(node_name, package, config_name, **p_bridge)
             actuators.append(node)
+
+            # Check consistency between simulation node .yaml and object .yaml
+            converter_env = initialize_converter(p_env['converter'])
+            msg_type_env = get_cls_from_string(p_env['msg_type'])
+            params_node = node.params['inputs'][cname_node]
+            msg_type_node = get_cls_from_string(params_node['msg_type'])
+            converter_node = initialize_converter(params_node['converter'])
+            msg_type_conv_node = get_opposite_msg_cls(msg_type_node, converter_node)
+            msg_type_conv_env = get_opposite_msg_cls(msg_type_env, converter_env)
+
+            msg_type_str = '\n\nMsg_types of object node="%s" ---> node config="%s.yaml":\n\n' % (node_name, config_name)
+            msg_type_str += '>> msg_type object: %s (as specified in %s.yaml)   \n         /\ \n         || \n' % (msg_type_env, params['default']['config_name'])
+            msg_type_str += '>> input_converter: %s                                 \n         /\ \n         || \n' % converter_env.__class__
+            msg_type_str += '>> msg_type_ros: %s (inferred via object %s.yaml)      \n         /\ \n         || (These msg_types must be equal, but they are not!!)\n         \/\n' % (msg_type_conv_env, params['default']['config_name'])
+            msg_type_str += '>> msg_type_ros: %s (inferred via node %s.yaml)        \n         || \n         \/ \n' % (msg_type_conv_node, config_name)
+            msg_type_str += '>> input_converter: %s                                 \n         || \n         \/ \n' % converter_node.__class__
+            msg_type_str += '>> msg_type node:   %s (as specified in %s.yaml)   \n' % (msg_type_node, config_name)
+            assert msg_type_conv_env == msg_type_conv_node, msg_type_str
 
         # Create states
         component = 'states'
