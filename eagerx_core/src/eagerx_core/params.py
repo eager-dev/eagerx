@@ -1,4 +1,5 @@
 from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type, get_opposite_msg_cls, initialize_converter
+from eagerx_core.baseconverter import IdentityConverter
 from typing import Dict
 from copy import deepcopy
 import inspect
@@ -19,7 +20,7 @@ class RxInput(Params):
                  address: str,
                  msg_type: str,
                  window: int = 0,
-                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
+                 converter: Dict = IdentityConverter().get_yaml_definition(),
                  is_reactive: bool = True,
                  rate: float = None,
                  space_converter: Dict = None,
@@ -61,7 +62,7 @@ class RxOutput(Params):
                  address: str,
                  msg_type: str,
                  rate: float,
-                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
+                 converter: Dict = IdentityConverter().get_yaml_definition(),
                  space_converter: Dict = None,
                  start_with_msg: bool = False
                  ):
@@ -94,7 +95,7 @@ class RxFeedthrough(Params):
                  msg_type: str,
                  feedthrough_to: str,
                  window: int = 1,
-                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
+                 converter: Dict = IdentityConverter().get_yaml_definition(),
                  is_reactive: bool = True,
                  space_converter: Dict = None,
                  delay: float = 0.0
@@ -127,7 +128,7 @@ class RxState(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
+                 converter: Dict = IdentityConverter().get_yaml_definition(),
                  space_converter: Dict = None,
                  ):
         # Store parameters as properties in baseclass
@@ -159,7 +160,7 @@ class RxSimState(Params):
                  address: str,
                  state: Dict,
                  msg_type: str,
-                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
+                 converter: Dict = IdentityConverter().get_yaml_definition(),
                  space_converter: Dict = None
                  ):
         # Store parameters as properties in baseclass
@@ -277,7 +278,6 @@ class RxNodeParams(Params):
         config_name = default['config_name']
         node_cls = get_cls_from_string(params['node_type'])
         default['node_type'] = params['node_type']
-
 
         # Process inputs
         inputs = []
@@ -449,7 +449,7 @@ class RxObjectParams(Params):
             converter_env = initialize_converter(p_env['converter'])
             msg_type_env = get_cls_from_string(p_env['msg_type'])
             assert len(node.params['default']['outputs']) == 1, 'Node "%s" cannot have more than 1 output. Nodes that simulate sensor outputs can only have a single output.' % node_name
-            assert p_env['converter'] == {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'}, 'Node "%s" has an output converter "%s". Sensor nodes cannot have an output converter.' % (node_name, converter_env)
+            assert p_env['converter'] == IdentityConverter().get_yaml_definition(), 'Node "%s" has an output converter "%s". Sensor nodes cannot have an output converter.' % (node_name, converter_env)
             cname_node = node.params['default']['outputs'][0]
             params_node = node.params['outputs'][cname_node]
             msg_type_node = get_cls_from_string(params_node['msg_type'])

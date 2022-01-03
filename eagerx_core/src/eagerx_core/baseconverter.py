@@ -1,3 +1,6 @@
+from eagerx_core.utils.utils import check_valid_rosparam_type
+from copy import deepcopy
+import inspect
 import abc
 
 # Converter specific
@@ -9,10 +12,45 @@ from gym.spaces import Box
 
 class BaseConverter(object):
     """
-    Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the
-    static attributes "MSG_TYPE_A" and "MSG_TYPE_B", such that the correct conversion method can be inferred.
+    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
+    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
     """
     __metaclass__ = abc.ABCMeta
+
+    def __init__(self, *args, **kwargs):
+        self.yaml_args = kwargs
+        argspec = inspect.getfullargspec(self.__init__).args
+        argspec.remove('self')
+        for key, value in zip(argspec, args):
+            self.yaml_args[key] = value
+        check_valid_rosparam_type(self.yaml_args)
+
+    def get_yaml_definition(self):
+        converter_type = self.__module__ + '/' + self.__class__.__name__
+        yaml_dict = dict(converter_type=converter_type)
+        yaml_dict.update(deepcopy(self.yaml_args))
+        return yaml_dict
+
+    @abc.abstractmethod
+    def convert(self, msg):
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_opposite_msg_type(cls, msg_type):
+        pass
+
+class Converter(BaseConverter):
+    """
+    Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the
+    static attributes "MSG_TYPE_A" and "MSG_TYPE_B", such that the correct conversion method can be inferred.
+    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
+    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
+    """
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def get_opposite_msg_type(cls, msg_type):
@@ -44,18 +82,22 @@ class BaseConverter(object):
         pass
 
 
-class SpaceConverter(BaseConverter):
+class SpaceConverter(Converter):
     """
     Inherit your converter from this baseclass if the converter is used for actions/observations/states,
-    such that the space can be inferred. See BaseConverter for other abstract methods that must be implemented.
+    such that the space can be inferred. See Converter for other abstract methods that must be implemented.
     """
     @abc.abstractmethod
     def get_space(self):
         pass
 
 
-class IdentityConverter(object):
+class IdentityConverter(BaseConverter):
     """ The Identity converter that mimics the API of any other converter but simply passes through all messages."""
+
+    def __init__(self):
+        super().__init__()
+
     @staticmethod
     def get_opposite_msg_type(cls, msg_type):
         return msg_type
@@ -64,12 +106,17 @@ class IdentityConverter(object):
         return msg
 
 
-class BaseProcessor(object):
+class BaseProcessor(BaseConverter):
     """
     Use this processor if the converted msg type is one-way and the msg_type after conversion is equal to
     the msg_type before conversion. In addition, make sure to specify the static attribute "MSG_TYPE".
+    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
+    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
     """
     __metaclass__ = abc.ABCMeta
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def get_opposite_msg_type(cls, msg_type):
@@ -98,6 +145,7 @@ class SpaceUInt64Converter(SpaceConverter):
     MSG_TYPE_B = UInt64
 
     def __init__(self, low, high, shape=None, dtype='uint64'):
+        super().__init__(low, high, shape, dtype)
         self.low = np.array(low)
         self.high = np.array(high)
         self.shape = shape
@@ -118,6 +166,7 @@ class SpaceStringConverter(SpaceConverter):
     MSG_TYPE_B = String
 
     def __init__(self, low, high, shape=None, dtype='uint64'):
+        super().__init__(low, high, shape, dtype)
         self.low = low
         self.high = high
         if isinstance(low, list):
@@ -142,11 +191,12 @@ class SpaceStringConverter(SpaceConverter):
         return np.array([int(msg.data[8:])], dtype=self.dtype)
 
 
-class ImageUInt64Converter(BaseConverter):
+class ImageUInt64Converter(Converter):
     MSG_TYPE_A = Image
     MSG_TYPE_B = UInt64
 
     def __init__(self, test_arg):
+        super().__init__(test_arg)
         self.test_arg = test_arg
 
     def A_to_B(self, msg):
@@ -156,11 +206,12 @@ class ImageUInt64Converter(BaseConverter):
         return Image(data=[msg.data])
 
 
-class StringUInt64Converter(BaseConverter):
+class StringUInt64Converter(Converter):
     MSG_TYPE_A = String
     MSG_TYPE_B = UInt64
 
     def __init__(self, test_arg):
+        super().__init__(test_arg)
         self.test_arg = test_arg
 
     def A_to_B(self, msg):

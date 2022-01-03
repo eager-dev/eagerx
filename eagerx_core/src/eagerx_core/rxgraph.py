@@ -5,6 +5,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 from typing import List, Union, Dict, Tuple, Optional
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string
+from eagerx_core.baseconverter import BaseConverter
 from copy import deepcopy
 
 
@@ -58,22 +59,59 @@ class RxGraph:
             state['nodes'][name]['params'] = deepcopy(params)
             state['nodes'][name]['default'] = params_default
 
+    def _disconnect_component(self, name: str, component: str, cname: str):
+        """
+        Disconnects all associated connects from self._state.
+        **DOES NOT** remove observation entries if they are disconnected.
+        **DOES NOT** remove action entries if they are disconnect and the last connection.
+        """
+        assert name in self._state['nodes'], 'Cannot delete "%s" as there is no node/object with that name in the graph.' % name
+        for source, target in deepcopy(self._state['connects']):
+            source_name, source_comp, source_cname = source
+            target_name, target_comp, target_cname = target
+            if source_name == 'env/actions':
+                action = source_cname
+                source = None
+            else:
+                action = None
+                source = source
+            if target_name == 'env/observations':
+                observation = target_cname
+                target = None
+            else:
+                observation = None
+                target = target
+            if name == source_name and component == source_comp and cname == source_cname:
+                self._disconnect(source, target, action, observation)
+            elif name == target_name and component == target_comp and cname == target_cname:
+                self._disconnect(source, target, action, observation)
+
     def _remove(self, names: Union[str, List[str]]):
         """
         First removes all associated connects from self._state.
         Then, removes node/object from self._state.
         **DOES NOT** remove observation entries if they are disconnected.
-        **DOES NOT** remvoe action entries if they are disconnect and the last connection.
+        **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
         if not isinstance(names, list):
             names = [names]
         for name in names:
             assert name in self._state['nodes'], 'Cannot delete "%s" as there is no node/object with that name in the graph.' % name
-            for idx, c in enumerate(deepcopy(self._state['connects'])):
-                source = c[0]
-                target = c[1]
+            for source, target in deepcopy(self._state['connects']):
                 if name in [source[0], target[0]]:
-                    self.disconnect(source, target)
+                    if source[0] == 'env/actions':
+                        action = source[2]
+                        source = None
+                    else:
+                        action = None
+                        source = source
+                    if target[0] == 'env/observations':
+                        observation = target[2]
+                        target = None
+                    else:
+                        observation = None
+                        target = target
+                    self._disconnect(source, target, action, observation)
             self._state['nodes'].pop(name)
 
     def remove(self, names: Union[str, List[str]]):
@@ -87,9 +125,7 @@ class RxGraph:
             names = [names]
         for name in names:
             assert name in self._state['nodes'], 'Cannot delete "%s" as there is no node/object with that name in the graph.' % name
-            for idx, c in enumerate(deepcopy(self._state['connects'])):
-                source = c[0]
-                target = c[1]
+            for source, target in deepcopy(self._state['connects']):
                 if name in [source[0], target[0]]:
                     if source[0] == 'env/actions':
                         action = source[2]
@@ -260,6 +296,9 @@ class RxGraph:
         after which an additional call to connect_action/observation is required before calling this method.
         For more info, see self.connect.
         """
+        if isinstance(converter, BaseConverter):
+            converter = converter.get_yaml_definition()
+
         if isinstance(source, tuple):
             source = list(source)
         if isinstance(target, tuple):
@@ -289,6 +328,7 @@ class RxGraph:
 
         # Add connection
         connect = [source, target]
+        RxGraph.check_msg_type(source, target, self._state)
         self._state['connects'].append(connect)
 
     def connect(self,
@@ -305,6 +345,9 @@ class RxGraph:
         assert not source or not action, 'You cannot specify a source if you wish to connect action "%s", as the action will act as the source.' % action
         assert not target or not observation, 'You cannot specify a target if you wish to connect observation "%s", as the observation will act as the target.' % observation
         assert not (observation and action), 'You cannot connect an action directly to an observation.'
+
+        if isinstance(converter, BaseConverter):
+            converter = converter.get_yaml_definition()
 
         # Add action/observation entry & connect it to target/source
         if action:
@@ -390,6 +433,110 @@ class RxGraph:
                 self._remove_action(action)
         if observation:
             self._remove_observation(observation)
+
+    def rename_component(self, name: str, component: str, old_cname: str, new_cname: str):
+        """
+        Renames the component name (cname) of an entity (node/object) in _state['nodes'] and self._state[connects].
+        Does not work for feedthroughs.
+        """
+        assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+
+        # For now, we only support changing action/observation names
+        assert name in ['env/observations', 'env/actions', 'env/render'], 'Cannot change "%s" of "%s". Only name changes to observations and actions are supported.' % (old_cname, name)
+
+        default = self._state['nodes'][name]['default']
+        params = self._state['nodes'][name]['params']
+
+        assert component in params, 'Component "%s" not present in "%s".' % (component, name)
+        assert old_cname in params[component], '"%s" not defined in "%s" under %s.' % (old_cname, name, component)
+        assert new_cname not in params[component], '"%s" already defined in "%s" under %s.' % (new_cname, name, component)
+
+        # Rename cname in params
+        # Does not work for outputs with feedthroughs. Then, both outputs and feedthroughs cnames must be changed.
+        for d in (params, default):
+            if component in d and old_cname in d[component]:
+                assert new_cname not in d[component], '"%s" already defined in "%s" under %s.' % (new_cname, name, component)
+                d[component][new_cname] = d[component].pop(old_cname)
+            if component in d['default'] and old_cname in d['default'][component]:
+                assert new_cname not in d['default'][component], '"%s" already defined in "%s" under %s.' % (new_cname, name, component)
+                d['default'][component].remove(old_cname)
+                d['default'][component].append(new_cname)
+
+        # Rename cname in all connects
+        for source, target in self._state['connects']:
+            source_name, source_comp, source_cname = source
+            target_name, target_comp, target_cname = target
+
+            if source_comp == component and source_cname == old_cname:
+                source[2] = new_cname
+            if target_comp == component and target_cname == old_cname:
+                target[2] = new_cname
+
+    def rename(self, old_name: str, new_name: str):
+        """
+        Renames the entity (node/object) in _state['nodes'] and self._state[connects]
+        """
+        assert old_name not in ['env/observations', 'env/actions', 'env/render'], 'Node name "%s" is fixed and cannot be changed.' % old_name
+        assert old_name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % old_name
+        assert new_name not in self._state['nodes'], 'There is already a node or object registered in this graph with name "%s".' % new_name
+
+        # Rename entity in params
+        self._state['nodes'][new_name] = self._state['nodes'].pop(old_name)
+        self._state['nodes'][new_name]['default']['default']['name'] = new_name
+        self._state['nodes'][new_name]['params']['default']['name'] = new_name
+
+        # Rename in all connects
+        for source, target in self._state['connects']:
+            source_name, source_comp, source_cname = source
+            target_name, target_comp, target_cname = target
+
+            if source_name == old_name:
+                source[0] = new_name
+            if target_name == old_name:
+                target[0] = new_name
+
+    def _replace_output_converter(self, name: str, component: str, cname: str, converter: Dict):
+        """
+        Replaces the output converter of the output/sensor of a node/object.
+        **DOES NOT** remove observation entries if they are disconnected.
+        **DOES NOT** remove action entries if they are disconnect and the last connection.
+        """
+        assert component in ['outputs', 'sensors'], 'Cannot add an output converter to %s. Can only add an output converter to sensors and outputs' % component
+        params = self._state['nodes'][name]['params']
+        assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+        assert component in params, 'Component "%s" not present in "%s".' % (component, name)
+        assert cname in params[component], '"%s" not defined in "%s" under %s.' % (cname, name, component)
+
+        # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
+        msg_type_out = get_cls_from_string(params[component][cname]['msg_type'])
+        converter_out = params[component][cname]['converter']
+        msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
+        msg_type_ros_new = get_opposite_msg_cls(msg_type_out, converter)
+        if not msg_type_ros_new == msg_type_ros:
+            self._disconnect_component(name, component, cname)
+
+        # Replace converter
+        params[component][cname]['converter'] = converter
+
+    def _reset_output_converter(self, name: str, component: str, cname: str):
+        """
+        Replaces the output converter of the output/sensor of a node/object with the output converter
+        defined in self._state[name]['default'].
+        **DOES NOT** remove observation entries if they are disconnected.
+        **DOES NOT** remove action entries if they are disconnect and the last connection.
+        """
+        assert component in ['outputs', 'sensors'], 'Cannot add an output converter to %s. Can only add an output converter to sensors and outputs' % component
+        default = self._state['nodes'][name]['default']
+        assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+        assert component in default, 'Component "%s" not present in "%s".' % (component, name)
+        assert cname in default[component], '"%s" not defined in "%s" under %s.' % (cname, name, component)
+        assert 'converter' in default[component][cname], 'No converter defined for "%s" in "%s" under %s.' % (cname, name, component)
+
+        # Grab output converter from the default params
+        converter_default = default[component][cname]['converter']
+
+        # Replace the output converter with the default converter
+        self._replace_output_converter(name, component, cname, converter_default)
 
     def register_graph(self):
         """
@@ -480,35 +627,40 @@ class RxGraph:
         return True
 
     @staticmethod
+    def check_msg_type(source, target, state):
+        source_name, source_comp, source_cname = source
+        source_params = state['nodes'][source_name]['params']
+        target_name, target_comp, target_cname = target
+        target_params = state['nodes'][target_name]['params']
+
+        # Convert the source msg_type to target msg_type with converters:
+        # msg_type_source --> output_converter --> msg_type_ROS --> input_converter --> msg_type_target
+        msg_type_out = get_cls_from_string(source_params[source_comp][source_cname]['msg_type'])
+        converter_out = source_params[source_comp][source_cname]['converter']
+        msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
+        converter_in = target_params[target_comp][target_cname]['converter']
+        msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
+
+        # Verify that this msg_type_in is the same as the msg_type specified in the target
+        if target_comp == 'feedthroughs':
+            msg_type_in_target = get_cls_from_string(target_params['outputs'][target_cname]['msg_type'])
+        else:
+            msg_type_in_target = get_cls_from_string(target_params[target_comp][target_cname]['msg_type'])
+
+        msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(
+            source + target)
+        msg_type_str += '>> msg_type_source:  %s (as specified in source)\n         ||\n         \/\n' % msg_type_out
+        msg_type_str += '>> output_converter: %s \n         ||\n         \/\n' % converter_out
+        msg_type_str += '>> msg_type_ROS:     %s \n         ||\n         \/\n' % msg_type_ros
+        msg_type_str += '>> input_converter:  %s \n         ||\n         \/\n' % converter_in
+        msg_type_str += '>> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n' % msg_type_in
+        msg_type_str += '>> msg_type_target:  %s (as specified in target)\n' % msg_type_in_target
+        assert msg_type_in == msg_type_in_target, msg_type_str
+
+    @staticmethod
     def check_msg_types(state):
         for source, target in state['connects']:
-            source_name, source_comp, source_cname = source
-            source_params = state['nodes'][source_name]['params']
-            target_name, target_comp, target_cname = target
-            target_params = state['nodes'][target_name]['params']
-
-            # Convert the source msg_type to target msg_type with converters:
-            # msg_type_source --> output_converter --> msg_type_ROS --> input_converter --> msg_type_target
-            msg_type_out = get_cls_from_string(source_params[source_comp][source_cname]['msg_type'])
-            converter_out = source_params[source_comp][source_cname]['converter']
-            msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
-            converter_in = target_params[target_comp][target_cname]['converter']
-            msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
-
-            # Verify that this msg_type_in is the same as the msg_type specified in the target
-            if target_comp == 'feedthroughs':
-                msg_type_in_target = get_cls_from_string(target_params['outputs'][target_cname]['msg_type'])
-            else:
-                msg_type_in_target = get_cls_from_string(target_params[target_comp][target_cname]['msg_type'])
-
-            msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(source + target)
-            msg_type_str += '>> msg_type_source:  %s (as specified in source)\n         ||\n         \/\n' % msg_type_out
-            msg_type_str += '>> output_converter: %s \n         ||\n         \/\n' % converter_out
-            msg_type_str += '>> msg_type_ROS:     %s \n         ||\n         \/\n' % msg_type_ros
-            msg_type_str += '>> input_converter:  %s \n         ||\n         \/\n' % converter_in
-            msg_type_str += '>> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n' % msg_type_in
-            msg_type_str += '>> msg_type_target:  %s (as specified in target)\n' % msg_type_in_target
-            assert msg_type_in == msg_type_in_target, msg_type_str
+            RxGraph.check_msg_type(source, target, state)
         return True
 
     @staticmethod
