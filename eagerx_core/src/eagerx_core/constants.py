@@ -69,24 +69,3 @@ class process:
     ENVIRONMENT = 1
     BRIDGE = 2
     EXTERNAL = 3
-
-<<<<<<< HEAD
-
-# RX TYPE
-class source_types:
-    # Source types
-    OUTPUT = 0
-    ACTION = 1
-    SENSOR = 2
-    STATE = 3
-
-
-class target_types:
-    # target types
-    INPUT = 0
-    ACTUATOR = 1
-    FEEDTHROUGH = 2
-    OBSERVATION = 3
-    TARGET = 3
-=======
->>>>>>> origin/master
