@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file './pyqtgraph/flowchart/FlowchartCtrlTemplate.ui'
-#
-# Created: Mon Dec 23 10:10:50 2013
-#      by: PyQt4 UI code generator 4.10
-#
-# WARNING! All changes made in this file will be lost!
-
 from PyQt4 import QtCore, QtGui
 
 try:
@@ -22,6 +13,7 @@ try:
 except AttributeError:
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig)
+
 
 class Ui_Form(object):
     def setupUi(self, Form):

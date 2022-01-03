@@ -1,23 +1,15 @@
-# -*- coding: utf-8 -*-
+from PySide import QtCore, QtGui
 
-# Form implementation generated from reading ui file 'FlowchartCtrlTemplate.ui'
-#
-# Created: Sun Sep 18 19:16:46 2016
-#      by: pyside2-uic  running on PySide2 2.0.0~alpha0
-#
-# WARNING! All changes made in this file will be lost!
-
-from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
         Form.resize(217, 499)
-        self.gridLayout = QtWidgets.QGridLayout(Form)
+        self.gridLayout = QtGui.QGridLayout(Form)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setVerticalSpacing(0)
         self.gridLayout.setObjectName("gridLayout")
-        self.loadBtn = QtWidgets.QPushButton(Form)
+        self.loadBtn = QtGui.QPushButton(Form)
         self.loadBtn.setObjectName("loadBtn")
         self.gridLayout.addWidget(self.loadBtn, 1, 0, 1, 1)
         self.saveBtn = FeedbackButton(Form)
@@ -31,7 +23,7 @@ class Ui_Form(object):
         # self.reloadBtn.setFlat(False)
         # self.reloadBtn.setObjectName("reloadBtn")
         # self.gridLayout.addWidget(self.reloadBtn, 4, 0, 1, 2)
-        self.showChartBtn = QtWidgets.QPushButton(Form)
+        self.showChartBtn = QtGui.QPushButton(Form)
         self.showChartBtn.setCheckable(True)
         self.showChartBtn.setObjectName("showChartBtn")
         self.gridLayout.addWidget(self.showChartBtn, 4, 0, 1, 4)
@@ -41,7 +33,7 @@ class Ui_Form(object):
         self.ctrlList.header().setVisible(False)
         self.ctrlList.header().setStretchLastSection(False)
         self.gridLayout.addWidget(self.ctrlList, 3, 0, 1, 4)
-        self.fileNameLabel = QtWidgets.QLabel(Form)
+        self.fileNameLabel = QtGui.QLabel(Form)
         font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
@@ -55,12 +47,12 @@ class Ui_Form(object):
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QtWidgets.QApplication.translate("Form", "Form", None, -1))
-        self.loadBtn.setText(QtWidgets.QApplication.translate("Form", "Load..", None, -1))
-        self.saveBtn.setText(QtWidgets.QApplication.translate("Form", "Save", None, -1))
-        self.saveAsBtn.setText(QtWidgets.QApplication.translate("Form", "As..", None, -1))
-        # self.reloadBtn.setText(QtWidgets.QApplication.translate("Form", "Reload Libs", None, -1))
-        self.showChartBtn.setText(QtWidgets.QApplication.translate("Form", "EAGERx Graph", None, -1))
+        Form.setWindowTitle(QtGui.QApplication.translate("Form", "PyQtGraph", None, QtGui.QApplication.UnicodeUTF8))
+        self.loadBtn.setText(QtGui.QApplication.translate("Form", "Load..", None, QtGui.QApplication.UnicodeUTF8))
+        self.saveBtn.setText(QtGui.QApplication.translate("Form", "Save", None, QtGui.QApplication.UnicodeUTF8))
+        self.saveAsBtn.setText(QtGui.QApplication.translate("Form", "As..", None, QtGui.QApplication.UnicodeUTF8))
+        # self.reloadBtn.setText(QtGui.QApplication.translate("Form", "Reload Libs", None, QtGui.QApplication.UnicodeUTF8))
+        self.showChartBtn.setText(QtGui.QApplication.translate("Form", "EAGERx Graph", None, QtGui.QApplication.UnicodeUTF8))
 
-from pyqtgraph.widgets.FeedbackButton import FeedbackButton
 from pyqtgraph.widgets.TreeWidget import TreeWidget
+from pyqtgraph.widgets.FeedbackButton import FeedbackButton

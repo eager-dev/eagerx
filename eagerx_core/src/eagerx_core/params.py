@@ -1,6 +1,8 @@
+from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type
 from typing import Dict
 from copy import deepcopy
-from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type
+import inspect
+from yaml import dump
 
 
 class Params(object):
@@ -17,8 +19,7 @@ class RxInput(Params):
                  address: str,
                  msg_type: str,
                  window: int = 0,
-                 msg_module: str = 'std_msgs.msg',
-                 converter: Dict = None,
+                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
                  is_reactive: bool = True,
                  rate: float = None,
                  space_converter: Dict = None,
@@ -60,8 +61,7 @@ class RxOutput(Params):
                  address: str,
                  msg_type: str,
                  rate: float,
-                 msg_module: str = 'std_msgs.msg',
-                 converter: Dict = None,
+                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
                  space_converter: Dict = None,
                  start_with_msg: bool = False
                  ):
@@ -94,8 +94,7 @@ class RxFeedthrough(Params):
                  msg_type: str,
                  feedthrough_to: str,
                  window: int = 1,
-                 msg_module: str = 'std_msgs.msg',
-                 converter: Dict = None,
+                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
                  is_reactive: bool = True,
                  space_converter: Dict = None,
                  delay: float = 0.0
@@ -128,8 +127,7 @@ class RxState(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 msg_module: str = 'std_msgs.msg',
-                 converter: Dict = None,
+                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
                  space_converter: Dict = None,
                  ):
         # Store parameters as properties in baseclass
@@ -161,8 +159,7 @@ class RxSimState(Params):
                  address: str,
                  state: Dict,
                  msg_type: str,
-                 msg_module: str = 'std_msgs.msg',
-                 converter: Dict = None,
+                 converter: Dict = {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'},
                  space_converter: Dict = None
                  ):
         # Store parameters as properties in baseclass
@@ -256,6 +253,12 @@ class RxNodeParams(Params):
             if key in ignored_yaml_args: continue
             assert value is not None, 'Missing argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (key, config_name, package_name)
 
+        # Add default arguments
+        for component in ['inputs', 'outputs', 'states', 'targets', 'feedthroughs']:
+            if component not in params: continue
+            for cname in params[component]:
+                add_default_args(params[component][cname], component)
+
         # Check reserved keywords
         assert [n not in name.split('/') for n in ['env', 'rate', 'bridge']], 'Node name "%s" not allowed. Names containing "%s" are reserved.' % (name, ['env', 'rate', 'bridge'])
         assert 'name' not in params['default'], 'Argument "name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
@@ -273,7 +276,8 @@ class RxNodeParams(Params):
         package_name = default['package_name']
         config_name = default['config_name']
         node_cls = get_cls_from_string(params['node_type'])
-        default['module'], default['node_type'] = params['node_type'].split('/')
+        default['node_type'] = params['node_type']
+
 
         # Process inputs
         inputs = []
@@ -282,12 +286,14 @@ class RxNodeParams(Params):
                 assert cname in params['inputs'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('input', cname, 'inputs', config_name, package_name)
                 assert 'targets' not in params or cname not in params['targets'], 'Input "%s" cannot have the same name as a selected target. Change either the input or target name under "%s" in "%s.yaml" inside ROS package "%s/config".' % (cname, 'inputs', config_name, package_name)
                 check_msg_type(name, 'inputs', cname, node_cls, params['inputs'][cname]['msg_type'])
-                params['inputs'][cname]['msg_module'], params['inputs'][cname]['msg_type'] = params['inputs'][cname]['msg_type'].split('/')
-                if 'rate' in params['inputs'][cname]:
-                    is_reactive = False
-                else:
-                    is_reactive = True
-                n = RxInput(name=cname, is_reactive=is_reactive, **params['inputs'][cname])
+                try:
+                    if params['inputs'][cname]['rate']:
+                        params['inputs'][cname]['is_reactive'] = False
+                    else:
+                        params['inputs'][cname]['is_reactive'] = True
+                except:
+                    pass
+                n = RxInput(name=cname, **params['inputs'][cname])
                 inputs.append(n)
 
         # Process outputs
@@ -296,7 +302,6 @@ class RxNodeParams(Params):
             for cname in default['outputs']:
                 assert cname in params['outputs'], ('Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('output', cname, 'outputs', config_name, package_name))
                 check_msg_type(name, 'outputs', cname, node_cls, params['outputs'][cname]['msg_type'])
-                params['outputs'][cname]['msg_module'], params['outputs'][cname]['msg_type'] = params['outputs'][cname]['msg_type'].split('/')
                 if in_object and 'sensors' in name.split('/'):  # If node is part of object, only use name of node (e.g. obj/sensors/out_1)
                     address = name
                 else:
@@ -309,7 +314,6 @@ class RxNodeParams(Params):
             for cname in default['states']:
                 assert cname in params['states'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('state', cname, 'states', config_name, package_name)
                 check_msg_type(name, 'states', cname, node_cls, params['states'][cname]['msg_type'])
-                params['states'][cname]['msg_module'], params['states'][cname]['msg_type'] = params['states'][cname]['msg_type'].split('/')
                 if 'address' in params['states'][cname]: # if 'env/supervisor', the state address is pre-defined (like an input)
                     assert not in_object, 'Cannot pre-specify a state address for state "%s" when you use the node inside an object.' % cname
                     n = RxState(name=cname, **params['states'][cname])
@@ -323,7 +327,6 @@ class RxNodeParams(Params):
             for cname in default['targets']:
                 assert cname in params['targets'], 'Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('target', cname, 'targets', config_name, package_name)
                 check_msg_type(name, 'targets', cname, node_cls, params['targets'][cname]['msg_type'])
-                params['targets'][cname]['msg_module'], params['targets'][cname]['msg_type'] = params['targets'][cname]['msg_type'].split('/')
                 n = RxState(name=cname, **params['targets'][cname])
                 targets.append(n)
 
@@ -332,13 +335,11 @@ class RxNodeParams(Params):
             for cname in default['outputs']:
                 # Add output details (msg_type, space_converter) to feedthroughs
                 assert cname in params['feedthroughs'], 'Feedthrough "%s" must directly correspond to a selected output. Check under "outputs" in "%s.yaml" inside ROS package "%s/config" for all outputs.' % (cname, config_name, package_name)
-                msg_module, msg_type = params['outputs'][cname]['msg_module'], params['outputs'][cname]['msg_type']
-                check_msg_type(name, 'outputs', cname, node_cls, msg_type, msg_module=msg_module)
+                msg_type = params['outputs'][cname]['msg_type']
+                check_msg_type(name, 'outputs', cname, node_cls, msg_type)
                 if 'space_converter' in params['outputs'][cname]:
-                    space_converter = params['outputs'][cname]['space_converter']
-                else:
-                    space_converter = None
-                n = RxFeedthrough(feedthrough_to=cname, msg_type=msg_type, msg_module=msg_module, space_converter=space_converter, **params['feedthroughs'][cname])
+                    params['feedthroughs'][cname]['space_converter'] = params['outputs'][cname]['space_converter']
+                n = RxFeedthrough(feedthrough_to=cname, msg_type=msg_type, **params['feedthroughs'][cname])
                 feedthroughs.append(n)
 
         # Calculate properties
@@ -395,6 +396,12 @@ class RxObjectParams(Params):
         for key, value in params['default'].items():
             if key in ignored_yaml_args: continue
             assert value is not None, 'Missing argument "%s". Check under "default" in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (key, config_name, package_name)
+
+        # Add default arguments
+        for component in ['sensors', 'actuators', 'states']:
+            if component not in params: continue
+            for cname in params[component]:
+                add_default_args(params[component][cname], component)
 
         # Check reserved keywords
         assert 'name' not in params['default'], 'Argument "name" is reserved. Modify name in "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (config_name, package_name)
@@ -502,7 +509,7 @@ class RxObjectParams(Params):
             args['name'], args['address'] = '%s/%s/%s' % (name, component, cname), '%s/%s/%s' % (name, component, cname)
             if 'space_converter' in p_env:
                 args['space_converter'] = p_env['space_converter']
-            args['msg_module'], args['msg_type'] = p_env['msg_type'].split('/')
+            args['msg_type'] = p_env['msg_type']
             s = RxSimState(**args)
             states.append(s)
 
@@ -536,3 +543,22 @@ class RxBridgeParams(RxNodeParams):
     @classmethod
     def create(cls, package_name: str, config_name: str, **kwargs):
         return RxNodeParams.create('bridge', package_name, config_name, **kwargs)
+
+
+init_fn = {'inputs': RxInput.__init__,
+           'outputs': RxOutput.__init__,
+           'feedthroughs': RxFeedthrough.__init__,
+           'states': RxState.__init__,
+           'targets': RxState.__init__,
+           'actuators': RxInput.__init__,
+           'sensors': RxOutput.__init__}
+
+
+def add_default_args(d, component):
+    fn = init_fn[component]
+    arg_spec = inspect.getfullargspec(fn)
+    default_values = arg_spec.defaults
+    default_keys = arg_spec.args[-len(default_values):]
+    for key, value in zip(default_keys, default_values):
+        if key not in d:
+            d[key] = value

@@ -6,6 +6,7 @@ from sensor_msgs.msg import Image
 
 # EAGERX
 from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
+from eagerx_core.rxgraph import RxGraph
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import load_yaml
 from eagerx_core.rxnode import RxNode
@@ -25,39 +26,22 @@ import logging
 
 class RxEnv(gym.Env):
     @staticmethod
-    def create_actions():
-        actions = RxNodeParams.create('env/actions', package_name='eagerx_core', config_name='actions')
-        return actions
-
-    @staticmethod
-    def create_observations():
-        observations = RxNodeParams.create('env/observations', 'eagerx_core', 'observations')
-        return observations
-
-    @staticmethod
     def create_supervisor():
         states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
         return states
 
-    @staticmethod
-    def create_render(rate=1, **kwargs):
-        render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=rate, **kwargs)
-        return render
-
     def __init__(self, name: str, rate: float,
-                 observations: RxNodeParams,
-                 actions: RxNodeParams,
-                 bridge: RxBridgeParams,
-                 nodes: List[RxNodeParams],
-                 objects: List[RxObjectParams],
-                 render_node: RxNodeParams = None) -> None:
+                 graph: RxGraph,
+                 bridge: RxBridgeParams) -> None:
         assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = '/' + name
         self.rate = rate
-        self.render_node = render_node
         self.initialized = False
         self._bridge_name = '%s/%s' % (bridge.params['default']['package_name'], bridge.params['default']['config_name'])  # bridge.name
+
+        # Register graph
+        nodes, objects, actions, observations, self.render_node = graph.register_graph()
 
         # Initialize supervisor node
         self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)
@@ -70,7 +54,7 @@ class RxEnv(gym.Env):
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
         # Register render node
-        if self.render_node: self.register_nodes(render_node)
+        if self.render_node: self.register_nodes(self.render_node)
 
         # Register nodes
         self.register_nodes(nodes)
@@ -84,17 +68,17 @@ class RxEnv(gym.Env):
 
         # Get all states from objects & nodes
         for i in [bridge] + nodes + objects:
-            if 'states' not in i.params['default']: continue
-            for cname in i.params['default']['states']:
+            if 'states' not in i.get_params['default']: continue
+            for cname in i.get_params['default']['states']:
                 name = '%s/%s' % (i.name, cname)
                 address = '%s/states/%s' % (i.name, cname)
-                msg_type = i.params['states'][cname]['msg_type']
-                space_converter = i.params['states'][cname]['space_converter']
+                msg_type = i.get_params['states'][cname]['msg_type']
+                space_converter = i.get_params['states'][cname]['space_converter']
 
-                assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                assert name not in supervisor.get_params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
 
-                supervisor.params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
-                supervisor.params['default']['states'].append(name)
+                supervisor.get_params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
+                supervisor.get_params['default']['states'].append(name)
 
             # Get states from simnodes. WARNING: can make environment non-agnostic.
             if isinstance(i, RxObjectParams):
@@ -114,11 +98,11 @@ class RxEnv(gym.Env):
                                     space_converter = node_yaml['states'][simnode_cname]['space_converter']
 
                                     rospy.logwarn('Adding state "%s" to simulation nodes can potentially make the environment for object "%s" non-agnostic. Check "%s.yaml" in package "%s" for more info.' % (name, i.name, config_name, package_name))
-                                    assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                                    assert name not in supervisor.get_params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
 
-                                    supervisor.params['states'][name] = dict(address=address, msg_type=msg_type,
-                                                                             converter=space_converter)
-                                    supervisor.params['default']['states'].append(name)
+                                    supervisor.get_params['states'][name] = dict(address=address, msg_type=msg_type,
+                                                                                 converter=space_converter)
+                                    supervisor.get_params['default']['states'].append(name)
 
         # Delete pre-existing parameters
         try:
@@ -139,7 +123,7 @@ class RxEnv(gym.Env):
         real_time_factor = bridge.params['default']['real_time_factor']
 
         # Create env node
-        supervisor.params['default']['rate'] = self.rate
+        supervisor.get_params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
         rx_supervisor = RxSupervisor('%s/%s' % (self.ns, supervisor.name), mb, is_reactive, real_time_factor)
@@ -341,12 +325,8 @@ class RxEnv(gym.Env):
 
 class EAGERxEnv(RxEnv):
     def __init__(self, name: str, rate: float,
-                 observations: RxNodeParams,
-                 actions: RxNodeParams,
+                 graph: RxGraph,
                  bridge: RxBridgeParams,
-                 nodes: List[RxNodeParams],
-                 objects: List[RxObjectParams],
-                 render: RxNodeParams = None,
                  reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
                  is_done_fn: Callable = lambda obs, action, steps: False,
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
@@ -355,7 +335,7 @@ class EAGERxEnv(RxEnv):
         self.reward_fn = reward_fn
         self.is_done_fn = is_done_fn
         self.reset_fn = reset_fn
-        super(EAGERxEnv, self).__init__(name, rate, observations, actions, bridge, nodes, objects, render)
+        super(EAGERxEnv, self).__init__(name, rate, graph, bridge)
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         # Send actions and wait for observations

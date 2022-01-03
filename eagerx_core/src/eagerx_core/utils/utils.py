@@ -21,7 +21,9 @@ from copy import deepcopy
 from eagerx_core import constants
 
 
-def get_attribute_from_module(module, attribute):
+def get_attribute_from_module(attribute, module=None):
+    if module is None:
+        module, attribute = attribute.split('/')
     module = importlib.import_module(module)
     attribute = getattr(module, attribute)
     return attribute
@@ -30,21 +32,21 @@ def get_attribute_from_module(module, attribute):
 def initialize_converter(args):
     converter_args = deepcopy(args)
     converter_args.pop('converter_type')
-    converter_cls = get_attribute_from_module(*args['converter_type'].split('/'))
+    converter_cls = get_attribute_from_module(args['converter_type'])
     return converter_cls(**converter_args)
 
 
 def initialize_state(args):
-    state_cls = get_attribute_from_module(*args['state_type'].split('/'))
+    state_cls = get_attribute_from_module(args['state_type'])
     del args['state_type']
     return state_cls(**args)
 
 
 def get_opposite_msg_cls(msg_type, converter_cls):
     if isinstance(msg_type, str):
-        msg_type = get_attribute_from_module(*msg_type.split('/'))
+        msg_type = get_attribute_from_module(msg_type)
     if isinstance(converter_cls, dict):
-        converter_cls = get_attribute_from_module(*converter_cls['converter_type'].split('/'))
+        converter_cls = get_attribute_from_module(converter_cls['converter_type'])
     return converter_cls.get_opposite_msg_type(converter_cls, msg_type)
 
 
@@ -54,7 +56,7 @@ def get_module_type_string(cls):
 
 
 def get_cls_from_string(cls_string):
-    return get_attribute_from_module(*cls_string.split('/'))
+    return get_attribute_from_module(cls_string)
 
 
 def merge_dicts(a, b):
@@ -199,7 +201,7 @@ def get_nodes_and_objects_library():
                 yaml_type = get_yaml_type(yaml)
                 if package not in library[yaml_type].keys():
                     library[yaml_type][package] = []
-                library[yaml_type][package].append({'name': config, 'yaml': yaml})
+                library[yaml_type][package].append({'name': config, 'default': yaml})
     return library
 
 

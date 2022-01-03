@@ -1,13 +1,5 @@
-# -*- coding: utf-8 -*-
+from PySide2 import QtCore, QtGui, QtWidgets
 
-# Form implementation generated from reading ui file './pyqtgraph/flowchart/FlowchartCtrlTemplate.ui'
-#
-# Created: Wed Mar 26 15:09:28 2014
-#      by: PyQt5 UI code generator 5.0.1
-#
-# WARNING! All changes made in this file will be lost!
-
-from PyQt5 import QtCore, QtGui, QtWidgets
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -43,8 +35,8 @@ class Ui_Form(object):
         self.gridLayout.addWidget(self.ctrlList, 3, 0, 1, 4)
         self.fileNameLabel = QtWidgets.QLabel(Form)
         font = QtGui.QFont()
-        font.setBold(True)
         font.setWeight(75)
+        font.setBold(True)
         self.fileNameLabel.setFont(font)
         self.fileNameLabel.setText("")
         self.fileNameLabel.setAlignment(QtCore.Qt.AlignCenter)
@@ -55,13 +47,12 @@ class Ui_Form(object):
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def retranslateUi(self, Form):
-        _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "PyQtGraph"))
-        self.loadBtn.setText(_translate("Form", "Load.."))
-        self.saveBtn.setText(_translate("Form", "Save"))
-        self.saveAsBtn.setText(_translate("Form", "As.."))
-        # self.reloadBtn.setText(_translate("Form", "Reload Libs"))
-        self.showChartBtn.setText(_translate("Form", "EAGERx Graph"))
+        Form.setWindowTitle(QtWidgets.QApplication.translate("Form", "Form", None, -1))
+        self.loadBtn.setText(QtWidgets.QApplication.translate("Form", "Load..", None, -1))
+        self.saveBtn.setText(QtWidgets.QApplication.translate("Form", "Save", None, -1))
+        self.saveAsBtn.setText(QtWidgets.QApplication.translate("Form", "As..", None, -1))
+        # self.reloadBtn.setText(QtWidgets.QApplication.translate("Form", "Reload Libs", None, -1))
+        self.showChartBtn.setText(QtWidgets.QApplication.translate("Form", "EAGERx Graph", None, -1))
 
 from pyqtgraph.widgets.FeedbackButton import FeedbackButton
 from pyqtgraph.widgets.TreeWidget import TreeWidget

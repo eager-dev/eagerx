@@ -55,36 +55,31 @@ class RxBridge(object):
         rate = params['rate']
 
         # Get node
-        node_cls = get_attribute_from_module(params['module'], params['node_type'])
+        node_cls = get_attribute_from_module(params['node_type'])
         node = node_cls(ns=self.ns, message_broker=self.mb, **params)
 
         # Prepare input topics
         for i in params['inputs']:
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i and isinstance(i['converter'], dict):
-                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
+            i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
+            if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            elif 'converter' not in i:
-                i['converter'] = IdentityConverter()
             # else:  # Converter already initialized
 
         # Prepare output topics
         for i in params['outputs']:
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i and isinstance(i['converter'], dict):
-                i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
+            i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
+            if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            elif 'converter' not in i:
-                i['converter'] = IdentityConverter()
             # else:  # Converter already initialized
 
         # Prepare state topics
         for i in params['states']:
-            i['msg_type'] = get_attribute_from_module(i['msg_module'], i['msg_type'])
-            if 'converter' in i and isinstance(i['converter'], dict):
+            i['msg_type'] = get_attribute_from_module(i['msg_type'])
+            i['msg_type'] = get_opposite_msg_cls(i['msg_type'], i['converter'])
+            if isinstance(i['converter'], dict):
                 i['converter'] = initialize_converter(i['converter'])
-            elif 'converter' not in i:
-                i['converter'] = IdentityConverter()
             # else:  # Converter already initialized
 
         return rate, params['inputs'], tuple(params['outputs']), tuple(params['states']), node_names, target_addresses, node
