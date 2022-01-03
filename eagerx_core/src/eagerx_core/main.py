@@ -2,7 +2,6 @@
 import rospy
 from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
-from eagerx_core.utils.connection_utils import register_connections
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 
@@ -18,9 +17,9 @@ if __name__ == '__main__':
     StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
 
     # Process configuration (optional)
-    rate = 7
     node_p = process.ENVIRONMENT
     bridge_p = process.ENVIRONMENT
+    rate = 7
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
@@ -36,7 +35,7 @@ if __name__ == '__main__':
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
     graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_2', delay=0.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=9999.9)
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)
     graph.connect(action='act_1',                           target=(KF.name, 'inputs', 'in_2'))
     graph.connect(action='act_1',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
@@ -114,18 +113,8 @@ if __name__ == '__main__':
     # todo: CONVERTERS
     #  - Initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
     #  - Create a .yaml interface for converters, similar to objects & nodes
-    #  - Create a converter baseclass for processor converters that map to the same datatype
-    #     --> assert in regular converter that msg_types are not equal
-    #     --> Implement same functions for processor class as for converters
-
-    # todo: IMPROVE CONFIGURE CONNECTIONS
-    # todo: get msg_type from python implementation? --> Avoid differences between .yaml and .py --> Or create a check when creating such a node?
-    # todo: msg_type check on msg_type inside object.yaml and simnode.yaml (possibly with an input/output converter in-between)
 
     # todo: OTHER
-    # todo: Change "done" msg_type from UInt64 to Bool.
-    # todo: OpenAI gym bridge + Wrapper that excludes is_done & reward from observations --> Sum received rewards.
-    # todo: Improve load_yaml(..) --> loop through all files (also inside subdirectories) in config dir --> Error on duplicate .yaml file names.
     # todo: Separate test bridges into a ROS package outside of eagerx_core
 
     # todo: REACTIVE PROTOCOL
@@ -133,9 +122,10 @@ if __name__ == '__main__':
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: Get msg_type from python implementation to avoid differences between .yaml and .py
     # todo: Change 'default' to 'config' after yaml has been loaded.
     # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.
-    # todo: Create a general OpenAI bridge
+    # todo: Create a general OpenAI bridge + wrapper that excludes is_done & reward from observations --> sum received rewards.
     # todo: Implement display functionality inside the render node.
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write? NamedTuples are immutable (but their elements probably aren't)

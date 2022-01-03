@@ -70,6 +70,7 @@ class process:
     BRIDGE = 2
     EXTERNAL = 3
 
+<<<<<<< HEAD
 
 # RX TYPE
 class source_types:
@@ -87,3 +88,5 @@ class target_types:
     FEEDTHROUGH = 2
     OBSERVATION = 3
     TARGET = 3
+=======
+>>>>>>> origin/master

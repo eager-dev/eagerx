@@ -101,9 +101,9 @@ class SupervisorNode(NodeBase):
         msgs = dict()
         for name, buffer in self.state_buffer.items():
             if buffer['msg'] is None:
-                msgs[name + '/done'] = UInt64(data=1)
+                msgs[name + '/done'] = Bool(data=True)
             else:
-                msgs[name + '/done'] = UInt64(data=0)
+                msgs[name + '/done'] = Bool(data=False)
                 msgs[name] = buffer['msg']
                 buffer['msg'] = None  # After sending state, set msg to None
         return msgs

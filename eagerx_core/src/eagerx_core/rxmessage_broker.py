@@ -1,6 +1,6 @@
 # IMPORT ROS
 import rospy
-from std_msgs.msg import UInt64
+from std_msgs.msg import UInt64, Bool
 
 # IMPORT OTHER
 from termcolor import cprint
@@ -104,7 +104,7 @@ class RxMessageBroker(object):
                 n['state_inputs'][address + '/set'] = {'rx': i['msg'], 'disposable': None, 'source': i, 'msg_type': i['msg_type'], 'converter': i['converter'], 'status': 'disconnected'}
             if address + '/done' not in n['state_outputs'].keys():  # Only true if **not** a real reset node (i.e., sim state & bridge done flag)
                 assert address + '/done' not in self.node_io[node_name]['state_inputs'], 'Cannot re-register the same address (%s) twice as "%s".' % (address + '/done', 'state_inputs')
-                n['state_inputs'][address + '/done'] = {'rx': i['done'], 'disposable': None, 'source': i, 'msg_type': UInt64, 'status': 'disconnected'}
+                n['state_inputs'][address + '/done'] = {'rx': i['done'], 'disposable': None, 'source': i, 'msg_type': Bool, 'status': 'disconnected'}
         for i in targets:
             address = i['address']
             assert address not in self.node_io[node_name]['targets'], 'Cannot re-register the same address (%s) twice as "%s".' % (address, 'targets')

@@ -186,7 +186,7 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
         i['done'] = D
 
         # Initialize done flag for desired state
-        done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=UInt64, msg=D)
+        done_output = dict(name=i['name'], address=i['address'] + '/done', msg_type=Bool, msg=D)
         state_outputs.append(done_output)
 
     # Prepare initial flags
@@ -440,7 +440,7 @@ def init_bridge(ns, rate_node, node, inputs_init, outputs, state_inputs, node_na
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
-    # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will deadlock then.
+    # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will cause a deadlock in that case.
     rx_objects = SR.pipe(ops.with_latest_from(REG_cum),
                          ops.combine_latest(rx_objects),
                          ops.filter(lambda x: x[0][1] == x[1][1]),
@@ -576,7 +576,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     for s in state_outputs:
         # Prepare done flag
         s['done'] = Subject()
-        done_outputs.append(dict(name=s['name'], address=s['address'] + '/done', msg_type=UInt64, msg=s['done']))
+        done_outputs.append(dict(name=s['name'], address=s['address'] + '/done', msg_type=Bool, msg=s['done']))
 
         # Prepare state message (IMPORTANT: after done flag, we modify address afterwards)
         s['msg'] = Subject()

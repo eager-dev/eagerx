@@ -8,6 +8,10 @@ from gym.spaces import Box
 
 
 class BaseConverter(object):
+    """
+    Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the
+    static attributes "MSG_TYPE_A" and "MSG_TYPE_B", such that the correct conversion method can be inferred.
+    """
     __metaclass__ = abc.ABCMeta
 
     @staticmethod
@@ -41,12 +45,17 @@ class BaseConverter(object):
 
 
 class SpaceConverter(BaseConverter):
+    """
+    Inherit your converter from this baseclass if the converter is used for actions/observations/states,
+    such that the space can be inferred. See BaseConverter for other abstract methods that must be implemented.
+    """
     @abc.abstractmethod
     def get_space(self):
         pass
 
 
 class IdentityConverter(object):
+    """ The Identity converter that mimics the API of any other converter but simply passes through all messages."""
     @staticmethod
     def get_opposite_msg_type(cls, msg_type):
         return msg_type
@@ -54,6 +63,30 @@ class IdentityConverter(object):
     def convert(self, msg):
         return msg
 
+
+class BaseProcessor(object):
+    """
+    Use this processor if the converted msg type is one-way and the msg_type after conversion is equal to
+    the msg_type before conversion. In addition, make sure to specify the static attribute "MSG_TYPE".
+    """
+    __metaclass__ = abc.ABCMeta
+
+    @staticmethod
+    def get_opposite_msg_type(cls, msg_type):
+        if msg_type == cls.MSG_TYPE:
+            return cls.MSG_TYPE
+        else:
+            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(msg_type, cls.MSG_TYPE))
+
+    def convert(self, msg):
+        if isinstance(msg, self.MSG_TYPE):
+            return self._convert(msg)
+        else:
+            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(type(msg), self.MSG_TYPE))
+
+    @abc.abstractmethod
+    def _convert(self, msg):
+        pass
 
 ###########################################################################
 # Specific implementations ################################################

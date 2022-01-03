@@ -8,8 +8,7 @@ from roslaunch.substitution_args import _collect_args
 from std_msgs.msg import Bool
 
 # OTHER
-from typing import List, NamedTuple, Any, get_type_hints, Optional, Dict, Union
-import os
+from typing import List, NamedTuple, Any, Optional, Dict, Union
 import time
 import importlib
 import inspect
@@ -18,8 +17,9 @@ from functools import reduce
 from time import sleep
 from six import raise_from
 from copy import deepcopy
-from eagerx_core import constants
+import os
 
+from eagerx_core import constants
 
 def get_attribute_from_module(attribute, module=None):
     if module is None:
@@ -83,13 +83,37 @@ def merge(a, b, path=None):
     return a
 
 
+def get_list_of_files(dirName):
+    # create a list of file and sub directories
+    # names in the given directory
+    list_of_file = os.listdir(dirName)
+    all_files = list()
+    # Iterate over all the entries
+    for entry in list_of_file:
+        # Create full path
+        fullPath = os.path.join(dirName, entry)
+        # If entry is a directory then get the list of files in this directory
+        if os.path.isdir(fullPath):
+            all_files = all_files + get_list_of_files(fullPath)
+        else:
+            all_files.append(fullPath)
+
+    return all_files
+
+
 def load_yaml(package_name, object_name):
     try:
         pp = rospkg.RosPack().get_path(package_name)
-        filename = pp + "/config/" + object_name + ".yaml"
-        params = rosparam.load_file(filename)[0][0]
+        all_files = get_list_of_files(pp + '/config')
+        all_filenames = dict()
+        for path in all_files:
+            filename = path.split('/')[-1]
+            assert filename not in all_filenames or object_name + '.yaml' != filename, 'Config file "%s" exists multiple times in "%s" and its subdirectories. ' % (filename, pp + '/config')
+            all_filenames[filename] = path
+        config_filename = all_filenames[object_name + '.yaml']
+        params = rosparam.load_file(config_filename)[0][0]
     except Exception as ex:
-        raise_from(RuntimeError(('Unable to load %s from package %s' % (object_name, package_name))), ex)
+        raise_from(RuntimeError(('Unable to load %s from package %s/config' % (object_name, package_name))), ex)
     return params
 
 
@@ -223,11 +247,8 @@ def return_typehint(msg_type, done=True):
         return Optional[Dict[str, msg_type]]
 
 
-def check_msg_type(name, component, cname, node_cls, msg_type, msg_module=None):
-    if msg_module:  # the case for feedthroughs
-        msg_type_yaml = get_cls_from_string('%s/%s' % (msg_module, msg_type))
-    else:
-        msg_type_yaml = get_cls_from_string(msg_type)
+def check_msg_type(name, component, cname, node_cls, msg_type):
+    msg_type_yaml = get_cls_from_string(msg_type)
     try:
         msg_type_py = node_cls.get_msg_type(node_cls, component, cname)
         node_str = get_module_type_string(node_cls)
