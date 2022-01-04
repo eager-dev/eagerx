@@ -142,6 +142,49 @@ class RxGraph:
                     self.disconnect(source, target, action, observation)
             self._state['nodes'].pop(name)
 
+    def _add_component(self, name: str, component: str, cname: str):
+        """
+        adds a component entry to the selection list.
+        For feedthroughs, it will remove the corresponding output from the selection list.
+        """
+        assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+
+        params = self._state['nodes'][name]['params']
+
+        # For feedthroughs, add the corresponding output instead
+        component = 'outputs' if component == 'feedthroughs' else component
+
+        # Check that cname exists, and is not already selected
+        assert component in params, 'Component "%s" not present in "%s".' % (component, name)
+        assert cname in params[component], '"%s" not defined in "%s" under %s.' % (cname, name, component)
+        assert cname not in params['default'][component], '"%s" already selected in "%s" under %s.' % (cname, name, component)
+
+        # Add cname to selection list
+        params['default'][component].append(cname)
+
+    def _remove_component(self, name: str, component: str, cname: str):
+        """
+        Removes a component entry from the selection list. It will first disconnect all connections in connect.
+        For feedthroughs, it will remove the corresponding output from the selection list.
+        """
+        assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+
+        params = self._state['nodes'][name]['params']
+
+        # For feedthroughs, remove the corresponding output instead
+        component = 'outputs' if component == 'feedthroughs' else component
+
+        # Check that cname exists, and is not already selected
+        assert component in params, 'Component "%s" not present in "%s".' % (component, name)
+        assert cname in params[component], '"%s" not defined in "%s" under %s.' % (cname, name, component)
+        assert cname in params['default'][component], '"%s" not selected in "%s" under %s.' % (cname, name, component)
+
+        # Disconnect component entry
+        self._disconnect_component(name, component, cname)
+
+        # Remove cname from selection list
+        params['default'][component].remove(cname)
+
     def _add_action(self, action: str):
         """
         Adds disconnected action entry to 'env/actions' node in self._state.
@@ -149,8 +192,8 @@ class RxGraph:
         assert action != 'set', 'Cannot define an action with the reserved name "set".'
         params_action = self._state['nodes']['env/actions']['params']
         if action not in params_action['outputs']:  # Action already registered
-            params_action['default']['outputs'].append(action)
             params_action['outputs'][action] = dict()
+            self._add_component('env/actions', 'outputs', action)
 
     def _add_observation(self, observation: str):
         """
@@ -161,8 +204,8 @@ class RxGraph:
         if observation in params_obs['inputs']:
             assert len(params_obs['inputs'][observation]) == 0, 'Observation "%s" already exists and is connected.' % observation
         else:
-            params_obs['default']['inputs'].append(observation)
             params_obs['inputs'][observation] = dict()
+            self._add_component('env/observations', 'inputs', observation)
 
     def _connect_action(self, action, target, converter=None):
         """
@@ -264,8 +307,8 @@ class RxGraph:
         assert not connect_exists, 'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.' % (action, target)
         assert action in params_action['outputs'], 'Action "%s" cannot be removed, because it does not exist.' % action
 
+        self._remove_component('env/actions', 'outputs', action)
         params_action['outputs'].pop(action)
-        params_action['default']['outputs'] = [cname for cname in params_action['default']['outputs'] if cname is not action]
 
     def _remove_observation(self, observation: str):
         """
@@ -282,8 +325,8 @@ class RxGraph:
         assert not connect_exists, 'Observation entry "%s" cannot be removed, because it is not disconnected. Connection with source %s still exists.' % (observation, source)
         assert observation in params_obs['inputs'], 'Observation "%s" cannot be removed, because it does not exist.' % observation
 
+        self._remove_component('env/observations', 'inputs', observation)
         params_obs['inputs'].pop(observation)
-        params_obs['default']['inputs'] = [cname for cname in params_obs['default']['inputs'] if cname is not observation]
 
     def _connect(self,
                 source: Optional[Tuple[str, str, str]] = None,
@@ -441,8 +484,8 @@ class RxGraph:
         """
         assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
 
-        # For now, we only support changing action/observation names
-        assert name in ['env/observations', 'env/actions', 'env/render'], 'Cannot change "%s" of "%s". Only name changes to observations and actions are supported.' % (old_cname, name)
+        # For now, we only support changing action/observation cnames
+        assert name in ['env/observations', 'env/actions'], 'Cannot change "%s" of "%s". Only name changes to observations and actions are supported.' % (old_cname, name)
 
         default = self._state['nodes'][name]['default']
         params = self._state['nodes'][name]['params']
@@ -495,48 +538,45 @@ class RxGraph:
             if target_name == old_name:
                 target[0] = new_name
 
-    def _replace_output_converter(self, name: str, component: str, cname: str, converter: Dict):
+    def _replace_converter(self, name: str, component: str, cname: str, converter: Dict):
         """
-        Replaces the output converter of the output/sensor of a node/object.
+        Replaces the converter specified for a node's/object's I/O.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
-        assert component in ['outputs', 'sensors'], 'Cannot add an output converter to %s. Can only add an output converter to sensors and outputs' % component
         params = self._state['nodes'][name]['params']
         assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
         assert component in params, 'Component "%s" not present in "%s".' % (component, name)
         assert cname in params[component], '"%s" not defined in "%s" under %s.' % (cname, name, component)
 
         # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
-        msg_type_out = get_cls_from_string(params[component][cname]['msg_type'])
-        converter_out = params[component][cname]['converter']
-        msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
-        msg_type_ros_new = get_opposite_msg_cls(msg_type_out, converter)
-        if not msg_type_ros_new == msg_type_ros:
+        msg_type = get_cls_from_string(params[component][cname]['msg_type'])
+        converter_old = params[component][cname]['converter']
+        msg_type_ros_old = get_opposite_msg_cls(msg_type, converter_old)
+        msg_type_ros_new = get_opposite_msg_cls(msg_type, converter)
+        if not msg_type_ros_new == msg_type_ros_old:
             self._disconnect_component(name, component, cname)
 
         # Replace converter
         params[component][cname]['converter'] = converter
 
-    def _reset_output_converter(self, name: str, component: str, cname: str):
+    def _reset_converter(self, name: str, component: str, cname: str):
         """
-        Replaces the output converter of the output/sensor of a node/object with the output converter
-        defined in self._state[name]['default'].
+        Replaces the converter specified for a node's/object's I/O defined in self._state[name]['default'].
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
-        assert component in ['outputs', 'sensors'], 'Cannot add an output converter to %s. Can only add an output converter to sensors and outputs' % component
         default = self._state['nodes'][name]['default']
         assert name in self._state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
         assert component in default, 'Component "%s" not present in "%s".' % (component, name)
         assert cname in default[component], '"%s" not defined in "%s" under %s.' % (cname, name, component)
         assert 'converter' in default[component][cname], 'No converter defined for "%s" in "%s" under %s.' % (cname, name, component)
 
-        # Grab output converter from the default params
+        # Grab converter from the default params
         converter_default = default[component][cname]['converter']
 
-        # Replace the output converter with the default converter
-        self._replace_output_converter(name, component, cname, converter_default)
+        # Replace the converter with the default converter
+        self._replace_converter(name, component, cname, converter_default)
 
     def register_graph(self):
         """
@@ -544,6 +584,9 @@ class RxGraph:
         Validate the graph.
         Create params that can be uploaded to the ROS param server.
         """
+        # Check if valid graph.
+        assert self.is_valid(self._state), 'Graph not valid.'
+
         # Add addresses based on connections
         state = deepcopy(self._state)
         for source, target in state['connects']:
@@ -619,11 +662,12 @@ class RxGraph:
 
     @staticmethod
     def is_valid(state):
+        state = deepcopy(state)
         # todo: create individual checks for:
-        #  - DAG (with/without reset node)
         #  - check compatibility with bridges together with which objects are supported where (tabulate?)
-        RxGraph.check_msg_types(state)
-        RxGraph.check_all_connected(state)
+        RxGraph.check_msg_types_are_consistent(state)
+        RxGraph.check_inputs_have_address(state)
+        RxGraph.check_graph_is_direct_acyclic(state)
         return True
 
     @staticmethod
@@ -658,13 +702,20 @@ class RxGraph:
         assert msg_type_in == msg_type_in_target, msg_type_str
 
     @staticmethod
-    def check_msg_types(state):
+    def check_msg_types_are_consistent(state):
         for source, target in state['connects']:
             RxGraph.check_msg_type(source, target, state)
         return True
 
     @staticmethod
-    def check_all_connected(state):
+    def check_inputs_have_address(state):
+        state = deepcopy(state)
+        for source, target in state['connects']:
+            source_name, source_comp, source_cname = source
+            target_name, target_comp, target_cname = target
+            address = '%s/%s/%s' % (source_name, source_comp, source_cname)
+            state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
+
         for name, entry in state['nodes'].items():
             params = entry['params']
             if 'node_type' in params:
@@ -683,4 +734,16 @@ class RxGraph:
                         assert cname in params[component], '"%s" was selected in %s of "%s", but has no (agnostic) implementation.' % (cname, component, name)
                         if component not in ['actuators']: continue
                         assert 'address' in params[component][cname], '"%s" was selected in %s of "%s", but no address was specified. Either deselect it, or connect it.' % (cname, component, name)
+        return True
+
+    @staticmethod
+    def check_graph_is_direct_acyclic(state):
+        # todo: DAG (with/without reset node)
+        #  - (without) object actuators must (indirectly) depend on environment actions
+        #  - (with) object actuators may *not* (indirectly) depend on environment actions
+        #  - view "start_with_msg" connections as disconnected in DAG graph.
+        #  - do count "start_with_msg" connections as a valid connection > 0 in DAG graph
+        #  - cannot have (algebraic) loops --> nodes without object (actuator/sensor) dependency
+        #  - assume sensors --> actuators within objects to be dag and closed.
+        #  - (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
         return True

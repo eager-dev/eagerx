@@ -231,5 +231,8 @@ def check_valid_rosparam_type(param):
             for key, value in param.items():
                 assert isinstance(key, str), 'Only keys of type "str" are supported in dictionaries that are uploaded to the rosparam server.'
                 check_valid_rosparam_type(value)
+        if isinstance(param, list):
+            for value in param:
+                check_valid_rosparam_type(value)
     else:
         raise ValueError('Type "%s" of a specified param with value "%s" is not supported by the rosparam server.' % (type(param), param.__name__))
