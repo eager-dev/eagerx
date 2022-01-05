@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 import yaml
+import inspect
+from functools import partial
+
 from pyqtgraph.Qt import QtCore, QtGui
-import weakref
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph import functions as fn
 from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Point import Point
+
 from eagerx_core import constants
-from functools import partial
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string
+from eagerx_core.utils.pyqtgraph_utils import exception_handler
 
 
 class RxGuiTerminal(object):
@@ -16,11 +19,10 @@ class RxGuiTerminal(object):
         self.node = node
         self.name = name
         self.pos = pos
-
         self.optional = False
         self.connections = {}
-
         self.node_type = node.node_type
+
         name_split = name.split('/')
         self.terminal_type = name_split[0]
         self.terminal_name = name_split[-1]
@@ -37,12 +39,6 @@ class RxGuiTerminal(object):
         self.is_connectable = not (self.terminal_type == 'states' and not node.is_object)
         self.params = self.get_params()
 
-        # Get msg type in order to check validity of connections
-        if 'msg_type' in self.params:
-            self.msg_type = self.params['msg_type']
-        else:
-            self.msg_type = None
-
         self._graphicsItem = TerminalGraphicsItem(self, parent=self.node.graphics_item())
         self.recolor()
 
@@ -52,41 +48,20 @@ class RxGuiTerminal(object):
     def connected(self, term):
         """Called whenever this terminal has been connected to another.
         (note--this function is called on both terminals)"""
-        # if self.is_input() and term.is_output():
-        #     self.input_changed(term)
         self.node.connected(self, term)
 
     def disconnected(self, term):
         """Called whenever this terminal has been disconnected from another.
         (note--this function is called on both terminals)"""
-        # if self.is_input():
-        #     self.set_value(None)
-        if self.node.node_type in ['actions', 'observations']:
-            self.msg_type = None
-            self.params['converter'] = None
         self.node.disconnected(self, term)
 
     def get_params(self):
         params = {}
         node_params = self.node.params
-        if self.terminal_type in node_params:
-            if self.terminal_name in node_params[self.terminal_type]:
-                if self.is_feedthrough:
-                    params = node_params['outputs'][self.terminal_name]
-                else:
-                    params = node_params[self.terminal_type][self.terminal_name]
+        if self.terminal_type in node_params and self.terminal_name in node_params[self.terminal_type]:
+            params = node_params['outputs'][self.terminal_name] if self.is_feedthrough else \
+                node_params[self.terminal_type][self.terminal_name]
         return params
-
-    def connection_msg_type(self):
-        if self.msg_type is None:
-            connection_msg_type = None
-        else:
-            if 'converter' in self.params and self.params['converter'] is not None:
-                msg_type = get_opposite_msg_cls(self.msg_type, self.params['converter'])
-            else:
-                msg_type = get_cls_from_string(self.msg_type)
-            connection_msg_type = get_module_type_string(msg_type)
-        return connection_msg_type
 
     def is_connected(self):
         return len(self.connections) > 0
@@ -111,49 +86,33 @@ class RxGuiTerminal(object):
         """Return the list of nodes which receive input from this terminal."""
         return set([t.node for t in self.connections if t.is_input])
 
-    def connect_to(self, term, connection_item=None):
-        try:
-            if self.connected_to(term):
-                raise Exception('Already connected')
-            if term is self:
-                raise Exception('Not connecting terminal to self')
-            if term.node is self.node:
-                raise Exception("Can't connect to terminal on same node.")
-            if not term.is_state == self.is_state:
-                raise Exception("Cannot connect different input/output types.")
-            if term.is_input == self.is_input:
-                raise Exception("Cannot connect input with input or output with output.")
-            for t in [self, term]:
-                if t.is_input and len(t.connections) > 0:
-                    raise Exception("Cannot connect %s <-> %s: Terminal %s is already connected to %s" % (
-                        self, term, t, list(t.connections.keys())))
-            if self.is_input:
-                source = None
-                target = None
-                action = None
-                observation = None
-                if self.node_type == 'actions':
-                    action = self.terminal_name
-                else:
-                    source = self.connection_tuple()
-                if term.node_type == 'observations':
-                    observation = term.terminal_name
-                else:
-                    target = term.connection_tuple()
-                self.node.graph.connect(source=source, target=target, action=action, observation=observation)
-        except Exception:
-            if connection_item is not None:
-                connection_item.close()
-            raise
+    @exception_handler
+    def connect_to(self, term, connection_item):
+        assert not self.connected_to(term), 'Already connected'
+        assert term is not self, 'Not connecting terminal to self'
+        assert term.node is not self.node, "Can't connect to terminal on same node."
+        assert term.is_state == self.is_state, "Cannot connect different input/output types."
+        assert not term.is_input == self.is_input, "Cannot connect input with input or output with output."
+        for t in [self, term]:
+            assert not (t.is_input and t.is_connected()), \
+                "Cannot connect %s <-> %s: Terminal %s is already connected to %s" % (
+                    self, term, t, list(t.connections.keys()))
 
-        if connection_item is None:
-            connection_item = ConnectionItem(self.graphics_item(), term.graphics_item())
-            self.graphics_item().getViewBox().addItem(connection_item)
+        input_term, output_term = (self, term) if self.is_input else (term, self)
+
+        if output_term.node_type == 'actions':
+            self.node.graph._connect_action(action=output_term.terminal_name, target=input_term.connection_tuple())
+        if input_term.node_type == 'observations':
+            converter = self.node.graph._connect_observation(source=output_term.connection_tuple(),
+                                                             observation=input_term.terminal_name, converter=None)
+            connection_params = connection_item.open_connection_dialog(converter=converter)
+        else:
+            connection_params = connection_item.open_connection_dialog()
+        self.node.graph._connect(source=output_term.connection_tuple(), target=input_term.connection_tuple(),
+                                 **connection_params)
 
         self.connections[term] = connection_item
         term.connections[self] = connection_item
-
-        self.recolor()
 
         self.connected(term)
         term.connected(self)
@@ -167,8 +126,6 @@ class RxGuiTerminal(object):
         item.close()
         del self.connections[term]
         del term.connections[self]
-        self.recolor()
-        term.recolor()
 
         self.disconnected(term)
         term.disconnected(self)
@@ -283,7 +240,6 @@ class TerminalGraphicsItem(GraphicsObject):
             widget = SpinBox(value=value)
             widget.sigValueChanged.connect(partial(self.value_changed, key=key))
         elif key == 'msg_type':
-            value = self.term.connection_msg_type()
             widget = QtGui.QLineEdit(str(value))
             widget.setEnabled(False)
         elif key == 'space_converter':
@@ -318,8 +274,7 @@ class TerminalGraphicsItem(GraphicsObject):
                     self.term.disconnect_all()
             else:
                 self.term.disconnect_all()
-        if not key == 'msg_type':
-            self.term.params[key] = yaml.safe_load(str(text))
+        self.term.params[key] = yaml.safe_load(str(text))
 
     def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.label, ev)
@@ -346,6 +301,13 @@ class TerminalGraphicsItem(GraphicsObject):
         self.box.setBrush(brush)
 
     def disconnect(self, target):
+        input_term, output_term = (self.term, target.term) if self.term.is_input else (target.term, self.term)
+        if output_term.node_type == 'actions':
+            self.term.node.graph.disconnect(action=output_term.terminal_name, target=input_term.connection_tuple())
+        elif input_term.node_type == 'observations':
+            self.term.node.graph.disconnect(source=output_term.connection_tuple(), observation=input_term.terminal_name)
+        else:
+            self.term.node.graph._disconnect(source=output_term.connection_tuple(), target=input_term.connection_tuple())
         self.term.disconnect_from(target.term)
 
     def boundingRect(self):
@@ -433,10 +395,10 @@ class TerminalGraphicsItem(GraphicsObject):
                     if isinstance(i, TerminalGraphicsItem):
                         self.newConnection.set_target(i)
                         try:
-                            self.term.connect_to(i.term, self.newConnection)
+                            self.term.connect_to(i.term, self.newConnection, graph_backup=self.term.node.graph)
                             got_target = True
                         except Exception:
-                            self.scene().removeItem(self.newConnection)
+                            self.newConnection.close()
                             self.newConnection = None
                             raise
                         break
@@ -481,6 +443,9 @@ class ConnectionItem(GraphicsObject):
         self.hovered = False
         self.path = None
         self.shapePath = None
+        self.params = {}
+        self.param_window = None
+
         if self.source.term.is_state:
             self.style = {
                 'shape': 'line',
@@ -504,6 +469,64 @@ class ConnectionItem(GraphicsObject):
         self.source.getViewBox().addItem(self)
         self.update_line()
 
+    def open_connection_dialog(self, **kwargs):
+        self.initialise_param_window(**kwargs)
+        self.param_window.setLayout(self.layout)
+        self.param_window.exec_()
+
+        for widget in self.widgets:
+            widget.setEnabled(False)
+        return self.params
+
+    def initialise_param_window(self, **kwargs):
+        self.term = self.source.term if self.source.term.is_input else self.target.term
+        node = self.term.node
+        self.param_window = QtGui.QDialog(node.graph.widget().cwWin)
+        self.param_window.setWindowTitle('Connection Parameters')
+        self.layout = QtGui.QGridLayout()
+        self.labels = []
+        self.widgets = []
+        row = 0
+        for key, value in self.term.params.items():
+            if key in inspect.getfullargspec(node.graph.connect).args:
+                value = kwargs[key] if key in kwargs else value
+                self.params[key] = value
+                self.add_widget(key, value, row)
+                row += 1
+
+    def add_widget(self, key, value, row):
+        label = QtGui.QLabel(key)
+        if isinstance(value, bool):
+            items = ['True', 'False']
+            widget = ComboBox(items=items, default=str(value))
+            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
+        elif isinstance(value, int):
+            widget = SpinBox(value=value, int=True, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        elif isinstance(value, float):
+            widget = SpinBox(value=value)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        else:
+            widget = QtGui.QLineEdit(str(value))
+            widget.textChanged.connect(partial(self.text_changed, key=key))
+        for grid_object in [label, widget]:
+            font = grid_object.font()
+            font.setPointSize(12)
+            grid_object.setFont(font)
+        self.layout.addWidget(label, row, 0)
+        self.layout.addWidget(widget, row, 1)
+        self.labels.append(label)
+        self.widgets.append(widget)
+
+    def combo_box_value_changed(self, int, items, key):
+        self.params[key] = items[int]
+
+    def value_changed(self, widget, key):
+        self.params[key] = widget.value()
+
+    def text_changed(self, text, key):
+        self.params[key] = yaml.safe_load(str(text))
+
     def close(self):
         if self.scene() is not None:
             self.scene().removeItem(self)
@@ -512,12 +535,12 @@ class ConnectionItem(GraphicsObject):
         self.target = target
         self.update_line()
 
-    # def setStyle(self, **kwds):
-    #     self.style.update(kwds)
-    #     if 'shape' in kwds:
-    #         self.update_line()
-    #     else:
-    #         self.update()
+    def setStyle(self, **kwds):
+        self.style.update(kwds)
+        if 'shape' in kwds:
+            self.update_line()
+        else:
+            self.update()
 
     def update_line(self):
         start = Point(self.source.connect_point())
@@ -532,7 +555,7 @@ class ConnectionItem(GraphicsObject):
         self.path = self.generate_path(start, stop)
         self.shapePath = None
         self.update()
-        self.setZValue(100)
+        self.setZValue(-1)
 
     def generate_path(self, start, stop):
         path = QtGui.QPainterPath()
@@ -567,6 +590,12 @@ class ConnectionItem(GraphicsObject):
             self.setFocus()
             if not sel and self.isSelected():
                 self.update()
+
+    def mouseDoubleClickEvent(self, ev):
+        if int(ev.button()) == int(QtCore.Qt.LeftButton):
+            ev.accept()
+            if self.param_window is not None:
+                self.param_window.show()
 
     def hoverEvent(self, ev):
         if (not ev.isExit()) and ev.acceptClicks(QtCore.Qt.LeftButton):

@@ -1,6 +1,6 @@
 import sys
 from pyqtgraph.Qt import QtGui, QtCore
-from eagerx_core.gui.rx_gui import RxGui
+from eagerx_core.gui.rxgui import RxGui
 
 
 def launch_gui(state):
@@ -24,7 +24,7 @@ def launch_gui(state):
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
 
-    new_state = rx_gui.save_state()
+    new_state = rx_gui._state
 
     return new_state
 

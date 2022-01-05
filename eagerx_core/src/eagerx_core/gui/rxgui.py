@@ -10,35 +10,34 @@ import numpy as np
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph.Qt import QtCore, QtGui, QT_LIB
 from pyqtgraph import FileDialog, DataTreeWidget
-from pyqtgraph import configfile as configfile
 from pyqtgraph import dockarea as dockarea
 from pyqtgraph.python2_3 import asUnicode
 from pyqtgraph.debug import printExc
 
 # Import eagerx modules
 from eagerx_core.rxgraph import RxGraph
-from eagerx_core.gui import rx_view
-from eagerx_core.gui.rx_gui_node import RxGuiNode
-from eagerx_core.gui.rx_gui_terminal import RxGuiTerminal
+from eagerx_core.gui import rxgui_view
+from eagerx_core.gui.rxgui_node import RxGuiNode
+from eagerx_core.gui.rxgui_terminal import RxGuiTerminal, ConnectionItem
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_nodes_and_objects_library
 
 # pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
-    from eagerx_core.gui.templates import rx_ui_pyside as rx_ui_template
+    from eagerx_core.gui.templates import ui_pyside as rx_ui_template
 elif QT_LIB == 'PySide2':
-    from eagerx_core.gui.templates import rx_ui_pyside2 as rx_ui_template
+    from eagerx_core.gui.templates import ui_pyside2 as rx_ui_template
 elif QT_LIB == 'PyQt5':
-    from eagerx_core.gui.templates import rx_ui_pyqt5 as rx_ui_template
+    from eagerx_core.gui.templates import ui_pyqt5 as rx_ui_template
 else:
-    from eagerx_core.gui.templates import rx_ui_pyqt as rx_ui_template
+    from eagerx_core.gui.templates import ui_pyqt as rx_ui_template
 
 
 def str_dict(d):
     return dict([(str(k), v) for k, v in d.items()])
 
 
-class RxGui(QtCore.QObject, RxGraph):
+class RxGui(RxGraph, QtCore.QObject):
     library = get_nodes_and_objects_library()
     sigFileLoaded = QtCore.Signal(object)
     sigFileSaved = QtCore.Signal(object)
@@ -47,17 +46,15 @@ class RxGui(QtCore.QObject, RxGraph):
     sigChartChanged = QtCore.Signal(object, object, object)  # called when nodes are added, removed, or renamed.
 
     def __init__(self, state):
-        super().__init__(state=state)
-
-        # self.inputWasSet = False  # flag allows detection of changes in the absence of input change.
+        RxGraph.__init__(self, state=state)
+        QtCore.QObject.__init__(self)
         self.nodes = {}
         self.next_z_val = 10
         self._widget = None
         self.scene = None
         self.file_path = None
-
         self.widget()
-        self.load_state()
+        self.load_state(clear=True)
         self.viewBox.autoRange(padding=0.04)
 
     def set_library(self, lib):
@@ -70,14 +67,14 @@ class RxGui(QtCore.QObject, RxGraph):
             if 'pos' not in n:
                 if n['params']['default']['package_name'] == 'eagerx_core':
                     if n['params']['default']['config_name'] == 'actions':
-                        pos = (0, 0)
+                        pos = [0, 0]
                     elif n['params']['default']['config_name'] == 'observations':
-                        pos = (600, 0)
-                    elif n['params']['default']['config_name'] == 'render':
-                        pos = (600, 150)
-            else:
-                pos = tuple(150 * np.random.randint((3, 3)))
-            n['pos'] = pos
+                        pos = [600, 0]
+                    else:
+                        pos = [600, 150]
+                else:
+                    pos = 150 * np.random.randint((3, 3))
+                n['pos'] = pos
         return state
 
     def node_params(self, node_name):
@@ -86,7 +83,7 @@ class RxGui(QtCore.QObject, RxGraph):
     def create_node(self, name, pos):
         """Create a new Node and add it to this flowchart.
         """
-        self._state['nodes'][name][pos] = pos
+        self._state['nodes'][name]['pos'] = pos
         node = RxGuiNode(name, graph=self)
         self.add_node(node, name, pos)
         return node
@@ -117,8 +114,8 @@ class RxGui(QtCore.QObject, RxGraph):
         node.close()
 
     def node_closed(self, node):
-        del self.nodes[node.name()]
-        self.widget().removeNode(node)
+        del self.nodes[node.name]
+        self.widget().remove_node(node)
         for signal in ['sigClosed', 'sigRenamed']:
             try:
                 getattr(node, signal).disconnect(self.node_closed)
@@ -128,13 +125,20 @@ class RxGui(QtCore.QObject, RxGraph):
 
     def node_renamed(self, node, old_name):
         del self.nodes[old_name]
-        self.nodes[node.name()] = node
+        self.nodes[node.name] = node
         self.widget().node_renamed(node, old_name)
         self.sigChartChanged.emit(self, 'rename', node)
 
     def connect_terminals(self, term1, term2):
         """Connect two terminals together within this flowchart."""
-        term1.connect_to(term2)
+        connection_item = ConnectionItem(term1.graphics_item(), term2.graphics_item())
+        term1.graphics_item().getViewBox().addItem(connection_item)
+
+        term1.connections[term2] = connection_item
+        term2.connections[term1] = connection_item
+
+        term1.connected(term2)
+        term2.connected(term1)
 
     def chart_graphics_item(self):
         """Return the graphicsItem that displays the internal nodes and
@@ -156,31 +160,6 @@ class RxGui(QtCore.QObject, RxGraph):
             self.viewBox = self._widget.viewBox()
         return self._widget
 
-    def list_connections(self):
-        conn = set()
-        for n in self.nodes.values():
-            terms = n.outputs
-            for n, t in terms.items():
-                for c in t.connections:
-                    conn.add((t, c))
-        return conn
-
-    # def save_state(self):
-    #     """Return a serializable data structure representing the current state of this flowchart.
-    #     """
-    #     state = {'nodes': {}, 'connects': []}
-    #
-    #     for name, node in self.nodes.items():
-    #         cls = type(node)
-    #         if hasattr(cls, 'save_state'):
-    #             state['nodes'][name] = node.save_state()
-    #
-    #     conn = self.list_connections()
-    #     for a, b in conn:
-    #         state['connects'].append((a.node.name, a.name, b.node.name, b.name))
-    #
-    #     return state
-
     def load_state(self, clear=False):
         self.blockSignals(True)
         try:
@@ -199,12 +178,15 @@ class RxGui(QtCore.QObject, RxGraph):
                     pos = n['pos']
                     node = self.create_node(name, pos)
                     node.load_state(n)
-                except:
+                except Exception:
                     printExc("Error creating node %s: (continuing anyway)" % n['name'])
-            for n1, t1, n2, t2 in self._state['connects']:
+
+            connects = [(connection[0][0], '/'.join(connection[0][1:3]),
+                         connection[1][0], '/'.join(connection[1][1:3])) for connection in self._state['connects']]
+            for n1, t1, n2, t2 in connects:
                 try:
                     self.connect_terminals(self.nodes[n1][t1], self.nodes[n2][t2])
-                except:
+                except Exception:
                     print(self.nodes[n1].terminals)
                     print(self.nodes[n2].terminals)
                     printExc("Error connecting terminals %s.%s - %s.%s:" % (n1, t1, n2, t2))
@@ -257,9 +239,6 @@ class RxGui(QtCore.QObject, RxGraph):
         for n in list(self.nodes.values()):
             n.close()  # calls self.nodeClosed(n) by signal
         self.widget().clear()
-
-    def clear_terminals(self):
-        pass
 
 
 class RxGraphicsItem(GraphicsObject):
@@ -378,7 +357,7 @@ class RxCtrlWidget(QtGui.QWidget):
 
         self.items[node] = item
 
-    def removeNode(self, node):
+    def remove_node(self, node):
         if node in self.items:
             item = self.items[node]
             self.ui.ctrlList.removeTopLevelItem(item)
@@ -404,7 +383,7 @@ class EagerxGraphWidget(dockarea.DockArea):
         self.hoverItem = None
 
         # build user interface (it was easier to do it here than via developer)
-        self.view = rx_view.RxView(self)
+        self.view = rxgui_view.RxView(self)
         self.viewDock = dockarea.Dock('view', size=(1000, 600))
         self.viewDock.addWidget(self.view)
         self.viewDock.hideTitleBar()
@@ -473,6 +452,9 @@ class EagerxGraphWidget(dockarea.DockArea):
             pos = self.menuPos
         pos = self.viewBox().mapSceneToView(pos)
 
+        if type(pos) in [QtCore.QPoint, QtCore.QPointF]:
+            pos = [pos.x(), pos.y()]
+
         n = 0
         while True:
             name = '{}'.format(node_type['name'])
@@ -517,17 +499,15 @@ class EagerxGraphWidget(dockarea.DockArea):
     def hover_over(self, items):
         for item in items:
             self.hoverItem = item
-            if hasattr(item, 'term') and isinstance(item.term, RxGuiTerminal):
+            if hasattr(item, 'terminal_name') and isinstance(item.term, RxGuiTerminal):
                 text = 'name: ' + item.term.terminal_name
                 for key, value in item.term.params.items():
-                    if key == 'msg_type':
-                        value = item.term.connection_msg_type()
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
             elif hasattr(item, 'node') and isinstance(item.node, RxGuiNode):
                 text = ''
-                for key, value in item.node.info().items():
+                for key, value in item.node.params['default'].items():
                     text += '{}: {}\n'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return

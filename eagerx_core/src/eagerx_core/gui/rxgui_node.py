@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
-import inspect
+import numpy as np
 from copy import deepcopy
-from eagerx_core.gui.rx_gui_terminal import *
+
 from eagerx_core import constants
+from eagerx_core.utils.utils import get_yaml_type
+from eagerx_core.gui.rxgui_terminal import *
+
 from pyqtgraph.pgcollections import OrderedDict
 from pyqtgraph.debug import *
 from pyqtgraph import ComboBox, SpinBox
-import numpy as np
-from eagerx_core.utils.utils import get_yaml_type
 
 
 def str_dict(d):
@@ -126,19 +127,23 @@ class RxGuiNode(QtCore.QObject):
         self.graphics_item().update_terminals()
         self.sigTerminalRenamed.emit(term, old_name)
 
-    def add_terminal(self, name, **opts):
+    def add_terminal(self, name):
         """Add a new terminal to this Node with the given name. Extra
         keyword arguments are passed to Terminal.__init__.
                 
         Causes sigTerminalAdded to be emitted."""
         name = self.__next_terminal_name(name)
+        terminal_type = name.split('/')[0]
+        terminal_name = name.split('/')[-1]
 
         if self.node_type == 'actions':
-            self.graph._add_action(name.split('/')[-1])
+            if terminal_name not in self.params['default'][terminal_type]:
+                self.graph._add_action(terminal_name)
         elif self.node_type == 'observations':
-            self.graph._add_observation(name.split('/')[-1])
+            if terminal_name not in self.params['default'][terminal_type]:
+                self.graph._add_observation(terminal_name)
 
-        term = RxGuiTerminal(self, name, **opts)
+        term = RxGuiTerminal(self, name)
         self.terminals[name] = term
 
         if term.is_input:
@@ -175,10 +180,6 @@ class RxGuiNode(QtCore.QObject):
             raise KeyError(item)
         else:
             return self.terminals[item]
-
-    def info(self):
-        info = deepcopy(self.params['default'])
-        return info
 
     def rename(self, name):
         """Rename this node. This will cause sigRenamed to be emitted."""
@@ -224,18 +225,6 @@ class RxGuiNode(QtCore.QObject):
             self.graphics_item().setPen(QtGui.QPen(QtGui.QColor(0, 0, 0)))
         else:
             self.graphics_item().setPen(QtGui.QPen(QtGui.QColor(150, 0, 0), 3))
-
-    # def save_state(self):
-    #     """Return a dictionary representing the current state of this node
-    #     (excluding input / output values). This is used for saving/reloading
-    #     flowcharts. The default implementation returns this Node's position,
-    #     bypass state, and information about each of its terminals.
-    #
-    #     Subclasses may want to extend this method, adding extra keys to the returned
-    #     dict."""
-    #     pos = self.graphics_item().pos()
-    #     state = {'pos': (pos.x(), pos.y()), 'params': self.params, 'default': self.default_params}
-    #     return state
 
     def load_state(self, state):
         pos = state.get('pos', (0, 0))
@@ -303,19 +292,14 @@ class NodeGraphicsItem(GraphicsObject):
     def set_color(self):
         if 'color' in self._params['default'] and self._params['default']['color'] in constants.GUI_COLORS:
             brush_color = np.array(constants.GUI_COLORS[self._params['default']['color']])
-            if self._params['default']['color'] == 'white':
-                pen_color = np.array([0, 0, 0])
-            else:
-                pen_color = brush_color
         else:
             brush_color = np.array([200, 200, 200])
-            pen_color = brush_color
 
         self.brush = fn.mkBrush(*brush_color, 50)
         self.hoverBrush = fn.mkBrush(*brush_color, 100)
-        self.selectBrush = fn.mkBrush(*brush_color, 150)
-        self.pen = fn.mkPen(*pen_color, 200, width=2)
-        self.selectPen = fn.mkPen(*pen_color, 200, width=4)
+        self.selectBrush = fn.mkBrush(*brush_color, 100)
+        self.pen = fn.mkPen(0, 0, 0, 200, width=2)
+        self.selectPen = fn.mkPen(0, 0, 0, 200, width=4)
         self.hovered = False
 
     def initialise_param_window(self):
@@ -401,7 +385,7 @@ class NodeGraphicsItem(GraphicsObject):
 
     def label_changed(self):
         new_name = str(self.nameItem.toPlainText())
-        if self.node.graph is not None and new_name in self.node.graph.nodes().keys():
+        if self.node.graph is not None and new_name in self.node.graph.nodes.keys():
             self.nameItem.setPlainText(self.node.name)
             return
         if new_name != self.node.name:
@@ -506,12 +490,14 @@ class NodeGraphicsItem(GraphicsObject):
             ev.accept()
             if not self.node.allow_remove:
                 return
+            self.node.graph.remove(self.node.name)
             self.node.close()
         else:
             ev.ignore()
 
     def itemChange(self, change, val):
         if change == self.ItemPositionHasChanged:
+            self.node.graph._state['nodes'][self.node.name]['pos'] = [self.pos().x(), self.pos().y()]
             for k, t in self.terminals.items():
                 t[1].node_moved()
         return GraphicsObject.itemChange(self, change, val)
