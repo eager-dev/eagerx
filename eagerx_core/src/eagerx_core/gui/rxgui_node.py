@@ -25,8 +25,6 @@ class RxGuiNode(QtCore.QObject):
 
     def __init__(self, name, graph):
         QtCore.QObject.__init__(self)
-
-        self.params, self.default_params = graph.node_params(name)
         self.name = name
         self._graphics_item = None
         self.terminals = OrderedDict()
@@ -35,14 +33,14 @@ class RxGuiNode(QtCore.QObject):
         self.graph = graph
         self.exception = None
 
-        if 'config_name' in self.params['default'] and \
-                self.params['default']['config_name'] in ['actions', 'observations', 'render']:
-            self.node_type = self.params['default']['config_name']
+        if 'config_name' in self.params()['default'] and \
+                self.params()['default']['config_name'] in ['actions', 'observations', 'render']:
+            self.node_type = self.params()['default']['config_name']
             self.allow_add_terminal = not self.node_type == 'render'
             self.allow_remove = False
             self.is_object = False
         else:
-            self.node_type = get_yaml_type(self.default_params)
+            self.node_type = get_yaml_type(self.default_params())
             self.allow_add_terminal = self.is_object = self.node_type == 'object'
             self.allow_remove = True
         self.__initialize_terminals()
@@ -60,16 +58,22 @@ class RxGuiNode(QtCore.QObject):
         for terminal_type in set.union(constants.TERMS_IN, constants.TERMS_OUT):
             if self.node_type == 'render' and terminal_type == 'outputs':
                 continue
-            if terminal_type in self.params['default']:
-                for terminal in self.params['default'][terminal_type]:
+            if terminal_type in self.params()['default']:
+                for terminal in self.params()['default'][terminal_type]:
                     if self.node_type in ['actions', 'observations']:
-                        if terminal in self.default_params['default'][terminal_type]:
+                        if terminal in self.default_params()['default'][terminal_type]:
                             continue
                     name = terminal_type + '/' + terminal
                     self.add_terminal(name=name)
                     if self.node_type == 'reset_node' and terminal_type == 'outputs':
                         name = 'feedthroughs/' + terminal
                         self.add_terminal(name=name)
+
+    def params(self):
+        return self.graph._state['nodes'][self.name]['params']
+
+    def default_params(self):
+        return self.graph._state['nodes'][self.name]['default']
 
     def remove_terminal(self, term):
         """Remove the specified terminal from this Node. May specify either the 
@@ -82,11 +86,6 @@ class RxGuiNode(QtCore.QObject):
             name = term
             term = self.terminals[name]
         term.close()
-
-        if self.node_type == 'actions':
-            self.graph._remove_action(term.terminal_name)
-        elif self.node_type == 'observations':
-            self.graph._remove_observation(term.terminal_name)
 
         del self.terminals[name]
         if term.is_input:
@@ -108,24 +107,18 @@ class RxGuiNode(QtCore.QObject):
             d[new_name] = d[old_name]
             del d[old_name]
 
-        old_name_split = old_name.split('/')
-        old_terminal_type = old_name_split[0]
-        old_terminal_name = old_name_split[-1]
-
-        new_name_split = new_name.split('/')
-        new_terminal_type = new_name_split[0]
-        new_terminal_name = new_name_split[-1]
-
-        assert old_terminal_type == new_terminal_type, 'Terminal type should not change after renaming the terminal.'
-        terminal_type = old_terminal_type
-
-        self.params['default'][terminal_type].append(new_terminal_name)
-        self.params['default'][terminal_type].remove(old_terminal_name)
-        self.params[terminal_type][new_terminal_name] = self.params[terminal_type][old_terminal_name]
-        self.params[terminal_type].pop(old_terminal_name)
-
         self.graphics_item().update_terminals()
         self.sigTerminalRenamed.emit(term, old_name)
+
+    def add_action(self):
+        name = self.__next_terminal_name('outputs/action')
+        self.graph._add_action(name.split('/')[-1])
+        self.add_terminal(name)
+
+    def add_observation(self):
+        name = self.__next_terminal_name('inputs/observation')
+        self.graph._add_observation(name.split('/')[-1])
+        self.add_terminal(name)
 
     def add_terminal(self, name):
         """Add a new terminal to this Node with the given name. Extra
@@ -133,15 +126,6 @@ class RxGuiNode(QtCore.QObject):
                 
         Causes sigTerminalAdded to be emitted."""
         name = self.__next_terminal_name(name)
-        terminal_type = name.split('/')[0]
-        terminal_name = name.split('/')[-1]
-
-        if self.node_type == 'actions':
-            if terminal_name not in self.params['default'][terminal_type]:
-                self.graph._add_action(terminal_name)
-        elif self.node_type == 'observations':
-            if terminal_name not in self.params['default'][terminal_type]:
-                self.graph._add_observation(terminal_name)
 
         term = RxGuiTerminal(self, name)
         self.terminals[name] = term
@@ -183,6 +167,7 @@ class RxGuiNode(QtCore.QObject):
 
     def rename(self, name):
         """Rename this node. This will cause sigRenamed to be emitted."""
+        self.graph.rename(self.name, name)
         old_name = self.name
         self.name = name
         self.sigRenamed.emit(self, old_name)
@@ -248,6 +233,7 @@ class RxGuiNode(QtCore.QObject):
         self.disconnect_all()
         self.clear_terminals()
         item = self.graphics_item()
+        item.param_window.close()
         if item.scene() is not None:
             item.scene().removeItem(item)
         self._graphics_item = None
@@ -264,13 +250,9 @@ class RxGuiNode(QtCore.QObject):
 class NodeGraphicsItem(GraphicsObject):
     def __init__(self, node):
         GraphicsObject.__init__(self)
-        self._node_type = node.node_type
-        self._params = node.params
-        self._default = node.default_params
-
-        self.set_color()
-
         self.node = node
+        self._node_type = node.node_type
+        self.set_color()
         flags = self.ItemIsMovable | self.ItemIsSelectable | self.ItemIsFocusable | self.ItemSendsGeometryChanges
 
         self.setFlags(flags)
@@ -278,7 +260,8 @@ class NodeGraphicsItem(GraphicsObject):
         self.nameItem = QtGui.QGraphicsTextItem(self.node.name, self)
         self.nameItem.setDefaultTextColor(QtGui.QColor(50, 50, 50))
         self.nameItem.moveBy(self.bounds.width() / 2. - self.nameItem.boundingRect().width() / 2., 0)
-        self.nameItem.setTextInteractionFlags(QtCore.Qt.TextEditorInteraction)
+        if self._node_type not in ['actions', 'observations', 'render']:
+            self.nameItem.setTextInteractionFlags(QtCore.Qt.TextEditorInteraction)
         self.update_terminals()
 
         self.nameItem.focusOutEvent = self.label_focus_out
@@ -290,8 +273,8 @@ class NodeGraphicsItem(GraphicsObject):
         self.initialise_param_window()
 
     def set_color(self):
-        if 'color' in self._params['default'] and self._params['default']['color'] in constants.GUI_COLORS:
-            brush_color = np.array(constants.GUI_COLORS[self._params['default']['color']])
+        if 'color' in self.node.params()['default'] and self.node.params()['default']['color'] in constants.GUI_COLORS:
+            brush_color = np.array(constants.GUI_COLORS[self.node.params()['default']['color']])
         else:
             brush_color = np.array([200, 200, 200])
 
@@ -312,7 +295,7 @@ class NodeGraphicsItem(GraphicsObject):
         self.labels = []
         self.widgets = []
         row = 1
-        for key, value in self.node.params['default'].items():
+        for key, value in self.node.params()['default'].items():
             label = QtGui.QLabel(key)
             if isinstance(value, bool):
                 items = ['True', 'False']
@@ -356,22 +339,22 @@ class NodeGraphicsItem(GraphicsObject):
     def update_param_window(self):
         for idx, label in enumerate(self.labels):
             if label.text() in set.union(constants.TERMS_IN, constants.TERMS_OUT):
-                self.widgets[idx].setText(str(self.node.params['default'][label.text()]))
+                self.widgets[idx].setText(str(self.node.params()['default'][label.text()]))
 
     def combo_box_value_changed(self, int, items, key, converter=None):
         value = items[int]
         if converter is not None:
             value = converter[value]
-        self.node.params['default'][key] = value
+        self.node.params()['default'][key] = value
         if key == 'color':
             self.set_color()
             self.update()
 
     def value_changed(self, widget, key):
-        self.node.params['default'][key] = widget.value()
+        self.node.params()['default'][key] = widget.value()
 
     def text_changed(self, text, key):
-        self.node.params['default'][key] = text
+        self.node.params()['default'][key] = text
 
     def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
@@ -490,7 +473,7 @@ class NodeGraphicsItem(GraphicsObject):
             ev.accept()
             if not self.node.allow_remove:
                 return
-            self.node.graph.remove(self.node.name)
+            self.node.graph._remove(self.node.name)
             self.node.close()
         else:
             ev.ignore()
@@ -515,22 +498,25 @@ class NodeGraphicsItem(GraphicsObject):
         self.menu.setTitle("Node")
 
         if self.node.allow_add_terminal:
-            if self._node_type in ['observations', 'actions']:
-                terminal = self._node_type[:-1]
-                if self._node_type == 'observations':
-                    terminal_name = 'inputs/' + terminal
-                else:
-                    terminal_name = 'outputs/' + terminal
-                self.menu.addAction('Add {}'.format(terminal), partial(self.node.add_terminal, name=terminal_name))
+            if self._node_type == 'observations':
+                self.menu.addAction('Add observation', self.node.add_observation)
+            elif self._node_type == 'actions':
+                self.menu.addAction('Add action', self.node.add_action)
             else:
                 for terminal_type in set.union(constants.TERMS[self._node_type]['in'],
                                                constants.TERMS[self._node_type]['out']):
                     terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
-                    for terminal in self._default[terminal_type]:
-                        terminal_name = str(terminal_type) + '/' + terminal
-                        act = terminal_menu.addAction(terminal, partial(self.node.add_terminal, name=terminal_name))
+                    for terminal in self.node.default_params()[terminal_type]:
+                        terminal_name = terminal_type + '/' + terminal
+                        act = terminal_menu.addAction(terminal, partial(self.add_terminal, terminal_type=terminal_type,
+                                                                        terminal_name=terminal))
                         if terminal_name in self.node.terminals.keys():
                             act.setEnabled(False)
                         self.menu.addMenu(terminal_menu)
         if self.node.allow_remove:
             self.menu.addAction("Remove {}".format(self.node.name), self.node.close)
+
+    def add_terminal(self, terminal_type, terminal_name):
+        self.node.graph._add_component(name=self.node.name, component=terminal_type, cname=terminal_name)
+        name = terminal_type + '/' + terminal_name
+        self.node.add_terminal(name=name)

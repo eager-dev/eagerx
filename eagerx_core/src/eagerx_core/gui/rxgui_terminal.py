@@ -2,6 +2,7 @@
 import yaml
 import inspect
 from functools import partial
+from copy import deepcopy
 
 from pyqtgraph.Qt import QtCore, QtGui
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
@@ -10,7 +11,7 @@ from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Point import Point
 
 from eagerx_core import constants
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string
+from eagerx_core.baseconverter import BaseConverter
 from eagerx_core.utils.pyqtgraph_utils import exception_handler
 
 
@@ -37,7 +38,6 @@ class RxGuiTerminal(object):
         self.is_removable = node.is_object or self.node_type in ['actions', 'observations']
         self.is_renamable = self.node_type in ['actions', 'observations']
         self.is_connectable = not (self.terminal_type == 'states' and not node.is_object)
-        self.params = self.get_params()
 
         self._graphicsItem = TerminalGraphicsItem(self, parent=self.node.graphics_item())
         self.recolor()
@@ -55,12 +55,9 @@ class RxGuiTerminal(object):
         (note--this function is called on both terminals)"""
         self.node.disconnected(self, term)
 
-    def get_params(self):
-        params = {}
-        node_params = self.node.params
-        if self.terminal_type in node_params and self.terminal_name in node_params[self.terminal_type]:
-            params = node_params['outputs'][self.terminal_name] if self.is_feedthrough else \
-                node_params[self.terminal_type][self.terminal_name]
+    def params(self):
+        params = self.node.params()['outputs'][self.terminal_name] if self.is_feedthrough else \
+            self.node.params()[self.terminal_type][self.terminal_name]
         return params
 
     def is_connected(self):
@@ -157,10 +154,10 @@ class RxGuiTerminal(object):
         elif name in self.node.outputs:
             self.graphics_item().term_renamed(self.name)
             return
+        self.node.graph.rename_component(*self.connection_tuple(), name.split('/')[-1])
         old_name = self.name
         self.name = name
         self.terminal_name = name.split('/')[-1]
-
         self.node.terminal_renamed(self, old_name)
         self.graphics_item().term_renamed(name)
 
@@ -173,6 +170,7 @@ class RxGuiTerminal(object):
     def close(self):
         self.disconnect_all()
         item = self.graphics_item()
+        item.param_window.close()
         if item.scene() is not None:
             item.scene().removeItem(item)
 
@@ -181,8 +179,6 @@ class TerminalGraphicsItem(GraphicsObject):
 
     def __init__(self, term, parent=None):
         self.term = term
-        self.terminal_type = term.terminal_type
-        self.terminal_name = term.terminal_name
         GraphicsObject.__init__(self, parent)
         self.brush = fn.mkBrush(0, 0, 0)
         self.box = QtGui.QGraphicsRectItem(0, 0, 10, 10, self)
@@ -196,13 +192,12 @@ class TerminalGraphicsItem(GraphicsObject):
             self.label.keyPressEvent = self.label_key_press
         self.setZValue(1)
         self.menu = None
-
         self.initialise_param_window()
 
     def initialise_param_window(self):
         node = self.term.node
         self.param_window = QtGui.QMainWindow(node.graph.widget().cwWin)
-        self.param_window.setWindowTitle('Parameters {}'.format(self.terminal_name))
+        self.param_window.setWindowTitle('Parameters {}'.format(self.term.terminal_name))
         cw = QtGui.QWidget()
         self.layout = QtGui.QGridLayout()
         cw.setLayout(self.layout)
@@ -210,18 +205,9 @@ class TerminalGraphicsItem(GraphicsObject):
         self.labels = []
         self.widgets = []
         row = 0
-        for key, value in self.term.params.items():
+        for key, value in self.term.params().items():
             self.add_widget(key, value, row)
             row += 1
-
-    def update_param_window(self):
-        label_names = [label.text() for label in self.labels]
-        for key, value in self.term.params.items():
-            if key not in label_names:
-                self.add_widget(key, value, len(self.labels))
-        for label, widget in zip(self.labels, self.widgets):
-            if label.text() == 'converter':
-                widget.setText(str(self.term.params[label.text()]))
 
     def add_widget(self, key, value, row):
         label = QtGui.QLabel(key)
@@ -260,21 +246,13 @@ class TerminalGraphicsItem(GraphicsObject):
         self.widgets.append(widget)
 
     def combo_box_value_changed(self, int, items, key):
-        self.term.params[key] = items[int]
+        self.term.params()[key] = items[int]
 
     def value_changed(self, widget, key):
-        self.term.params[key] = widget.value()
+        self.term.params()[key] = widget.value()
 
     def text_changed(self, text, key):
-        if key == 'converter':
-            old_converter = self.term.params[key]
-            new_converter = default.safe_load(str(text))
-            if 'converter_type' in old_converter and 'converter_type' in new_converter:
-                if not old_converter['converter_type'] == new_converter['converter_type']:
-                    self.term.disconnect_all()
-            else:
-                self.term.disconnect_all()
-        self.term.params[key] = yaml.safe_load(str(text))
+        self.term.params()[key] = yaml.safe_load(str(text))
 
     def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.label, ev)
@@ -303,9 +281,11 @@ class TerminalGraphicsItem(GraphicsObject):
     def disconnect(self, target):
         input_term, output_term = (self.term, target.term) if self.term.is_input else (target.term, self.term)
         if output_term.node_type == 'actions':
-            self.term.node.graph.disconnect(action=output_term.terminal_name, target=input_term.connection_tuple())
+            self.term.node.graph._disconnect_action(output_term.terminal_name)
+            self.term.node.graph._disconnect(action=output_term.terminal_name, target=input_term.connection_tuple())
         elif input_term.node_type == 'observations':
-            self.term.node.graph.disconnect(source=output_term.connection_tuple(), observation=input_term.terminal_name)
+            self.term.node.graph._disconnect_observation(input_term.terminal_name)
+            self.term.node.graph._disconnect(source=output_term.connection_tuple(), observation=input_term.terminal_name)
         else:
             self.term.node.graph._disconnect(source=output_term.connection_tuple(), target=input_term.connection_tuple())
         self.term.disconnect_from(target.term)
@@ -351,7 +331,7 @@ class TerminalGraphicsItem(GraphicsObject):
     def mouseDoubleClickEvent(self, ev):
         if int(ev.button()) == int(QtCore.Qt.LeftButton):
             ev.accept()
-            self.update_param_window()
+            self.initialise_param_window()
             self.param_window.show()
 
     def raise_context_menu(self, ev):
@@ -372,7 +352,18 @@ class TerminalGraphicsItem(GraphicsObject):
         return self.menu
 
     def remove_self(self):
+        if self.term.node_type == 'actions':
+            self.term.node.graph._disconnect_component(*self.term.connection_tuple())
+            self.term.node.graph._disconnect_action(self.term.terminal_name)
+            self.term.node.graph._remove_action(self.term.terminal_name)
+        elif self.term.node_type == 'observations':
+            self.term.node.graph._disconnect_component(*self.term.connection_tuple())
+            self.term.node.graph._disconnect_observation(self.term.terminal_name)
+            self.term.node.graph._remove_observation(self.term.terminal_name)
+        else:
+            self.term.node.graph._remove_component(*self.term.connection_tuple())
         self.term.node.remove_terminal(self.term)
+        self.param_window.close()
 
     def mouseDragEvent(self, ev):
         if ev.button() != QtCore.Qt.LeftButton:
@@ -469,6 +460,38 @@ class ConnectionItem(GraphicsObject):
         self.source.getViewBox().addItem(self)
         self.update_line()
 
+    def initialise_converter_dialog(self):
+        self.converter_dialog = QtGui.QDialog(node.graph.widget().cwWin)
+        self.converter_dialog.setWindowTitle('Converter Parameters')
+        layout = QtGui.GridLayout()
+        labels = []
+        widgets = []
+
+        converter = deepcopy(self.term.params()['converter'])
+        converter_type = converter['converter_type'] if 'converter_type' in converter else ''
+        module = converter_type.split('/')[0]
+        class_name = converter_type.split('/')[1] if len(converter_type.split('/')) == 2 else ''
+
+        available_converters = []
+        try:
+            module = importlib.import_module(module)
+            for name, member in inspect.getmembers(module):
+                if inspect.isclass(member):
+                    if BaseConverter in member.__mro__:
+                        available_converters.append(name)
+        except Exception:
+            pass
+
+        converter_class = class_name if class_name in available_converters else None
+
+        layout.addWidget(QtGui.QLabel('Converter Module'), 0, 0)
+        layout.addWidget(QtGui.QLineEdit(str(module)), 0, 1)
+        layout.addWidget(QtGui.QLabel('Converter Class'), 1, 0)
+        layout.addWidget(ComboBox(items=available_converters, default=converter_class), 1, 1)
+
+    def open_converter_dialog(self):
+        self.initialise_converter_dialog()
+
     def open_connection_dialog(self, **kwargs):
         self.initialise_param_window(**kwargs)
         self.param_window.setLayout(self.layout)
@@ -487,7 +510,7 @@ class ConnectionItem(GraphicsObject):
         self.labels = []
         self.widgets = []
         row = 0
-        for key, value in self.term.params.items():
+        for key, value in self.term.params().items():
             if key in inspect.getfullargspec(node.graph.connect).args:
                 value = kwargs[key] if key in kwargs else value
                 self.params[key] = value
@@ -496,7 +519,10 @@ class ConnectionItem(GraphicsObject):
 
     def add_widget(self, key, value, row):
         label = QtGui.QLabel(key)
-        if isinstance(value, bool):
+        if key == 'converter':
+            widget = QtGui.QPushButton('Edit {}'.format(value))
+            widget.pressed.connect(self.open_converter_window)
+        elif isinstance(value, bool):
             items = ['True', 'False']
             widget = ComboBox(items=items, default=str(value))
             widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))

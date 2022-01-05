@@ -77,9 +77,6 @@ class RxGui(RxGraph, QtCore.QObject):
                 n['pos'] = pos
         return state
 
-    def node_params(self, node_name):
-        return self._state['nodes'][node_name]['params'], self._state['nodes'][node_name]['default']
-
     def create_node(self, name, pos):
         """Create a new Node and add it to this flowchart.
         """
@@ -500,14 +497,15 @@ class EagerxGraphWidget(dockarea.DockArea):
         for item in items:
             self.hoverItem = item
             if hasattr(item, 'terminal_name') and isinstance(item.term, RxGuiTerminal):
+                terminal_type = item.term.terminal_name.split('/')[0]
                 text = 'name: ' + item.term.terminal_name
-                for key, value in item.term.params.items():
+                for key, value in item.term.params().items():
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
             elif hasattr(item, 'node') and isinstance(item.node, RxGuiNode):
                 text = ''
-                for key, value in item.node.params['default'].items():
+                for key, value in item.node.params()['default'].items():
                     text += '{}: {}\n'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
