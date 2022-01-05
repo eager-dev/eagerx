@@ -1,12 +1,15 @@
-import rospy
 import yaml
+from copy import deepcopy
+import matplotlib.pyplot as plt
+import networkx as nx
+from typing import List, Union, Dict, Tuple, Optional
 from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
-from typing import List, Union, Dict, Tuple, Optional
+import rospy
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string
+from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
 from eagerx_core.baseconverter import BaseConverter
-from copy import deepcopy
 
 
 class RxGraph:
@@ -585,7 +588,7 @@ class RxGraph:
         Create params that can be uploaded to the ROS param server.
         """
         # Check if valid graph.
-        assert self.is_valid(self._state), 'Graph not valid.'
+        assert self.is_valid(self._state, plot=False), 'Graph not valid.'
 
         # Add addresses based on connections
         state = deepcopy(self._state)
@@ -594,9 +597,6 @@ class RxGraph:
             target_name, target_comp, target_cname = target
             address = '%s/%s/%s' % (source_name, source_comp, source_cname)
             state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
-
-        # Check if valid graph.
-        assert self.is_valid(state), 'Graph not valid.'
 
         # Initialize param objects
         nodes = []
@@ -661,13 +661,13 @@ class RxGraph:
         self._state = RxGui(deepcopy(self._state))
 
     @staticmethod
-    def is_valid(state):
+    def is_valid(state, plot=False):
         state = deepcopy(state)
         # todo: create individual checks for:
         #  - check compatibility with bridges together with which objects are supported where (tabulate?)
         RxGraph.check_msg_types_are_consistent(state)
         RxGraph.check_inputs_have_address(state)
-        RxGraph.check_graph_is_direct_acyclic(state)
+        RxGraph.check_graph_is_direct_acyclic(state, plot=plot)
         return True
 
     @staticmethod
@@ -737,13 +737,112 @@ class RxGraph:
         return True
 
     @staticmethod
-    def check_graph_is_direct_acyclic(state):
-        # todo: DAG (with/without reset node)
-        #  - (without) object actuators must (indirectly) depend on environment actions
-        #  - (with) object actuators may *not* (indirectly) depend on environment actions
-        #  - view "start_with_msg" connections as disconnected in DAG graph.
-        #  - do count "start_with_msg" connections as a valid connection > 0 in DAG graph
-        #  - cannot have (algebraic) loops --> nodes without object (actuator/sensor) dependency
-        #  - assume sensors --> actuators within objects to be dag and closed.
-        #  - (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
+    def check_graph_is_direct_acyclic(state, plot=True):
+        # Add nodes
+        G = nx.MultiDiGraph()
+        for node, params in state['nodes'].items():
+            default = params['params']['default']
+            if 'node_type' not in state['nodes'][node]['params']:  # Object
+                if 'sensors' in default and len(default['sensors']) > 0:
+                    G.add_node('%s/sensors' % node, remain_active=False, always_active=True, is_stale=False)
+                if 'actuators' in default and len(default['actuators']) > 0:
+                    G.add_node('%s/actuators' % node, remain_active=True, always_active=False, is_stale=False)
+            else:  # node
+                G.add_node(node, remain_active=False, always_active=False, is_stale=False)
+
+        # Add edges
+        target_comps = ['inputs', 'actuators', 'feedthroughs']
+        source_comps = ['outputs', 'sensors']
+        G.add_edge('env/observations', 'env/actions', key='%s/%s' % ('inputs', 'observations_set'),
+                   feedthrough=False, style='solid', color='black', alpha=1.0, is_stale=False, start_with_msg=False,
+                   source=('env/observations', 'outputs', 'set'), target=('env/actions', 'inputs', 'observations_set'))
+        for source, target in state['connects']:
+            source_name, source_comp, source_cname = source
+            target_name, target_comp, target_cname = target
+            if source_comp in source_comps and target_comp in target_comps:
+                edge = []
+                for name, comp in zip((source_name, target_name), (source_comp, target_comp)):
+                    if 'node_type' in state['nodes'][name]['params']:
+                        node_name = name
+                    else:
+                        node_name = '%s/%s' % (name, comp)
+                    edge.append(node_name)
+
+                # Determine stale nodes in real_reset routine via feedthrough edges
+                if target_comp == 'feedthroughs':
+                    feedthrough = True
+                else:
+                    feedthrough = False
+
+                # Determine edges that do not break DAG property (i.e. edges that start with an initial message)
+                start_with_msg = state['nodes'][source_name]['params'][source_comp][source_cname]['start_with_msg']
+                key = '%s/%s' % (target_comp, target_cname)
+                color = 'green' if start_with_msg else 'black'
+                style = 'dotted' if start_with_msg else 'solid'
+
+                # Add edge
+                G.add_edge(edge[0], edge[1], key=key, color=color, feedthrough=feedthrough, style=style, alpha=1.0,
+                           is_stale=False, start_with_msg=start_with_msg, source=source, target=target)
+
+        # Color nodes based on in/out going edges
+        not_active = is_stale(G)
+        color_nodes(G)
+        color_edges(G)
+
+        # Remap action & observation labels to more readable form
+        label_mapping = {'env/observations': 'observations', 'env/actions': 'actions', 'env/render': 'render'}
+        G = nx.relabel_nodes(G, label_mapping)
+
+        # Check if graph is acyclic (excluding 'start_with_msg' edges)
+        H, cycles = episode_graph(G)
+        is_dag = nx.is_directed_acyclic_graph(H)
+
+        # Plot graphs
+        if plot:
+            fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
+            ax_env.set_title('Communication graph (episode)')
+            _, _, _, pos = plot_graph(G, k=2, ax=ax_env)
+            plt.show()
+
+        # Assert if graph is a directed-acyclical graph (DAG)
+        cycle_strs = ['Algebraic loops detected: ']
+        for idx, connect in enumerate(cycles):
+            connect.append(connect[0])
+            s = ' Loop %s: ' % idx
+            n = '\n' + ''.join([' ']*len(s)) + '...-->'
+            s = '\n\n' + s + '...-->'
+            for idx in range(len(connect)-1):
+                tmp, target = connect[idx]
+                source, tmp2 = connect[idx+1]
+                source_name, source_comp, source_cname = source
+                target_name, target_comp, target_cname = target
+                assert source_name == target_name, 'Source and target not equal: %s, %s' % (source, target)
+                connect_name = '%s/%s/%s][%s/%s/%s' % tuple(list(source) + list(target))
+                node_name = ('Node: ' + source_name).center(len(connect_name), ' ')
+                s += '[%s]-->' % connect_name
+                n += '[%s]-->' % node_name
+            s += '...'
+            n += '...'
+            cycle_strs.append(s)
+            cycle_strs.append(n)
+            connect.pop(-1)
+        assert is_dag, ''.join(cycle_strs)
+        assert len(not_active) == 0, 'Stale episode graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
+
+        # Create a shallow copy graph that excludes feedthrough edges
+        F = reset_graph(G)
+        not_active = is_stale(F)
+        color_nodes(F)
+        color_edges(F)
+
+        # Plot graphs
+        if plot:
+            fig_reset, ax_reset = plt.subplots(nrows=1, ncols=1)
+            ax_reset.set_title('Communication graph (reset)')
+            _, _, _, pos = plot_graph(F, pos=pos, ax=ax_reset)
+            plt.show()
+
+        # Assert if reset graph is not stale
+        has_real_reset = len([e for e, ft in nx.get_edge_attributes(G, 'feedthrough').items() if ft]) > 0
+        assert len(not_active) == 0 or not has_real_reset, 'Stale reset graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
         return True

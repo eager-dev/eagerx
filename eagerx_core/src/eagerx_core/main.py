@@ -147,6 +147,7 @@ if __name__ == '__main__':
     #  - Do not show space_converter in actions/observations
 
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: add url/link to documentation in assert messages (e.g. dag graph, msg_type check).
     # todo: How to infer all available and compatible converters (.yaml interface, find all subclasses of BaseConverter?)
     # todo: Get msg_type from python implementation to avoid differences between .yaml and .py
     # todo: Change 'default' to 'config' after yaml has been loaded.
@@ -155,8 +156,6 @@ if __name__ == '__main__':
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
     # todo: How to deal with ROS messages in single_process? Risk of changing content & is it threadsafe? copy-on-write? NamedTuples are immutable (but their elements probably aren't)
     # todo: Create a ThreadSafe simulator object (that can be safely accessed from multiple simulation nodes at once)
-    # todo: CheckEnv(env): i/o correct, fully connected & DAG when RealReset (check graph without all nodes dependent on Env's actions)
-    #       (https://mungingdata.com/python/dag-directed-acyclic-graph-networkx/, https://pypi.org/project/graphviz/)
     # todo: Put a timeout on nonreactive inputs (based on ticks), to hold msgs if after tick, and repeat of timeout
     #       reached (count how many repeats)
     # todo: Currently, we add bridge node twice to message_broker with '/dynamically_registered' appended to avoid a
@@ -167,6 +166,7 @@ if __name__ == '__main__':
     # todo: Implement rxpipeline in c++ for increased speed. Interface with both python & cpp Node baseclasses.
     # todo: Create an option to turn on/off delays when running async --> rx.operators.delay(duetime, scheduler=None)
     # todo: Create a node diagnostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
+    # todo: position nodes in gui via Fruchtman-Reingold force-directed algorithm (https://networkx.org/documentation/stable/reference/generated/networkx.drawing.layout.spring_layout.html)
 
     # todo: THINGS TO KEEP IN MIND:
     #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
