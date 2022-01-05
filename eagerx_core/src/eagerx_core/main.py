@@ -4,6 +4,7 @@ from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
+from eagerx_core.baseconverter import StringUInt64Converter, ImageUInt64Converter
 
 from yaml import dump
 
@@ -13,8 +14,8 @@ if __name__ == '__main__':
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define converter (optional)
-    ImageUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/ImageUInt64Converter', 'test_arg': 'test'}
-    StringUInt64Converter = {'converter_type': 'eagerx_core.baseconverter/StringUInt64Converter', 'test_arg': 'test'}
+    StringUInt64Converter = StringUInt64Converter(test_arg='test')
+    ImageUInt64Converter = ImageUInt64Converter(test_arg='test')
 
     # Process configuration (optional)
     node_p = process.ENVIRONMENT
@@ -23,7 +24,7 @@ if __name__ == '__main__':
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=rate, process=node_p, targets=['target_1'])
+    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=rate, process=node_p, targets=['target_1'], inputs=['in_1', 'in_2'])
     KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
 
     # Define object
@@ -34,13 +35,32 @@ if __name__ == '__main__':
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
-    graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_2', delay=0.0)
+    graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_3', delay=0.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)
-    graph.connect(action='act_1',                           target=(KF.name, 'inputs', 'in_2'))
-    graph.connect(action='act_1',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(action='act_2',                           target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(action='act_2',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
     graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'targets', 'target_1'))
     graph.connect(source=(N3.name,    'outputs', 'out_1'),  target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
+
+    # Replace output converter
+    graph._replace_converter(viper.name, 'sensors', 'N6', StringUInt64Converter)  # Disconnects all connections (obs_1, KF, N3)
+    graph._reset_converter(viper.name, 'sensors', 'N6')  # Resets converter back to default --> IdentityConverter
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)  # Reconnect
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)  # Reconnect
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)  # Reconnect
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))  # Reconnect
+
+    # Remove component. For action/observation use graph._remove_action/observation(...) instead.
+    graph._remove_component(N3.name, 'inputs', 'in_2')
+
+    # Rename entity (object/node) and all associated connections
+    graph.rename(KF.name, 'KF2')
+    KF.name = 'KF2'
+
+    # Rename action & observation
+    graph.rename_component('env/actions', 'outputs', 'act_2', 'act_1')
+    graph.rename_component('env/observations', 'inputs', 'obs_3', 'obs_2')
 
     # Remove & add action (with action terminal removal)
     graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
@@ -111,20 +131,25 @@ if __name__ == '__main__':
     print('\n[Finished]')
 
     # todo: CONVERTERS
-    #  - Initialize converters as usual, but give them a converter.to_dict() function that converts them to .yaml format that can be uploaded to the rosparam server
-    #  - Create a .yaml interface for converters, similar to objects & nodes
+    #  - Converters & objects (what is and is not supported?) --> remove converters from objects
 
     # todo: OTHER
-    # todo: Separate test bridges into a ROS package outside of eagerx_core
+    # todo: Separate test bridge into a separate ROS package outside of eagerx_core
+    # todo: add networkx to dependency
 
     # todo: REACTIVE PROTOCOL
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
+    # todo: GUI
+    #  - Create a "check_graph" button in the GUI that runs is_valid()
+    #  - Do not show converter for states in GUI
+    #  - Do not show space_converter in actions/observations
+
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: How to infer all available and compatible converters (.yaml interface, find all subclasses of BaseConverter?)
     # todo: Get msg_type from python implementation to avoid differences between .yaml and .py
     # todo: Change 'default' to 'config' after yaml has been loaded.
-    # todo; Currently, converters must always convert to different datatypes. Create a pre-processor class that converts to the same type.
     # todo: Create a general OpenAI bridge + wrapper that excludes is_done & reward from observations --> sum received rewards.
     # todo: Implement display functionality inside the render node.
     # todo: Create a register_node function in the RxNode class to initialize a node inside the process of another node.
@@ -141,7 +166,7 @@ if __name__ == '__main__':
     #       info must correct for grid position.
     # todo: Implement rxpipeline in c++ for increased speed. Interface with both python & cpp Node baseclasses.
     # todo: Create an option to turn on/off delays when running async --> rx.operators.delay(duetime, scheduler=None)
-    # todo: Create a node diagonostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
+    # todo: Create a node diagnostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
 
     # todo: THINGS TO KEEP IN MIND:
     #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.

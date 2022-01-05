@@ -258,3 +258,17 @@ def check_msg_type(name, component, cname, node_cls, msg_type):
             return
         else:
             raise(e)
+
+
+def check_valid_rosparam_type(param):
+    valid_types = (str, int, list, float, bool, dict)
+    if isinstance(param, valid_types) or param is None:
+        if isinstance(param, dict):
+            for key, value in param.items():
+                assert isinstance(key, str), 'Only keys of type "str" are supported in dictionaries that are uploaded to the rosparam server.'
+                check_valid_rosparam_type(value)
+        if isinstance(param, list):
+            for value in param:
+                check_valid_rosparam_type(value)
+    else:
+        raise ValueError('Type "%s" of a specified param with value "%s" is not supported by the rosparam server.' % (type(param), param.__name__))
