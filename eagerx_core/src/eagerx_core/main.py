@@ -134,19 +134,21 @@ if __name__ == '__main__':
     #  - Converters & objects (what is and is not supported?) --> remove converters from objects
 
     # todo: OTHER
+    # todo: change default/node args with rxgraph method
     # todo: Separate test bridge into a separate ROS package outside of eagerx_core
-    # todo: add networkx to dependency
+    # todo: add networkx, tabulate to dependency
 
     # todo: REACTIVE PROTOCOL
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: GUI
-    #  - Create a "check_graph" button in the GUI that runs is_valid()
+    #  - Create a "check_graph" button in the GUI that runs is_valid() --> with check_box to toggle plotting networks
     #  - Do not show converter for states in GUI
     #  - Do not show space_converter in actions/observations
 
     # todo: CREATE GITHUB ISSUES FOR:
+    # todo: Create docker for EAGERx
     # todo: add url/link to documentation in assert messages (e.g. dag graph, msg_type check).
     # todo: How to infer all available and compatible converters (.yaml interface, find all subclasses of BaseConverter?)
     # todo: Get msg_type from python implementation to avoid differences between .yaml and .py
@@ -166,7 +168,7 @@ if __name__ == '__main__':
     # todo: Implement rxpipeline in c++ for increased speed. Interface with both python & cpp Node baseclasses.
     # todo: Create an option to turn on/off delays when running async --> rx.operators.delay(duetime, scheduler=None)
     # todo: Create a node diagnostics topic that contains 'info on node Hz, input HZs, input recv vs send & other flags
-    # todo: position nodes in gui via Fruchtman-Reingold force-directed algorithm (https://networkx.org/documentation/stable/reference/generated/networkx.drawing.layout.spring_layout.html)
+    # todo: Position nodes in gui via Fruchtman-Reingold force-directed algorithm (https://networkx.org/documentation/stable/reference/generated/networkx.drawing.layout.spring_layout.html)
 
     # todo: THINGS TO KEEP IN MIND:
     #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
@@ -180,10 +182,10 @@ if __name__ == '__main__':
     #  - If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
     #  - Only objects can have nonreactive inputs. In that case, the bridge is responsible for sending flag msgs (num_msgs_send).
     #  The bridges knows which inputs are nonreactive when the object is registered.
-    #  - nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
+    #  - Nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
     #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
     #  not be agnostic (as they would break in the case is_reactive=True).
     #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
-    #  - Nonreactive inputs that 'start_with_msg' could mess up the reset.
+    #  - Nonreactive inputs that have 'start_with_msg' could mess up the reset.
     #  - Delays are ignored when running async.
 

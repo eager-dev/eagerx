@@ -1,4 +1,5 @@
 import yaml
+from tabulate import tabulate
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -663,11 +664,10 @@ class RxGraph:
     @staticmethod
     def is_valid(state, plot=False):
         state = deepcopy(state)
-        # todo: create individual checks for:
-        #  - check compatibility with bridges together with which objects are supported where (tabulate?)
         RxGraph.check_msg_types_are_consistent(state)
         RxGraph.check_inputs_have_address(state)
-        RxGraph.check_graph_is_direct_acyclic(state, plot=plot)
+        RxGraph.check_graph_is_acyclic(state, plot=plot)
+        RxGraph.check_exists_compatible_bridge(state)
         return True
 
     @staticmethod
@@ -737,7 +737,7 @@ class RxGraph:
         return True
 
     @staticmethod
-    def check_graph_is_direct_acyclic(state, plot=True):
+    def check_graph_is_acyclic(state, plot=True):
         # Add nodes
         G = nx.MultiDiGraph()
         for node, params in state['nodes'].items():
@@ -845,4 +845,66 @@ class RxGraph:
         # Assert if reset graph is not stale
         has_real_reset = len([e for e, ft in nx.get_edge_attributes(G, 'feedthrough').items() if ft]) > 0
         assert len(not_active) == 0 or not has_real_reset, 'Stale reset graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
+        return True
+
+    @staticmethod
+    def check_exists_compatible_bridge(state):
+        # Bridges are headers
+        bridges = []
+        objects = []
+        for node, params in state['nodes'].items():
+            default = params['params']['default']
+            # todo: only check bridge if it concerns one of the selected components
+            if 'node_type' not in state['nodes'][node]['params']:  # Object
+                params = state['nodes'][node]['params']
+                package = '%s/%s' % (params['default']['package_name'], params['default']['config_name'])
+                obj_name = params['default']['name']
+                entry = [obj_name, package]
+
+                # Add all (unknown) bridges to the list
+                for key, value in params.items():
+                    if key in ['default', 'sensors', 'actuators', 'states']: continue
+                    if key not in bridges:
+                        bridges.append(key)
+
+                # See what bridges support all object components
+                for b in bridges:
+                    if b in params:
+                        for component in ['sensors', 'actuators', 'states']:
+                            if component in default:
+                                for cname in default[component]:
+                                    if component in params[b] and cname in params[b][component]:
+                                        e_str = 'x'  # Component entry is supported
+                                    else:
+                                        e_str = ' '  # Component entry is not supported
+                                        break  # Break if entry in component is not supported
+                            else:
+                                raise KeyError('No components in %s' % default)
+                    else:  # Bridge name not even mentioned in object config
+                        e_str = ' '
+                    entry.append(e_str)
+                objects.append(entry)
+
+        # Fill up incompatible bridges that were added after object entries
+        for entry in objects:
+            for b in bridges[len(entry)-2:]:
+                entry.append(' ')
+
+        # Get compatible bridges
+        compatible = []
+        for idx, b in enumerate(bridges):
+            idx = idx + 2
+            for entry in objects:
+                c = [True if entry[idx] == 'x' else False for entry in objects]
+            if len(c) == len(objects):
+                compatible.append(b)
+
+        # Objects are entries
+        headers = ['\nname', '\nobject']
+        for b in bridges:
+            headers.append(b.replace('/', '/\n'))
+
+        # Assert if there are compatible bridges
+        tabulate_str = tabulate(objects, headers=headers, tablefmt="fancy_grid", colalign=["center"]*len(headers))
+        assert len(compatible), 'No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s' % tabulate_str
         return True
