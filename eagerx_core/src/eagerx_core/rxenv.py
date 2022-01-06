@@ -41,6 +41,7 @@ class RxEnv(gym.Env):
         self._bridge_name = '%s/%s' % (bridge.params['default']['package_name'], bridge.params['default']['config_name'])  # bridge.name
 
         # Register graph
+        self.graph = graph
         nodes, objects, actions, observations, self.render_node = graph.register_graph()
 
         # Initialize supervisor node

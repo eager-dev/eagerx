@@ -4,7 +4,7 @@ from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
-from eagerx_core.baseconverter import StringUInt64Converter, ImageUInt64Converter
+from eagerx_core.baseconverter import StringUInt64Converter, ImageUInt64Converter, IdentityConverter
 
 from yaml import dump
 
@@ -34,71 +34,72 @@ if __name__ == '__main__':
     graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
-    graph.connect(source=(KF.name,    'outputs', 'out_1'),  observation='obs_3', delay=0.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)
-    graph.connect(action='act_2',                           target=(KF.name, 'inputs', 'in_2'))
-    graph.connect(action='act_2',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
-    graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'targets', 'target_1'))
-    graph.connect(source=(N3.name,    'outputs', 'out_1'),  target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
+    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', delay=0.0)
+    graph.connect(source=(KF.name, 'outputs', 'out_1'), observation='obs_3', delay=0.0)
+    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'), delay=1.0)
+    graph.connect(action='act_2', target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(action='act_2', target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(N3.name, 'inputs', 'in_1'))
+    graph.connect(source=(viper.name, 'states', 'N9'), target=(N3.name, 'targets', 'target_1'))
+    graph.connect(source=(N3.name, 'outputs', 'out_1'), target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
+
+    # Set & get parameters
+    _ = graph.get_parameter('converter', action='act_2')
+    graph.set_parameter('window', 1, observation='obs_1')
+    _ = graph.get_parameter('converter', observation='obs_1')
+    _ = graph.get_parameter('test_arg', name=N3.name)
+    _ = graph.get_parameters(viper.name, 'sensors', 'N6')
+    graph.set_parameter('test_arg', 'Modified with set_parameter', name=N3.name)
+    graph.set_parameter('test_arg', 'Modified with set_parameter', name=N3.name)
+    graph.set_parameter('position', [1, 1, 1], name=viper.name)
 
     # Replace output converter
-    graph._replace_converter(viper.name, 'sensors', 'N6', StringUInt64Converter)  # Disconnects all connections (obs_1, KF, N3)
+    graph.set_parameter('converter', StringUInt64Converter, name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
     graph._reset_converter(viper.name, 'sensors', 'N6')  # Resets converter back to default --> IdentityConverter
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)  # Reconnect
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)  # Reconnect
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)  # Reconnect
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))  # Reconnect
+    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', delay=0.0)  # Reconnect
+    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'), delay=1.0)  # Reconnect
+    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(N3.name, 'inputs', 'in_1'))  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
-    graph._remove_component(N3.name, 'inputs', 'in_2')
+    graph.remove_component(N3.name, 'inputs', 'in_2')
 
     # Rename entity (object/node) and all associated connections
     graph.rename(KF.name, 'KF2')
-    KF.name = 'KF2'
+    graph.rename('KF2', KF.name)
 
     # Rename action & observation
-    graph.rename_component('env/actions', 'outputs', 'act_2', 'act_1')
-    graph.rename_component('env/observations', 'inputs', 'obs_3', 'obs_2')
+    graph.rename('act_2', 'act_1', name='env/actions', component='outputs')
+    graph.rename('obs_3', 'obs_2', name='env/observations', component='inputs')
 
-    # Remove & add action (with action terminal removal)
+    # Remove & add action (without action terminal removal)
     graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
     graph.connect(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)
 
     # Remove & add observation (with observation terminal removal)
     graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
-    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None, delay=None, window=None)
-
-    # Remove & add action (without action terminal removal)
-    graph._disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
-    graph.connect(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)
-
-    # Remove & add observation (without observation terminal removal)
-    graph._disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
+    graph.add_component(observation='obs_1')  # Add input terminal
     graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None, delay=None, window=None)
 
     # Remove & add other input
     graph.disconnect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
     graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
 
-    # Completely remove & add new action (GUI METHOD)
-    graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
-    graph._add_action(action='act_1')
-    graph._connect_action(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None)  # add input_converter here if specified
-    graph._connect(source=('env/actions', 'outputs', 'act_1'), target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)  # add input_converter, delay, window here if specified
-
-    # Completely remove & add new action (GUI METHOD)
-    graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
-    graph._add_action(action='act_1')
-    graph._connect_action(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None)  # add input_converter here if specified
-    graph._connect(source=('env/actions', 'outputs', 'act_1'), target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None)  # add input_converter, delay, window here if specified
-
-    # Completely remove & add new observation (GUI METHOD)
-    graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
-    graph._add_observation(observation='obs_1')
-    converter = graph._connect_observation(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None)  # add input_converter here if specified
-    graph._connect(source=(viper.name, 'sensors', 'N6'), target=('env/observations', 'inputs', 'obs_1'), converter=converter, delay=None, window=None)  # add input_converter, delay, window here if specified
+    # GUI method for making connections
+    # Works with other sources as well, but then specify "source" instead of "action" as optional arg to connect(..) and disconnect(..).
+    graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', remove=False)  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
+    # GUI: if no observation terminal is present, call graph.add_component(observation='obs_1') first.
+    params = graph.get_parameters(observation='obs_1')  # Grab already defined parameters from input component
+    if len(params) == 0:  # If observation, dict will be empty.
+        converter = graph.get_parameter(parameter='space_converter', name=viper.name, component='sensors', cname='N6',
+                                        default=IdentityConverter)  # grab space_converter from target (viper.name, 'sensors', 'N6')
+        delay, window = 0, 0
+    else:  # If not observation, these values will always be present
+        converter, delay, window = params['converter'], params['delay'], params['window']
+    # GUI: open dialogue box where users can modify converter, delay, window etc... Use previous params to set initial values.
+    # GUI: converter, delay, window = ConnectionOptionsDialogueBox(converter, delay, window)
+    # GUI: use the modified params to connect. For actions, use source=None and actions='act_1'.
+    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=converter, delay=delay, window=window)
 
     # Test save & load functionality
     graph.save('./test.graph')
@@ -134,7 +135,7 @@ if __name__ == '__main__':
     #  - Converters & objects (what is and is not supported?) --> remove converters from objects
 
     # todo: OTHER
-    # todo: change default/node args with rxgraph method
+    # todo: check cyclic on all start_with_msg edges.
     # todo: Separate test bridge into a separate ROS package outside of eagerx_core
     # todo: add networkx, tabulate to dependency
 
