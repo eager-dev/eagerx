@@ -40,10 +40,16 @@ class RxGraph:
         return cls(state)
 
     def add(self, entities: Union[Union[RxNodeParams, RxObjectParams], List[Union[RxNodeParams, RxObjectParams]]]):
+        """
+        Add a node or object to the state of this graph.
+        """
         self._add(self._state, entities)
 
     @staticmethod
     def _add(state: Dict, entities: Union[Union[RxNodeParams, RxObjectParams], List[Union[RxNodeParams, RxObjectParams]]]):
+        """
+        Add a node/object to the provided state.
+        """
         if not isinstance(entities, list):
             entities = [entities]
 
@@ -63,12 +69,13 @@ class RxGraph:
             state['nodes'][name]['params'] = deepcopy(params)
             state['nodes'][name]['default'] = params_default
 
-    def remove(self, names: Union[str, List[str]]):
+    def remove(self, names: Union[str, List[str]], remove=True):
         """
+        Removes a node.
         First removes all associated connects from self._state.
         Then, removes node/object from self._state.
-        Also removes observation entries if they are disconnected.
-        Also removes action entries if they are disconnect and the last connection.
+        Also removes observation entries if they are disconnected when remove=True.
+        Also removes action entries if they are disconnect and the last connection when remove=True.
         """
         if not isinstance(names, list):
             names = [names]
@@ -88,7 +95,7 @@ class RxGraph:
                     else:
                         observation = None
                         target = target
-                    self.disconnect(source, target, action, observation)
+                    self.disconnect(source, target, action, observation, remove=remove)
             self._state['nodes'].pop(name)
 
     def _remove(self, names: Union[str, List[str]]):
@@ -120,6 +127,11 @@ class RxGraph:
             self._state['nodes'].pop(name)
 
     def add_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
+        """
+        Adds a component entry to the selection list.
+        For actions, it will also add an entry in self._state['nodes'][env/actions]['params'][outputs]
+        For observations, it will also add an entry in self._state['nodes'][env/observations]['params'][inputs]
+        """
         # assert only action, only observation, only name, component, cname
         self._correct_signature(name, component, cname, action, observation)
         if (name is not None) and (component is not None) and (cname is not None):  # component parameter
@@ -131,8 +143,7 @@ class RxGraph:
 
     def _add_component(self, name: str, component: str, cname: str):
         """
-        adds a component entry to the selection list.
-        For feedthroughs, it will remove the corresponding output from the selection list.
+        Adds a component entry to the selection list.
         """
         # For feedthroughs, add the corresponding output instead
         component = 'outputs' if component == 'feedthroughs' else component
@@ -168,6 +179,12 @@ class RxGraph:
             self._add_component('env/observations', 'inputs', observation)
 
     def remove_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
+        """
+        Removes a component entry from the selection list. It will first disconnect all connections in connect.
+        For feedthroughs, it will remove the corresponding output from the selection list.
+        For actions, it will also remove the entry in self._state['nodes'][env/actions]['params'][outputs]
+        For observations, it will also remove the entry in self._state['nodes'][env/observations]['params'][inputs]
+        """
         # assert only action, only observation, only name, component, cname
         if (name is not None) and (component is not None) and (cname is not None):  # component parameter
             assert action is None, 'If {name, component, cname} are specified, action argument cannot be specified.'
@@ -200,8 +217,9 @@ class RxGraph:
 
     def _remove_action(self, action: str):
         """
-        Method to remove an action. Can only remove existing and disconnected actions.
+        Method to remove an action. It will first disconnect all connections in connect.
         """
+        self._remove_component('env/actions', 'outputs', action)
         params_action = self._state['nodes']['env/actions']['params']
         source = ['env/actions', 'outputs', action]
         connect_exists = False
@@ -211,15 +229,16 @@ class RxGraph:
                 target = c[1]
                 break
         assert not connect_exists, 'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.' % (action, target)
-        assert action in params_action['outputs'], 'Action "%s" cannot be removed, because it does not exist.' % action
+        # assert action in params_action['outputs'], 'Action "%s" cannot be removed, because it does not exist.' % action
 
-        self._remove_component('env/actions', 'outputs', action)
+        # self._remove_component('env/actions', 'outputs', action)
         params_action['outputs'].pop(action)
 
     def _remove_observation(self, observation: str):
         """
-        Method to remove an observation. Can only remove existing and disconnected observations.
+        Method to remove an observation. It will first disconnect all connections in connect.
         """
+        self._remove_component('env/observations', 'inputs', observation)
         params_obs = self._state['nodes']['env/observations']['params']
         target = ['env/observations', 'inputs', observation]
         connect_exists = False
@@ -229,9 +248,7 @@ class RxGraph:
                 source = c[0]
                 break
         assert not connect_exists, 'Observation entry "%s" cannot be removed, because it is not disconnected. Connection with source %s still exists.' % (observation, source)
-        assert observation in params_obs['inputs'], 'Observation "%s" cannot be removed, because it does not exist.' % observation
-
-        self._remove_component('env/observations', 'inputs', observation)
+        # assert observation in params_obs['inputs'], 'Observation "%s" cannot be removed, because it does not exist.' % observation
         params_obs['inputs'].pop(observation)
 
     def connect(self,
@@ -502,7 +519,17 @@ class RxGraph:
             'inputs'], 'Cannot disconnect observation "%s", as it does not exist.' % observation
         params_obs['inputs'][observation] = dict()
 
-    def rename(self, old, new, name: Optional[str] = None, component: Optional[str] = None):
+    def rename(self, old, new, name: Optional[str] = None, component: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
+        """
+        Renames the node/object, or action/observation if specified.
+        """
+        self._correct_signature(name=name, component=component, observation=observation, action=action)
+        if action:
+            name = 'env/actions'
+            component = 'outputs'
+        if observation:
+            name = 'env/observations'
+            component = 'inputs'
         if (name is not None) and (component is not None):  # component renaming
             self._rename_component(name, component, old_cname=old, new_cname=new)
         elif (name is None) and (component is None):  # node/object renaming

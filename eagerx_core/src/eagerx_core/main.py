@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     # Replace output converter
     graph.set_parameter('converter', StringUInt64Converter, name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
-    graph._reset_converter(viper.name, 'sensors', 'N6')  # Resets converter back to default --> IdentityConverter
+    graph.set_parameter('converter', IdentityConverter(), name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)  # Reconnect
     graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', delay=0.0)  # Reconnect
     graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'), delay=1.0)  # Reconnect
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     # Rename action & observation
     graph.rename('act_2', 'act_1', name='env/actions', component='outputs')
-    graph.rename('obs_3', 'obs_2', name='env/observations', component='inputs')
+    graph.rename('obs_3', 'obs_2', observation='obs_2')
 
     # Remove & add action (without action terminal removal)
     graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
@@ -85,21 +85,28 @@ if __name__ == '__main__':
     graph.disconnect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
     graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
 
-    # GUI method for making connections
     # Works with other sources as well, but then specify "source" instead of "action" as optional arg to connect(..) and disconnect(..).
     graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', remove=False)  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
-    # GUI: if no observation terminal is present, call graph.add_component(observation='obs_1') first.
-    params = graph.get_parameters(observation='obs_1')  # Grab already defined parameters from input component
+
+    # GUI routine for making connections
+    source = (viper.name, 'sensors', 'N6')
+    target = ('env/observations', 'inputs', 'obs_1')
+    # GUI: Identify if source/target is action/observation
+    observation = target[2] if target[0] == 'env/observations' else None
+    action = source[2] if target[0] == 'env/actions' else None
+    params = graph.get_parameters(name=target[0], component=target[1], cname=target[2])  # Grab already defined parameters from input component
     if len(params) == 0:  # If observation, dict will be empty.
-        converter = graph.get_parameter(parameter='space_converter', name=viper.name, component='sensors', cname='N6',
-                                        default=IdentityConverter)  # grab space_converter from target (viper.name, 'sensors', 'N6')
+        converter = graph.get_parameter(parameter='space_converter', name=source[0], component=source[1], cname=source[2],
+                                        default=IdentityConverter)  # grab space_converter from source (viper.name, 'sensors', 'N6')
         delay, window = 0, 0
     else:  # If not observation, these values will always be present
         converter, delay, window = params['converter'], params['delay'], params['window']
     # GUI: open dialogue box where users can modify converter, delay, window etc... Use previous params to set initial values.
     # GUI: converter, delay, window = ConnectionOptionsDialogueBox(converter, delay, window)
-    # GUI: use the modified params to connect. For actions, use source=None and actions='act_1'.
-    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=converter, delay=delay, window=window)
+    target = None if observation else target  # If we have an observation, it will be the target instead in .connect(..)
+    source = None if action else source  # If we have an action, it will be the source instead in .connect(..)
+    # GUI: use the modified params via the dialogue box to connect.
+    graph.connect(source=source, target=target, action=action, observation=observation, converter=converter, delay=delay, window=window)
 
     # Test save & load functionality
     graph.save('./test.graph')
