@@ -17,8 +17,8 @@ from pyqtgraph.debug import printExc
 # Import eagerx modules
 from eagerx_core.rxgraph import RxGraph
 from eagerx_core.gui import rxgui_view
-from eagerx_core.gui.rxgui_node import RxGuiNode
-from eagerx_core.gui.rxgui_terminal import RxGuiTerminal, ConnectionItem
+from eagerx_core.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
+from eagerx_core.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_nodes_and_objects_library
 
@@ -496,14 +496,13 @@ class EagerxGraphWidget(dockarea.DockArea):
     def hover_over(self, items):
         for item in items:
             self.hoverItem = item
-            if hasattr(item, 'terminal_name') and isinstance(item.term, RxGuiTerminal):
-                terminal_type = item.term.terminal_name.split('/')[0]
+            if hasattr(item, 'term') and isinstance(item, TerminalGraphicsItem):
                 text = 'name: ' + item.term.terminal_name
                 for key, value in item.term.params().items():
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
-            elif hasattr(item, 'node') and isinstance(item.node, RxGuiNode):
+            elif hasattr(item, 'node') and isinstance(item, NodeGraphicsItem):
                 text = ''
                 for key, value in item.node.params()['default'].items():
                     text += '{}: {}\n'.format(key, value)
