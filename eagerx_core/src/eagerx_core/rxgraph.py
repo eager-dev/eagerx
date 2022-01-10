@@ -8,9 +8,9 @@ from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, initialize_converter
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.baseconverter import BaseConverter
+from eagerx_core.baseconverter import BaseConverter, SpaceConverter
 
 
 class RxGraph:
@@ -307,11 +307,11 @@ class RxGraph:
 
         # Add properties to target params
         if converter is not None:
-            target_params[target_comp][target_cname]['converter'] = converter
+            self.set_parameter('converter', converter, target_name, target_comp, target_cname)
         if window is not None:
-            target_params[target_comp][target_cname]['window'] = window
+            self.set_parameter('window', window, target_name, target_comp, target_cname)
         if delay is not None:
-            target_params[target_comp][target_cname]['delay'] = delay
+            self.set_parameter('delay', delay, target_name, target_comp, target_cname)
 
         # Add connection
         connect = [source, target]
@@ -646,6 +646,11 @@ class RxGraph:
         msg_type_ros_new = get_opposite_msg_cls(msg_type, converter)
         if not msg_type_ros_new == msg_type_ros_old:
             self._disconnect_component(name, component, cname)
+
+        # Make sure the converter is a spaceconverter
+        if name in ['env/actions', 'env/observations']:
+            converter_cls = initialize_converter(converter)
+            assert isinstance(converter_cls, SpaceConverter), 'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
 
         # Replace converter
         params[component][cname]['converter'] = converter
@@ -1130,4 +1135,4 @@ class RxGraph:
         # Assert if there are compatible bridges
         tabulate_str = tabulate(objects, headers=headers, tablefmt="fancy_grid", colalign=["center"]*len(headers))
         assert len(compatible), 'No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s' % tabulate_str
-        return True
+        return tabulate_str

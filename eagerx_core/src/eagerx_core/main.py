@@ -141,6 +141,7 @@ if __name__ == '__main__':
     print('\n[Finished]')
 
     # todo: REFACTORING
+    # todo: observations and actions can only have spaceconverters
     # todo: change 'default' to 'config'
     # todo: Separate test bridge into a separate ROS package outside of eagerx_core
 
