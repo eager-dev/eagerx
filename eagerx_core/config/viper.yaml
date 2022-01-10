@@ -71,6 +71,7 @@ eagerx_core/bridge:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       states: [state_1]
       inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
+      outputs: [out_1] # Mapping of sensor output to sim_sensor output cname inside node_config "sim_sensor.yaml"
       color: cyan
       log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
       nonreactive_rates: {in_1: 20}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
@@ -79,6 +80,7 @@ eagerx_core/bridge:
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       inputs: {in_1: $(obj_name)/sensors/N6}  # $(obj_name) is replaced at run-time with object name
+      outputs: [out_1] # Mapping of sensor output to sim_sensor output cname inside node_config "sim_sensor.yaml"
       color: cyan
       process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'

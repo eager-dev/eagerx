@@ -299,7 +299,9 @@ class RxNodeParams(Params):
             for cname in default['outputs']:
                 assert cname in params['outputs'], ('Received unknown %s "%s". Check under "%s" in "%s.yaml" inside ROS package "%s/config".' % ('output', cname, 'outputs', config_name, package_name))
                 check_msg_type(name, 'outputs', cname, node_cls, params['outputs'][cname]['msg_type'])
-                if in_object and 'sensors' in name.split('/'):  # If node is part of object, only use name of node (e.g. obj/sensors/out_1)
+                if 'address' in params['outputs'][cname]:
+                    address = params['outputs'][cname].pop('address')
+                elif in_object and 'sensors' in name.split('/'):  # If node is part of object, only use name of node (e.g. obj/sensors/out_1)
                     address = name
                 else:
                     address = '%s/outputs/%s' % (name, cname)
@@ -432,6 +434,17 @@ class RxObjectParams(Params):
             p_bridge.pop('node_config')
             p_bridge['rate'] = p_env['rate']
 
+            # Define node outputs mapping & set the output converter
+            assert len(p_bridge['outputs']) == 1, 'Node "%s" must have exactly 1 output. Nodes that simulate sensor outputs can only have a single output. Modify "%s.yaml" inside ROS package "%s/config".' % (node_name, params['default']['config_name'], params['default']['package_name'])
+            cname_node = p_bridge['outputs'][0]
+            assert 'output_converters' not in p_bridge, 'Sensor node "%s" cannot have an output converter defined in the bridge definition "%s". Modify "%s.yaml" inside ROS package "%s/config".' % (node_name, bridge, params['default']['config_name'], params['default']['package_name'])
+            p_bridge['output_converters'] = {cname_node: p_env['converter']}
+
+            # Check that simulation node cname is correct and that de simnode does not have an output converter
+            sim_node_yaml = load_yaml(package, config_name)
+            assert cname_node in sim_node_yaml['outputs'], 'The provided output name "%s" in "%s.yaml" inside ROS package "%s/config" does not exist in the provided simnulation node config "%s.yaml" inside ROS package "%s/config".' % (cname_node, params['default']['config_name'], params['default']['package_name'], config_name, package)
+            assert 'converter' not in sim_node_yaml['outputs'][cname_node], 'The provided output name "%s" exists in "%s.yaml" inside ROS package "%s/config" but simnulation node config "%s.yaml" inside ROS package "%s/config" already has a converter defined. This is not allowed for simulation nodes.' % (cname_node, params['default']['config_name'], params['default']['package_name'], config_name, package)
+
             # Define node inputs mapping
             inputs_dict = {'tick': 'bridge/outputs/tick'}
             if 'inputs' in p_bridge:
@@ -448,8 +461,7 @@ class RxObjectParams(Params):
             # Check consistency between simulation node .yaml and object .yaml
             converter_env = initialize_converter(p_env['converter'])
             msg_type_env = get_cls_from_string(p_env['msg_type'])
-            assert len(node.params['default']['outputs']) == 1, 'Node "%s" cannot have more than 1 output. Nodes that simulate sensor outputs can only have a single output.' % node_name
-            assert p_env['converter'] == IdentityConverter().get_yaml_definition(), 'Node "%s" has an output converter "%s". Sensor nodes cannot have an output converter.' % (node_name, converter_env)
+            # assert p_env['converter'] == IdentityConverter().get_yaml_definition(), 'Node "%s" has an output converter "%s". Sensor nodes cannot have an output converter.' % (node_name, converter_env)
             cname_node = node.params['default']['outputs'][0]
             params_node = node.params['outputs'][cname_node]
             msg_type_node = get_cls_from_string(params_node['msg_type'])
@@ -499,10 +511,9 @@ class RxObjectParams(Params):
                     check_None_trigger = True
                     cname_node = act_cname
                     p_bridge['inputs'][act_cname] = p_env['address']
-                    if 'converter' in p_env:
-                        p_bridge['input_converters'][act_cname] = p_env['converter']
-                    if 'delay' in p_env:
-                        p_bridge['delays'][act_cname] = p_env['delay']
+                    assert act_cname not in p_bridge['input_converters'], 'Actuator node "%s" cannot have an input converter defined in the bridge definition "%s". Modify "%s.yaml" inside ROS package "%s/config".' % (node_name, bridge, params['default']['config_name'], params['default']['package_name'])
+                    p_bridge['input_converters'][act_cname] = p_env['converter']
+                    p_bridge['delays'][act_cname] = p_env['delay']
                 else:  # prepend node name to inputs (which have to originate from inside the object)
                     p_bridge['inputs'][act_cname] = substitute_yaml_args(address, {'env_name': ns, 'obj_name': name})
             assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])

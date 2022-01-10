@@ -69,7 +69,7 @@ class RxGraph:
             state['nodes'][name]['params'] = deepcopy(params)
             state['nodes'][name]['default'] = params_default
 
-    def remove(self, names: Union[str, List[str]], remove=True):
+    def remove(self, names: Union[str, List[str]], remove: bool = False):
         """
         Removes a node.
         First removes all associated connects from self._state.
@@ -178,7 +178,7 @@ class RxGraph:
             params_obs['inputs'][observation] = dict()
             self._add_component('env/observations', 'inputs', observation)
 
-    def remove_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
+    def remove_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None, remove: bool = False):
         """
         Removes a component entry from the selection list. It will first disconnect all connections in connect.
         For feedthroughs, it will remove the corresponding output from the selection list.
@@ -186,20 +186,15 @@ class RxGraph:
         For observations, it will also remove the entry in self._state['nodes'][env/observations]['params'][inputs]
         """
         # assert only action, only observation, only name, component, cname
+        self._correct_signature(name, component, cname, action, observation)
         if (name is not None) and (component is not None) and (cname is not None):  # component parameter
-            assert action is None, 'If {name, component, cname} are specified, action argument cannot be specified.'
-            assert observation is None, 'If {name, component, cname} are specified, observation argument cannot be specified.'
-            self._remove_component(name, component, cname)
+            self._remove_component(name, component, cname, remove=remove)
         if action:
-            assert observation is None, 'If action is specified, observation must be None.'
-            assert (name is None) and (component is None) and (cname is None), 'If action is specified, arguments {name, component, cname} cannot be specified.'
             self._remove_action(action)
         if observation:
-            assert action is None, 'If observation is specified, action must be None.'
-            assert (name is None) and (component is None) and (cname is None), 'If action is specified, arguments {name, component, cname} cannot be specified.'
             self._remove_observation(observation)
 
-    def _remove_component(self, name: str, component: str, cname: str):
+    def _remove_component(self, name: str, component: str, cname: str, remove: bool = False):
         """
         Removes a component entry from the selection list. It will first disconnect all connections in connect.
         For feedthroughs, it will remove the corresponding output from the selection list.
@@ -209,7 +204,7 @@ class RxGraph:
         self._is_selected(self._state, name, component, cname)
 
         # Disconnect component entry
-        self._disconnect_component(name, component, cname)
+        self._disconnect_component(name, component, cname, remove=remove)
 
         # Remove cname from selection list
         params = self._state['nodes'][name]['params']
@@ -219,7 +214,7 @@ class RxGraph:
         """
         Method to remove an action. It will first disconnect all connections in connect.
         """
-        self._remove_component('env/actions', 'outputs', action)
+        self._remove_component('env/actions', 'outputs', action, remove=False)
         params_action = self._state['nodes']['env/actions']['params']
         source = ['env/actions', 'outputs', action]
         connect_exists = False
@@ -229,16 +224,13 @@ class RxGraph:
                 target = c[1]
                 break
         assert not connect_exists, 'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.' % (action, target)
-        # assert action in params_action['outputs'], 'Action "%s" cannot be removed, because it does not exist.' % action
-
-        # self._remove_component('env/actions', 'outputs', action)
         params_action['outputs'].pop(action)
 
     def _remove_observation(self, observation: str):
         """
         Method to remove an observation. It will first disconnect all connections in connect.
         """
-        self._remove_component('env/observations', 'inputs', observation)
+        self._remove_component('env/observations', 'inputs', observation, remove=False)
         params_obs = self._state['nodes']['env/observations']['params']
         target = ['env/observations', 'inputs', observation]
         connect_exists = False
@@ -391,7 +383,7 @@ class RxGraph:
                    source: Optional[Tuple[str, str, str]] = None,
                    target: Optional[Tuple[str, str, str]] = None,
                    action: str = None, observation: str = None,
-                   remove: bool = True):
+                   remove: bool = False):
         """
         Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         If remove=True, remove observations and actions in the following cases:
@@ -415,7 +407,7 @@ class RxGraph:
     def _disconnect(self,
                    source: Optional[Tuple[str, str, str]] = None,
                    target: Optional[Tuple[str, str, str]] = None,
-                   action: str = None, observation: str = None, ):
+                   action: str = None, observation: str = None):
         """
         Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         """
@@ -466,7 +458,7 @@ class RxGraph:
             target_params = self._state['nodes'][target_name]['params']
             target_params[target_comp][target_cname] = self._state['nodes'][target_name]['default'][target_comp][target_cname]
 
-    def _disconnect_component(self, name: str, component: str, cname: str):
+    def _disconnect_component(self, name: str, component: str, cname: str, remove=True):
         """
         Disconnects all associated connects from self._state.
         **DOES NOT** remove observation entries if they are disconnected.
@@ -490,9 +482,9 @@ class RxGraph:
                 observation = None
                 target = target
             if name == source_name and component == source_comp and cname == source_cname:
-                self._disconnect(source, target, action, observation)
+                self.disconnect(source, target, action, observation, remove=remove)
             elif name == target_name and component == target_comp and cname == target_cname:
-                self._disconnect(source, target, action, observation)
+                self.disconnect(source, target, action, observation, remove=remove)
 
     def _disconnect_action(self, action: str):
         """
@@ -945,33 +937,58 @@ class RxGraph:
     def check_graph_is_acyclic(state, plot=True):
         # Add nodes
         G = nx.MultiDiGraph()
+        label_mapping = {'env/observations/set': 'observations', 'env/render/done': 'render'}
         for node, params in state['nodes'].items():
             default = params['params']['default']
             if 'node_type' not in state['nodes'][node]['params']:  # Object
-                if 'sensors' in default and len(default['sensors']) > 0:
-                    G.add_node('%s/sensors' % node, remain_active=False, always_active=True, is_stale=False)
-                if 'actuators' in default and len(default['actuators']) > 0:
-                    G.add_node('%s/actuators' % node, remain_active=True, always_active=False, is_stale=False)
+                if 'sensors' in default:
+                    for cname in default['sensors']:
+                        name = '%s/sensors/%s' % (node, cname)
+                        G.add_node('%s/sensors/%s' % (node, cname), remain_active=False, always_active=True, is_stale=False)
+                        if not ('actuators' in default and cname in default['actuators']):
+                            label_mapping[name] = '%s/%s' % (node, cname)
+                if 'actuators' in default:
+                    for cname in default['actuators']:
+                        name = '%s/actuators/%s' % (node, cname)
+                        G.add_node('%s/actuators/%s' % (node, cname), remain_active=True, always_active=False, is_stale=False)
+                        if not ('sensors' in default and cname in default['sensors']):
+                            label_mapping[name] = '%s/%s' % (node, cname)
             else:  # node
-                G.add_node(node, remain_active=False, always_active=False, is_stale=False)
+                if 'outputs' in default:
+                    for cname in default['outputs']:
+                        name = '%s/%s' % (node, cname)
+                        if name == 'env/actions/set': continue
+                        G.add_node(name, remain_active=False, always_active=False, is_stale=False)
 
         # Add edges
+        for cname in state['nodes']['env/actions']['params']['default']['outputs']:
+            if cname == 'set': continue
+            name = 'env/actions/%s' % cname
+            label_mapping[name] = 'actions/%s' % cname
+            G.add_edge('env/observations/set', name, # key='%s/%s' % ('inputs', 'observations_set'),
+                       feedthrough=False, style='solid', color='black', alpha=1.0, is_stale=False, start_with_msg=False,
+                       source=('env/observations', 'outputs', 'set'), target=('env/actions', 'inputs', 'observations_set'))
         target_comps = ['inputs', 'actuators', 'feedthroughs']
         source_comps = ['outputs', 'sensors']
-        G.add_edge('env/observations', 'env/actions', key='%s/%s' % ('inputs', 'observations_set'),
-                   feedthrough=False, style='solid', color='black', alpha=1.0, is_stale=False, start_with_msg=False,
-                   source=('env/observations', 'outputs', 'set'), target=('env/actions', 'inputs', 'observations_set'))
         for source, target in state['connects']:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
             if source_comp in source_comps and target_comp in target_comps:
-                edge = []
-                for name, comp in zip((source_name, target_name), (source_comp, target_comp)):
-                    if 'node_type' in state['nodes'][name]['params']:
-                        node_name = name
-                    else:
-                        node_name = '%s/%s' % (name, comp)
-                    edge.append(node_name)
+                # Determine source node name
+                if 'node_type' in state['nodes'][source_name]['params']:
+                    source_edge = '%s/%s' % (source_name, source_cname)
+                else:
+                    source_edge = '%s/%s/%s' % (source_name, source_comp, source_cname)
+                # Determine target node name
+                target_edges = []
+                target_default = state['nodes'][target_name]['params']['default']
+                if 'node_type' in state['nodes'][target_name]['params']:
+                    for cname in target_default['outputs']:
+                        target_edge = '%s/%s' % (target_name, cname)
+                        target_edges.append(target_edge)
+                else:
+                    target_edge = '%s/%s/%s' % (target_name, target_comp, target_cname)
+                    target_edges.append(target_edge)
 
                 # Determine stale nodes in real_reset routine via feedthrough edges
                 if target_comp == 'feedthroughs':
@@ -981,13 +998,14 @@ class RxGraph:
 
                 # Determine edges that do not break DAG property (i.e. edges that start with an initial message)
                 start_with_msg = state['nodes'][source_name]['params'][source_comp][source_cname]['start_with_msg']
-                key = '%s/%s' % (target_comp, target_cname)
                 color = 'green' if start_with_msg else 'black'
                 style = 'dotted' if start_with_msg else 'solid'
 
                 # Add edge
-                G.add_edge(edge[0], edge[1], key=key, color=color, feedthrough=feedthrough, style=style, alpha=1.0,
-                           is_stale=False, start_with_msg=start_with_msg, source=source, target=target)
+                for target_edge in target_edges:
+                    G.add_edge(source_edge, target_edge,
+                               color=color, feedthrough=feedthrough, style=style, alpha=1.0,
+                               is_stale=False, start_with_msg=start_with_msg, source=source, target=target)
 
         # Color nodes based on in/out going edges
         not_active = is_stale(G)
@@ -995,7 +1013,7 @@ class RxGraph:
         color_edges(G)
 
         # Remap action & observation labels to more readable form
-        label_mapping = {'env/observations': 'observations', 'env/actions': 'actions', 'env/render': 'render'}
+
         G = nx.relabel_nodes(G, label_mapping)
 
         # Check if graph is acyclic (excluding 'start_with_msg' edges)
