@@ -3,7 +3,7 @@ import rosparam
 import rospkg
 import rospy
 from rosgraph.masterapi import Error
-from roslaunch.substitution_args import resolve_args, _resolve_args
+from roslaunch import substitution_args as sub
 from roslaunch.substitution_args import _collect_args
 from std_msgs.msg import Bool
 
@@ -17,6 +17,7 @@ from functools import reduce
 from time import sleep
 from six import raise_from
 from copy import deepcopy
+from yaml import safe_load
 import os
 
 from eagerx_core import constants
@@ -137,10 +138,10 @@ def get_param_with_blocking(name, timeout=5):
     return params
 
 
-def substitute_xml_args(param):
+def substitute_args(param, context=None):
     # substitute string
     if isinstance(param, str):
-        param = resolve_args(param)
+        param = resolve_args(param, context)
         return param
 
     # For every key in the dictionary (not performing deepcopy!)
@@ -148,46 +149,119 @@ def substitute_xml_args(param):
         for key in param:
             # If the value is of type `(Ordered)dict`, then recurse with the value
             if isinstance(param[key], dict):
-                substitute_xml_args(param[key])
+                substitute_args(param[key], context)
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
-                param[key] = resolve_args(param[key])
+                param[key] = resolve_args(param[key], context)
 
 
-def resolve_yaml_args(arg_str, context, commands):
-    valid = ['env_name', 'obj_name']
-    resolved = arg_str
-    for a in _collect_args(arg_str):
-        splits = [s for s in a.split(' ') if s]
-        if not splits[0] in valid:
-            raise ValueError("Unknown substitution command [%s]. Valid commands are %s"%(a, valid))
-        command = splits[0]
-        args = splits[1:]
-        if command in commands:
-            resolved = commands[command](resolved, a, args, context)
+def resolve_args(arg_str, context=None, resolve_anon=True, filename=None):
+    """
+    Resolves substitution args (see wiki spec U{http://ros.org/wiki/roslaunch}).
+
+    @param arg_str: string to resolve zero or more substitution args
+        in. arg_str may be None, in which case resolve_args will
+        return None
+    @type  arg_str: str
+    @param context dict: (optional) dictionary for storing results of
+        the 'anon' and 'arg' substitution args. multiple calls to
+        resolve_args should use the same context so that 'anon'
+        substitions resolve consistently. If no context is provided, a
+        new one will be created for each call. Values for the 'arg'
+        context should be stored as a dictionary in the 'arg' key.
+    @type  context: dict
+    @param resolve_anon bool: If True (default), will resolve $(anon
+        foo). If false, will leave these args as-is.
+    @type  resolve_anon: bool
+
+    @return str: arg_str with substitution args resolved
+    @rtype:  str
+    @raise sub.SubstitutionException: if there is an error resolving substitution args
+    """
+    if context is None:
+        context = {}
+    if not arg_str:
+        return arg_str
+    # special handling of $(eval ...)
+    if arg_str.startswith('$(eval ') and arg_str.endswith(')'):
+        return sub._eval(arg_str[7:-1], context)
+    # first resolve variables like 'env' and 'arg'
+    commands = {
+        'env': sub._env,
+        'optenv': sub._optenv,
+        'dirname': sub._dirname,
+        'anon': sub._anon,
+        'arg': sub._arg,
+        'ns': _ns,
+        'default': _default,
+    }
+    resolved = _resolve_args(arg_str, context, resolve_anon, commands)
+    # then resolve 'find' as it requires the subsequent path to be expanded already
+    commands = {
+        'find': sub._find,
+    }
+    resolved = _resolve_args(resolved, context, resolve_anon, commands)
     return resolved
 
 
-def substitute_yaml_args(param, context):
-    commands = {
-        'env_name': lambda resolved, a, args, context: resolved.replace("$(%s)" % a, context[a]),
-        'obj_name': lambda resolved, a, args, context: resolved.replace("$(%s)" % a, context[a]),
-    }
+def _resolve_args(arg_str, context, resolve_anon, commands):
+    ros_valid = ['find', 'env', 'optenv', 'dirname', 'anon', 'arg']
+    valid = ros_valid + ['ns', 'default']
+    resolved = arg_str
+    if isinstance(arg_str, (str, list)):
+        for a in _collect_args(arg_str):
+            splits = [s for s in a.split(' ') if s]
+            if not splits[0] in valid:
+                raise sub.SubstitutionException("Unknown substitution command [%s]. Valid commands are %s"%(a, valid))
+            command = splits[0]
+            args = splits[1:]
+            if command in commands:
+                resolved = commands[command](resolved, a, args, context)
+    return resolved
 
-    # substitute string
-    if isinstance(param, str):
-        param = resolve_yaml_args(param, context, commands)
-        return param
 
-    # For every key in the dictionary (not performing deepcopy!)
-    if isinstance(param, dict):
-        for key in param:
-            # If the value is of type `(Ordered)dict`, then recurse with the value
-            if isinstance(param[key], dict):
-                substitute_yaml_args(param[key], context)
-            # Otherwise, add the element to the result
-            elif isinstance(param[key], str):
-                param[key] = resolve_args(param[key], context, commands)
+def _eval_default(name, args):
+    try:
+        return args[name]
+    except KeyError:
+        raise sub.ArgException(name)
+
+
+_eval_ns = _eval_default
+
+
+def _default(resolved, a, args, context):
+    """
+    process $(default) arg
+
+    :returns: updated resolved argument, ``str``
+    :raises: :exc:`sub.ArgException` If arg invalidly specified
+    """
+    if len(args) == 0:
+        raise sub.SubstitutionException("$(default var) must specify a variable name [%s]" % (a))
+    elif len(args) > 1:
+        raise sub.SubstitutionException("$(default var) may only specify one arg [%s]" % (a))
+
+    if 'default' not in context:
+        context['default'] = {}
+    return safe_load(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context['default']))))
+
+
+def _ns(resolved, a, args, context):
+    """
+    process $(ns) arg
+
+    :returns: updated resolved argument, ``str``
+    :raises: :exc:`sub.ArgException` If arg invalidly specified
+    """
+    if len(args) == 0:
+        raise sub.SubstitutionException("$(ns var) must specify a variable name [%s]" % (a))
+    elif len(args) > 1:
+        raise sub.SubstitutionException("$(ns var) may only specify one arg [%s]" % (a))
+
+    if 'ns' not in context:
+        context['ns'] = {}
+    return resolved.replace("$(%s)" % a, _eval_ns(name=args[0], args=context['ns']))
 
 
 def get_ROS_log_level(name):

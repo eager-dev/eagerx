@@ -18,8 +18,8 @@ if __name__ == '__main__':
     ImageUInt64Converter = ImageUInt64Converter(test_arg='test')
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
     rate = 7
 
     # Define nodes
@@ -143,12 +143,10 @@ if __name__ == '__main__':
     print('\n[Finished]')
 
     # todo: REFACTORING
-    # todo: observations and actions can only have spaceconverters
     # todo: change 'default' to 'config'
     # todo: Separate test bridge into a separate ROS package outside of eagerx_core
 
     # todo: OTHER
-    # todo: create replace_args for all args in default
     # todo: check cyclic on all start_with_msg edges.
     # todo: add networkx, tabulate to dependency
 
@@ -157,13 +155,12 @@ if __name__ == '__main__':
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
     # todo: GUI
-    #  - Create a "check_graph" button in the GUI that runs is_valid() --> with check_box to toggle plotting networks
     #  - Do not show converter for states in GUI
     #  - Do not show space_converter in actions/observations
     #  - Concerning sensors, start_with_msg cannot be changed and must not be shown.
 
     # todo: CREATE GITHUB ISSUES FOR:
-    # todo: Create docker for EAGERx
+    # todo: Create docker for EAGERx (https://gradient.run/)
     # todo: add url/link to documentation in assert messages (e.g. dag graph, msg_type check).
     # todo: How to infer all available and compatible converters (.yaml interface, find all subclasses of BaseConverter?)
     # todo: Get msg_type from python implementation to avoid differences between .yaml and .py
