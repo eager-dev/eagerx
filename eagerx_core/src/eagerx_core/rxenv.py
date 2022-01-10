@@ -69,17 +69,17 @@ class RxEnv(gym.Env):
 
         # Get all states from objects & nodes
         for i in [bridge] + nodes + objects:
-            if 'states' not in i.get_params['default']: continue
-            for cname in i.get_params['default']['states']:
+            if 'states' not in i.params['default']: continue
+            for cname in i.params['default']['states']:
                 name = '%s/%s' % (i.name, cname)
                 address = '%s/states/%s' % (i.name, cname)
-                msg_type = i.get_params['states'][cname]['msg_type']
-                space_converter = i.get_params['states'][cname]['space_converter']
+                msg_type = i.params['states'][cname]['msg_type']
+                space_converter = i.params['states'][cname]['space_converter']
 
-                assert name not in supervisor.get_params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
 
-                supervisor.get_params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
-                supervisor.get_params['default']['states'].append(name)
+                supervisor.params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
+                supervisor.params['default']['states'].append(name)
 
             # Get states from simnodes. WARNING: can make environment non-agnostic.
             if isinstance(i, RxObjectParams):
@@ -99,11 +99,11 @@ class RxEnv(gym.Env):
                                     space_converter = node_yaml['states'][simnode_cname]['space_converter']
 
                                     rospy.logwarn('Adding state "%s" to simulation nodes can potentially make the environment for object "%s" non-agnostic. Check "%s.yaml" in package "%s" for more info.' % (name, i.name, config_name, package_name))
-                                    assert name not in supervisor.get_params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                                    assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
 
-                                    supervisor.get_params['states'][name] = dict(address=address, msg_type=msg_type,
-                                                                                 converter=space_converter)
-                                    supervisor.get_params['default']['states'].append(name)
+                                    supervisor.params['states'][name] = dict(address=address, msg_type=msg_type,
+                                                                             converter=space_converter)
+                                    supervisor.params['default']['states'].append(name)
 
         # Delete pre-existing parameters
         try:
@@ -124,7 +124,7 @@ class RxEnv(gym.Env):
         real_time_factor = bridge.params['default']['real_time_factor']
 
         # Create env node
-        supervisor.get_params['default']['rate'] = self.rate
+        supervisor.params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
         rx_supervisor = RxSupervisor('%s/%s' % (self.ns, supervisor.name), mb, is_reactive, real_time_factor)
