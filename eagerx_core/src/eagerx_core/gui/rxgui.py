@@ -354,14 +354,17 @@ class RxCtrlWidget(QtGui.QWidget):
 
     @exception_handler
     def _check_validity(self):
-        self.chart.is_valid(plot=True)
+        self.chart._is_valid(state=self.chart.state())
 
     def show_compatible_bridges_toggled(self):
-        bridges_table = ''
+        try:
+            label_string = self.chart.check_exists_compatible_bridge(self.chart.state())
+        except Exception as e:
+            label_string = str(e)
         bridges_window = QtGui.QDialog(self.chart.widget().cwWin)
         bridges_window.setWindowTitle('Compatible Bridges')
         layout = QtGui.QGridLayout()
-        label = QtGui.QLabel(str(bridges_table))
+        label = QtGui.QLabel(label_string)
         layout.addWidget(label)
         bridges_window.setLayout(layout)
         bridges_window.exec_()
