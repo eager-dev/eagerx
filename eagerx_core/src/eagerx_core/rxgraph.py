@@ -8,7 +8,7 @@ from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, initialize_converter
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
 from eagerx_core.baseconverter import BaseConverter, SpaceConverter
 
@@ -649,8 +649,8 @@ class RxGraph:
 
         # Make sure the converter is a spaceconverter
         if name in ['env/actions', 'env/observations']:
-            converter_cls = initialize_converter(converter)
-            assert isinstance(converter_cls, SpaceConverter), 'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
+            converter_cls = get_attribute_from_module(converter['converter_type'])
+            assert issubclass(converter_cls, SpaceConverter), 'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
 
         # Replace converter
         params[component][cname]['converter'] = converter
