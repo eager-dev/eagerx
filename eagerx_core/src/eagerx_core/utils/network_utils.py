@@ -3,6 +3,7 @@ import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
 import networkx as nx
 
+
 def reset_graph(G):
     # Create a shallow copy graph that excludes feedthrough edges
     F = nx.MultiDiGraph(G)
@@ -11,12 +12,12 @@ def reset_graph(G):
             F.remove_edge(u, v, key=key)
 
     # Set actions node to stale
-    if 'actions' in F.nodes:
-        F.nodes['actions']['is_stale'] = True
-    elif 'env/actions' in F.nodes:
-        F.nodes['env/actions']['is_stale'] = True
+    if 'observations' in F.nodes:
+        F.nodes['observations']['is_stale'] = True
+    elif 'env/observations' in F.nodes:
+        F.nodes['env/observations']['is_stale'] = True
     else:
-        raise KeyError('Action node not in graph.')
+        raise KeyError('Observation node not in graph.')
     return F
 
 

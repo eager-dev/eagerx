@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
     N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=rate, process=node_p, targets=['target_1'], inputs=['in_1', 'in_2'])
-    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1'])
+    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
 
     # Define object
     viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
@@ -34,14 +34,14 @@ if __name__ == '__main__':
     graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
     graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
-    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', delay=0.0)
-    graph.connect(source=(KF.name, 'outputs', 'out_1'), observation='obs_3', delay=0.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'), delay=1.0)
-    graph.connect(action='act_2', target=(KF.name, 'inputs', 'in_2'))
-    graph.connect(action='act_2', target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(N3.name, 'inputs', 'in_1'))
-    graph.connect(source=(viper.name, 'states', 'N9'), target=(N3.name, 'targets', 'target_1'))
-    graph.connect(source=(N3.name, 'outputs', 'out_1'), target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
+    graph.connect(source=(KF.name, 'outputs', 'out_1'),     observation='obs_3', delay=0.0)
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)
+    graph.connect(action='act_2',                           target=(KF.name, 'inputs', 'in_2'))
+    graph.connect(action='act_2',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
+    graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'targets', 'target_1'))
+    graph.connect(source=(N3.name, 'outputs', 'out_1'),     target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
 
     # Set & get parameters
     _ = graph.get_parameter('converter', action='act_2')
@@ -62,6 +62,8 @@ if __name__ == '__main__':
     graph.connect(source=(viper.name, 'sensors', 'N6'), target=(N3.name, 'inputs', 'in_1'))  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
+    # graph.remove_component(observation='obs_1')
+    # graph.remove_component(KF.name, 'outputs', 'out_1')
     graph.remove_component(N3.name, 'inputs', 'in_2')
 
     # Rename entity (object/node) and all associated connections
@@ -140,12 +142,14 @@ if __name__ == '__main__':
         obs = env.reset()
     print('\n[Finished]')
 
-    # todo: CONVERTERS
-    #  - Converters & objects (what is and is not supported?) --> remove converters from objects
+    # todo: REFACTORING
+    # todo: observations and actions can only have spaceconverters
+    # todo: change 'default' to 'config'
+    # todo: Separate test bridge into a separate ROS package outside of eagerx_core
 
     # todo: OTHER
+    # todo: create replace_args for all args in default
     # todo: check cyclic on all start_with_msg edges.
-    # todo: Separate test bridge into a separate ROS package outside of eagerx_core
     # todo: add networkx, tabulate to dependency
 
     # todo: REACTIVE PROTOCOL
@@ -156,6 +160,7 @@ if __name__ == '__main__':
     #  - Create a "check_graph" button in the GUI that runs is_valid() --> with check_box to toggle plotting networks
     #  - Do not show converter for states in GUI
     #  - Do not show space_converter in actions/observations
+    #  - Concerning sensors, start_with_msg cannot be changed and must not be shown.
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create docker for EAGERx
@@ -198,4 +203,7 @@ if __name__ == '__main__':
     #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
     #  - Nonreactive inputs that have 'start_with_msg' could mess up the reset.
     #  - Delays are ignored when running async.
+    #  - In the bridge definition of an object, or inside the config of simnodes, there cannot be converters defined for
+    #  the components related to the sensor and actuator. Reason for this is that if a converter would already be defined there,
+    #  then it is not possible anymore to add another one in the agnostic side.
 
