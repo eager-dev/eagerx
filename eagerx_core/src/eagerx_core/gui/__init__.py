@@ -23,8 +23,7 @@ def launch_gui(state):
 
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
-
-    new_state = rx_gui._state
+    new_state = rx_gui.state()
 
     return new_state
 

@@ -93,7 +93,7 @@ if __name__ == '__main__':
     target = ('env/observations', 'inputs', 'obs_1')
     # GUI: Identify if source/target is action/observation
     observation = target[2] if target[0] == 'env/observations' else None
-    action = source[2] if target[0] == 'env/actions' else None
+    action = source[2] if source[0] == 'env/actions' else None
     params = graph.get_parameters(name=target[0], component=target[1], cname=target[2])  # Grab already defined parameters from input component
     if len(params) == 0:  # If observation, dict will be empty.
         converter = graph.get_parameter(parameter='space_converter', name=source[0], component=source[1], cname=source[2],

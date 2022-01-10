@@ -5,12 +5,13 @@
 # -*- coding: utf-8 -*-
 import os
 import numpy as np
+from copy import deepcopy
 
 # Import pyqtgraph modules
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph.Qt import QtCore, QtGui, QT_LIB
 from pyqtgraph import FileDialog, DataTreeWidget
-from pyqtgraph import dockarea as dockarea
+from pyqtgraph import dockarea
 from pyqtgraph.python2_3 import asUnicode
 from pyqtgraph.debug import printExc
 
@@ -57,10 +58,6 @@ class RxGui(RxGraph, QtCore.QObject):
         self.load_state(clear=True)
         self.viewBox.autoRange(padding=0.04)
 
-    def set_library(self, lib):
-        self.library = lib
-        self.widget().chartWidget.buildMenu()
-
     @staticmethod
     def add_pos_to_state(state):
         for n in state['nodes'].values():
@@ -80,7 +77,6 @@ class RxGui(RxGraph, QtCore.QObject):
     def create_node(self, name, pos):
         """Create a new Node and add it to this flowchart.
         """
-        self._state['nodes'][name]['pos'] = pos
         node = RxGuiNode(name, graph=self)
         self.add_node(node, name, pos)
         return node
@@ -162,6 +158,9 @@ class RxGui(RxGraph, QtCore.QObject):
         try:
             if clear:
                 self.clear()
+            if 'env/render' not in self._state['nodes']:
+                render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=1.)
+                self.add(render)
             self.add_pos_to_state(self._state)
             nodes = self._state['nodes']
             nodes = [dict(**node, name=name) for name, node in nodes.items()]
@@ -193,6 +192,18 @@ class RxGui(RxGraph, QtCore.QObject):
 
         self.sigChartLoaded.emit()
         self.sigStateChanged.emit()
+
+    def state(self):
+        state = deepcopy(self._state)
+        target = ['env/render', 'inputs', 'image']
+        render_connected = False
+        for idx, c in enumerate(self._state['connects']):
+            if target == c[1]:
+                render_connected = True
+                break
+        if not render_connected:
+            state['nodes'].pop('env/render')
+        return state
 
     def load_file(self, file_name=None, start_dir=None):
         """Load a flowchart (``*.graph``) file.
@@ -227,8 +238,10 @@ class RxGui(RxGraph, QtCore.QObject):
             self.fileDialog.fileSelected.connect(self.save_file)
             return
         file_name = asUnicode(file_name)
+        self._state = self.state()
         self.save(file_name)
         self.sigFileSaved.emit(file_name)
+        self.load_state(clear=True)
 
     def clear(self):
         """Remove all nodes from this flowchart except the original input/output nodes.
@@ -467,6 +480,7 @@ class EagerxGraphWidget(dockarea.DockArea):
         else:
             rx_entity = RxObjectParams.create(name, node_type['package_name'], node_type['name'])
         self.chart.add(rx_entity)
+        self.chart._state['nodes'][node_type['name']]['pos'] = pos
         self.chart.create_node(name, pos)
 
     def selection_changed(self):
@@ -483,8 +497,8 @@ class EagerxGraphWidget(dockarea.DockArea):
                     self.ctrl.clearSelection()
                 data = {}
                 self.selNameLabel.setText(n.name)
-                if hasattr(n, 'nodeName'):
-                    self.selDescLabel.setText("<b>%s</b>: %s" % (n.nodeName, n.__class__.__doc__))
+                if hasattr(n, 'name'):
+                    self.selDescLabel.setText("<b>%s</b>: %s" % (n.name, n.__class__.__doc__))
                 else:
                     self.selDescLabel.setText("")
                 if n.exception is not None:
@@ -504,7 +518,7 @@ class EagerxGraphWidget(dockarea.DockArea):
                 return
             elif hasattr(item, 'node') and isinstance(item, NodeGraphicsItem):
                 text = ''
-                for key, value in item.node.params()['default'].items():
+                for key, value in item.node.params().items():
                     text += '{}: {}\n'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
