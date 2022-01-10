@@ -6,6 +6,7 @@
 import os
 import numpy as np
 from copy import deepcopy
+from functools import partial
 
 # Import pyqtgraph modules
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
@@ -22,6 +23,7 @@ from eagerx_core.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
 from eagerx_core.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_nodes_and_objects_library
+from eagerx_core.utils.pyqtgraph_utils import exception_handler
 
 # pyside and pyqt use incompatible ui files.
 if QT_LIB == 'PySide':
@@ -67,10 +69,12 @@ class RxGui(RxGraph, QtCore.QObject):
                         pos = [0, 0]
                     elif n['params']['default']['config_name'] == 'observations':
                         pos = [600, 0]
-                    else:
+                    elif n['params']['default']['config_name'] == 'render':
                         pos = [600, 150]
+                    else:
+                        pos = np.array([150, 0]) + np.random.randint((300, 150))
                 else:
-                    pos = 150 * np.random.randint((3, 3))
+                    pos = np.array([150, 0]) + np.random.randint((300, 150))
                 n['pos'] = pos
         return state
 
@@ -302,6 +306,9 @@ class RxCtrlWidget(QtGui.QWidget):
         self.ui.saveBtn.clicked.connect(self.save_clicked)
         self.ui.saveAsBtn.clicked.connect(self.save_as_clicked)
         self.ui.showChartBtn.toggled.connect(self.chart_toggled)
+        self.ui.checkValidityBtn.clicked.connect(self.check_validity_toggled)
+        self.ui.showCompatibleBridgesBtn.clicked.connect(self.show_compatible_bridges_toggled)
+
         self.chart.sigFileLoaded.connect(self.set_current_file)
         self.chart.sigFileSaved.connect(self.file_saved)
 
@@ -337,6 +344,27 @@ class RxCtrlWidget(QtGui.QWidget):
         except:
             self.ui.saveBtn.failure("Error")
             raise
+
+    def check_validity_toggled(self):
+        try:
+            self._check_validity(graph_backup=self.chart, dialog_title='Invalid Graph')
+            self.ui.checkValidityBtn.success("Valid")
+        except Exception:
+            self.ui.checkValidityBtn.failure("Invalid")
+
+    @exception_handler
+    def _check_validity(self):
+        self.chart.is_valid(plot=True)
+
+    def show_compatible_bridges_toggled(self):
+        bridges_table = ''
+        bridges_window = QtGui.QDialog(self.chart.widget().cwWin)
+        bridges_window.setWindowTitle('Compatible Bridges')
+        layout = QtGui.QGridLayout()
+        label = QtGui.QLabel(str(bridges_table))
+        layout.addWidget(label)
+        bridges_window.setLayout(layout)
+        bridges_window.exec_()
 
     def set_current_file(self, file_name):
         self.current_file_name = asUnicode(file_name)

@@ -23,10 +23,16 @@ class Ui_Form(object):
         # self.reloadBtn.setFlat(False)
         # self.reloadBtn.setObjectName("reloadBtn")
         # self.gridLayout.addWidget(self.reloadBtn, 4, 0, 1, 2)
+        self.checkValidityBtn = FeedbackButton(Form)
+        self.checkValidityBtn.setObjectName("checkValidityBtn")
+        self.gridLayout.addWidget(self.checkValidityBtn, 4, 0, 1, 1)
         self.showChartBtn = QtWidgets.QPushButton(Form)
         self.showChartBtn.setCheckable(True)
         self.showChartBtn.setObjectName("showChartBtn")
-        self.gridLayout.addWidget(self.showChartBtn, 4, 0, 1, 4)
+        self.gridLayout.addWidget(self.showChartBtn, 4, 1, 1, 2)
+        self.showCompatibleBridgesBtn = FeedbackButton(Form)
+        self.showCompatibleBridgesBtn.setObjectName("showCompatibleBridgesBtn")
+        self.gridLayout.addWidget(self.showCompatibleBridgesBtn, 4, 1, 1, 1)
         self.ctrlList = TreeWidget(Form)
         self.ctrlList.setObjectName("ctrlList")
         self.ctrlList.headerItem().setText(0, "1")
@@ -52,7 +58,9 @@ class Ui_Form(object):
         self.saveBtn.setText(QtWidgets.QApplication.translate("Form", "Save", None, -1))
         self.saveAsBtn.setText(QtWidgets.QApplication.translate("Form", "As..", None, -1))
         # self.reloadBtn.setText(QtWidgets.QApplication.translate("Form", "Reload Libs", None, -1))
-        self.showChartBtn.setText(QtWidgets.QApplication.translate("Form", "EAGERx Graph", None, -1))
+        self.showChartBtn.setText(QtGui.QApplication.translate("Form", "Show Graph", None, -1))
+        self.checkValidityBtn.setText(QtGui.QApplication.translate("Form", "Check Validity", None, -1))
+        self.showCompatibleBridgesBtn.setText(QtGui.QApplication.translate("Form", "Compatible Bridges", None, -1))
 
 from pyqtgraph.widgets.FeedbackButton import FeedbackButton
 from pyqtgraph.widgets.TreeWidget import TreeWidget

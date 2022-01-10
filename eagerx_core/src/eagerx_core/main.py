@@ -108,6 +108,8 @@ if __name__ == '__main__':
     # GUI: use the modified params via the dialogue box to connect.
     graph.connect(source=source, target=target, action=action, observation=observation, converter=converter, delay=delay, window=window)
 
+    graph.gui()
+
     # Test save & load functionality
     graph.save('./test.graph')
     graph.load('./test.graph')

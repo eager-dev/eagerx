@@ -14,6 +14,7 @@ from pyqtgraph.Point import Point
 from eagerx_core import constants
 from eagerx_core.baseconverter import BaseConverter, IdentityConverter
 from eagerx_core.utils.pyqtgraph_utils import exception_handler
+from eagerx_core.utils.utils import initialize_converter
 
 
 class RxGuiTerminal(object):
@@ -695,6 +696,7 @@ class ConnectionDialog(QtGui.QDialog):
 class ConverterDialog(QtGui.QDialog):
     def __init__(self, converter, parent):
         super().__init__(parent)
+        self.parent = parent
         self.converter = converter
 
         self.setWindowTitle('Converter Parameters')
@@ -713,7 +715,23 @@ class ConverterDialog(QtGui.QDialog):
 
     def open(self):
         self.exec_()
-        return self.converter
+        valid = False
+        while not valid:
+            try:
+                for key, value in self.converter.items():
+                    self.converter[key] = yaml.safe_load(str(value))
+                converter = initialize_converter(self.converter)
+                valid = True
+            except Exception as e:
+                error_window = QtGui.QDialog(self.parent)
+                error_window.setWindowTitle('Invalid Action')
+                layout = QtGui.QGridLayout()
+                label = QtGui.QLabel(str(e))
+                layout.addWidget(label)
+                error_window.setLayout(layout)
+                error_window.exec_()
+                self.exec_()
+        return converter.get_yaml_definition()
 
     def add_argument_widgets(self, required_args, optional_args):
         row = 2
@@ -840,7 +858,4 @@ class ConverterDialog(QtGui.QDialog):
         self.add_argument_widgets(required_args, optional_args)
 
     def argument_changed(self, text, key):
-        try:
-            self.converter[key] = yaml.safe_load(str(text))
-        except Exception:
-            pass
+        self.converter[key] = text
