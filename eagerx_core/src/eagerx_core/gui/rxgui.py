@@ -6,7 +6,6 @@
 import os
 import numpy as np
 from copy import deepcopy
-from functools import partial
 
 # Import pyqtgraph modules
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
