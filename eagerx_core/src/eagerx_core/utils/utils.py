@@ -10,14 +10,17 @@ from std_msgs.msg import Bool
 # OTHER
 from typing import List, NamedTuple, Any, Optional, Dict, Union
 import time
-from functools import reduce
 import importlib
 import inspect
+import glob
+from functools import reduce
 from time import sleep
 from six import raise_from
 from copy import deepcopy
 from yaml import safe_load
 import os
+
+from eagerx_core import constants
 
 
 def get_attribute_from_module(attribute, module=None):
@@ -265,6 +268,40 @@ def _ns(resolved, a, args, context):
 def get_ROS_log_level(name):
     ns = '/'.join(name.split('/')[:2])
     return get_param_with_blocking(ns + '/log_level')
+
+
+def get_yaml_type(yaml):
+    if 'node_type' in yaml:
+        if 'targets' in yaml:
+            type = 'reset_node'
+        else:
+            type = 'node'
+    else:
+        type = 'object'
+    return type
+
+
+def get_nodes_and_objects_library():
+    library = {'reset_node': {}, 'node': {}, 'object': {}}
+    config_dict = {}
+    ros_package_list = rospkg.RosPack().list()
+    eagerx_packages = [package for package in ros_package_list if 'eagerx' in package]
+    for package in eagerx_packages:
+        file_type = '.yaml'
+        package_path = substitute_args('$(find {})'.format(package))
+        files = glob.glob(package_path + "/config/**/*{}".format(file_type), recursive=True)
+        config_dict[package] = [path.split('/')[-1][:-len(file_type)] for path in files]
+    for package, configs in config_dict.items():
+        for config in configs:
+            if package in constants.GUI_CONFIG_TO_IGNORE and config in constants.GUI_CONFIG_TO_IGNORE[package]:
+                continue
+            if package is not None and config is not None:
+                yaml = load_yaml(package, config)
+                yaml_type = get_yaml_type(yaml)
+                if package not in library[yaml_type].keys():
+                    library[yaml_type][package] = []
+                library[yaml_type][package].append({'name': config, 'default': yaml})
+    return library
 
 
 Stamp = NamedTuple('Stamp', [('seq', int), ('sim_stamp', float), ('wc_stamp', float)])
