@@ -4,6 +4,10 @@ default:
   states: [N9, N10]
   position: [0, 0, 0]
   orientation: [0, 0, 0]
+  string: 'asdfasd'
+  test_string: $(default string)
+  test_list: $(default orientation)
+  low: 0
 
 #########################
 ## Agnostic definition ##
@@ -33,7 +37,7 @@ actuators: # outputs of env
     space_converter:
       converter_type: eagerx_core.baseconverter/SpaceStringConverter
       dtype: uint64
-      low: 0
+      low: $(default low)
       high: 100
       shape: [1]  # optional
   ref_vel:
@@ -65,21 +69,21 @@ states:  # reset states inside bridge
 ### Engine definition ###
 #########################
 eagerx_core/bridge:
-  urdf: 'path/to/urdf.urdf'
+  urdf: $(find interbotix_xsarm_descriptions)/urdf/vx300s.urdf.xacro
   sensors:
     N6:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
       states: [state_1]
-      inputs: {in_1: $(env_name)/nonreactive_input_topic}  # $(env_name) is replaced at run-time with environment name
+      inputs: {in_1: $(ns env_name)/nonreactive_input_topic}  # $(ns env_name) is replaced at run-time with environment name
       outputs: [out_1] # Mapping of sensor output to sim_sensor output cname inside node_config "sim_sensor.yaml"
       color: cyan
       log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
       nonreactive_rates: {in_1: 20}  # If input name (in_1) is listed as nonreactive, environment namespace will not be automatically prepended.
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
-      test_arg: 'CHANGED ARGUMENT'
+      test_arg: $(default test_string)
     N7:
       node_config: eagerx_core/sim_sensor # These nodes cannot have an internal state
-      inputs: {in_1: $(obj_name)/sensors/N6}  # $(obj_name) is replaced at run-time with object name
+      inputs: {in_1: $(ns obj_name)/sensors/N6}  # $(obj_name) is replaced at run-time with object name
       outputs: [out_1] # Mapping of sensor output to sim_sensor output cname inside node_config "sim_sensor.yaml"
       color: cyan
       process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
@@ -89,7 +93,7 @@ eagerx_core/bridge:
     N8:
       node_config: eagerx_core/sim_actuator
       inputs: {in_3: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
-               in_2: $(obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
+               in_2: $(ns obj_name)/sensors/N6}  # The $(ns obj_name) is prepended to reactive (simnode) inputs.
       color: green
       log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
@@ -101,7 +105,7 @@ eagerx_core/bridge:
     ref_vel:
       node_config: eagerx_core/sim_actuator
       inputs: {in_1: , # actuator input mapping to sim_node input name inside node_config "sim_actuator.yaml"
-               in_2: $(obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
+               in_2: $(ns obj_name)/sensors/N6}  # The $(env_name) is prepended to reactive (simnode) inputs.
       color: green
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       test_arg: 'CHANGED ARGUMENT'

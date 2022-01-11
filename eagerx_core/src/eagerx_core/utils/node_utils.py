@@ -7,7 +7,7 @@ from std_msgs.msg import UInt64
 
 # RXEAGER
 from eagerx_core.params import RxNodeParams
-from eagerx_core.utils.utils import substitute_xml_args
+from eagerx_core.utils.utils import substitute_args
 from eagerx_core.rxnode import RxNode
 from eagerx_core.constants import process
 
@@ -31,7 +31,7 @@ def launch_roscore():
 
 
 def launch_node(launch_file, args):
-    cli_args = [substitute_xml_args(launch_file)] + args
+    cli_args = [substitute_args(launch_file)] + args
     roslaunch_args = cli_args[1:]
     roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
     uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)

@@ -1,4 +1,4 @@
-from eagerx_core.utils.utils import load_yaml, substitute_yaml_args, get_cls_from_string, check_msg_type, get_opposite_msg_cls, initialize_converter
+from eagerx_core.utils.utils import load_yaml, substitute_args, get_cls_from_string, check_msg_type, get_opposite_msg_cls, initialize_converter, get_attribute_from_module
 from eagerx_core.baseconverter import IdentityConverter
 from typing import Dict
 from copy import deepcopy
@@ -414,6 +414,10 @@ class RxObjectParams(Params):
     def get_params(self, ns, bridge):
         params = deepcopy(self.params)
         name = self.name
+        context = {'ns': {'env_name': ns, 'obj_name': name}, 'default': params['default']}
+
+        # Replace args in .yaml
+        substitute_args(params, context)
 
         # Check if the bridge name is not contained in the config's (.yaml) default parameters
         assert bridge not in params['default'], 'Cannot have a bridge (%s) as a default object parameter int the config (.yaml) of object (%s).' % (bridge, self.name)
@@ -450,7 +454,7 @@ class RxObjectParams(Params):
             if 'inputs' in p_bridge:
                 # First, prepend node name to inputs
                 for key, val in p_bridge['inputs'].items():
-                    p_bridge['inputs'][key] = substitute_yaml_args(val, {'env_name': ns, 'obj_name': name})
+                    p_bridge['inputs'][key] = val
                 inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict
 
@@ -459,13 +463,12 @@ class RxObjectParams(Params):
             sensors.append(node)
 
             # Check consistency between simulation node .yaml and object .yaml
-            converter_env = initialize_converter(p_env['converter'])
+            converter_env = get_attribute_from_module(p_env['converter']['converter_type'])
             msg_type_env = get_cls_from_string(p_env['msg_type'])
-            # assert p_env['converter'] == IdentityConverter().get_yaml_definition(), 'Node "%s" has an output converter "%s". Sensor nodes cannot have an output converter.' % (node_name, converter_env)
             cname_node = node.params['default']['outputs'][0]
             params_node = node.params['outputs'][cname_node]
             msg_type_node = get_cls_from_string(params_node['msg_type'])
-            converter_node = initialize_converter(params_node['converter'])
+            converter_node = get_attribute_from_module(params_node['converter']['converter_type'])
             msg_type_conv_node = get_opposite_msg_cls(msg_type_node, converter_node)
             msg_type_conv_env = get_opposite_msg_cls(msg_type_env, converter_env)
 
@@ -515,7 +518,7 @@ class RxObjectParams(Params):
                     p_bridge['input_converters'][act_cname] = p_env['converter']
                     p_bridge['delays'][act_cname] = p_env['delay']
                 else:  # prepend node name to inputs (which have to originate from inside the object)
-                    p_bridge['inputs'][act_cname] = substitute_yaml_args(address, {'env_name': ns, 'obj_name': name})
+                    p_bridge['inputs'][act_cname] = address
             assert check_None_trigger, 'Actuator must have at least one (actuator) input (identified with a None value). Modify "%s.yaml" inside ROS package "%s/config" for all required arguments.' % (params['default']['config_name'], params['default']['package_name'])
             inputs_dict.update(p_bridge['inputs'])
             p_bridge['inputs'] = inputs_dict
@@ -525,11 +528,11 @@ class RxObjectParams(Params):
             actuators.append(node)
 
             # Check consistency between simulation node .yaml and object .yaml
-            converter_env = initialize_converter(p_env['converter'])
+            converter_env = get_attribute_from_module(p_env['converter']['converter_type'])
             msg_type_env = get_cls_from_string(p_env['msg_type'])
             params_node = node.params['inputs'][cname_node]
             msg_type_node = get_cls_from_string(params_node['msg_type'])
-            converter_node = initialize_converter(params_node['converter'])
+            converter_node = get_attribute_from_module(params_node['converter']['converter_type'])
             msg_type_conv_node = get_opposite_msg_cls(msg_type_node, converter_node)
             msg_type_conv_env = get_opposite_msg_cls(msg_type_env, converter_env)
 
