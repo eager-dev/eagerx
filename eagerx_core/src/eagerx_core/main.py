@@ -154,11 +154,6 @@ if __name__ == '__main__':
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
 
-    # todo: GUI
-    #  - Do not show converter for states in GUI
-    #  - Do not show space_converter in actions/observations
-    #  - Concerning sensors, start_with_msg cannot be changed and must not be shown.
-
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create docker for EAGERx (https://gradient.run/)
     # todo: add url/link to documentation in assert messages (e.g. dag graph, msg_type check).
