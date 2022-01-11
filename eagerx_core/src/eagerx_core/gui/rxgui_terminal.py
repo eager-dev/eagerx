@@ -58,7 +58,12 @@ class RxGuiTerminal(object):
 
     @exception_handler
     def _get_params(self):
-        return self.node.graph.get_parameters(*self.connection_tuple())
+        params = self.node.graph.get_parameters(*self.connection_tuple())
+        if self.terminal_type == 'feedthroughs':
+            output_params = self.node.graph.get_parameters(self.node.name, 'outputs', self.terminal_name)
+            params['msg_type'] = output_params['msg_type']
+            params['space_converter'] = output_params['space_converter']
+        return params
 
     def set_param(self, parameter, value):
         self._set_param(parameter, value, graph_backup=self.node.graph)

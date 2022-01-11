@@ -5,6 +5,7 @@
 # -*- coding: utf-8 -*-
 import os
 import numpy as np
+import tabulate
 from copy import deepcopy
 
 # Import pyqtgraph modules
@@ -16,6 +17,7 @@ from pyqtgraph.python2_3 import asUnicode
 from pyqtgraph.debug import printExc
 
 # Import eagerx modules
+from eagerx_core import constants
 from eagerx_core.rxgraph import RxGraph
 from eagerx_core.gui import rxgui_view
 from eagerx_core.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
@@ -357,13 +359,14 @@ class RxCtrlWidget(QtGui.QWidget):
 
     def show_compatible_bridges_toggled(self):
         try:
-            label_string = self.chart.check_exists_compatible_bridge(self.chart.state())
+            label_string = self.chart.check_exists_compatible_bridge(self.chart.state(), tablefmt='html')
         except Exception as e:
             label_string = str(e)
         bridges_window = QtGui.QDialog(self.chart.widget().cwWin)
         bridges_window.setWindowTitle('Compatible Bridges')
         layout = QtGui.QGridLayout()
         label = QtGui.QLabel(label_string)
+        label.setWordWrap(True)
         layout.addWidget(label)
         bridges_window.setLayout(layout)
         bridges_window.exec_()
@@ -543,12 +546,25 @@ class EagerxGraphWidget(dockarea.DockArea):
             if hasattr(item, 'term') and isinstance(item, TerminalGraphicsItem):
                 text = 'name: ' + item.term.terminal_name
                 for key, value in item.term.params().items():
+                    if key in constants.GUI_WIDGETS['term']['hide']['all']:
+                        continue
+                    elif item.term.node_type in constants.GUI_WIDGETS['term']['hide'] and \
+                            key in constants.GUI_WIDGETS['term']['hide'][item.term.node_type]:
+                        continue
+                    elif item.term.terminal_type in constants.GUI_WIDGETS['term']['hide'] and \
+                            key in constants.GUI_WIDGETS['term']['hide'][item.term.terminal_type]:
+                        continue
                     text += '\n' + '{}: {}'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return
             elif hasattr(item, 'node') and isinstance(item, NodeGraphicsItem):
                 text = ''
                 for key, value in item.node.params().items():
+                    if key in constants.GUI_WIDGETS['node']['hide']['all']:
+                        continue
+                    elif item.node.node_type in constants.GUI_WIDGETS['node']['hide'] and \
+                            key in constants.GUI_WIDGETS['node']['hide'][item.node.node_type]:
+                        continue
                     text += '{}: {}\n'.format(key, value)
                 self.hoverText.setPlainText(text)
                 return

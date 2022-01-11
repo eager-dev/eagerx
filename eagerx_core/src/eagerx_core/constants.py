@@ -52,6 +52,7 @@ GUI_WIDGETS = {
         },
         'constant': {
             'all': ['msg_type'],
+            'feedthroughs': ['space_converter'],
         },
         'hide': {
             'all': [],
