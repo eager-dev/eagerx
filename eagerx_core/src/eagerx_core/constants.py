@@ -28,13 +28,40 @@ TERMS_IN = set().union(*[TERMS[key]['in'] for key in TERMS])
 TERMS_OUT = set().union(*[TERMS[key]['out'] for key in TERMS])
 
 # Possible entries in GUI
-GUI_NODE_ITEMS = {
-    'color': ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
-    'log_level': {'silent': 0, 'debug': 10, 'info': 20, 'warn': 30, 'error': 40, 'fatal': 50},
-    'process': {'new process': 0, 'environment': 1, 'bridge': 2, 'external': 3},
-}
-GUI_TERM_ITEMS = {
-    'repeat': ['all', 'empty', 'window'],
+GUI_WIDGETS = {
+    'node': {
+        'hide': {
+            'all': [],
+            'actions': ['rate'],
+            'observations': ['rate'],
+        },
+        'items': {
+            'color': ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+            'log_level': {'silent': 0, 'debug': 10, 'info': 20, 'warn': 30, 'error': 40, 'fatal': 50},
+            'process': {'new process': 0, 'environment': 1, 'bridge': 2, 'external': 3},
+        },
+        'constant': {
+            'all': list(set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'config_name', 'launch_file'})),
+            'actions': ['process'],
+            'observations': ['process'],
+        }
+    },
+    'term': {
+        'items': {
+            'repeat': ['all', 'empty', 'window'],
+        },
+        'constant': {
+            'all': ['msg_type'],
+        },
+        'hide': {
+            'all': [],
+            'states': ['converter'],
+            'targets': ['space_converter'],
+            'sensors': ['start_with_msg'],
+            'actions': ['start_with_msg', 'space_converter'],
+            'observations': ['is_reactive', 'rate', 'space_converter'],
+        }
+    },
 }
 
 # Corresponding RGB values for colors
@@ -48,15 +75,6 @@ GUI_COLORS = {
     'cyan': [0, 255, 255],
     'white': [255, 255, 255],
 }
-
-# Default arguments to ignore
-GUI_IGNORE_DEFAULT = {
-    'actions': ['start_with_msg', 'space_converter'],
-    'observations': ['rate', 'is_reactive', 'space_converter'],
-}
-
-# Constant yaml parameters
-PARAMS_CONSTANT = set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'config_name', 'launch_file'})
 
 # Config files to ignore in GUI
 GUI_CONFIG_TO_IGNORE = {
