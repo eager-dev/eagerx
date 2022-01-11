@@ -22,6 +22,7 @@ import os
 
 from eagerx_core import constants
 
+
 def get_attribute_from_module(attribute, module=None):
     if module is None:
         module, attribute = attribute.split('/')
@@ -287,7 +288,7 @@ def get_nodes_and_objects_library():
     eagerx_packages = [package for package in ros_package_list if 'eagerx' in package]
     for package in eagerx_packages:
         file_type = '.yaml'
-        package_path = substitute_xml_args('$(find {})'.format(package))
+        package_path = substitute_args('$(find {})'.format(package))
         files = glob.glob(package_path + "/config/**/*{}".format(file_type), recursive=True)
         config_dict[package] = [path.split('/')[-1][:-len(file_type)] for path in files]
     for package, configs in config_dict.items():
