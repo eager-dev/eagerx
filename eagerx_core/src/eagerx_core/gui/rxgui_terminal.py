@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import yaml
-import inspect
-import importlib
 from functools import partial
-from copy import deepcopy
 
 from pyqtgraph.Qt import QtCore, QtGui
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
@@ -12,9 +9,8 @@ from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Point import Point
 
 from eagerx_core import constants
-from eagerx_core.baseconverter import BaseConverter, IdentityConverter
-from eagerx_core.utils.pyqtgraph_utils import exception_handler
-from eagerx_core.utils.utils import get_attribute_from_module
+from eagerx_core.utils.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow
+from eagerx_core.baseconverter import IdentityConverter
 
 
 class RxGuiTerminal(object):
@@ -62,7 +58,12 @@ class RxGuiTerminal(object):
 
     @exception_handler
     def _get_params(self):
-        return self.node.graph.get_parameters(*self.connection_tuple())
+        params = self.node.graph.get_parameters(*self.connection_tuple())
+        if self.terminal_type == 'feedthroughs':
+            output_params = self.node.graph.get_parameters(self.node.name, 'outputs', self.terminal_name)
+            params['msg_type'] = output_params['msg_type']
+            params['space_converter'] = output_params['space_converter']
+        return params
 
     def set_param(self, parameter, value):
         self._set_param(parameter, value, graph_backup=self.node.graph)
@@ -191,8 +192,6 @@ class RxGuiTerminal(object):
     def close(self):
         self.disconnect_all()
         item = self.graphics_item()
-        if item.param_window is not None:
-            item.param_window.close()
         if item.scene() is not None:
             item.scene().removeItem(item)
 
@@ -214,7 +213,6 @@ class TerminalGraphicsItem(GraphicsObject):
             self.label.keyPressEvent = self.label_key_press
         self.setZValue(1)
         self.menu = None
-        self.param_window = None
 
     def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.label, ev)
@@ -234,8 +232,6 @@ class TerminalGraphicsItem(GraphicsObject):
 
     def term_renamed(self, name):
         self.label.setPlainText(name.split('/')[-1])
-        if self.param_window is not None:
-            self.param_window.setWindowTitle('Parameters {}'.format(name.split('/')[-1]))
 
     def setBrush(self, brush):
         self.brush = brush
@@ -294,8 +290,9 @@ class TerminalGraphicsItem(GraphicsObject):
     def mouseDoubleClickEvent(self, ev):
         if int(ev.button()) == int(QtCore.Qt.LeftButton):
             ev.accept()
-            self.param_window = TerminalParamWindow(self.term)
-            self.param_window.show()
+            param_window = ParamWindow(node=self.term.node, term=self.term)
+            param_window.open()
+            param_window.close()
 
     def raise_context_menu(self, ev):
         # only raise menu if this terminal is removable
@@ -322,8 +319,6 @@ class TerminalGraphicsItem(GraphicsObject):
         else:
             self.term.node.graph.remove_component(*self.term.connection_tuple())
         self.term.node.remove_terminal(self.term)
-        if self.param_window is not None:
-            self.param_window.close()
 
     def mouseDragEvent(self, ev):
         if ev.button() != QtCore.Qt.LeftButton:
@@ -378,89 +373,6 @@ class TerminalGraphicsItem(GraphicsObject):
     def node_moved(self):
         for t, item in self.term.connections.items():
             item.update_line()
-
-
-class TerminalParamWindow(QtGui.QMainWindow):
-    def __init__(self, term):
-        super().__init__(term.node.graph.widget().cwWin)
-        self.term = term
-        self.setWindowTitle('Parameters {}'.format(term.terminal_name))
-        cw = QtGui.QWidget()
-        self.layout = QtGui.QGridLayout()
-        cw.setLayout(self.layout)
-        self.setCentralWidget(cw)
-        self.labels = []
-        self.widgets = []
-        row = 0
-        for key, value in term.params().items():
-            self.add_widget(key, value, row)
-            row += 1
-
-    def add_widget(self, key, value, row):
-        label = QtGui.QLabel(key)
-        if key == 'converter':
-            button_string = value['converter_type'].split('/')[-1] if 'converter_type' in value else 'converter'
-            widget = QtGui.QPushButton('Edit {}'.format(button_string))
-            widget.pressed.connect(partial(self.open_converter_dialog, button=widget))
-        elif isinstance(value, bool):
-            items = ['True', 'False']
-            widget = ComboBox(items=items, default=str(value))
-            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
-        elif key in constants.GUI_TERM_ITEMS:
-            items = constants.GUI_TERM_ITEMS[key]
-            widget = ComboBox(items=items, default=str(value))
-            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
-        elif isinstance(value, int):
-            widget = SpinBox(value=value, int=True, dec=True)
-            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
-        elif isinstance(value, float):
-            widget = SpinBox(value=value)
-            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
-        elif key == 'msg_type':
-            widget = QtGui.QLineEdit(str(value))
-            widget.setEnabled(False)
-        elif key == 'space_converter':
-            if self.term.is_state:
-                button_string = value['converter_type'].split('/')[-1] if 'converter_type' in value else \
-                    'space_converter'
-                widget = QtGui.QPushButton('Edit {}'.format(button_string))
-                widget.pressed.connect(partial(self.open_converter_dialog, button=widget, is_space_converter=True))
-            else:
-                widget = QtGui.QLineEdit(str(value))
-                widget.setEnabled(False)
-        else:
-            widget = QtGui.QLineEdit(str(value))
-            widget.textChanged.connect(partial(self.text_changed, key=key))
-        for grid_object in [label, widget]:
-            font = grid_object.font()
-            font.setPointSize(12)
-            grid_object.setFont(font)
-        self.layout.addWidget(label, row, 0)
-        self.layout.addWidget(widget, row, 1)
-        self.labels.append(label)
-        self.widgets.append(widget)
-
-    def combo_box_value_changed(self, int, items, key):
-        self.term.set_param(key, yaml.safe_load(str(items[int])))
-
-    def value_changed(self, widget, key):
-        self.term.set_param(key, widget.value())
-
-    def text_changed(self, text, key):
-        try:
-            self.term.set_param(key, yaml.safe_load(str(text)))
-        except Exception:
-            pass
-
-    def open_converter_dialog(self, button, is_space_converter=False):
-        key = 'space_converter' if is_space_converter else 'converter'
-        converter_dialog = ConverterDialog(converter=self.term.params()[key], parent=self.parent())
-        converter = converter_dialog.open()
-        converter_dialog.close()
-        self.term.set_param(key, converter)
-        button_string = converter['converter_type'].split('/')[-1] if 'converter_type' in converter else key
-        button.setText('Edit {}'.format(button_string))
-
 
 class ConnectionItem(GraphicsObject):
 
@@ -617,245 +529,3 @@ class ConnectionItem(GraphicsObject):
 
         p.drawPath(self.path)
 
-
-class ConnectionDialog(QtGui.QDialog):
-    def __init__(self, input_term, **kwargs):
-        super().__init__(input_term.node.graph.widget().cwWin)
-        self.setWindowTitle('Connection Parameters')
-        self.layout = QtGui.QGridLayout()
-        self.params = {}
-        self.labels = []
-        self.widgets = []
-        row = 0
-        params = deepcopy(input_term.params())
-        for key, value in kwargs.items():
-            if value is not None:
-                params[key] = value
-        for key, value in params.items():
-            if key in inspect.getfullargspec(input_term.node.graph.connect).args:
-                self.params[key] = value
-                self.add_widget(key, value, row)
-                row += 1
-        self.setLayout(self.layout)
-
-    def open(self):
-        self.exec_()
-        for widget in self.widgets:
-            widget.setEnabled(False)
-        return self.params
-
-    def add_widget(self, key, value, row):
-        label = QtGui.QLabel(key)
-        if key == 'converter':
-            button_string = value['converter_type'].split('/')[-1] if 'converter_type' in value else 'converter'
-            widget = QtGui.QPushButton('Edit {}'.format(button_string))
-            widget.pressed.connect(partial(self.open_converter_dialog, button=widget))
-        elif isinstance(value, bool):
-            items = ['True', 'False']
-            widget = ComboBox(items=items, default=str(value))
-            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
-        elif isinstance(value, int):
-            widget = SpinBox(value=value, int=True, dec=True)
-            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
-        elif isinstance(value, float):
-            widget = SpinBox(value=value)
-            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
-        else:
-            widget = QtGui.QLineEdit(str(value))
-            widget.textChanged.connect(partial(self.text_changed, key=key))
-        for grid_object in [label, widget]:
-            font = grid_object.font()
-            font.setPointSize(12)
-            grid_object.setFont(font)
-        self.layout.addWidget(label, row, 0)
-        self.layout.addWidget(widget, row, 1)
-        self.labels.append(label)
-        self.widgets.append(widget)
-
-    def open_converter_dialog(self, button):
-        converter_dialog = ConverterDialog(converter=self.params['converter'], parent=self.parent())
-        converter = converter_dialog.open()
-        self.params['converter'] = converter
-        converter_dialog.close()
-        button_string = converter['converter_type'].split('/')[-1] if 'converter_type' in converter else key
-        button.setText('Edit {}'.format(button_string))
-
-    def combo_box_value_changed(self, int, items, key):
-        self.params[key] = items[int]
-
-    def value_changed(self, widget, key):
-        self.params[key] = widget.value()
-
-    def text_changed(self, text, key):
-        try:
-            self.params[key] = yaml.safe_load(str(text))
-        except Exception:
-            pass
-
-
-class ConverterDialog(QtGui.QDialog):
-    def __init__(self, converter, parent):
-        super().__init__(parent)
-        self.parent = parent
-        self.converter = converter
-
-        self.setWindowTitle('Converter Parameters')
-        self.layout = QtGui.QGridLayout()
-        self.labels = []
-        self.widgets = []
-
-        module_name, class_name, available_converters, required_args, optional_args = self.get_parameters()
-
-        self.add_widget(key='Converter Module', value=module_name, row=0)
-        self.add_widget(key='Converter Class', value=class_name, row=1, items=available_converters)
-
-        self.add_argument_widgets(required_args, optional_args)
-
-        self.setLayout(self.layout)
-
-    def open(self):
-        self.exec_()
-        valid = False
-        while not valid:
-            try:
-                for key, value in self.converter.items():
-                    self.converter[key] = yaml.safe_load(str(value))
-                get_attribute_from_module(self.converter['converter_type'])
-                valid = True
-            except Exception as e:
-                error_window = QtGui.QDialog(self.parent)
-                error_window.setWindowTitle('Invalid Converter')
-                layout = QtGui.QGridLayout()
-                label = QtGui.QLabel(str(e))
-                layout.addWidget(label)
-                error_window.setLayout(layout)
-                error_window.exec_()
-                self.exec_()
-        return self.converter
-
-    def add_argument_widgets(self, required_args, optional_args):
-        row = 2
-        required_args_label = QtGui.QLabel('Required Converter Arguments')
-        self.layout.addWidget(required_args_label, row, 0)
-        self.labels.append(required_args_label)
-        row += 1
-
-        for key, value in required_args.items():
-            self.add_widget(key=key, value=str(value), row=row)
-            row += 1
-
-        optional_args_label = QtGui.QLabel('Optional Converter Arguments')
-        self.layout.addWidget(optional_args_label, row, 0)
-        self.labels.append(optional_args_label)
-
-        row += 1
-        for key, value in optional_args.items():
-            self.add_widget(key=key, value=str(value), row=row)
-            row += 1
-
-    def get_parameters(self):
-        converter_type = self.converter['converter_type'] if 'converter_type' in self.converter else ''
-        module_name = converter_type.split('/')[0]
-        class_name = converter_type.split('/')[1] if len(converter_type.split('/')) == 2 else None
-
-        available_converters = []
-        required_args = {}
-        optional_args = {}
-        module = None
-
-        module_exists = importlib.util.find_spec(module_name) is not None
-        if module_exists:
-            module = importlib.import_module(module_name)
-            for name, member in inspect.getmembers(module):
-                if inspect.isclass(member):
-                    if BaseConverter in member.__mro__:
-                        available_converters.append(name)
-
-        class_name = class_name if class_name in available_converters else None
-        if class_name is not None:
-            argspec = inspect.getfullargspec(getattr(module, class_name).__init__)
-            default_values = [] if argspec.defaults is None else argspec.defaults
-            required_keys = argspec.args if len(default_values) == 0 else argspec.args[:-len(default_values)]
-            if 'self' in required_keys:
-                required_keys.remove('self')
-            optional_keys = argspec.args[-len(default_values):]
-            optional_args = dict(zip(optional_keys, default_values))
-            required_args = dict(zip(required_keys, [''] * len(required_keys)))
-
-        invalid_arguments = []
-        for key, value in self.converter.items():
-            if key in required_args:
-                required_args[key] = value
-            elif key in optional_args:
-                optional_args[key] = value
-            else:
-                invalid_arguments.append(key)
-        for key in invalid_arguments:
-            self.converter.pop(key)
-
-        self.converter['converter_type'] = '/'.join([module_name, class_name]) if class_name is not None else \
-            module_name
-        return module_name, class_name, available_converters, required_args, optional_args
-
-    def add_widget(self, key, value, row, items=None):
-        label = QtGui.QLabel(key)
-        if items is not None:
-            widget = ComboBox(items=items, default=value)
-            widget.activated.connect(partial(self.class_changed, items=items))
-        else:
-            widget = QtGui.QLineEdit(value)
-            if key == 'Converter Module':
-                widget.textChanged.connect(self.module_changed)
-            else:
-                widget.textChanged.connect(partial(self.argument_changed, key=key))
-
-        self.layout.addWidget(label, row, 0)
-        self.layout.addWidget(widget, row, 1)
-        self.labels.append(label)
-        self.widgets.append(widget)
-
-    def module_changed(self, text):
-        old_converter = self.converter['converter_type']
-        converter_class = old_converter.split('/')[1] if len(old_converter.split('/')) == 2 else ''
-        self.converter['converter_type'] = text + '/' + converter_class
-
-        for label in self.labels[1:]:
-            self.layout.removeWidget(label)
-            label.close()
-
-        for widget in self.widgets[1:]:
-            self.layout.removeWidget(widget)
-            widget.close()
-
-        self.labels = [self.labels[1]]
-        self.widgets = [self.widgets[1]]
-
-        module_name, class_name, available_converters, required_args, optional_args = self.get_parameters()
-
-        self.add_widget(key='Converter Class', value=class_name, row=1, items=available_converters)
-
-        self.add_argument_widgets(required_args, optional_args)
-
-    def class_changed(self, int, items):
-        converter_class = items[int]
-        converter_module = self.converter['converter_type'].split('/')[0]
-        converter_type = '/'.join([converter_module, converter_class])
-        self.converter['converter_type'] = converter_type
-
-        for label in self.labels[2:]:
-            self.layout.removeWidget(label)
-            label.close()
-
-        for widget in self.widgets[2:]:
-            self.layout.removeWidget(widget)
-            widget.close()
-
-        self.labels = self.labels[:3]
-        self.widgets = self.widgets[:3]
-
-        _, _, _, required_args, optional_args = self.get_parameters()
-
-        self.add_argument_widgets(required_args, optional_args)
-
-    def argument_changed(self, text, key):
-        self.converter[key] = text

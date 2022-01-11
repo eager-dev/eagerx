@@ -1100,7 +1100,7 @@ class RxGraph:
         return True
 
     @staticmethod
-    def check_exists_compatible_bridge(state):
+    def check_exists_compatible_bridge(state, tablefmt="fancy_grid"):
         # Bridges are headers
         bridges = []
         objects = []
@@ -1157,6 +1157,6 @@ class RxGraph:
             headers.append(b.replace('/', '/\n'))
 
         # Assert if there are compatible bridges
-        tabulate_str = tabulate(objects, headers=headers, tablefmt="fancy_grid", colalign=["center"]*len(headers))
+        tabulate_str = tabulate(objects, headers=headers, tablefmt=tablefmt, colalign=["center"]*len(headers))
         assert len(compatible), 'No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s' % tabulate_str
         return tabulate_str

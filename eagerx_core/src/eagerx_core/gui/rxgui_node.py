@@ -5,13 +5,12 @@ from functools import partial
 from eagerx_core import constants
 from eagerx_core.utils.utils import get_yaml_type
 from eagerx_core.gui.rxgui_terminal import RxGuiTerminal
-from eagerx_core.utils.pyqtgraph_utils import exception_handler
+from eagerx_core.utils.pyqtgraph_utils import exception_handler, ParamWindow
 
 from pyqtgraph.Qt import QtCore, QtGui
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph import functions as fn
 from pyqtgraph.pgcollections import OrderedDict
-from pyqtgraph import ComboBox, SpinBox
 
 
 def str_dict(d):
@@ -87,6 +86,8 @@ class RxGuiNode(QtCore.QObject):
     @exception_handler
     def _set_param(self, parameter, value):
         self.graph.set_parameter(parameter, value, name=self.name)
+        if parameter == 'color':
+            self.graphics_item().set_color()
 
     def remove_terminal(self, term):
         """Remove the specified terminal from this Node. May specify either the 
@@ -246,8 +247,6 @@ class RxGuiNode(QtCore.QObject):
         self.disconnect_all()
         self.clear_terminals()
         item = self.graphics_item()
-        if item.param_window is not None:
-            item.param_window.close()
         if item.scene() is not None:
             item.scene().removeItem(item)
         self._graphics_item = None
@@ -266,9 +265,9 @@ class NodeGraphicsItem(GraphicsObject):
         GraphicsObject.__init__(self)
         self.node = node
         self._node_type = node.node_type
-        self.set_color()
         flags = self.ItemIsMovable | self.ItemIsSelectable | self.ItemIsFocusable | self.ItemSendsGeometryChanges
 
+        self.set_color()
         self.setFlags(flags)
         self.bounds = QtCore.QRectF(0, 0, 125, 125)
         self.nameItem = QtGui.QGraphicsTextItem(self.node.name, self)
@@ -284,7 +283,6 @@ class NodeGraphicsItem(GraphicsObject):
         self.menu = None
         self.buildMenu()
         self.initial_z_value = self.zValue()
-        self.param_window = None
 
     def set_color(self):
         if 'color' in self.node.params() and self.node.params()['color'] in constants.GUI_COLORS:
@@ -298,6 +296,7 @@ class NodeGraphicsItem(GraphicsObject):
         self.pen = fn.mkPen(0, 0, 0, 200, width=2)
         self.selectPen = fn.mkPen(0, 0, 0, 200, width=4)
         self.hovered = False
+        self.update()
 
     def label_focus_out(self, ev):
         QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
@@ -394,8 +393,9 @@ class NodeGraphicsItem(GraphicsObject):
     def mouseDoubleClickEvent(self, ev):
         if int(ev.button()) == int(QtCore.Qt.LeftButton):
             ev.accept()
-            self.param_window = NodeParamWindow(self.node)
-            self.param_window.show()
+            param_window = ParamWindow(node=self.node)
+            param_window.open()
+            param_window.close()
 
     def mouseDragEvent(self, ev):
         if ev.button() == QtCore.Qt.LeftButton:
@@ -447,14 +447,15 @@ class NodeGraphicsItem(GraphicsObject):
             else:
                 for terminal_type in set.union(constants.TERMS[self._node_type]['in'],
                                                constants.TERMS[self._node_type]['out']):
-                    terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
-                    for terminal in self.node.default_params()[terminal_type]:
-                        terminal_name = terminal_type + '/' + terminal
-                        act = terminal_menu.addAction(terminal, partial(self.add_terminal, terminal_type=terminal_type,
-                                                                        terminal_name=terminal))
-                        if terminal_name in self.node.terminals.keys():
-                            act.setEnabled(False)
-                        self.menu.addMenu(terminal_menu)
+                    if terminal_type in self.node.default_params():
+                        terminal_menu = QtGui.QMenu('Add {}'.format(terminal_type[:-1]), self.menu)
+                        for terminal in self.node.default_params()[terminal_type]:
+                            terminal_name = terminal_type + '/' + terminal
+                            act = terminal_menu.addAction(terminal, partial(self.add_terminal, terminal_type=terminal_type,
+                                                                            terminal_name=terminal))
+                            if terminal_name in self.node.terminals.keys():
+                                act.setEnabled(False)
+                            self.menu.addMenu(terminal_menu)
         if self.node.allow_remove:
             self.menu.addAction("Remove {}".format(self.node.name), self.node.close)
 
@@ -462,77 +463,3 @@ class NodeGraphicsItem(GraphicsObject):
         self.node.graph._add_component(name=self.node.name, component=terminal_type, cname=terminal_name)
         name = terminal_type + '/' + terminal_name
         self.node.add_terminal(name=name)
-
-
-class NodeParamWindow(QtGui.QMainWindow):
-    def __init__(self, node):
-        super().__init__(node.graph.widget().cwWin)
-        self.node = node
-        self.setWindowTitle('Parameters {}'.format(node.name))
-        cw = QtGui.QWidget()
-        self.layout = QtGui.QGridLayout()
-        cw.setLayout(self.layout)
-        self.setCentralWidget(cw)
-        self.labels = []
-        self.widgets = []
-        row = 0
-        for key, value in node.params().items():
-            self.add_widget(key, value, row)
-            row += 1
-
-    def add_widget(self, key, value, row):
-        label = QtGui.QLabel(key)
-        if isinstance(value, bool):
-            items = ['True', 'False']
-            widget = ComboBox(items=items, default=str(value))
-            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
-        elif key in constants.GUI_NODE_ITEMS:
-            items = constants.GUI_NODE_ITEMS[key]
-            if isinstance(items, dict):
-                converter = items
-                index = list(items.values()).index(value)
-                items = list(items.keys())
-                value = items[index]
-            else:
-                converter = None
-            widget = ComboBox(items=items, default=str(value))
-            widget.activated.connect(
-                partial(self.combo_box_value_changed, key=key, items=items, converter=converter)
-            )
-        elif isinstance(value, int):
-            widget = SpinBox(value=value, int=True, dec=True)
-            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
-        elif isinstance(value, float):
-            widget = SpinBox(value=value, dec=True)
-        elif key in constants.PARAMS_CONSTANT:
-            widget = QtGui.QLineEdit(str(value))
-            widget.setEnabled(False)
-        else:
-            widget = QtGui.QLineEdit(str(value))
-            widget.textChanged.connect(partial(self.text_changed, key=key))
-        for grid_object in [label, widget]:
-            font = grid_object.font()
-            font.setPointSize(12)
-            grid_object.setFont(font)
-        self.layout.addWidget(label, row, 0)
-        self.layout.addWidget(widget, row, 1)
-        self.labels.append(label)
-        self.widgets.append(widget)
-
-    def combo_box_value_changed(self, int, items, key, converter=None):
-        value = items[int]
-        if converter is not None:
-            value = converter[value]
-        self.node.set_param(key, value)
-        if key == 'color':
-            self.node.graphics_item().set_color()
-            self.node.graphics_item().update()
-
-    def value_changed(self, widget, key):
-        self.node.set_param(key, widget.value())
-
-    def text_changed(self, text, key):
-        try:
-            self.node.set_param(key, yaml.safe_load(str(text)))
-        except Exception:
-            pass
