@@ -2,7 +2,6 @@ node_type: eagerx_bridge_openai_gym.bridge/GymBridge
 default:
   rate:
   outputs: [tick]
-  states: [param_1]
   process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
   color: magenta

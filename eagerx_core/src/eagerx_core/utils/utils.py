@@ -139,10 +139,10 @@ def get_param_with_blocking(name, timeout=5):
     return params
 
 
-def substitute_args(param, context=None):
+def substitute_args(param, context=None, only=None):
     # substitute string
     if isinstance(param, str):
-        param = resolve_args(param, context)
+        param = resolve_args(param, context, only=only)
         return param
 
     # For every key in the dictionary (not performing deepcopy!)
@@ -150,13 +150,13 @@ def substitute_args(param, context=None):
         for key in param:
             # If the value is of type `(Ordered)dict`, then recurse with the value
             if isinstance(param[key], dict):
-                substitute_args(param[key], context)
+                substitute_args(param[key], context, only=only)
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
-                param[key] = resolve_args(param[key], context)
+                param[key] = resolve_args(param[key], context, only=only)
 
 
-def resolve_args(arg_str, context=None, resolve_anon=True, filename=None):
+def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=None):
     """
     Resolves substitution args (see wiki spec U{http://ros.org/wiki/roslaunch}).
 
@@ -196,12 +196,26 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None):
         'ns': _ns,
         'default': _default,
     }
-    resolved = _resolve_args(arg_str, context, resolve_anon, commands)
+    if only is not None:
+        exec_commands = {}
+        for c in only:
+            if c in commands:
+                exec_commands[c] = commands[c]
+    else:
+        exec_commands = commands
+    resolved = _resolve_args(arg_str, context, resolve_anon, exec_commands)
     # then resolve 'find' as it requires the subsequent path to be expanded already
     commands = {
         'find': sub._find,
     }
-    resolved = _resolve_args(resolved, context, resolve_anon, commands)
+    if only is not None:
+        exec_commands = {}
+        for c in only:
+            if c in commands:
+                exec_commands[c] = commands[c]
+    else:
+        exec_commands = commands
+    resolved = _resolve_args(resolved, context, resolve_anon, exec_commands)
     return resolved
 
 
