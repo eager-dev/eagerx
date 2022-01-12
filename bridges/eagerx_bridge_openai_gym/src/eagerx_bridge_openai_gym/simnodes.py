@@ -1,6 +1,7 @@
 from typing import Dict, List, Union, Optional
 import skimage.transform
 import numpy as np
+import gym
 
 # IMPORT ROS
 import rospy
@@ -90,6 +91,7 @@ class ActionActuator(SimNode):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.obj_name = self.object_params['name']
+        self.is_discrete = True if isinstance(self.simulator[self.obj_name]['env'].action_space, gym.spaces.Discrete) else False
 
     def reset(self):
         # This controller is stateless (in contrast to e.g. a PID controller).
@@ -99,7 +101,7 @@ class ActionActuator(SimNode):
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
 
         # Set action in simulator for next step.
-        self.simulator[self.obj_name]['next_action'] = action.msgs[-1].data
+        self.simulator[self.obj_name]['next_action'] = action.msgs[-1].data[0] if self.is_discrete else action.msgs[-1].data
 
         # Send action that has been applied.
         return dict(action_applied=action.msgs[-1])

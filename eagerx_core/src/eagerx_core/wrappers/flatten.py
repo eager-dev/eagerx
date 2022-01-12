@@ -1,6 +1,5 @@
 from typing import Dict
 import gym
-import gym.spaces
 from gym.core import ActionWrapper, ObservationWrapper
 from gym.wrappers import FlattenObservation
 

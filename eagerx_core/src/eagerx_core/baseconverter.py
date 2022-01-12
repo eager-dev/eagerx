@@ -40,6 +40,7 @@ class BaseConverter(object):
     def get_opposite_msg_type(cls, msg_type):
         pass
 
+
 class Converter(BaseConverter):
     """
     Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the

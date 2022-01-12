@@ -142,6 +142,9 @@ if __name__ == '__main__':
         obs = env.reset()
     print('\n[Finished]')
 
+    # todo: GUI
+    # todo: hoverInfo & parameter connection should show msg conversion.
+
     # todo: REFACTORING
     # todo: change 'default' to 'config'
     # todo: Separate test bridge into a separate ROS package outside of eagerx_core

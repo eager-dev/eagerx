@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # ROS packages required
 import rospy
 from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
@@ -6,6 +8,8 @@ from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 from eagerx_bridge_openai_gym.wrappers import RemoveRewardDoneObservation
 
+import stable_baselines3 as sb
+import gym
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
@@ -16,10 +20,12 @@ if __name__ == '__main__':
     rate = 20
 
     # Define object
-    # gym_id = 'Pendulum-v1'
+    gym_id = 'Pendulum-v1'
     # gym_id = 'Acrobot-v1'
-    gym_id = 'MountainCarContinuous-v0'
-    obj = RxObject.create('obj', 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, sensors=['observation', 'reward', 'done'])
+    # gym_id = 'CartPole-v1'
+    # gym_id = 'MountainCarContinuous-v0'
+    name = gym_id.split('-')[0]
+    obj = RxObject.create(name, 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, sensors=['observation', 'reward', 'done'])
 
     # Define graph
     graph = RxGraph.create(objects=[obj])
@@ -29,8 +35,8 @@ if __name__ == '__main__':
     graph.connect(action='action', target=(obj.name, 'actuators', 'action'))
 
     # Add rendering
-    graph.add_component(obj.name, 'sensors', 'image')
-    graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
+    # graph.add_component(obj.name, 'sensors', 'image')
+    # graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
 
     # Open gui
     graph.gui()
@@ -40,18 +46,24 @@ if __name__ == '__main__':
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.ENVIRONMENT)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx', rate=rate, graph=graph, bridge=bridge,
                     reward_fn=lambda prev_obs, obs, action, steps: obs['reward'][0],
-                    is_done_fn=lambda obs, action, steps: obs['done'][0],)
+                    is_done_fn=lambda obs, action, steps: obs['done'][0],
+                    )
     env = RemoveRewardDoneObservation(env)
     env = Flatten(env)
 
+    # Use stable-baselines
+    # env = gym.make(gym_id)
+    # model = sb.SAC("MlpPolicy", env, verbose=1)
+    # model.learn(total_timesteps=int(200*rate*200/20))
+
     # First reset
-    obs = env.reset()
     done = False
+    obs = env.reset()
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)

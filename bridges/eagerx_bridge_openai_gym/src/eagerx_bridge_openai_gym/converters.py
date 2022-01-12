@@ -21,6 +21,8 @@ class GymSpaceFloat32MultiArray(SpaceConverter):
                 self.space = self.env.observation_space
             else:  # space == 'action
                 self.space = self.env.action_space
+            if isinstance(self.space, gym.spaces.Discrete):
+                self.space = gym.spaces.Box(low=0, high=self.space.n-1, shape=(1,), dtype='int64')
         else:
             self.space = None
             self.low = np.array(low)
