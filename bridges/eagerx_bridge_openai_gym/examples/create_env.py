@@ -2,11 +2,10 @@
 
 # ROS packages required
 import rospy
-from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
+from eagerx_core.core import RxBridge, RxNode, RxObject, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.constants import process
-from eagerx_core.wrappers.flatten import Flatten
-from eagerx_bridge_openai_gym.wrappers import RemoveRewardDoneObservation
+from eagerx_bridge_openai_gym.env import EAGERxGym
 
 import stable_baselines3 as sb
 import gym
@@ -20,8 +19,8 @@ if __name__ == '__main__':
     rate = 20
 
     # Define object
-    gym_id = 'Pendulum-v1'
-    # gym_id = 'Acrobot-v1'
+    # gym_id = 'Pendulum-v1'
+    gym_id = 'Acrobot-v1'
     # gym_id = 'CartPole-v1'
     # gym_id = 'MountainCarContinuous-v0'
     name = gym_id.split('-')[0]
@@ -49,17 +48,11 @@ if __name__ == '__main__':
     bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.ENVIRONMENT)
 
     # Initialize Environment
-    env = EAGERxEnv(name='rx', rate=rate, graph=graph, bridge=bridge,
-                    reward_fn=lambda prev_obs, obs, action, steps: obs['reward'][0],
-                    is_done_fn=lambda obs, action, steps: obs['done'][0],
-                    )
-    env = RemoveRewardDoneObservation(env)
-    env = Flatten(env)
+    env = EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge)
 
     # Use stable-baselines
-    # env = gym.make(gym_id)
-    # model = sb.SAC("MlpPolicy", env, verbose=1)
-    # model.learn(total_timesteps=int(200*rate*200/20))
+    model = sb.PPO("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset
     done = False
@@ -67,13 +60,10 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        steps = 0
         while not done:
-            steps += 1
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
-        print(steps)
         obs = env.reset()
         done = False
     print('\n[Finished]')
