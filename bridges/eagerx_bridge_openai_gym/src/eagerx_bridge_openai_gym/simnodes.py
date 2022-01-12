@@ -24,14 +24,20 @@ class ObservationSensor(SimNode):
         assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.id = self.object_params['gym_id']
         self.obj_name = self.object_params['name']
+        self.last_obs = None
 
     def reset(self):
-        # This sensor is stateless (in contrast to e.g. a PID controller).
-        pass
+        self.last_obs = None
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32MultiArray):
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        obs = self.simulator[self.obj_name]['last_obs']
+        obs = self.simulator[self.obj_name]['buffer_obs']
+        self.simulator[self.obj_name]['buffer_obs'] = []
+        if len(obs) == 0:
+            obs = self.last_obs
+        else:
+            obs = obs[-1]
+            self.last_obs = obs
         return dict(observation=Float32MultiArray(data=obs))
 
 
@@ -45,16 +51,20 @@ class RewardSensor(SimNode):
         assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.id = self.object_params['gym_id']
         self.obj_name = self.object_params['name']
+        self.last_reward = None
 
     def reset(self):
-        # This sensor is stateless (in contrast to e.g. a PID controller).
-        pass
+        self.last_reward = 0.
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32):
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        reward = self.simulator[self.obj_name]['last_reward']
-        if reward is None:
-            reward = 0.
+        reward = self.simulator[self.obj_name]['buffer_reward']
+        self.simulator[self.obj_name]['buffer_reward'] = []
+        if len(reward) == 0:
+            reward = self.last_reward
+        else:
+            self.last_reward = reward[-1]
+            reward = sum(reward)
         return dict(reward=Float32(data=reward))
 
 
@@ -68,16 +78,20 @@ class DoneSensor(SimNode):
         assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.id = self.object_params['gym_id']
         self.obj_name = self.object_params['name']
+        self.last_done = None
 
     def reset(self):
-        # This sensor is stateless (in contrast to e.g. a PID controller).
-        pass
+        self.last_done = False
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Bool):
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        done = self.simulator[self.obj_name]['last_done']
-        if done is None:
-            done = False
+        done = self.simulator[self.obj_name]['buffer_done']
+        self.simulator[self.obj_name]['buffer_done'] = []
+        if len(done) == 0:
+            done = self.last_done
+        else:
+            done = any(done) or self.last_done
+            self.last_done = done
         return dict(done=Bool(data=done))
 
 

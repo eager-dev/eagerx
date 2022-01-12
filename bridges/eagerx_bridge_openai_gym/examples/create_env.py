@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
-    # Define rate
+    # Define rate (depends on rate of gym env)
     rate = 20
 
     # Define object
@@ -67,10 +67,13 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
+        steps = 0
         while not done:
+            steps += 1
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
+        print(steps)
         obs = env.reset()
         done = False
     print('\n[Finished]')

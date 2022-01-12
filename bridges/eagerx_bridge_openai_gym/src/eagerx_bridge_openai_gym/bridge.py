@@ -30,21 +30,17 @@ class GymBridge(BridgeBase):
         obj_name = object_params['name']
         id = object_params['gym_id']
 
-        # Assert that rate of OpenAI gym environment is same as rate of bridge
-        # todo: reconsider this assertion
-        assert self.rate == object_params['rate'], 'Cannnot register object "%s" because the rate of gym_env "%s" and bridge "%s" are not equal (%s vs %s).' % (obj_name, id, self.name, self.rate, object_params['rate'])
-
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(env=gym.make(id), last_obs=None, last_reward=None, last_done=None, next_action=None)
+        self.simulator[obj_name] = dict(env=gym.make(id), buffer_obs=None, buffer_reward=None, buffer_done=None, next_action=None)
         return object_params
 
     def pre_reset(self, **kwargs: Optional[Msg]):
         for obj_name, sim in self.simulator.items():
             obs = sim['env'].reset()
-            sim['last_obs'] = obs
+            sim['buffer_obs'] = [obs]
             sim['next_action'] = None
-            sim['last_reward'] = None
-            sim['last_done'] = None
+            sim['buffer_reward'] = []
+            sim['buffer_done'] = []
         return
 
     def reset(self, **kwargs: Optional[Msg]):
@@ -54,9 +50,9 @@ class GymBridge(BridgeBase):
         for obj_name, sim in self.simulator.items():
             next_action = sim['next_action']
             obs, reward, is_done, _ = sim['env'].step(next_action)
-            sim['last_obs'] = obs
-            sim['last_reward'] = reward
-            sim['last_done'] = is_done
+            sim['buffer_obs'].append(obs)
+            sim['buffer_reward'].append(reward)
+            sim['buffer_done'].append(is_done)
 
             # Fill output msg with number of node ticks
         return dict(tick=UInt64(data=node_tick + 1))
