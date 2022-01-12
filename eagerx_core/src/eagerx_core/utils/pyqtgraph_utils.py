@@ -198,7 +198,6 @@ class ConverterDialog(QtGui.QDialog):
                 error_window.setLayout(layout)
                 error_window.exec_()
                 self.exec_()
-        self.node.graph.load_state(clear=True)
         return self.converter
 
     def add_argument_widgets(self, required_args, optional_args):
