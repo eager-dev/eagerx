@@ -749,12 +749,12 @@ class RxGraph:
                 default = state['nodes'][target_name]['params']['default']
                 context = {'default': default}
                 cname_params = state['nodes'][source_name]['params'][source_comp][source_cname]
-                substitute_args(cname_params, context)
+                substitute_args(cname_params, context, only=['default', 'ns'])
             if target_name == 'env/observations':
                 default = state['nodes'][source_name]['params']['default']
                 context = {'default': default}
                 cname_params = state['nodes'][target_name]['params'][target_comp][target_cname]
-                substitute_args(cname_params, context)
+                substitute_args(cname_params, context, only=['default', 'ns'])
 
         # Initialize param objects
         nodes = []
@@ -1130,8 +1130,8 @@ class RxGraph:
                                     else:
                                         e_str = ' '  # Component entry is not supported
                                         break  # Break if entry in component is not supported
-                            else:
-                                raise KeyError('No components in %s' % default)
+                            # else:
+                            #     raise KeyError('No components in %s' % default)
                     else:  # Bridge name not even mentioned in object config
                         e_str = ' '
                     entry.append(e_str)

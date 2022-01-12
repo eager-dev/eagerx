@@ -150,7 +150,6 @@ if __name__ == '__main__':
     # todo: Separate test bridge into a separate ROS package outside of eagerx_core
 
     # todo: OTHER
-    # todo: arg replacement in rxparams nodeparams.
     # todo: check cyclic on all start_with_msg edges.
     # todo: add networkx, tabulate to dependency
 

@@ -279,6 +279,10 @@ class RxNodeParams(Params):
         node_cls = get_cls_from_string(params['node_type'])
         default['node_type'] = params['node_type']
 
+        # Replace args in .yaml
+        context = {'ns': {'env_name': ns, 'node_name': name}, 'default': params['default']}
+        substitute_args(params, context, only=['default', 'ns'])
+
         # Process inputs
         inputs = []
         if 'inputs' in default:
@@ -398,7 +402,10 @@ class RxObjectParams(Params):
 
         # Add default arguments
         for component in ['sensors', 'actuators', 'states']:
-            if component not in params: continue
+            if component not in params:
+                if component not in params['default']:
+                    params['default'][component] = []
+                continue
             for cname in params[component]:
                 add_default_args(params[component][cname], component)
 
@@ -414,10 +421,10 @@ class RxObjectParams(Params):
     def get_params(self, ns, bridge):
         params = deepcopy(self.params)
         name = self.name
-        context = {'ns': {'env_name': ns, 'obj_name': name}, 'default': params['default']}
 
         # Replace args in .yaml
-        substitute_args(params, context)
+        context = {'ns': {'env_name': ns, 'obj_name': name}, 'default': params['default']}
+        substitute_args(params, context, only=['default', 'ns'])
 
         # Check if the bridge name is not contained in the config's (.yaml) default parameters
         assert bridge not in params['default'], 'Cannot have a bridge (%s) as a default object parameter int the config (.yaml) of object (%s).' % (bridge, self.name)

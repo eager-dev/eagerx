@@ -1,7 +1,6 @@
 default:
   sensors: [observation, reward, done, image]
   actuators: [action]
-  states: []
   gym_id: 'Pendulum-v1'
   rate: 20
   always_render: False
@@ -48,8 +47,6 @@ actuators: # outputs of env
       converter_type: eagerx_bridge_openai_gym.converters/GymSpaceFloat32MultiArray
       id: $(default gym_id)
       space: 'action'
-
-states: {}
 
 #########################
 ### Engine definition ###
