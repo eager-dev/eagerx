@@ -37,10 +37,6 @@ else:
     from eagerx_core.gui.templates import ui_pyqt as rx_ui_template
 
 
-def str_dict(d):
-    return dict([(str(k), v) for k, v in d.items()])
-
-
 class RxGui(RxGraph, QtCore.QObject):
     library = get_nodes_and_objects_library()
     sigFileLoaded = QtCore.Signal(object)
@@ -186,7 +182,7 @@ class RxGui(RxGraph, QtCore.QObject):
                          connection[1][0], '/'.join(connection[1][1:3])) for connection in self._state['connects']]
             for n1, t1, n2, t2 in connects:
                 try:
-                    self.connect_terminals(self.nodes[n1][t1], self.nodes[n2][t2])
+                    self.connect_terminals(self.nodes[n1].terminals[t1], self.nodes[n2].terminals[t2])
                 except Exception:
                     print(self.nodes[n1].terminals)
                     print(self.nodes[n2].terminals)

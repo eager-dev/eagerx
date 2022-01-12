@@ -298,6 +298,12 @@ def get_nodes_and_objects_library():
             if package is not None and config is not None:
                 yaml = load_yaml(package, config)
                 yaml_type = get_yaml_type(yaml)
+                # Filter out simulation nodes/bridges
+                if yaml_type == 'node':
+                    if 'inputs' in yaml and 'tick' in yaml['inputs']:
+                        continue
+                    if 'outputs' in yaml and 'tick' in yaml['outputs']:
+                        continue
                 if package not in library[yaml_type].keys():
                     library[yaml_type][package] = []
                 library[yaml_type][package].append({'name': config, 'default': yaml})

@@ -26,14 +26,3 @@ def launch_gui(state):
     new_state = rx_gui.state()
 
     return new_state
-
-# todo: Check converter validity before connecting
-# todo: Check if flowchart can run in notebook
-# todo: Add render node
-# todo: What to do if text is invalid yaml?
-# todo: rate should not be none (now happens when connecting an observation)
-# todo: Nice to have: show rate in outputs
-# todo: Nice to have: allow to add terminals in nodes
-# todo: Nice to have: Input terminals get address on connection
-# todo: Nice to have: Generate rate based on connection (not changeable)
-# todo: Nice to have: Show addresses and update on changes in connection (not changeable)

@@ -1,3 +1,6 @@
+"""
+ Mostly copy paste from https://github.com/pyqtgraph/pyqtgraph/blob/master/pyqtgraph/flowchart/FlowchartCtrlTemplate_pyqt.py
+"""
 from PyQt4 import QtCore, QtGui
 
 try:
@@ -32,11 +35,6 @@ class Ui_Form(object):
         self.saveAsBtn = FeedbackButton(Form)
         self.saveAsBtn.setObjectName(_fromUtf8("saveAsBtn"))
         self.gridLayout.addWidget(self.saveAsBtn, 1, 3, 1, 1)
-        # self.reloadBtn = FeedbackButton(Form)
-        # self.reloadBtn.setCheckable(False)
-        # self.reloadBtn.setFlat(False)
-        # self.reloadBtn.setObjectName(_fromUtf8("reloadBtn"))
-        # self.gridLayout.addWidget(self.reloadBtn, 4, 0, 1, 2)
         self.checkValidityBtn = FeedbackButton(Form)
         self.checkValidityBtn.setObjectName(_fromUtf8("checkValidityBtn"))
         self.gridLayout.addWidget(self.checkValidityBtn, 4, 0, 1, 1)

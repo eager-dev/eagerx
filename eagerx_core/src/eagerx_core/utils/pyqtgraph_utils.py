@@ -63,6 +63,9 @@ class ParamWindow(QtGui.QDialog):
             else:
                 self.add_widget(key, value, row)
                 row += 1
+        if row == 0:
+            label = QtGui.QLabel('No parameters to show.')
+            self.layout.addWidget(label, row, 0)
         self.setLayout(self.layout)
 
     def open(self):
@@ -84,12 +87,7 @@ class ParamWindow(QtGui.QDialog):
 
     def add_widget(self, key, value, row):
         label = QtGui.QLabel(key)
-        if key in constants.GUI_WIDGETS[self.entity_type]['constant']['all'] or \
-                (self.node_type in constants.GUI_WIDGETS[self.entity_type]['constant'] and
-                 key in constants.GUI_WIDGETS[self.entity_type]['constant'][self.node_type]):
-            widget = QtGui.QLineEdit(str(value))
-            widget.setEnabled(False)
-        elif self.is_term and key in 'converter':
+        if self.is_term and key in 'converter':
             button_string = value['converter_type'].split('/')[-1] if 'converter_type' in value else 'converter'
             widget = QtGui.QPushButton('Edit {}'.format(button_string))
             widget.pressed.connect(partial(self.open_converter_dialog, button=widget))
@@ -126,6 +124,10 @@ class ParamWindow(QtGui.QDialog):
         else:
             widget = QtGui.QLineEdit(str(value))
             widget.textChanged.connect(partial(self.text_changed, key=key))
+        if key in constants.GUI_WIDGETS[self.entity_type]['constant']['all'] or \
+                (self.node_type in constants.GUI_WIDGETS[self.entity_type]['constant'] and
+                 key in constants.GUI_WIDGETS[self.entity_type]['constant'][self.node_type]):
+            widget.setEnabled(False)
         for grid_object in [label, widget]:
             font = grid_object.font()
             font.setPointSize(12)

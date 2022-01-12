@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
-import yaml
-from functools import partial
+"""
+ Mostly copy paste from https://github.com/pyqtgraph/pyqtgraph/blob/master/pyqtgraph/flowchart/Terminal.py
+"""
 
 from pyqtgraph.Qt import QtCore, QtGui
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph import functions as fn
-from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Point import Point
 
 from eagerx_core import constants
@@ -100,8 +99,8 @@ class RxGuiTerminal(object):
     def connect_to(self, term, connection_item):
         assert not self.connected_to(term), 'Already connected'
         assert term is not self, 'Not connecting terminal to self'
-        assert term.node is not self.node, "Can't connect to terminal on same node."
-        assert term.is_state == self.is_state, "Cannot connect different input/output types."
+        assert term.node is not self.node, "Cannot connect to terminal on same node."
+        assert term.is_state == self.is_state, "Cannot connect states to other types than targets."
         assert not term.is_input == self.is_input, "Cannot connect input with input or output with output."
         for t in [self, term]:
             assert not (t.is_input and t.is_connected()), \
@@ -109,6 +108,9 @@ class RxGuiTerminal(object):
                     self, term, t, list(t.connections.keys()))
 
         input_term, output_term = (self, term) if self.is_input else (term, self)
+
+        assert not (output_term.node_type == 'actions' and input_term.node_type == 'observations'), \
+            'Cannot connect actions directly to observations.'
 
         source = output_term.connection_tuple()
         target = input_term.connection_tuple()
@@ -344,9 +346,7 @@ class TerminalGraphicsItem(GraphicsObject):
                             self.term.connect_to(i.term, self.newConnection, graph_backup=self.term.node.graph)
                             got_target = True
                         except Exception:
-                            self.newConnection.close()
-                            self.newConnection = None
-                            raise
+                            got_target = False
                         break
 
                 if not got_target:
