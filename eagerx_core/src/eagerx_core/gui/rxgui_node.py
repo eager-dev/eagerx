@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+"""
+ Mostly copy paste from https://github.com/pyqtgraph/pyqtgraph/blob/master/pyqtgraph/flowchart/Node.py
+"""
+
 import numpy as np
 from functools import partial
 
@@ -13,12 +16,7 @@ from pyqtgraph import functions as fn
 from pyqtgraph.pgcollections import OrderedDict
 
 
-def str_dict(d):
-    return dict([(str(k), v) for k, v in d.items()])
-
-
 class RxGuiNode(QtCore.QObject):
-    # sigOutputChanged = QtCore.Signal(object)  # self
     sigClosed = QtCore.Signal(object)
     sigRenamed = QtCore.Signal(object, object)
     sigTerminalRenamed = QtCore.Signal(object, object)  # term, oldName
@@ -135,8 +133,7 @@ class RxGuiNode(QtCore.QObject):
         self.add_terminal(name)
 
     def add_terminal(self, name):
-        """Add a new terminal to this Node with the given name. Extra
-        keyword arguments are passed to Terminal.__init__.
+        """Add a new terminal to this Node with the given name.
                 
         Causes sigTerminalAdded to be emitted."""
         name = self.__next_terminal_name(name)
@@ -154,30 +151,11 @@ class RxGuiNode(QtCore.QObject):
         return term
 
     def graphics_item(self):
-        """Return the GraphicsItem for this node. Subclasses may re-implement
-        this method to customize their appearance in the flowchart."""
+        """Return the GraphicsItem for this node."""
         if self._graphics_item is None:
             self._graphics_item = NodeGraphicsItem(self)
         return self._graphics_item
 
-    # this is just bad planning. Causes too many bugs.
-    def __getattr__(self, attr):
-        """Return the terminal with the given name"""
-        if attr not in self.terminals:
-            raise AttributeError(attr)
-        else:
-            import traceback
-            traceback.print_stack()
-            print("Warning: use of node.terminalName is deprecated; use node['terminalName'] instead.")
-            return self.terminals[attr]
-
-    def __getitem__(self, item):
-        # return getattr(self, item)
-        """Return the terminal with the given name"""
-        if item not in self.terminals:
-            raise KeyError(item)
-        else:
-            return self.terminals[item]
 
     def rename(self, name):
         """Rename this node. This will cause sigRenamed to be emitted."""
@@ -457,9 +435,13 @@ class NodeGraphicsItem(GraphicsObject):
                                 act.setEnabled(False)
                             self.menu.addMenu(terminal_menu)
         if self.node.allow_remove:
-            self.menu.addAction("Remove {}".format(self.node.name), self.node.close)
+            self.menu.addAction("Remove {}".format(self.node.name), self.remove_node)
 
     def add_terminal(self, terminal_type, terminal_name):
         self.node.graph._add_component(name=self.node.name, component=terminal_type, cname=terminal_name)
         name = terminal_type + '/' + terminal_name
         self.node.add_terminal(name=name)
+
+    def remove_node(self):
+        self.node.graph.remove(self.node.name, remove=False)
+        self.node.close()
