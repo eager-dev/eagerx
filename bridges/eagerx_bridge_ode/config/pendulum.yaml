@@ -1,7 +1,7 @@
 default:
   sensors: [observation]
   actuators: [action]
-  states: [state]
+  states: [model_state]
   rate: 30
 
 #########################
@@ -13,8 +13,8 @@ sensors: # inputs of ode
     msg_type: std_msgs.msg/Float32MultiArray
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
-      low: [ -3.1415926536, -999 ]
-      high: [ 3.1415926536, 999 ]
+      low: [ -3.1415926536, -9 ]
+      high: [ 3.1415926536, 9 ]
 
 actuators: # outputs of ode
   action:
@@ -26,12 +26,12 @@ actuators: # outputs of ode
       high: [ 3 ]
 
 states:  # reset states inside bridge
-  state:
+  model_state:
     msg_type: std_msgs.msg/Float32MultiArray
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
-      low: [ -3.1415926536, -999 ]
-      high: [ 3.1415926536, 999 ]
+      low: [ -3.1415926536, -9 ]
+      high: [ 3.1415926536, 9 ]
 
 #########################
 ### Engine definition ###
@@ -49,5 +49,5 @@ eagerx_bridge_ode/bridge:
       inputs: {action: } # actuator input mapping to sim_node input name inside node_config
 
   states:
-    state:
+    model_state:
       state_type: eagerx_bridge_ode.simstates/OdeSimState

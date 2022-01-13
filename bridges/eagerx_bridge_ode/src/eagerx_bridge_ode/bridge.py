@@ -15,9 +15,9 @@ from eagerx_core.bridge import BridgeBase
 class OdeBridge(BridgeBase):
     msg_types = {'outputs': {'tick': UInt64}}
 
-    def __init__(self, rtol, atol, hmax, hmin, maxstep, **kwargs):
+    def __init__(self, rtol, atol, hmax, hmin, mxstep, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
-        self.odeint_args = dict(rtol=rtol, atol=atol, hmax=hmax, hmin=hmin, maxstep=maxstep)
+        self.odeint_args = dict(rtol=rtol, atol=atol, hmax=hmax, hmin=hmin, mxstep=mxstep)
 
         simulator = dict()
         super().__init__(simulator=simulator, **kwargs)
@@ -30,10 +30,10 @@ class OdeBridge(BridgeBase):
         # Extract relevant object_params
         obj_name = object_params['name']
         ode = get_attribute_from_module(object_params['bridge']['ode'])
-        dfun = get_attribute_from_module(object_params['bridge']['dfun']) if 'dfun' in object_params else None
+        Dfun = get_attribute_from_module(object_params['bridge']['Dfun']) if 'Dfun' in object_params else None
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(ode=ode, dfun=dfun, state=None, input=None)
+        self.simulator[obj_name] = dict(ode=ode, Dfun=Dfun, state=None, input=None)
         return object_params
 
     def pre_reset(self, **kwargs: Optional[Msg]):

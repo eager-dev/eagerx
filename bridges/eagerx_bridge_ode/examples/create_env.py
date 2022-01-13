@@ -26,13 +26,13 @@ if __name__ == '__main__':
     graph.connect(action='action', target=('pendulum', 'actuators', 'action'))
     graph.connect(source=('pendulum', 'sensors', 'observation'), observation='observation')
 
-    # graph.gui()
+    graph.gui()
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_bridge_ode', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = RxBridge.create('eagerx_bridge_ode', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.ENVIRONMENT)
 
     # Initialize Environment
-    env = EAGERxEnv(name='ode_env', rate=rate, graph=graph, bridge=bridge)
+    env = EAGERxEnv(name='rx', rate=rate, graph=graph, bridge=bridge)
 
     # Use stable-baselines
     # model = sb.PPO("MlpPolicy", env, verbose=1)
