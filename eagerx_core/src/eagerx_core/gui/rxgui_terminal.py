@@ -9,7 +9,7 @@ from pyqtgraph.Point import Point
 
 from eagerx_core import constants
 from eagerx_core.utils.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow
-from eagerx_core.converters import Identity
+from eagerx_core.baseconverter import IdentityConverter
 
 
 class RxGuiTerminal(object):
@@ -120,12 +120,12 @@ class RxGuiTerminal(object):
         target_params = input_term.params()
         source_params = output_term.params()
         if len(target_params) == 0:
-            converter = source_params['space_converter'] if 'space_converter' in source_params else Identity
+            converter = source_params['space_converter'] if 'space_converter' in source_params else IdentityConverter
             delay, window = 0., 0
         else:
             delay = target_params['delay'] if 'delay' in target_params else None
             window = target_params['window'] if 'window' in target_params else None
-            converter = target_params['converter'] if 'converter' in target_params else Identity
+            converter = target_params['converter'] if 'converter' in target_params else IdentityConverter
         connect_params = connection_item.open_connection_dialog(converter=converter, delay=delay, window=window)
         target = None if observation else target
         source = None if action else source
