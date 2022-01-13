@@ -1,0 +1,53 @@
+default:
+  sensors: [observation]
+  actuators: [action]
+  states: [state]
+  rate: 30
+
+#########################
+## Agnostic definition ##
+#########################
+sensors: # inputs of ode
+  observation:
+    rate: $(default rate)
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3.1415926536, -999 ]
+      high: [ 3.1415926536, 999 ]
+
+actuators: # outputs of ode
+  action:
+    rate: $(default rate)
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3 ]
+      high: [ 3 ]
+
+states:  # reset states inside bridge
+  state:
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3.1415926536, -999 ]
+      high: [ 3.1415926536, 999 ]
+
+#########################
+### Engine definition ###
+#########################
+eagerx_bridge_ode/bridge:
+  ode: eagerx_bridge_ode.ode/eom_pendulum
+  sensors:
+    observation:
+      node_config: eagerx_bridge_ode/observation # These nodes cannot have an internal state
+      outputs: [observation]
+
+  actuators:  # Inputs as defined above
+    action:
+      node_config: eagerx_bridge_ode/action
+      inputs: {action: } # actuator input mapping to sim_node input name inside node_config
+
+  states:
+    state:
+      state_type: eagerx_bridge_ode.simstates/OdeSimState

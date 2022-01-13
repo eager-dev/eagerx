@@ -1,0 +1,19 @@
+node_type: eagerx_bridge_ode.simnodes/OdeInput
+default:
+  rate:
+  inputs: [tick, action]
+  outputs: [action_applied]
+  process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  launch_file: '$(find eagerx_core)/launch/rxnode.launch'
+
+inputs:
+  tick:
+    msg_type: std_msgs.msg/UInt64
+    window: 0
+  action:
+    msg_type: std_msgs.msg/Float32MultiArray
+    window: 1
+
+outputs:
+  action_applied:
+    msg_type: std_msgs.msg/Float32MultiArray
