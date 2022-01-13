@@ -20,8 +20,8 @@ if __name__ == '__main__':
 
     # Define object
     # gym_id = 'Pendulum-v1'
-    gym_id = 'Acrobot-v1'
-    # gym_id = 'CartPole-v1'
+    # gym_id = 'Acrobot-v1'
+    gym_id = 'CartPole-v1'
     # gym_id = 'MountainCarContinuous-v0'
     name = gym_id.split('-')[0]
     obj = RxObject.create(name, 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, sensors=['observation', 'reward', 'done'])
@@ -34,8 +34,8 @@ if __name__ == '__main__':
     graph.connect(action='action', target=(obj.name, 'actuators', 'action'))
 
     # Add rendering
-    # graph.add_component(obj.name, 'sensors', 'image')
-    # graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
+    graph.add_component(obj.name, 'sensors', 'image')
+    graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
 
     # Open gui
     graph.gui()
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     # Use stable-baselines
     model = sb.PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=int(2000*rate*200/20))
+    # model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset
     done = False

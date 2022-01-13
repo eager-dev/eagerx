@@ -93,7 +93,7 @@ class SpaceConverter(Converter):
         pass
 
 
-class IdentityConverter(BaseConverter):
+class Identity(BaseConverter):
     """ The Identity converter that mimics the API of any other converter but simply passes through all messages."""
 
     def __init__(self):
@@ -135,88 +135,3 @@ class BaseProcessor(BaseConverter):
     @abc.abstractmethod
     def _convert(self, msg):
         pass
-
-###########################################################################
-# Specific implementations ################################################
-###########################################################################
-
-
-class SpaceUInt64Converter(SpaceConverter):
-    MSG_TYPE_A = np.ndarray
-    MSG_TYPE_B = UInt64
-
-    def __init__(self, low, high, shape=None, dtype='uint64'):
-        super().__init__(low, high, shape, dtype)
-        self.low = np.array(low)
-        self.high = np.array(high)
-        self.shape = shape
-        self.dtype = dtype
-
-    def get_space(self):
-        return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
-
-    def A_to_B(self, msg):
-        return UInt64(data=msg[0])
-
-    def B_to_A(self, msg):
-        return np.array([msg.data], dtype=self.dtype)
-
-
-class SpaceStringConverter(SpaceConverter):
-    MSG_TYPE_A = np.ndarray
-    MSG_TYPE_B = String
-
-    def __init__(self, low, high, shape=None, dtype='uint64'):
-        super().__init__(low, high, shape, dtype)
-        self.low = low
-        self.high = high
-        if isinstance(low, list):
-            self.low = np.array(self.low)
-        if isinstance(high, list):
-            self.high = np.array(self.high)
-        if shape is not None:
-            assert isinstance(low, (int, float)) or self.low.shape == shape, 'If a shape is defined, low must be of a list or type (int, float).'
-            assert isinstance(high, (int, float)) or self.high.shape == shape, 'If a shape is defined, high must be a list of type (int, float).'
-            self.low = low
-            self.high = high
-        self.shape = shape
-        self.dtype = dtype
-
-    def get_space(self):
-        return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
-
-    def A_to_B(self, msg):
-        return String(data='string: %s ' % msg[0])
-
-    def B_to_A(self, msg):
-        return np.array([int(msg.data[8:])], dtype=self.dtype)
-
-
-class ImageUInt64Converter(Converter):
-    MSG_TYPE_A = Image
-    MSG_TYPE_B = UInt64
-
-    def __init__(self, test_arg):
-        super().__init__(test_arg)
-        self.test_arg = test_arg
-
-    def A_to_B(self, msg):
-        return UInt64(data=999)
-
-    def B_to_A(self, msg):
-        return Image(data=[msg.data])
-
-
-class StringUInt64Converter(Converter):
-    MSG_TYPE_A = String
-    MSG_TYPE_B = UInt64
-
-    def __init__(self, test_arg):
-        super().__init__(test_arg)
-        self.test_arg = test_arg
-
-    def A_to_B(self, msg):
-        return UInt64(data=int(msg.data[8:]))
-
-    def B_to_A(self, msg):
-        return String(data='string: %s' % msg.data)

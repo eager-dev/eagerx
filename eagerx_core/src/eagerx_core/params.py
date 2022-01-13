@@ -1,5 +1,5 @@
 from eagerx_core.utils.utils import load_yaml, substitute_args, get_cls_from_string, check_msg_type, get_opposite_msg_cls, initialize_converter, get_attribute_from_module
-from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.converters import Identity
 from typing import Dict
 from copy import deepcopy
 import inspect
@@ -20,7 +20,7 @@ class RxInput(Params):
                  address: str,
                  msg_type: str,
                  window: int = 0,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  is_reactive: bool = True,
                  rate: float = None,
                  space_converter: Dict = None,
@@ -62,7 +62,7 @@ class RxOutput(Params):
                  address: str,
                  msg_type: str,
                  rate: float,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None,
                  start_with_msg: bool = False
                  ):
@@ -95,7 +95,7 @@ class RxFeedthrough(Params):
                  msg_type: str,
                  feedthrough_to: str,
                  window: int = 1,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  is_reactive: bool = True,
                  space_converter: Dict = None,
                  delay: float = 0.0
@@ -128,7 +128,7 @@ class RxState(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None,
                  ):
         # Store parameters as properties in baseclass
@@ -160,7 +160,7 @@ class RxSimState(Params):
                  address: str,
                  state: Dict,
                  msg_type: str,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None
                  ):
         # Store parameters as properties in baseclass

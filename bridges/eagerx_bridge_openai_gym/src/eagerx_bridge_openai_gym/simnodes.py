@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 
 # IMPORT EAGERX
 from eagerx_core.utils.utils import return_typehint, Msg
-from eagerx_core.basenode import SimNode
+from eagerx_core.nodes import SimNode
 from eagerx_core.constants import process
 
 

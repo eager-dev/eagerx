@@ -4,8 +4,8 @@ from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
-from eagerx_core.baseconverter import StringUInt64Converter, ImageUInt64Converter, IdentityConverter
-
+from eagerx_core.converters import Identity
+from eagerx_bridge_test.converters import RosString_RosUInt64, RosImage_RosUInt64
 from yaml import dump
 
 if __name__ == '__main__':
@@ -14,8 +14,8 @@ if __name__ == '__main__':
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define converter (optional)
-    StringUInt64Converter = StringUInt64Converter(test_arg='test')
-    ImageUInt64Converter = ImageUInt64Converter(test_arg='test')
+    RosString_RosUInt64 = RosString_RosUInt64(test_arg='test')
+    RosImage_RosUInt64 = RosImage_RosUInt64(test_arg='test')
 
     # Process configuration (optional)
     node_p = process.NEW_PROCESS
@@ -23,17 +23,17 @@ if __name__ == '__main__':
     rate = 7
 
     # Define nodes
-    N1 = RxNode.create('N1', 'eagerx_core', 'process',   rate=1.0, process=node_p)
-    N3 = RxNode.create('N3', 'eagerx_core', 'realreset', rate=rate, process=node_p, targets=['target_1'], inputs=['in_1', 'in_2'])
-    KF = RxNode.create('KF', 'eagerx_core', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
+    N1 = RxNode.create('N1', 'eagerx_bridge_test', 'process',   rate=1.0, process=node_p)
+    N3 = RxNode.create('N3', 'eagerx_bridge_test', 'realreset', rate=rate, process=node_p, targets=['target_1'], inputs=['in_1', 'in_2'])
+    KF = RxNode.create('KF', 'eagerx_bridge_test', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
 
     # Define object
-    viper = RxObject.create('obj', 'eagerx_core', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
+    viper = RxObject.create('obj', 'eagerx_bridge_test', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
 
     # Define graph
     graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
     graph.connect(source=(KF.name, 'outputs', 'out_1'),     observation='obs_3', delay=0.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     graph.connect(action='act_2',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
     graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'targets', 'target_1'))
-    graph.connect(source=(N3.name, 'outputs', 'out_1'),     target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=StringUInt64Converter)
+    graph.connect(source=(N3.name, 'outputs', 'out_1'),     target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=RosString_RosUInt64)
 
     # Set & get parameters
     _ = graph.get_parameter('converter', action='act_2')
@@ -54,9 +54,9 @@ if __name__ == '__main__':
     graph.set_parameter('position', [1, 1, 1], name=viper.name)
 
     # Replace output converter
-    graph.set_parameter('converter', StringUInt64Converter, name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
-    graph.set_parameter('converter', IdentityConverter(), name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=ImageUInt64Converter)  # Reconnect
+    graph.set_parameter('converter', RosString_RosUInt64, name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
+    graph.set_parameter('converter', Identity(), name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)  # Reconnect
     graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', delay=0.0)  # Reconnect
     graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'), delay=1.0)  # Reconnect
     graph.connect(source=(viper.name, 'sensors', 'N6'), target=(N3.name, 'inputs', 'in_1'))  # Reconnect
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     params = graph.get_parameters(name=target[0], component=target[1], cname=target[2])  # Grab already defined parameters from input component
     if len(params) == 0:  # If observation, dict will be empty.
         converter = graph.get_parameter(parameter='space_converter', name=source[0], component=source[1], cname=source[2],
-                                        default=IdentityConverter)  # grab space_converter from source (viper.name, 'sensors', 'N6')
+                                        default=Identity)  # grab space_converter from source (viper.name, 'sensors', 'N6')
         delay, window = 0, 0
     else:  # If not observation, these values will always be present
         converter, delay, window = params['converter'], params['delay'], params['window']
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_core', 'bridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
+    bridge = RxBridge.create('eagerx_bridge_test', 'bridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -143,13 +143,15 @@ if __name__ == '__main__':
     print('\n[Finished]')
 
     # todo: GUI
+    # todo: bold table lines in bridge_compatibility check
+    # todo: change assertion message of compatible msgs to something with tabulate
     # todo: hoverInfo & parameter connection should show msg conversion.
 
     # todo: REFACTORING
     # todo: change 'default' to 'config'
-    # todo: Separate test bridge into a separate ROS package outside of eagerx_core
 
     # todo: OTHER
+    # todo: find should only be resolved in the "external" node
     # todo: check cyclic on all start_with_msg edges.
     # todo: add networkx, tabulate to dependency
 

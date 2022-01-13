@@ -9,7 +9,7 @@ from genpy.message import Message
 
 # RX IMPORTS
 from eagerx_core.utils.utils import Msg
-from eagerx_core.basebridge import BridgeBase
+from eagerx_core.bridge import BridgeBase
 
 
 class GymBridge(BridgeBase):

@@ -1,4 +1,4 @@
-node_type: eagerx_core.basebridge/TestBridgeNode
+node_type: eagerx_bridge_test.bridge/TestBridgeNode
 default:
   rate:
   outputs: [tick]
@@ -20,7 +20,7 @@ states:
   param_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]

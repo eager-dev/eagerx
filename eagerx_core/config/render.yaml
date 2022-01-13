@@ -1,4 +1,4 @@
-node_type: eagerx_core.basenode/RenderNode
+node_type: eagerx_core.nodes/RenderNode
 default:
   rate:
   inputs: [image]
