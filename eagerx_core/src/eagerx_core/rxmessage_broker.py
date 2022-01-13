@@ -1,5 +1,9 @@
 # IMPORT ROS
+from typing import Any
+
 import rospy
+from rx import Observable, create
+from rx.disposable import Disposable
 from std_msgs.msg import UInt64, Bool
 
 # IMPORT OTHER
@@ -11,7 +15,6 @@ from threading import Condition
 
 # IMPORT EAGERX
 from eagerx_core.constants import DEBUG
-from eagerx_core.rxoperators import from_topic
 
 
 def thread_safe_wrapper(func, condition):
@@ -259,3 +262,13 @@ class RxMessageBroker(object):
                     addresses.pop(address)
 
             print_status and print(''.center(140, " "))
+
+
+def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
+    def _subscribe(observer, scheduler=None) -> Disposable:
+        try:
+            rospy.Subscriber(topic_name, topic_type, lambda msg: observer.on_next(msg))
+        except Exception as e:
+            print('[%s]: %s' % (node_name, e))
+        return observer
+    return create(_subscribe)

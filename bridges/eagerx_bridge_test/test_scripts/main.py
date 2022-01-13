@@ -141,3 +141,31 @@ if __name__ == '__main__':
             # rgb = env.render(mode='rgb_array')
         obs = env.reset()
     print('\n[Finished]')
+
+    # todo: DOCUMENTATION
+    #  - RxNode.create(...), RxBridge.create(...), RxObject.create(...)
+    #  - RxEnv, EAGERxEnv
+    #  - Converter, Processor, SpaceConverter
+    #  - SimState
+
+    # todo: THINGS TO KEEP IN MIND:
+    #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
+    #  - The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
+    #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
+    #  - Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()".
+    #  Hence, we cannot completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but
+    #  chance is very slim, and only at the moment of initialization).
+    #  - Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
+    #  Hence, we cannot adaptively register new objects or controllers after some episodes.
+    #  - If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
+    #  - Only objects can have nonreactive inputs. In that case, the bridge is responsible for sending flag msgs (num_msgs_send).
+    #  The bridges knows which inputs are nonreactive when the object is registered.
+    #  - Nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
+    #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
+    #  not be agnostic (as they would break in the case is_reactive=True).
+    #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
+    #  - Nonreactive inputs that have 'start_with_msg' could mess up the reset.
+    #  - Delays are ignored when running async.
+    #  - In the bridge definition of an object, or inside the config of simnodes, there cannot be converters defined for
+    #  the components related to the sensor and actuator. Reason for this is that if a converter would already be defined there,
+    #  then it is not possible anymore to add another one in the agnostic side.

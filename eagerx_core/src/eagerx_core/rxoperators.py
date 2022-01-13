@@ -4,7 +4,7 @@ from std_msgs.msg import Bool, UInt64
 
 # RX IMPORTS
 import rx
-from rx import Observable, typing, operators as ops, create
+from rx import Observable, typing, operators as ops
 from rx.disposable import Disposable, SingleAssignmentDisposable, CompositeDisposable
 from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
@@ -861,16 +861,6 @@ def node_reset_flags(ns, node_flags, node: NodeBase):
                                    ops.filter(lambda x: len(x) == 0),
                                    ops.start_with(None))
     return stream
-
-
-def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
-    def _subscribe(observer, scheduler=None) -> Disposable:
-        try:
-            rospy.Subscriber(topic_name, topic_type, lambda msg: observer.on_next(msg))
-        except Exception as e:
-            print('[%s]: %s' % (node_name, e))
-        return observer
-    return create(_subscribe)
 
 
 def filter_dict_on_key(key):

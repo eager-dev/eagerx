@@ -13,7 +13,7 @@ import gym
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define rate (depends on rate of gym env)
     rate = 20
