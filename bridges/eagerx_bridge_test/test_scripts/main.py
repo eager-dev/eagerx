@@ -18,8 +18,8 @@ if __name__ == '__main__':
     RosImage_RosUInt64 = RosImage_RosUInt64(test_arg='test')
 
     # Process configuration (optional)
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
     rate = 7
 
     # Define nodes
