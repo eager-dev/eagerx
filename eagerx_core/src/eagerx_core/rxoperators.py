@@ -10,8 +10,8 @@ from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
-from eagerx_core.basenode import NodeBase
-from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.nodes import NodeBase
+from eagerx_core.converters import Identity
 from eagerx_core.params import RxInput
 from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS, process
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp
@@ -773,7 +773,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         if 'converter' in i and isinstance(i['converter'], dict):
             i['converter'] = initialize_converter(i['converter'])
         elif 'converter' not in i:
-            i['converter'] = IdentityConverter()
+            i['converter'] = Identity()
 
         # Initialize rx objects
         i['msg'] = Subject()  # S
@@ -793,7 +793,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         node_flags.append(nf)
 
         for i in params['outputs']:
-            assert not params['process'] == process.BRIDGE or i['converter'] == {'converter_type': 'eagerx_core.baseconverter/IdentityConverter'}, 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
+            assert not params['process'] == process.BRIDGE or i['converter'] == Identity().get_yaml_definition(), 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
 
             # Create a new input topic for each SimNode output topic
             n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], is_reactive=True, window=0).get_params()

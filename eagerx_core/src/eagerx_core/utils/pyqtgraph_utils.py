@@ -9,7 +9,7 @@ from pyqtgraph.Qt import QtGui
 
 from eagerx_core import constants
 from eagerx_core.utils.utils import get_attribute_from_module
-from eagerx_core.baseconverter import BaseConverter
+from eagerx_core.converters import BaseConverter
 
 
 def exception_handler(function_to_decorate):

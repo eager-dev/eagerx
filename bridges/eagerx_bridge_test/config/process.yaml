@@ -1,4 +1,4 @@
-node_type: eagerx_core.basenode/ProcessNode
+node_type: eagerx_bridge_test.nodes/ProcessNode
 default:
   rate:
   inputs: [in_1]
@@ -14,7 +14,7 @@ inputs:
     msg_type: std_msgs.msg/UInt64
     window: 0
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]
@@ -22,7 +22,7 @@ inputs:
     msg_type: std_msgs.msg/UInt64
     window: 0
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]
@@ -31,14 +31,14 @@ outputs:
   out_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]
   out_2:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]
@@ -47,14 +47,14 @@ states:
   state_1:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]
   state_2:
     msg_type: std_msgs.msg/UInt64
     space_converter:
-      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64
       low: [0]
       high: [100]

@@ -1,0 +1,23 @@
+node_type: eagerx_bridge_openai_gym.bridge/GymBridge
+default:
+  rate:
+  outputs: [tick]
+  process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
+  color: magenta
+  log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+  is_reactive: True
+  real_time_factor: 0  # 0 == as fast as possible
+
+outputs:
+  tick:
+    msg_type: std_msgs.msg/UInt64
+
+states:
+  param_1:
+    msg_type: std_msgs.msg/UInt64
+    space_converter:
+      converter_type: eagerx_core.baseconverter/SpaceUInt64Converter
+      dtype: uint64
+      low: [0]
+      high: [100]

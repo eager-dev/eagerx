@@ -1,4 +1,4 @@
-node_type: eagerx_core.basenode/ActionsNode
+node_type: eagerx_core.nodes/ActionsNode
 default:
   rate:
   inputs: [observations_set, step]

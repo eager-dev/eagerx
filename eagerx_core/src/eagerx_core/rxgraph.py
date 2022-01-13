@@ -8,9 +8,9 @@ from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.baseconverter import BaseConverter, SpaceConverter
+from eagerx_core.converters import BaseConverter, SpaceConverter
 
 
 class RxGraph:
@@ -744,6 +744,18 @@ class RxGraph:
             address = '%s/%s/%s' % (source_name, source_comp, source_cname)
             state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
 
+            # For actions & observations, replace default args
+            if source_name == 'env/actions':
+                default = state['nodes'][target_name]['params']['default']
+                context = {'default': default}
+                cname_params = state['nodes'][source_name]['params'][source_comp][source_cname]
+                substitute_args(cname_params, context, only=['default', 'ns'])
+            if target_name == 'env/observations':
+                default = state['nodes'][source_name]['params']['default']
+                context = {'default': default}
+                cname_params = state['nodes'][target_name]['params'][target_comp][target_cname]
+                substitute_args(cname_params, context, only=['default', 'ns'])
+
         # Initialize param objects
         nodes = []
         objects = []
@@ -1118,8 +1130,8 @@ class RxGraph:
                                     else:
                                         e_str = ' '  # Component entry is not supported
                                         break  # Break if entry in component is not supported
-                            else:
-                                raise KeyError('No components in %s' % default)
+                            # else:
+                            #     raise KeyError('No components in %s' % default)
                     else:  # Bridge name not even mentioned in object config
                         e_str = ' '
                     entry.append(e_str)

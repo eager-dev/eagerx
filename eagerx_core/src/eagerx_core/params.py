@@ -1,5 +1,5 @@
 from eagerx_core.utils.utils import load_yaml, substitute_args, get_cls_from_string, check_msg_type, get_opposite_msg_cls, initialize_converter, get_attribute_from_module
-from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.converters import Identity
 from typing import Dict
 from copy import deepcopy
 import inspect
@@ -20,7 +20,7 @@ class RxInput(Params):
                  address: str,
                  msg_type: str,
                  window: int = 0,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  is_reactive: bool = True,
                  rate: float = None,
                  space_converter: Dict = None,
@@ -62,7 +62,7 @@ class RxOutput(Params):
                  address: str,
                  msg_type: str,
                  rate: float,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None,
                  start_with_msg: bool = False
                  ):
@@ -95,7 +95,7 @@ class RxFeedthrough(Params):
                  msg_type: str,
                  feedthrough_to: str,
                  window: int = 1,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  is_reactive: bool = True,
                  space_converter: Dict = None,
                  delay: float = 0.0
@@ -128,7 +128,7 @@ class RxState(Params):
                  name: str,
                  address: str,
                  msg_type: str,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None,
                  ):
         # Store parameters as properties in baseclass
@@ -160,7 +160,7 @@ class RxSimState(Params):
                  address: str,
                  state: Dict,
                  msg_type: str,
-                 converter: Dict = IdentityConverter().get_yaml_definition(),
+                 converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None
                  ):
         # Store parameters as properties in baseclass
@@ -278,6 +278,10 @@ class RxNodeParams(Params):
         config_name = default['config_name']
         node_cls = get_cls_from_string(params['node_type'])
         default['node_type'] = params['node_type']
+
+        # Replace args in .yaml
+        context = {'ns': {'env_name': ns, 'node_name': name}, 'default': params['default']}
+        substitute_args(params, context, only=['default', 'ns'])
 
         # Process inputs
         inputs = []
@@ -398,7 +402,10 @@ class RxObjectParams(Params):
 
         # Add default arguments
         for component in ['sensors', 'actuators', 'states']:
-            if component not in params: continue
+            if component not in params:
+                if component not in params['default']:
+                    params['default'][component] = []
+                continue
             for cname in params[component]:
                 add_default_args(params[component][cname], component)
 
@@ -414,10 +421,10 @@ class RxObjectParams(Params):
     def get_params(self, ns, bridge):
         params = deepcopy(self.params)
         name = self.name
-        context = {'ns': {'env_name': ns, 'obj_name': name}, 'default': params['default']}
 
         # Replace args in .yaml
-        substitute_args(params, context)
+        context = {'ns': {'env_name': ns, 'obj_name': name}, 'default': params['default']}
+        substitute_args(params, context, only=['default', 'ns'])
 
         # Check if the bridge name is not contained in the config's (.yaml) default parameters
         assert bridge not in params['default'], 'Cannot have a bridge (%s) as a default object parameter int the config (.yaml) of object (%s).' % (bridge, self.name)

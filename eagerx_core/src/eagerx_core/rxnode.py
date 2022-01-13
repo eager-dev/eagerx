@@ -9,7 +9,7 @@ from eagerx_core.constants import log_levels_ROS
 import eagerx_core.rxmessage_broker
 import eagerx_core.rxpipelines
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking, get_opposite_msg_cls
-from eagerx_core.baseconverter import IdentityConverter
+from eagerx_core.converters import Identity
 
 
 class RxNode(object):
