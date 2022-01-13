@@ -458,12 +458,13 @@ class RxGraph:
             target_params = self._state['nodes'][target_name]['params']
             target_params[target_comp][target_cname] = self._state['nodes'][target_name]['default'][target_comp][target_cname]
 
-    def _disconnect_component(self, name: str, component: str, cname: str, remove=True):
+    def _disconnect_component(self, name: str, component: str, cname: str, remove=False):
         """
         Disconnects all associated connects from self._state.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
+        was_connected = False
         for source, target in deepcopy(self._state['connects']):
             self._is_selected(self._state, *source)
             self._is_selected(self._state, *target)
@@ -483,8 +484,11 @@ class RxGraph:
                 target = target
             if name == source_name and component == source_comp and cname == source_cname:
                 self.disconnect(source, target, action, observation, remove=remove)
+                was_connected = True
             elif name == target_name and component == target_comp and cname == target_cname:
                 self.disconnect(source, target, action, observation, remove=remove)
+                was_connected = True
+        return was_connected
 
     def _disconnect_action(self, action: str):
         """
@@ -640,12 +644,20 @@ class RxGraph:
         params = self._state['nodes'][name]['params']
 
         # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
-        msg_type = get_cls_from_string(params[component][cname]['msg_type'])
+        if component == 'feedthroughs':
+            msg_type = get_cls_from_string(params['outputs'][cname]['msg_type'])
+        else:
+            msg_type = get_cls_from_string(params[component][cname]['msg_type'])
         converter_old = params[component][cname]['converter']
         msg_type_ros_old = get_opposite_msg_cls(msg_type, converter_old)
         msg_type_ros_new = get_opposite_msg_cls(msg_type, converter)
         if not msg_type_ros_new == msg_type_ros_old:
-            self._disconnect_component(name, component, cname)
+            was_disconnected = self._disconnect_component(name, component, cname)
+        else:
+            was_disconnected = False
+
+        # If disconnected action/observation, we cannot add converter so raise error.
+        assert not (was_disconnected and name in ['env/actions', 'env/observations']), 'Cannot change the converter of action/observation "%s", as it changes the msg_type from "%s" to "%s"' % (cname, msg_type_ros_old, msg_type_ros_new)
 
         # Make sure the converter is a spaceconverter
         if name in ['env/actions', 'env/observations']:
@@ -696,9 +708,9 @@ class RxGraph:
             cname = observation
         self._exist(self._state, name, component, cname)
         if (component is not None) and (cname is not None):  # component parameter
-            return self._state['nodes'][name]['params'][component][cname]
+            return deepcopy(self._state['nodes'][name]['params'][component][cname])
         else:  # default parameter
-            return self._state['nodes'][name]['params']['default']
+            return deepcopy(self._state['nodes'][name]['params']['default'])
 
     def _reset_converter(self, name: str, component: str, cname: str):
         """
@@ -791,8 +803,8 @@ class RxGraph:
 
     def gui(self):
         # todo: JELLE opens gui with state and outputs state
-        assert False, 'Not implemented'
-        self._state = RxGui(deepcopy(self._state))
+        from eagerx_core.gui import launch_gui
+        self._state = launch_gui(deepcopy(self._state))
 
     @staticmethod
     def _exist(state: Dict, name: str, component: Optional[str] = None, cname: Optional[str] = None, parameter: Optional[str] = None, check_default: Optional[bool] = False):
@@ -1076,7 +1088,7 @@ class RxGraph:
         return True
 
     @staticmethod
-    def check_exists_compatible_bridge(state):
+    def check_exists_compatible_bridge(state, tablefmt="fancy_grid"):
         # Bridges are headers
         bridges = []
         objects = []
@@ -1133,6 +1145,6 @@ class RxGraph:
             headers.append(b.replace('/', '/\n'))
 
         # Assert if there are compatible bridges
-        tabulate_str = tabulate(objects, headers=headers, tablefmt="fancy_grid", colalign=["center"]*len(headers))
+        tabulate_str = tabulate(objects, headers=headers, tablefmt=tablefmt, colalign=["center"]*len(headers))
         assert len(compatible), 'No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s' % tabulate_str
         return tabulate_str

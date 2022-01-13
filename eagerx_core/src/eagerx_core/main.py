@@ -110,6 +110,8 @@ if __name__ == '__main__':
     # GUI: use the modified params via the dialogue box to connect.
     graph.connect(source=source, target=target, action=action, observation=observation, converter=converter, delay=delay, window=window)
 
+    graph.gui()
+
     # Test save & load functionality
     graph.save('./test.graph')
     graph.load('./test.graph')
@@ -151,11 +153,6 @@ if __name__ == '__main__':
     # todo: REACTIVE PROTOCOL
     # todo: non_reactive input sometimes misses input msgs (send>recv) --> why?
     # todo: Find out why connection is repeatedly created every new episode --> env.render(..)
-
-    # todo: GUI
-    #  - Do not show converter for states in GUI
-    #  - Do not show space_converter in actions/observations
-    #  - Concerning sensors, start_with_msg cannot be changed and must not be shown.
 
     # todo: CREATE GITHUB ISSUES FOR:
     # todo: Create docker for EAGERx (https://gradient.run/)
