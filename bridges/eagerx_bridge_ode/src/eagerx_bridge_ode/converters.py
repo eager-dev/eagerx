@@ -2,7 +2,7 @@
 from std_msgs.msg import Float32MultiArray
 
 # RX IMPORTS
-from eagerx_core.converters import SpaceConverter
+from eagerx_core.converters import SpaceConverter, BaseProcessor
 import numpy as np
 from gym.spaces import Box
 
@@ -28,3 +28,18 @@ class Space_RosFloat32MultiArray(SpaceConverter):
 
     def B_to_A(self, msg):
         return msg.data
+
+class AngleUnwrapper(BaseProcessor):
+    MSG_TYPE = Float32MultiArray
+
+    def __int__(self):
+        super().__init__()
+
+    def convert(self, msg):
+        data = msg.data
+        data[0] = np.unwrap(data[0])
+        return Float32MultiArray(data)
+
+
+
+

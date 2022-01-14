@@ -48,7 +48,7 @@ class OdeBridge(BridgeBase):
             ode = sim['ode']
             Dfun = sim['Dfun']
             x = sim['state']
-            new_state = odeint(ode, x, [0, 1./self.rate], args=(input), Dfun=Dfun, **self.odeint_args)
+            new_state = odeint(ode, x, [0, 1./self.rate], args=(input,), Dfun=Dfun, **self.odeint_args)
             sim['state'] = new_state[-1]
 
             # Fill output msg with number of node ticks

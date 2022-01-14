@@ -50,7 +50,7 @@ class OdeInput(SimNode):
             'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
 
         # Set action in simulator for next step.
-        self.simulator[self.obj_name]['input'] = action.msgs[-1].data
+        self.simulator[self.obj_name]['input'] = action.msgs[-1].data[0]
 
         # Send action that has been applied.
         return dict(action_applied=action.msgs[-1])

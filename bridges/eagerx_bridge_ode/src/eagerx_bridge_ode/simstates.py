@@ -7,5 +7,5 @@ class OdeSimState(SimStateBase):
         self.obj_name = self.object_params['name']
 
     def reset(self, state, done):
-        self.simulator[self.obj_name]['state'] = state
+        self.simulator[self.obj_name]['state'] = state.data
         return None
