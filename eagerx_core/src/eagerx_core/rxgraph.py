@@ -8,7 +8,7 @@ from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
 from eagerx_core.converters import BaseConverter, SpaceConverter
 
@@ -913,19 +913,12 @@ class RxGraph:
 
         # Verify that this msg_type_in is the same as the msg_type specified in the target
         if target_comp == 'feedthroughs':
-            msg_type_in_target = get_cls_from_string(target_params['outputs'][target_cname]['msg_type'])
+            msg_type_in_yaml = get_cls_from_string(target_params['outputs'][target_cname]['msg_type'])
         else:
-            msg_type_in_target = get_cls_from_string(target_params[target_comp][target_cname]['msg_type'])
+            msg_type_in_yaml = get_cls_from_string(target_params[target_comp][target_cname]['msg_type'])
 
-        msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(
-            source + target)
-        msg_type_str += '>> msg_type_source:  %s (as specified in source)\n         ||\n         \/\n' % msg_type_out
-        msg_type_str += '>> output_converter: %s \n         ||\n         \/\n' % converter_out
-        msg_type_str += '>> msg_type_ROS:     %s \n         ||\n         \/\n' % msg_type_ros
-        msg_type_str += '>> input_converter:  %s \n         ||\n         \/\n' % converter_in
-        msg_type_str += '>> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n' % msg_type_in
-        msg_type_str += '>> msg_type_target:  %s (as specified in target)\n' % msg_type_in_target
-        assert msg_type_in == msg_type_in_target, msg_type_str
+        msg_type_str = msg_type_error(source, target, msg_type_out, converter_out, msg_type_ros, converter_in, msg_type_in, msg_type_in_yaml)
+        assert msg_type_in == msg_type_in_yaml, msg_type_str
 
     @staticmethod
     def check_msg_types_are_consistent(state):
