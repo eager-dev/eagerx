@@ -5,7 +5,7 @@
 # -*- coding: utf-8 -*-
 import os
 import numpy as np
-import tabulate
+import importlib
 from copy import deepcopy
 
 # Import pyqtgraph modules
@@ -13,7 +13,6 @@ from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph.Qt import QtCore, QtGui, QT_LIB
 from pyqtgraph import FileDialog, DataTreeWidget
 from pyqtgraph import dockarea
-from pyqtgraph.python2_3 import asUnicode
 from pyqtgraph.debug import printExc
 
 # Import eagerx modules
@@ -27,14 +26,7 @@ from eagerx_core.utils.utils import get_nodes_and_objects_library
 from eagerx_core.utils.pyqtgraph_utils import exception_handler
 
 # pyside and pyqt use incompatible ui files.
-if QT_LIB == 'PySide':
-    from eagerx_core.gui.templates import ui_pyside as rx_ui_template
-elif QT_LIB == 'PySide2':
-    from eagerx_core.gui.templates import ui_pyside2 as rx_ui_template
-elif QT_LIB == 'PyQt5':
-    from eagerx_core.gui.templates import ui_pyqt5 as rx_ui_template
-else:
-    from eagerx_core.gui.templates import ui_pyqt as rx_ui_template
+rx_ui_template = importlib.import_module('eagerx_core.gui.templates.ui_{}'.format(QT_LIB.lower()))
 
 
 class RxGui(RxGraph, QtCore.QObject):
@@ -218,7 +210,7 @@ class RxGui(RxGraph, QtCore.QObject):
             self.fileDialog.show()
             self.fileDialog.fileSelected.connect(self.load_file)
             return
-        file_name = asUnicode(file_name)
+        file_name = file_name
         self.load(file_name)
         self.load_state(clear=True)
         self.viewBox.autoRange()
@@ -238,7 +230,7 @@ class RxGui(RxGraph, QtCore.QObject):
             self.fileDialog.show()
             self.fileDialog.fileSelected.connect(self.save_file)
             return
-        file_name = asUnicode(file_name)
+        file_name = file_name
         self._state = self.state()
         self.save(file_name)
         self.sigFileSaved.emit(file_name)
@@ -319,7 +311,7 @@ class RxCtrlWidget(QtGui.QWidget):
         new_file = self.chart.load_file()
 
     def file_saved(self, file_name):
-        self.set_current_file(asUnicode(file_name))
+        self.set_current_file(file_name)
         self.ui.saveBtn.success("Saved.")
 
     def save_clicked(self):
@@ -368,7 +360,7 @@ class RxCtrlWidget(QtGui.QWidget):
         bridges_window.exec_()
 
     def set_current_file(self, file_name):
-        self.current_file_name = asUnicode(file_name)
+        self.current_file_name = file_name
         if file_name is None:
             self.ui.fileNameLabel.setText("<b>[ new ]</b>")
         else:
