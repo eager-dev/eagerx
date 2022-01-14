@@ -51,9 +51,16 @@ class RxMessageBroker(object):
     def add_rx_objects(self, node_name, node=None, inputs=tuple(), outputs=tuple(), feedthrough=tuple(),
                        state_inputs=tuple(), state_outputs=tuple(), targets=tuple(), node_inputs=tuple(), node_outputs=tuple(),
                        reactive_proxy=tuple()):
+        # Determine tick address
+        if node:
+            ns = node.ns
+        else:
+            ns = self.node_io[node_name]['node'].ns
+        tick_address = ns + '/bridge/outputs/tick'
+
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
-            if i['address'] == '/rx/bridge/outputs/tick': continue
+            if i['address'] == tick_address: continue
             assert i['address'] not in self.rx_connectable, 'Non-unique output (%s). All output names must be unique.' % i['address']
             self.rx_connectable[i['address']] = dict(rx=i['msg'], source=i, node_name=node_name, rate=i['rate'])
 
