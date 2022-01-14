@@ -223,7 +223,8 @@ class ConverterDialog(QtGui.QDialog):
             row += 1
 
     def get_parameters(self):
-        converter_type = self.converter['converter_type'] if 'converter_type' in self.converter else ''
+        converter = deepcopy(self.converter)
+        converter_type = converter['converter_type'] if 'converter_type' in converter else ''
         module_name = converter_type.split('/')[0]
         class_name = converter_type.split('/')[1] if len(converter_type.split('/')) == 2 else None
 
@@ -240,7 +241,13 @@ class ConverterDialog(QtGui.QDialog):
                     if BaseConverter in member.__mro__:
                         available_converters.append(name)
 
-        class_name = class_name if class_name in available_converters else None
+        if class_name in available_converters:
+            class_name = class_name
+        elif len(available_converters) > 0:
+            class_name = available_converters[0]
+        else:
+            class_name = None
+
         if class_name is not None:
             argspec = inspect.getfullargspec(getattr(module, class_name).__init__)
             default_values = [] if argspec.defaults is None else argspec.defaults
@@ -252,7 +259,7 @@ class ConverterDialog(QtGui.QDialog):
             required_args = dict(zip(required_keys, [''] * len(required_keys)))
 
         invalid_arguments = []
-        for key, value in self.converter.items():
+        for key, value in converter.items():
             if key in required_args:
                 required_args[key] = value
             elif key in optional_args:
@@ -260,10 +267,11 @@ class ConverterDialog(QtGui.QDialog):
             else:
                 invalid_arguments.append(key)
         for key in invalid_arguments:
-            self.converter.pop(key)
+            converter.pop(key)
 
-        self.converter['converter_type'] = '/'.join([module_name, class_name]) if class_name is not None else \
+        converter['converter_type'] = '/'.join([module_name, class_name]) if class_name is not None else \
             module_name
+        self.converter = converter
         return module_name, class_name, available_converters, required_args, optional_args
 
     def add_widget(self, key, value, row, items=None):
