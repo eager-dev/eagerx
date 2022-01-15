@@ -125,6 +125,12 @@ class Node(NodeBase):
         self.num_ticks += 1
         return output
 
+    def set_delay(self, delay: float, component: str, cname: str):
+        assert delay >= 0, 'Delay must be non-negative.'
+        for i in getattr(self, component):
+            if i['name'] == cname:
+                i['delay'] = delay
+
     @abc.abstractmethod
     def reset(self, **kwargs: Optional[Message]) -> return_typehint(Message, done=True):
         """
