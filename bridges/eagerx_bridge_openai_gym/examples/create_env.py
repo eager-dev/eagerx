@@ -13,39 +13,39 @@ import gym
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
     # Define rate (depends on rate of gym env)
     rate = 20
 
     # Define object
-    # gym_id = 'Pendulum-v1'
+    gym_id = 'Pendulum-v1'
     # gym_id = 'Acrobot-v1'
-    gym_id = 'CartPole-v1'
+    # gym_id = 'CartPole-v1'
     # gym_id = 'MountainCarContinuous-v0'
     name = gym_id.split('-')[0]
-    obj = RxObject.create(name, 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, sensors=['observation', 'reward', 'done'])
+    obj = RxObject.create(name, 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, sensors=['observation', 'reward', 'done'], zero_action=[0])
 
     # Define graph
     graph = RxGraph.create(objects=[obj])
-    graph.connect(source=(obj.name, 'sensors', 'observation'), observation='observation')
-    graph.connect(source=(obj.name, 'sensors', 'reward'), observation='reward')
-    graph.connect(source=(obj.name, 'sensors', 'done'), observation='done')
-    graph.connect(action='action', target=(obj.name, 'actuators', 'action'))
+    graph.connect(source=(obj.name, 'sensors', 'observation'), observation='observation', delay=0.0, window=1)
+    graph.connect(source=(obj.name, 'sensors', 'reward'), observation='reward', window=1)
+    graph.connect(source=(obj.name, 'sensors', 'done'), observation='done', window=1)
+    graph.connect(action='action', target=(obj.name, 'actuators', 'action'), delay=0.0)
 
     # Add rendering
-    graph.add_component(obj.name, 'sensors', 'image')
-    graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
+    # graph.add_component(obj.name, 'sensors', 'image')
+    # graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
 
     # Open gui
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.ENVIRONMENT)
+    bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=False, real_time_factor=1, process=process.NEW_PROCESS)
 
     # Initialize Environment
     env = EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge)
@@ -61,6 +61,7 @@ if __name__ == '__main__':
     for j in range(20000):
         print('\n[Episode %s]' % j)
         while not done:
+            print(obs)
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')

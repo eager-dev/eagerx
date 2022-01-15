@@ -4,6 +4,7 @@ default:
   gym_id: 'Pendulum-v1'
   rate: 20
   always_render: False
+  zero_action: 'not_defined'
 
 #########################
 ## Agnostic definition ##
@@ -81,3 +82,4 @@ eagerx_bridge_openai_gym/bridge:
       inputs: {action: } # actuator input mapping to sim_node input name inside node_config
       color: green
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      zero_action: $(default zero_action)
