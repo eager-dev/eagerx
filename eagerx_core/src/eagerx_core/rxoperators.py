@@ -521,7 +521,11 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                 next(x)
 
             sad = SingleAssignmentDisposable()
-            sad.disposable = source_msg.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
+            if not is_reactive and simulate_delays:
+                source_msg_delayed = source_msg.pipe(ops.delay(params['delay']))
+            else:
+                source_msg_delayed = source_msg
+            sad.disposable = source_msg_delayed.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
             subscriptions.append(sad)
 
             return CompositeDisposable(subscriptions)
