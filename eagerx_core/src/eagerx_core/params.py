@@ -25,6 +25,7 @@ class RxInput(Params):
                  rate: float = None,
                  space_converter: Dict = None,
                  delay: float = 0.0,
+                 skip: bool = False,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -64,7 +65,6 @@ class RxOutput(Params):
                  rate: float,
                  converter: Dict = Identity().get_yaml_definition(),
                  space_converter: Dict = None,
-                 start_with_msg: bool = False
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -98,7 +98,8 @@ class RxFeedthrough(Params):
                  converter: Dict = Identity().get_yaml_definition(),
                  is_reactive: bool = True,
                  space_converter: Dict = None,
-                 delay: float = 0.0
+                 delay: float = 0.0,
+                 skip: bool = False,
                  ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store

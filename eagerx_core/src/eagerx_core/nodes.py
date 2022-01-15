@@ -132,7 +132,7 @@ class Node(NodeBase):
                 i['delay'] = delay
 
     @abc.abstractmethod
-    def reset(self, **kwargs: Optional[Message]) -> return_typehint(Message, done=True):
+    def reset(self, **kwargs: Optional[Message]):
         """
         All states in the .yaml must be defined as optional arguments in the node subclass.
         If additional states may be specified later-on (not yet specified in yaml), then **kwargs must remain in the

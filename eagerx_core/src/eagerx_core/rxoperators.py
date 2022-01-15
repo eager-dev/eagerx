@@ -407,7 +407,9 @@ def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perform_checks=Tr
 
 
 def expected_inputs(idx_n, rate_in, rate_node, delay):
-    if idx_n == 0:
+    if idx_n < 0:
+        return 0
+    elif idx_n == 0:
         return 1
     else:
         # N = idx_n + 1, because idx_n starts at 0
@@ -433,7 +435,7 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
     def _generate_msgs(source_msg: Observable):
         window = params['window']
-        # skip = params['window']
+        skip = int(params['skip'])
 
         def subscribe(observer: typing.Observer,
                       scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
@@ -497,7 +499,7 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                 if is_reactive:
                     # Caculate expected number of message to be received
                     delay = params['delay'] if simulate_delays else 0.
-                    num_msgs = expected_inputs(x, rate_in, rate_node, delay)
+                    num_msgs = expected_inputs(x-skip, rate_in, rate_node, delay)
                     num_queue.append(num_msgs)
                 tick_queue.append(x)
                 next(x)
@@ -549,9 +551,9 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simul
             rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
             rate = get_param_with_blocking(rate_str)
     except Exception as e:
-        rate = None
         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
         print(e)
+        raise
 
     # Create input channel
     if real_time_factor == 0:
@@ -585,7 +587,9 @@ def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, simu
         flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node))
         flags.append(flag)
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
-    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, rate_node=rate_node), ops.share())
+    zipped_channels = rx.zip(*channels).pipe(ops.combine_latest(E),  # Latch output on '/end_reset' --> Can only receive 1 each episode.
+                                             ops.map(lambda x: x[0]),
+                                             regroup_inputs(node, rate_node=rate_node), ops.share())
     return zipped_channels, zipped_flags
 
 
@@ -960,27 +964,6 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, n
                                                    is_reactive, rate_node, node),
                                       ops.share())
     return Nct
-
-
-def add_offset(offset, skip=0):
-    def _add_offset(source):
-        def subscribe(observer, scheduler=None):
-            counter = [0]
-            def on_next(value):
-                counter[0] += 1
-                if counter[0] > skip:
-                    observer.on_next(value + offset)
-                else:
-                    observer.on_next(value)
-
-            return source.subscribe(
-                on_next,
-                observer.on_error,
-                observer.on_completed,
-                scheduler)
-
-        return rx.create(subscribe)
-    return _add_offset
 
 
 def throttled_Nc(source_Nc: Observable, is_reactive, rate_node: float, node: NodeBase, rate_tol: float = 0.95, log_level: int = WARN):

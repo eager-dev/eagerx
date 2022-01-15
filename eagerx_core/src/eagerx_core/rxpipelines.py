@@ -14,7 +14,7 @@ from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, swi
     init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
     init_callback_pipeline, get_object_params, extract_inputs_and_reactive_proxy, initialize_reactive_proxy_reset, \
     switch_with_check_pipeline, node_reset_flags, filter_dict_on_key, get_node_params, extract_node_reset, \
-    throttle_callback_trigger, add_offset
+    throttle_callback_trigger
 
 
 def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho, R, RR, E, real_reset, feedthrough, state_inputs, state_outputs, targets, cb_ft, is_reactive, real_time_factor, simulate_delays, event_scheduler=None):
@@ -212,8 +212,7 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
 
     # Send output flags
     for i in outputs:
-        RrRn.pipe(add_offset(int(i['start_with_msg']), skip=1),
-                  ops.map(lambda x: UInt64(data=x))).subscribe(i['reset'])
+        RrRn.pipe(ops.map(lambda x: UInt64(data=x))).subscribe(i['reset'])
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn,
@@ -246,13 +245,13 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
     reset_msg.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'])
 
     # Send initial messages, latched on first bridge tick
-    for i in outputs:
-        if i['start_with_msg']:
-            reset_msg.pipe(ops.pluck(i['name']),
-                           ops.zip(T.pipe(ops.filter(lambda x: x.data == 0))),
-                           ops.map(lambda x: x[0]),
-                           spy('init_msg', node),
-                           ).subscribe(i['msg'])
+    # for i in outputs:
+    #     if i['start_with_msg']:
+    #         reset_msg.pipe(ops.pluck(i['name']),
+    #                        ops.zip(T.pipe(ops.filter(lambda x: x.data == 0))),
+    #                        ops.map(lambda x: x[0]),
+    #                        spy('init_msg', node),
+    #                        ).subscribe(i['msg'])
 
     rx_objects = dict(inputs=inputs, outputs=outputs, feedthrough=feedthrough, state_inputs=state_inputs, state_outputs=state_outputs, targets=targets, node_inputs=node_inputs, node_outputs=node_outputs)
     return rx_objects

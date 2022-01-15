@@ -249,7 +249,8 @@ class RxGraph:
                 action: str = None, observation: str = None,
                 converter: Optional[Dict] = None,
                 window: Optional[int] = None,
-                delay: Optional[float] = None):
+                delay: Optional[float] = None,
+                skip: Optional[bool] = None):
         assert not source or not action, 'You cannot specify a source if you wish to connect action "%s", as the action will act as the source.' % action
         assert not target or not observation, 'You cannot specify a target if you wish to connect observation "%s", as the observation will act as the target.' % observation
         assert not (observation and action), 'You cannot connect an action directly to an observation.'
@@ -271,14 +272,15 @@ class RxGraph:
                 pass
             converter = self._connect_observation(source, observation, converter=converter)
             target = ('env/observations', 'inputs', observation)
-        self._connect(source, target, converter, window, delay)
+        self._connect(source, target, converter, window, delay, skip)
 
     def _connect(self,
                 source: Optional[Tuple[str, str, str]] = None,
                 target: Optional[Tuple[str, str, str]] = None,
                 converter: Optional[Dict] = None,
                 window: Optional[int] = None,
-                delay: Optional[float] = None):
+                delay: Optional[float] = None,
+                skip: Optional[bool] = None):
         """
         Method to connect a source to a target. For actions/observations, first a (new) disconnected entry must be created,
         after which an additional call to connect_action/observation is required before calling this method.
@@ -301,6 +303,7 @@ class RxGraph:
         target_params = self._state['nodes'][target_name]['params']
         if target_comp == 'feedthroughs':
             assert window is None or window > 0, 'Feedthroughs must have a window > 0, else no action can be fed through.'
+            assert not skip, 'Feedthroughs cannot skip, as they only feedthrough outputs. When setting skip=True, no msg can be fed through.'
             self._is_selected(self._state, target_name, 'outputs', target_cname)
         else:
             self._is_selected(self._state, target_name, target_comp, target_cname)
@@ -312,6 +315,8 @@ class RxGraph:
             self.set_parameter('window', window, target_name, target_comp, target_cname)
         if delay is not None:
             self.set_parameter('delay', delay, target_name, target_comp, target_cname)
+        if skip is not None:
+            self.set_parameter('skip', skip, target_name, target_comp, target_cname)
 
         # Add connection
         connect = [source, target]
@@ -450,7 +455,7 @@ class RxGraph:
             source_name, source_comp, source_cname = source
             source_params = self._state['nodes'][source_name]['params']
 
-        # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/converter.
+        # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
         if observation:
             self._disconnect_observation(observation)
         else:
@@ -780,7 +785,7 @@ class RxGraph:
         assert observations, 'No observation node defined in the graph.'
         return nodes, objects, actions, observations, render
 
-    def render(self, source: Tuple[str, str, str], rate: float, converter: Optional[Dict] = None, window: Optional[int] = None, delay: Optional[float] = None,
+    def render(self, source: Tuple[str, str, str], rate: float, converter: Optional[Dict] = None, window: Optional[int] = None, delay: Optional[float] = None, skip: Optional[bool] = None,
                package_name='eagerx_core', config_name='render', **kwargs):
         # Delete old render node from self._state['nodes'] if it exists
         if 'env/render' in self._state['nodes']:
@@ -792,7 +797,7 @@ class RxGraph:
 
         # Create connection
         target = ('env/render', 'inputs', 'image')
-        self.connect(source=source, target=target, converter=converter, window=window, delay=delay)
+        self.connect(source=source, target=target, converter=converter, window=window, delay=delay, skip=skip)
 
     def save(self, path: str):
         with open(path, 'w') as outfile:
@@ -988,7 +993,7 @@ class RxGraph:
             name = 'env/actions/%s' % cname
             label_mapping[name] = 'actions/%s' % cname
             G.add_edge('env/observations/set', name, # key='%s/%s' % ('inputs', 'observations_set'),
-                       feedthrough=False, style='solid', color='black', alpha=1.0, is_stale=False, start_with_msg=False,
+                       feedthrough=False, style='solid', color='black', alpha=1.0, is_stale=False, skip=False,
                        source=('env/observations', 'outputs', 'set'), target=('env/actions', 'inputs', 'observations_set'))
         target_comps = ['inputs', 'actuators', 'feedthroughs']
         source_comps = ['outputs', 'sensors']
@@ -1018,16 +1023,18 @@ class RxGraph:
                 else:
                     feedthrough = False
 
-                # Determine edges that do not break DAG property (i.e. edges that start with an initial message)
-                start_with_msg = state['nodes'][source_name]['params'][source_comp][source_cname]['start_with_msg']
-                color = 'green' if start_with_msg else 'black'
-                style = 'dotted' if start_with_msg else 'solid'
+                # Determine edges that do not break DAG property (i.e. edges that are skipped)
+                skip = state['nodes'][target_name]['params'][target_comp][target_cname]['skip']
+                if skip:
+                    print('wait')
+                color = 'green' if skip else 'black'
+                style = 'dotted' if skip else 'solid'
 
                 # Add edge
                 for target_edge in target_edges:
                     G.add_edge(source_edge, target_edge,
                                color=color, feedthrough=feedthrough, style=style, alpha=1.0,
-                               is_stale=False, start_with_msg=start_with_msg, source=source, target=target)
+                               is_stale=False, skip=skip, source=source, target=target)
 
         # Color nodes based on in/out going edges
         not_active = is_stale(G)
@@ -1035,10 +1042,9 @@ class RxGraph:
         color_edges(G)
 
         # Remap action & observation labels to more readable form
-
         G = nx.relabel_nodes(G, label_mapping)
 
-        # Check if graph is acyclic (excluding 'start_with_msg' edges)
+        # Check if graph is acyclic (excluding 'skip' edges)
         H, cycles = episode_graph(G)
         is_dag = nx.is_directed_acyclic_graph(H)
 
