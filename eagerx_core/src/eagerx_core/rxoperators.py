@@ -451,8 +451,8 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
             @synchronized(lock)
             def next(i):
-                if len(num_queue) > 0:
-                    if len(msgs_queue) >= num_queue[0]:
+                if len(tick_queue) > 0:
+                    if not is_reactive or len(msgs_queue) >= num_queue[0]:
                         try:
                             tick = tick_queue.pop(0)
                             if is_reactive:
@@ -463,8 +463,8 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                                 msgs_queue[:] = msgs_queue[num_msgs:]
                                 t_i_queue[:] = t_i_queue[num_msgs:]
                             else:  # Empty complete buffer
-                                msgs = msgs_queue
-                                t_i = t_i_queue
+                                msgs = msgs_queue.copy()
+                                t_i = t_i_queue.copy()
                                 msgs_queue[:] = []
                                 t_i_queue[:] = []
                         except Exception as ex:  # pylint: disable=broad-except
@@ -566,7 +566,7 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simul
     else:
         Nc = Nc.pipe(ops.observe_on(scheduler))
 
-    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, params=inpt, is_reactive=True, real_time_factor=real_time_factor, simulate_delays=simulate_delays, node=node), ops.share())
+    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, params=inpt, is_reactive=is_reactive, real_time_factor=real_time_factor, simulate_delays=simulate_delays, node=node), ops.share())
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),

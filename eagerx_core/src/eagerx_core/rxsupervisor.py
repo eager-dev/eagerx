@@ -146,6 +146,7 @@ class RxSupervisor(object):
         self.ns = '/'.join(name.split('/')[:2])
         self.mb = message_broker
         self.initialized = False
+        self.is_reactive = is_reactive
 
         # Prepare input & output topics
         outputs, states, self.node = self._prepare_io_topics(self.name, is_reactive, real_time_factor, simulate_delays)

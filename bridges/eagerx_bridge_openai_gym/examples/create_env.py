@@ -45,7 +45,7 @@ if __name__ == '__main__':
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=False, real_time_factor=1, process=process.NEW_PROCESS)
+    bridge = RxBridge.create('eagerx_bridge_openai_gym', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
 
     # Initialize Environment
     env = EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge)

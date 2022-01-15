@@ -125,10 +125,16 @@ class ActionActuator(SimNode):
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
 
         # Set action in simulator for next step.
-        self.simulator[self.obj_name]['next_action'] = action.msgs[-1].data[0] if self.is_discrete else action.msgs[-1].data
+        if len(action.msgs) > 0:
+            self.simulator[self.obj_name]['next_action'] = action.msgs[-1].data[0] if self.is_discrete else action.msgs[-1].data
+        else:
+            self.simulator[self.obj_name]['next_action'] = self.zero_action
+
+        # Prepare output message
+        action_applied = self.simulator[self.obj_name]['next_action']
 
         # Send action that has been applied.
-        return dict(action_applied=action.msgs[-1])
+        return dict(action_applied=Float32MultiArray(data=action_applied))
 
 
 class GymRenderer(SimNode):

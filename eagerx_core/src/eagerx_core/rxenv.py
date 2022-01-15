@@ -205,7 +205,7 @@ class RxEnv(gym.Env):
     def _set_action(self, action) -> None:
         # Set actions in buffer
         for name, buffer in self.act_node.action_buffer.items():
-            assert name in action, 'Action "%s" not specified. Must specify all actions in action_space.' % name
+            assert not self.supervisor_node.is_reactive or name in action, 'Action "%s" not specified. Must specify all actions in action_space if running reactive.' % name
             buffer['msg'] = action[name]
 
     def _set_state(self, state) -> None:
