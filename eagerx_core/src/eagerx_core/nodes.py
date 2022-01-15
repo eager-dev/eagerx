@@ -19,7 +19,7 @@ from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 class NodeBase:
     def __init__(self, ns, message_broker, name, config_name, package_name, node_type, rate, process,
-                 inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, launch_file=None,
+                 inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, simulate_delays, launch_file=None,
                  color='grey', print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT):
         """
         All parameters that were uploaded via RxNodeParams.get_params(ns=..) to the rosparam server are stored in this object.
@@ -42,6 +42,7 @@ class NodeBase:
         self.targets = targets
         self.is_reactive = is_reactive
         self.real_time_factor = real_time_factor
+        self.simulate_delays = simulate_delays
         self.color = color
         self.print_mode = print_mode
         self.log_level = log_level

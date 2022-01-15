@@ -19,15 +19,14 @@ from eagerx_core.utils.utils import initialize_state, Msg
 
 
 class BridgeBase(NodeBase):
-    def __init__(self, simulator, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
+    def __init__(self, simulator, target_addresses, node_names, **kwargs):
+        super(BridgeBase, self).__init__(**kwargs)
         self.simulator = simulator
         self.target_addresses = target_addresses
         self.node_names = node_names
-        self.is_reactive = is_reactive
-        self.real_time_factor = real_time_factor
 
         # Check real_time_factor & reactive args
-        assert is_reactive or (not is_reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
+        assert self.is_reactive or (not self.is_reactive and self.real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
 
         # Initialized nodes
         self.is_initialized = dict()
@@ -44,7 +43,6 @@ class BridgeBase(NodeBase):
         self.print_iter = 200
         self.history = []
         self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
-        super(BridgeBase, self).__init__(is_reactive=is_reactive, real_time_factor=real_time_factor, **kwargs)
 
     def register_node(self, node_params):
         # Initialize nodes

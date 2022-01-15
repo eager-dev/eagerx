@@ -122,12 +122,13 @@ class RxEnv(gym.Env):
         # Get info from bridge on reactive properties
         is_reactive = bridge.params['default']['is_reactive']
         real_time_factor = bridge.params['default']['real_time_factor']
+        simulate_delays = bridge.params['default']['simulate_delays']
 
         # Create env node
         supervisor.params['default']['rate'] = self.rate
         supervisor_params = supervisor.get_params(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_supervisor = RxSupervisor('%s/%s' % (self.ns, supervisor.name), mb, is_reactive, real_time_factor)
+        rx_supervisor = RxSupervisor('%s/%s' % (self.ns, supervisor.name), mb, is_reactive, real_time_factor, simulate_delays)
         rx_supervisor.node_initialized()
 
         # Connect io
