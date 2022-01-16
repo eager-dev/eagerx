@@ -1,10 +1,11 @@
-node_type: eagerx_bridge_ode.simnodes/OdeOutput
+node_type: eagerx_bridge_ode.simnodes/PendulumRender
 default:
   rate:
   inputs: [tick]
-  outputs: [observation]
+  outputs: [image]
   process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
+  shape: [500, 500]
 
 inputs:
   tick:
@@ -12,5 +13,5 @@ inputs:
     window: 0
 
 outputs:
-  observation:
-    msg_type: std_msgs.msg/Float32MultiArray
+  image:
+    msg_type: sensor_msgs.msg/Image

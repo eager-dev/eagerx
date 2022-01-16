@@ -27,7 +27,7 @@ class Space_RosFloat32MultiArray(SpaceConverter):
         return Float32MultiArray(data=msg)
 
     def B_to_A(self, msg):
-        return msg.data
+        return np.squeeze(msg.data)
 
 class AngleUnwrapper(BaseProcessor):
     MSG_TYPE = Float32MultiArray
