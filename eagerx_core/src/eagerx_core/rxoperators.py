@@ -14,7 +14,7 @@ from eagerx_core.nodes import NodeBase
 from eagerx_core.converters import Identity
 from eagerx_core.params import RxInput
 from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS, process
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp, get_opposite_msg_cls, get_module_type_string, msg_type_error
 
 # OTHER IMPORTS
 import time
@@ -785,6 +785,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         state_inputs.append(s)
 
     # Process nodes
+    converted_outputs = dict()  # {address: (msg_type_out, converter, msg_type_ros, source)}
     for params in node_params:
         name = params['name']
 
@@ -793,10 +794,19 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         node_flags.append(nf)
 
         for i in params['outputs']:
-            assert not params['process'] == process.BRIDGE or i['converter'] == Identity().get_yaml_definition(), 'Node "%s" has an output converter (%s) specified. That is currently not supported if launching remotely.' % (name, i['converter'])
+            ros_msg_type = get_opposite_msg_cls(i['msg_type'], i['converter'])
+
+            # Infer input (ROS) message type from  output msg_type and converter
+            if not i['converter'] == Identity().get_yaml_definition():
+                if params['name'].split('/')[-2] == 'sensors':  # if output is also the sensor output
+                    split_name = params['name'].split('/')
+                    source = ('/'.join(split_name[:-2]), split_name[-2], split_name[-1])
+                else:
+                    source = (params['name'], 'outputs', i['name'])
+                converted_outputs[i['address']] = (get_attribute_from_module(i['msg_type']), i['converter'], ros_msg_type, source)
 
             # Create a new input topic for each SimNode output topic
-            n = RxInput(name=i['address'], address=i['address'], msg_type=i['msg_type'], is_reactive=True, window=0).get_params()
+            n = RxInput(name=i['address'], address=i['address'], msg_type=get_module_type_string(ros_msg_type), is_reactive=True, window=0).get_params()
 
             # Convert to classes
             n['msg_type'] = get_attribute_from_module(n['msg_type'])
@@ -824,6 +834,24 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                 o = dict()
                 o.update(i)
                 reactive_proxy.append(o)
+
+    # Check that converted outputs do not break the object's simulation graph (some nodes might expect a non-converted output message).
+    for params in node_params:
+        for i in params['inputs']:
+            if i['address'] in converted_outputs:
+                # determine message conversion
+                msg_type_out = converted_outputs[i['address']][0]
+                converter_out = converted_outputs[i['address']][1]
+                msg_type_ros = converted_outputs[i['address']][2]
+                converter_in = i['converter']
+                msg_type_in = get_opposite_msg_cls(msg_type_ros, i['converter'])
+                msg_type_in_yaml = get_attribute_from_module(i['msg_type'])
+
+                target = (params['name'], 'inputs', params['inputs'][0]['name'])
+                source = converted_outputs[i['address']][3]
+
+                msg_type_str = msg_type_error(source, target, msg_type_out, converter_out, msg_type_ros, converter_in, msg_type_in, msg_type_in_yaml)
+                assert msg_type_in == msg_type_in_yaml, msg_type_str
 
     return dict(inputs=inputs, reactive_proxy=reactive_proxy, state_inputs=state_inputs, node_flags=node_flags, sp_nodes=sp_nodes, launch_nodes=launch_nodes)
 
