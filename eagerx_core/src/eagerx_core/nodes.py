@@ -11,6 +11,8 @@ import rospy
 from std_msgs.msg import UInt64, Bool
 from genpy.message import Message
 from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+import cv2
 
 from eagerx_core.constants import TERMCOLOR, ERROR, INFO, DEBUG, SILENT
 from eagerx_core.utils.utils import initialize_converter, return_typehint, Msg
@@ -246,9 +248,12 @@ class RenderNode(Node):
 
     def __init__(self, display, **kwargs):
         super().__init__(**kwargs)
+        self.cv_bridge = CvBridge()
+        self.window = None
         self.display = display
         self.last_image = Image(data=[])
         self.render_toggle = False
+        self.window_closed = True
         rospy.Service('%s/%s/get_last_image' % (self.ns, self.name), ImageUInt8, self._get_last_image)
         rospy.Subscriber('%s/%s/toggle' % (self.ns, self.name), Bool, self._set_render_toggle)
 
@@ -269,7 +274,17 @@ class RenderNode(Node):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
         if self.display and self.render_toggle:
-            rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
+            try:
+                cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image)
+            except CvBridgeError as e:
+                rospy.logwarn(e)
+                return dict(done=UInt64)
+            cv2.imshow('Render', cv_image)
+            cv2.waitKey(1)
+            self.window_closed = False
+        elif not self.window_closed:
+            cv2.destroyWindow('Render')
+            self.window_closed = True
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64)
