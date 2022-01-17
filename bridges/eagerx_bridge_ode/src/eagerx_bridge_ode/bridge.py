@@ -52,6 +52,3 @@ class OdeBridge(BridgeBase):
             Dfun = sim['Dfun']
             x = sim['state']
             sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input,), Dfun=Dfun, **self.odeint_args)[-1]
-
-        # Fill output msg with number of node ticks
-        return dict(tick=UInt64(data=node_tick + 1))
