@@ -13,7 +13,7 @@ import gym
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define rate (depends on rate of gym env)
     rate = 20
@@ -52,17 +52,18 @@ if __name__ == '__main__':
 
     # Use stable-baselines
     model = sb.PPO("MlpPolicy", env, verbose=1)
-    # model.learn(total_timesteps=int(2000*rate*200/20))
+    model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset
     done = False
     obs = env.reset()
     env.render(mode='human')
+    action = env.action_space.sample()
     for j in range(20000):
         print('\n[Episode %s]' % j)
         while not done:
-            print(obs)
-            action = env.action_space.sample()
+            # print(obs)
+
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
         obs = env.reset()
