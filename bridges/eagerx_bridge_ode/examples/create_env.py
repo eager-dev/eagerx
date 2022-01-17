@@ -18,9 +18,9 @@ if __name__ == '__main__':
 
     # Define rate (depends on rate of ode)
     rate = 30.
-    # Decompose angle in
+    # Decompose angle in sin and cos
     decompose_angle = True
-    real = False
+    # Add render node
     render = True
 
     graph = RxGraph.create()
@@ -42,11 +42,7 @@ if __name__ == '__main__':
         graph.render(source=('pendulum', 'sensors', 'image'), rate=20, display=True)
 
     # Define bridge
-    if real:
-        bridge = RxBridge.create('eagerx_bridge_real', 'bridge', rate=rate, is_reactive=False,
-                                 process=process.NEW_PROCESS)
-    else:
-        bridge = RxBridge.create('eagerx_bridge_ode', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = RxBridge.create('eagerx_bridge_ode', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
 
     def angle_normalize(x):
         return ((x + np.pi) % (2 * np.pi)) - np.pi
@@ -74,6 +70,6 @@ if __name__ == '__main__':
     parent_folder = os.path.dirname(os.path.realpath(__file__))
     save_path = '{}/pendulum'.format(parent_folder)
     # model = sb.SAC.load(save_path, env=env)
-    model = sb.PPO('MlpPolicy', env, verbose=1, tensorboard_log='{}/log'.format(parent_folder))
+    model = sb.SAC('MlpPolicy', env, verbose=1, tensorboard_log='{}/log'.format(parent_folder))
     model.learn(total_timesteps=int(1800*rate))
     model.save(save_path)
