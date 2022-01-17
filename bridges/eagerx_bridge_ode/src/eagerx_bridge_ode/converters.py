@@ -32,14 +32,35 @@ class Space_RosFloat32MultiArray(SpaceConverter):
 class AngleDecomposition(BaseProcessor):
     MSG_TYPE = Float32MultiArray
 
-    def __int__(self, angle_idx=0):
-        super().__init__()
+    def __init__(self, angle_idx=0):
+        super().__init__(angle_idx)
         self.angle_idx = angle_idx
 
     def convert(self, msg):
-        data = msg.data
-        new_data = [data[:self.angle_idx], np.sin(data[self.angle_idx]), np.cos(data[self.angle_idx]), data[self.angle_idx:]]
-        return Float32MultiArray(np.squeeze(new_data))
+        if msg.data == []:
+            return msg
+        data = np.squeeze(msg.data)
+        new_data = np.concatenate((data[:self.angle_idx], [np.sin(data[self.angle_idx]), np.cos(data[self.angle_idx])]))
+        new_data = np.concatenate((new_data, data[self.angle_idx+1:]))
+        return Float32MultiArray(data=new_data)
+
+class AngleNormalization(BaseProcessor):
+    MSG_TYPE = Float32MultiArray
+
+    def __init__(self, angle_idx=0):
+        super().__init__(angle_idx)
+        self.angle_idx = angle_idx
+
+    def convert(self, msg):
+        if msg.data == []:
+            return msg
+        data = np.squeeze(msg.data)
+        data[self.angle_idx] = self._angle_normalize(data[self.angle_idx])
+        return Float32MultiArray(data=data)
+
+    @staticmethod
+    def _angle_normalize(x):
+        return ((x + np.pi) % (2 * np.pi)) - np.pi
 
 
 

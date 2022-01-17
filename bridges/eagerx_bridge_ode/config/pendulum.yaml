@@ -1,5 +1,5 @@
 default:
-  sensors: [observation, image]
+  sensors: [observation]
   actuators: [action]
   states: [model_state]
   rate: 30
@@ -14,17 +14,11 @@ sensors: # inputs of ode
     msg_type: std_msgs.msg/Float32MultiArray
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
-      low: [ -1, -1, -9 ]
-      high: [ 1, 1, 9 ]
+      low: [ -3.14159265359, -9 ]
+      high: [ 3.14159265359, 9 ]
   image:
     rate: $(default rate)
     msg_type: sensor_msgs.msg/Image
-    space_converter:
-      converter_type: eagerx_bridge_openai_gym.converters/SpaceImage
-      low: 0
-      high: 1
-      shape: [ 28, 28, 3 ]
-      dtype: 'float32'
 
 actuators: # outputs of ode
   action:

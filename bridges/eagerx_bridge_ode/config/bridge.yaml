@@ -5,7 +5,7 @@ default:
   process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
   color: magenta
-  log_level: 0  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+  log_level: 30  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
   is_reactive: True
   real_time_factor: 0  # 0 == as fast as possible
   rtol: 2e-8  # The input parameters rtol and atol determine the error control performed by the solver.

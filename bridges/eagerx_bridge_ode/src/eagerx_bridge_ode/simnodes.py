@@ -30,13 +30,7 @@ class OdeOutput(SimNode):
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32MultiArray):
         assert isinstance(self.simulator[self.obj_name], dict), \
             'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        if self.simulator[self.obj_name]['state'] is None:
-            data = self.simulator[self.obj_name]['state']
-        else:
-            theta, theta_dot = self.simulator[self.obj_name]['state']
-            # Normalize angle
-            theta = ((theta + np.pi) % (2 * np.pi)) - np.pi
-            data = [np.sin(theta), np.cos(theta), theta_dot]
+        data = self.simulator[self.obj_name]['state']
         return dict(observation=Float32MultiArray(data=data))
 
 class PendulumRender(SimNode):
