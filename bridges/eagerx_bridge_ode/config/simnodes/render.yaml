@@ -5,7 +5,7 @@ default:
   outputs: [image]
   process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
-  shape: [500, 500]
+  shape: [480, 480]
 
 inputs:
   tick:

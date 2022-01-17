@@ -29,16 +29,17 @@ class Space_RosFloat32MultiArray(SpaceConverter):
     def B_to_A(self, msg):
         return np.squeeze(msg.data)
 
-class AngleUnwrapper(BaseProcessor):
+class AngleDecomposition(BaseProcessor):
     MSG_TYPE = Float32MultiArray
 
-    def __int__(self):
+    def __int__(self, angle_idx=0):
         super().__init__()
+        self.angle_idx = angle_idx
 
     def convert(self, msg):
         data = msg.data
-        data[0] = np.unwrap(data[0])
-        return Float32MultiArray(data)
+        new_data = [data[:self.angle_idx], np.sin(data[self.angle_idx]), np.cos(data[self.angle_idx]), data[self.angle_idx:]]
+        return Float32MultiArray(np.squeeze(new_data))
 
 
 

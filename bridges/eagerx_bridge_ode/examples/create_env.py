@@ -13,20 +13,19 @@ import stable_baselines3 as sb
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore
-
     rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.INFO)
 
     # Define rate (depends on rate of ode)
     rate = 30.
 
     graph = RxGraph.create()
-    # graph.loaeen paard('{}/example.graph'.format(os.path.dirname(os.path.realpath(__file__))))
+    # graph.load('{}/example.graph'.format(os.path.dirname(os.path.realpath(__file__))))
 
     pendulum = RxObject.create('pendulum', 'eagerx_bridge_ode', 'pendulum')
     graph.add(pendulum)
     graph.connect(action='action', target=('pendulum', 'actuators', 'action'))
     graph.connect(source=('pendulum', 'sensors', 'observation'), observation='observation')
-    graph.render(source=('pendulum', 'sensors', 'image'), rate=10, display=False)
+    graph.render(source=('pendulum', 'sensors', 'image'), rate=20, display=True)
 
     # graph.gui()
 
