@@ -21,11 +21,11 @@ if __name__ == '__main__':
     # Decompose angle in
     decompose_angle = True
     real = False
+    render = True
 
     graph = RxGraph.create()
     pendulum = RxObject.create('pendulum', 'eagerx_bridge_ode', 'pendulum')
     graph.add(pendulum)
-    graph.add_component('pendulum', 'sensors', 'image')
     graph.connect(action='action', target=('pendulum', 'actuators', 'action'))
     if decompose_angle:
         graph.set_parameter('converter', {'converter_type': 'eagerx_bridge_ode.converters/AngleDecomposition'},
@@ -37,7 +37,9 @@ if __name__ == '__main__':
         graph.set_parameter('converter', {'converter_type': 'eagerx_bridge_ode.converters/AngleNormalization'},
                             'pendulum', 'sensors', 'observation')
         graph.connect(source=('pendulum', 'sensors', 'observation'), observation='observation')
-    graph.render(source=('pendulum', 'sensors', 'image'), rate=20, display=True)
+    if render:
+        graph.add_component('pendulum', 'sensors', 'image')
+        graph.render(source=('pendulum', 'sensors', 'image'), rate=20, display=True)
 
     # Define bridge
     if real:
@@ -72,6 +74,6 @@ if __name__ == '__main__':
     parent_folder = os.path.dirname(os.path.realpath(__file__))
     save_path = '{}/pendulum'.format(parent_folder)
     # model = sb.SAC.load(save_path, env=env)
-    model = sb.SAC('MlpPolicy', env, verbose=1, tensorboard_log='{}/log'.format(parent_folder))
+    model = sb.PPO('MlpPolicy', env, verbose=1, tensorboard_log='{}/log'.format(parent_folder))
     model.learn(total_timesteps=int(1800*rate))
     model.save(save_path)
