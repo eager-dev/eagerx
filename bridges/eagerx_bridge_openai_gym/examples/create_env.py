@@ -31,7 +31,7 @@ if __name__ == '__main__':
     graph.connect(source=(obj.name, 'sensors', 'observation'), observation='observation', window=1)
     graph.connect(source=(obj.name, 'sensors', 'reward'), observation='reward', window=1)
     graph.connect(source=(obj.name, 'sensors', 'done'), observation='done', window=1)
-    graph.connect(action='action', target=(obj.name, 'actuators', 'action'))
+    graph.connect(action='action', target=(obj.name, 'actuators', 'action'), window=1)
 
     # Add rendering
     graph.add_component(obj.name, 'sensors', 'image')

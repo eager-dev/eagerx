@@ -36,7 +36,7 @@ class BridgeBase(NodeBase):
                      'states': {'state_1': UInt64}}
     For more info see baseclass NodeBase.
     """
-    def __init__(self, simulator, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
+    def __init__(self, simulator, target_addresses, node_names, **kwargs):
         """
         Base class constructor.
 
@@ -51,6 +51,7 @@ class BridgeBase(NodeBase):
          If real_time_factor < 1 the simulation is slower than real time.
         :param kwargs: Arguments that are to be passed down to the node baseclass. See NodeBase for this.
         """
+        super().__init__(**kwargs)
         self.simulator = simulator
         self.target_addresses = target_addresses
         self.node_names = node_names

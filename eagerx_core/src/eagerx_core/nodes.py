@@ -24,8 +24,8 @@ class NodeBase:
     def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, config_name: str, package_name: str,
                  node_type: str, rate: float, process: int, inputs: List[Dict], outputs: List[Dict], states: List[Dict],
                  feedthroughs: List[Dict], targets: List[Dict], is_reactive: bool, real_time_factor: float,
-                 launch_file=None, color: str = 'grey', print_mode: int = TERMCOLOR, log_level: int = ERROR,
-                 log_level_memory: int = SILENT):
+                 simulate_delays: bool, launch_file=None, color: str = 'grey', print_mode: int = TERMCOLOR, log_level:
+                 int = ERROR, log_level_memory: int = SILENT):
         """
         The base class from which all (simulation) nodes and bridges inherit.
 
@@ -48,6 +48,7 @@ class NodeBase:
         :param targets: List of dicts containing the parameters of each target as specified in the <package_name>/config/../<config_name>.yaml.
         :param is_reactive: Boolean flag. Specifies whether we run reactive or asynchronous.
         :param real_time_factor: Sets an upper bound of real_time factor. Wall-clock rate=real_time_factor*rate. If real_time_factor < 1 the simulation is slower than real time.
+        :param simulate_delays: Simulate delays. You probably want to set this to False if running in the real-world.
         :param launch_file:
         :param color: A color specifying the color of logged messages & node color in the GUI.
         :param print_mode: Specifies the different methods for printing. See :func:`~eagerx_core.constants` for all print modes.
@@ -185,7 +186,7 @@ class Node(NodeBase):
         - reset the internal state of this node if it has one.
 
         :param kwargs: Optionally the node states if any are defined in the node_ros_package/config/<node>.yaml.
-        :return: A dict *only* containing output message for outputs with their flag set to "start_with_msg=True".
+        :return None
         """
         pass
 
@@ -257,7 +258,7 @@ class SimNode(Node):
         Instead, always try to implement states of the environment as states of objects (i.e. inside the object's .yaml).
 
         :param kwargs: Optionally the node states if any are defined in the node_ros_package/config/<node>.yaml.
-        :return: A dict *only* containing output message for outputs with their flag set to "start_with_msg=True".
+        :return None
         """
         pass
 
