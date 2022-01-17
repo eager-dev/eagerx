@@ -206,7 +206,8 @@ class RxEnv(gym.Env):
         # Set actions in buffer
         for name, buffer in self.act_node.action_buffer.items():
             assert not self.supervisor_node.is_reactive or name in action, 'Action "%s" not specified. Must specify all actions in action_space if running reactive.' % name
-            buffer['msg'] = action[name]
+            if name in action:
+                buffer['msg'] = action[name]
 
     def _set_state(self, state) -> None:
         # Set states in buffer
@@ -250,7 +251,24 @@ class RxEnv(gym.Env):
 
         # Perform reset
         self.supervisor_node.reset()
-        return self._get_observation()
+        obs = self._get_observation()
+
+        # Check all observations with window > 0 not empty (can only occur when running async)
+        if not self.supervisor_node.is_reactive:
+            while True:
+                all_set = True
+                for name, buffer in obs.items():
+                    window = self.obs_node.observation_buffer[name]['window']
+                    if window > 0 and len(buffer) == 0:
+                        all_set = False
+                        break
+                if all_set:
+                    break
+                else:
+                    rospy.loginfo('NOT ALL REQUIRED OBSERVATIONS SET. STEP WITH "None" ACTIONS.')
+                    # rospy.logdebug('NOT ALL REQUIRED OBSERVATIONS SET. STEP WITH "None" ACTIONS.')
+                    obs = self._step(action=dict())
+        return obs
 
     def _step(self, action: Dict) -> Dict:
         # Check that nodes were previously initialized.

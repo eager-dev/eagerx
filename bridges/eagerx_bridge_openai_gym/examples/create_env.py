@@ -28,14 +28,14 @@ if __name__ == '__main__':
 
     # Define graph
     graph = RxGraph.create(objects=[obj])
-    graph.connect(source=(obj.name, 'sensors', 'observation'), observation='observation', delay=0.0, window=1)
+    graph.connect(source=(obj.name, 'sensors', 'observation'), observation='observation', window=1)
     graph.connect(source=(obj.name, 'sensors', 'reward'), observation='reward', window=1)
     graph.connect(source=(obj.name, 'sensors', 'done'), observation='done', window=1)
-    graph.connect(action='action', target=(obj.name, 'actuators', 'action'), delay=0.0)
+    graph.connect(action='action', target=(obj.name, 'actuators', 'action'))
 
     # Add rendering
-    # graph.add_component(obj.name, 'sensors', 'image')
-    # graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
+    graph.add_component(obj.name, 'sensors', 'image')
+    graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
 
     # Open gui
     # graph.gui()
@@ -50,22 +50,22 @@ if __name__ == '__main__':
     # Initialize Environment
     env = EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge)
 
+    # Turn on rendering
+    env.render(mode='human')
+
     # Use stable-baselines
-    model = sb.PPO("MlpPolicy", env, verbose=1)
+    model = sb.SAC("MlpPolicy", env, verbose=1)
     model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset
     done = False
     obs = env.reset()
-    env.render(mode='human')
+
     action = env.action_space.sample()
     for j in range(20000):
         print('\n[Episode %s]' % j)
         while not done:
-            # print(obs)
-
             obs, reward, done, info = env.step(action)
-            # rgb = env.render(mode='rgb_array')
         obs = env.reset()
         done = False
     print('\n[Finished]')

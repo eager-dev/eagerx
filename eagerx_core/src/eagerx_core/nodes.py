@@ -186,7 +186,7 @@ class ObservationsNode(Node):
                 converter = i['converter']
             else:
                 converter = None
-            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter}
+            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter, 'window': i['window']}
 
     def reset(self):
         # Set all messages to None
@@ -266,7 +266,8 @@ class RenderNode(Node):
         self.last_image = Image()
 
     def callback(self, node_tick: int, t_n: float, image: Optional[Msg] = None):
-        self.last_image = image.msgs[-1]
+        if len(image.msgs) > 0:
+            self.last_image = image.msgs[-1]
         if self.display and self.render_toggle:
             rospy.logwarn_once('Displaying functionality inside the render node has not yet been implemented.')
 

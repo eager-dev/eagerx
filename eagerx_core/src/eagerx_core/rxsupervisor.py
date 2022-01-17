@@ -35,7 +35,7 @@ class SupervisorNode(NodeBase):
         self._render_service_ready = False
         self.render_toggle = False
         self.get_last_image_service = rospy.ServiceProxy('%s/env/render/get_last_image' % ns, ImageUInt8)
-        self.render_toggle_pub = rospy.Publisher('%s/env/render/toggle' % ns, Bool, queue_size=0)
+        self.render_toggle_pub = rospy.Publisher('%s/env/render/toggle' % ns, Bool, queue_size=0, latch=True)
 
         # Initialize nodes
         self.is_initialized = dict()
