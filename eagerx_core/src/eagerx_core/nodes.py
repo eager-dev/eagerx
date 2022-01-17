@@ -259,6 +259,7 @@ class RenderNode(Node):
 
     def _set_render_toggle(self, msg):
         if msg.data:
+
             rospy.loginfo('START RENDERING!')
         else:
             rospy.loginfo('STOP RENDERING!')
@@ -275,10 +276,11 @@ class RenderNode(Node):
             self.last_image = image.msgs[-1]
         if self.display and self.render_toggle:
             try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image)
+                cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
+                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
             except CvBridgeError as e:
                 rospy.logwarn(e)
-                return dict(done=UInt64)
+                return dict(done=UInt64())
             cv2.imshow('Render', cv_image)
             cv2.waitKey(1)
             self.window_closed = False
@@ -287,5 +289,5 @@ class RenderNode(Node):
             self.window_closed = True
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=UInt64)
+        output_msgs = dict(done=UInt64())
         return output_msgs

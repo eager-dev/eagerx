@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # gym_id = 'CartPole-v1'
     # gym_id = 'MountainCarContinuous-v0'
     name = gym_id.split('-')[0]
-    obj = RxObject.create(name, 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, sensors=['observation', 'reward', 'done'], zero_action=[0])
+    obj = RxObject.create(name, 'eagerx_bridge_openai_gym', 'env_object', gym_id=gym_id, rate=rate, zero_action=[0], render_shape=[300, 300])
 
     # Define graph
     graph = RxGraph.create(objects=[obj])
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # Add rendering
     graph.add_component(obj.name, 'sensors', 'image')
-    graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=False)
+    graph.render(source=(obj.name, 'sensors', 'image'), rate=10, display=True)
 
     # Open gui
     # graph.gui()
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     env.render(mode='human')
 
     # Use stable-baselines
-    model = sb.SAC("MlpPolicy", env, verbose=1)
+    model = sb.PPO("MlpPolicy", env, verbose=1)
     model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset
