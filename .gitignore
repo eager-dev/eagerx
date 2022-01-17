@@ -2,3 +2,5 @@
 *.idea
 calibrate.launch
 test.graph
+*.zip
+log/
