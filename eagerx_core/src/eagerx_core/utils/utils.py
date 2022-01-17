@@ -367,3 +367,18 @@ def check_valid_rosparam_type(param):
                 check_valid_rosparam_type(value)
     else:
         raise ValueError('Type "%s" of a specified param with value "%s" is not supported by the rosparam server.' % (type(param), param.__name__))
+
+
+def msg_type_error(source, target, msg_type_out, converter_out, msg_type_ros, converter_in, msg_type_in, msg_type_in_yaml):
+    if isinstance(source, tuple):
+        source = list(source)
+    if isinstance(target, tuple):
+        target = list(target)
+    msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(source + target)
+    msg_type_str += '>> msg_type_source:  %s (as specified in source)\n         ||\n         \/\n' % msg_type_out
+    msg_type_str += '>> output_converter: %s \n         ||\n         \/\n' % converter_out
+    msg_type_str += '>> msg_type_ROS:     %s \n         ||\n         \/\n' % msg_type_ros
+    msg_type_str += '>> input_converter:  %s \n         ||\n         \/\n' % converter_in
+    msg_type_str += '>> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n' % msg_type_in
+    msg_type_str += '>> msg_type_target:  %s (as specified in target)\n' % msg_type_in_yaml
+    return msg_type_str
