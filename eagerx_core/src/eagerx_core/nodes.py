@@ -390,7 +390,6 @@ class RenderNode(Node):
                 else:
                     cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
                     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
             except CvBridgeError as e:
                 rospy.logwarn(e)
                 return dict(done=UInt64())
