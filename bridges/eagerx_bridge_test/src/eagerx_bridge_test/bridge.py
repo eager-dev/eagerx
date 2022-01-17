@@ -53,13 +53,3 @@ class TestBridgeNode(BridgeBase):
                 t_i = kwargs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
                     rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
-
-        # Fill output msg with number of node ticks
-        output_msgs = dict()
-        Nc = self.num_ticks + 1
-        for i in self.outputs:
-            name = i['name']
-            msg = UInt64()
-            msg.data = Nc
-            output_msgs[name] = msg
-        return output_msgs

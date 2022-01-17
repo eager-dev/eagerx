@@ -52,6 +52,3 @@ class GymBridge(BridgeBase):
             sim['buffer_obs'].append(obs)
             sim['buffer_reward'].append(reward)
             sim['buffer_done'].append(is_done)
-
-            # Fill output msg with number of node ticks
-        return dict(tick=UInt64(data=node_tick + 1))
