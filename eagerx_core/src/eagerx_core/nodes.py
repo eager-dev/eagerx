@@ -383,13 +383,16 @@ class RenderNode(Node):
             self.last_image = image.msgs[-1]
         if self.display and self.render_toggle:
             try:
-                if self.last_image.encoding in [
-                    "rgb8", "rgba8", "rgb16", "rgba16", "bgr8", "bgra8", "bgr16", "bgra16", "mono8", "mono16"
-                ]:
-                    cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image)
-                else:
-                    cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
-                    cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+                try:
+                    cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, 'bgr8')
+                except ImportError as e:
+                    rospy.logwarn_once('[%s] %s. Using numpy instead.' % (self.ns_name, e))
+                    if isinstance(self.last_image.data, bytes):
+                        cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
+                    else:
+                        cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
+                    if 'rgb' in self.last_image.encoding:
+                        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
             except CvBridgeError as e:
                 rospy.logwarn(e)
                 return dict(done=UInt64())

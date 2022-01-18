@@ -71,7 +71,13 @@ class PendulumRender(SimNode):
                 theta, _ = self.simulator[self.obj_name]['state']
                 img = cv2.circle(img, (width // 2 + int(l * np.sin(theta)), height // 2 - int(l * np.cos(theta))),
                                  height // 6, (192, 192, 192), -1)
-            msg = self.cv_bridge.cv2_to_imgmsg(img, 'bgr8')
+
+            try:
+                msg = self.cv_bridge.cv2_to_imgmsg(img, 'bgr8')
+            except ImportError as e:
+                rospy.logwarn_once('[%s] %s. Using numpy instead.' % (self.ns_name, e))
+                data = img.tobytes('C')
+                msg = Image(data=data, height=height, width=width, encoding='bgr8')
         else:
             msg = Image()
         return dict(image=msg)

@@ -183,7 +183,8 @@ class GymRenderer(SimNode):
             # Prepare ROS msg
             height = rgb.shape[0]
             width = rgb.shape[1]
-            msg = Image(data=rgb.reshape(-1).tolist(), height=height, width=width, encoding='rgb8')
+            data = rgb.tobytes('C')
+            msg = Image(data=data, height=height, width=width, encoding='rgb8')
             # self._show_ros_image(msg)
         else:
             msg = Image()
