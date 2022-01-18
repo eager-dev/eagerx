@@ -1,4 +1,4 @@
-node_type: eagerx_bridge_ode.bridge/OdeBridge
+node_type: eagerx_bridge_real.bridge/RealBridge
 default:
   rate:
   outputs: [tick]
@@ -7,6 +7,7 @@ default:
   color: magenta
   log_level: 30  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
   is_reactive: False
+  real_time_factor: 1
 
 
 outputs:

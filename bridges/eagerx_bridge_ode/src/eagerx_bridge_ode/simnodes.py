@@ -34,13 +34,14 @@ class OdeOutput(SimNode):
         return dict(observation=Float32MultiArray(data=data))
 
 class PendulumRender(SimNode):
-    msg_types = {'inputs': {'tick': UInt64},
+    msg_types = {'inputs': {'tick': UInt64,
+                            'theta': Float32MultiArray},
                  'outputs': {'image': Image}}
 
     def __init__(self, shape, **kwargs):
         super().__init__(**kwargs)
         # We will probably use self.simulator[self.obj_name] in callback & reset.
-        assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
+        # assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.cv_bridge = CvBridge()
         self.shape = tuple(shape)
         self.always_render = self.object_params['always_render']
@@ -59,18 +60,18 @@ class PendulumRender(SimNode):
         # This sensor is stateless (in contrast to e.g. a PID controller).
         pass
 
-    def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Image):
-        assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
+    def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None, theta: Optional[Float32MultiArray] = None) -> return_typehint(Image):
+        data = theta.msgs[-1].data
         if self.always_render or self.render_toggle:
             width, height = self.shape
             l = width // 3
             img = np.zeros((height, width, 3), np.uint8)
             img = cv2.circle(img, (width // 2, height // 2), height // 2, (255, 0, 0), -1)
             img = cv2.circle(img, (width // 2, height // 2), height // 8, (192, 192, 192), -1)
-            if self.simulator[self.obj_name]['state'] is not None:
-                theta, _ = self.simulator[self.obj_name]['state']
-                img = cv2.circle(img, (width // 2 + int(l * np.sin(theta)), height // 2 - int(l * np.cos(theta))),
-                                 height // 6, (192, 192, 192), -1)
+            if data is not None:
+                stheta, ctheta = data
+                img = cv2.circle(img, (width // 2 + int(l * stheta), height // 2 - int(l * ctheta)), height // 6,
+                                 (192, 192, 192), -1)
             msg = self.cv_bridge.cv2_to_imgmsg(img, 'bgr8')
         else:
             msg = Image()

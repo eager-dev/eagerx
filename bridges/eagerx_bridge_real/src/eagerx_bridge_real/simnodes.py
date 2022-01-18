@@ -2,7 +2,6 @@ from typing import Optional
 import numpy as np
 import cv2
 import rospy
-import actionlib
 
 # IMPORT ROS
 from std_msgs.msg import UInt64, Float32MultiArray, Bool
@@ -14,7 +13,7 @@ from eagerx_core.utils.utils import return_typehint, Msg
 from eagerx_core.nodes import SimNode
 from eagerx_core.constants import process
 
-from dcsc_fpga.srv import MopsWrite, MopsWriteRequest
+from dcsc_fpga.srv import MopsWrite, MopsWriteRequest, MopsReadRequest, MopsRead
 
 class PendulumOutput(SimNode):
     msg_types = {'inputs': {'tick': UInt64},
@@ -22,17 +21,15 @@ class PendulumOutput(SimNode):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
-        assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
-        self.obj_name = self.object_params['name']
+        self.service = rospy.ServiceProxy('/mops/read', MopsRead)
+        self.service.wait_for_service()
 
     def reset(self):
         pass
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32MultiArray):
-        assert isinstance(self.simulator[self.obj_name], dict), \
-            'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
-        data = self.simulator[self.obj_name]['state']
+        response = self.service.call(MopsReadRequest())
+        data = [np.pi - response.sensors.position0, response.sensors.speed]
         return dict(observation=Float32MultiArray(data=data))
 
 class PendulumRender(SimNode):
@@ -41,13 +38,10 @@ class PendulumRender(SimNode):
 
     def __init__(self, shape, **kwargs):
         super().__init__(**kwargs)
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
-        assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.cv_bridge = CvBridge()
         self.shape = tuple(shape)
         self.always_render = self.object_params['always_render']
         self.render_toggle = False
-        self.obj_name = self.object_params['name']
         self.render_toggle_pub = rospy.Subscriber('%s/env/render/toggle' % self.ns, Bool, self._set_render_toggle)
 
     def _set_render_toggle(self, msg):
@@ -62,7 +56,6 @@ class PendulumRender(SimNode):
         pass
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Image):
-        assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
         if self.always_render or self.render_toggle:
             width, height = self.shape
             l = width // 3
@@ -86,28 +79,22 @@ class PendulumInput(SimNode):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
-        assert kwargs['process'] == process.BRIDGE, \
-            'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
-        self.obj_name = self.object_params['name']
-        self.client = actionlib.SimpleActionClient('/mops/read', MopsWrite)
-        self.client.wait_for_server()
+        self.service = rospy.ServiceProxy('/mops/write', MopsWrite)
+        self.service.wait_for_service()
 
     def reset(self):
         pass
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None,
                  action: Optional[Float32MultiArray] = None) -> return_typehint(Float32MultiArray):
-        assert isinstance(self.simulator[self.obj_name], dict), \
-            'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
 
         input = np.squeeze(action.msgs[-1].data)
-        action = MopsWriteRequest()
-        action.actuators.digital_outputs = 1
-        action.actuators.voltage0 = input[0]
-        action.actuators.voltage1 = 0.0
-        action.actuators.timeout = self.timeout
-        self.server(action)
-
+        if input is not None:
+            req = MopsWriteRequest()
+            req.actuators.digital_outputs = 1
+            req.actuators.voltage0 = input
+            req.actuators.voltage1 = 0.0
+            req.actuators.timeout = 0.5
+            self.service(req)
         # Send action that has been applied.
         return dict(action_applied=action.msgs[-1])

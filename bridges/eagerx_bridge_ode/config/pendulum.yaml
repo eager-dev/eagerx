@@ -49,6 +49,7 @@ eagerx_bridge_ode/bridge:
 
     image:
       node_config: eagerx_bridge_ode/render # These nodes cannot have an internal state
+      inputs: {theta: $(ns obj_name)/sensors/observation}
       outputs: [ image ]
       color: cyan
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
@@ -62,3 +63,14 @@ eagerx_bridge_ode/bridge:
   states:
     model_state:
       state_type: eagerx_bridge_ode.simstates/OdeSimState
+
+eagerx_bridge_real/bridge:
+  sensors:
+    observation:
+      node_config: eagerx_bridge_real/observation # These nodes cannot have an internal state
+      outputs: [observation]
+
+  actuators:  # Inputs as defined above
+    action:
+      node_config: eagerx_bridge_real/action
+      inputs: {action: } # actuator input mapping to sim_node input name inside node_config

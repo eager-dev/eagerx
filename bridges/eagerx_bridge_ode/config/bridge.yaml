@@ -13,6 +13,7 @@ default:
   hmax: 0.0  # The maximum absolute step size allowed.
   hmin: 0.0  # The minimum absolute step size allowed.
   mxstep: 0  # Maximum number of (internally defined) steps allowed for each integration point in t.
+  model_noise: 0.05  # The
 
 
 outputs:
