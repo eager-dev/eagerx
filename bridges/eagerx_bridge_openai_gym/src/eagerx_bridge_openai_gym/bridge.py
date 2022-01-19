@@ -31,20 +31,19 @@ class GymBridge(BridgeBase):
         id = object_params['gym_id']
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(env=gym.make(id), buffer_obs=None, buffer_reward=None, buffer_done=None, next_action=None)
+        self.simulator[obj_name] = dict(env=gym.make(id), buffer_obs=[], buffer_reward=None, buffer_done=None, next_action=None)
         return object_params
 
     def pre_reset(self, **kwargs: Optional[Msg]):
-        for obj_name, sim in self.simulator.items():
-            obs = sim['env'].reset()
-            sim['buffer_obs'] = [obs]
-            sim['next_action'] = None
-            sim['buffer_reward'] = []
-            sim['buffer_done'] = []
-        return
+        pass
 
     def reset(self, **kwargs: Optional[Msg]):
-        pass
+        for obj_name, sim in self.simulator.items():
+            obs = sim['env'].reset()
+            # sim['buffer_obs'].append(obs)
+            sim['buffer_obs'] = [obs]
+            sim['buffer_reward'] = []
+            sim['buffer_done'] = []
 
     def callback(self, node_tick: int, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
         for obj_name, sim in self.simulator.items():
@@ -53,6 +52,3 @@ class GymBridge(BridgeBase):
             sim['buffer_obs'].append(obs)
             sim['buffer_reward'].append(reward)
             sim['buffer_done'].append(is_done)
-
-            # Fill output msg with number of node ticks
-        return dict(tick=UInt64(data=node_tick + 1))

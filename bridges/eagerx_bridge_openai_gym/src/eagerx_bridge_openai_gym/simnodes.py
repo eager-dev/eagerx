@@ -100,25 +100,41 @@ class ActionActuator(SimNode):
                             'action': Float32MultiArray},
                  'outputs': {'action_applied': Float32MultiArray}}
 
-    def __init__(self, **kwargs):
+    def __init__(self, zero_action, **kwargs):
         super().__init__(**kwargs)
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.obj_name = self.object_params['name']
+        self.simulator[self.obj_name]['env']: gym.Env
         self.is_discrete = True if isinstance(self.simulator[self.obj_name]['env'].action_space, gym.spaces.Discrete) else False
+        if zero_action == 'not_defined':
+            self.zero_action = self.simulator[self.obj_name]['env'].action_space.sample()
+        else:
+            if isinstance(zero_action, list):
+                dtype = self.simulator[self.obj_name]['env'].action_space.dtype
+                self.zero_action = np.array(zero_action, dtype=dtype)
+            else:
+                self.zero_action = zero_action
+            assert self.simulator[self.obj_name]['env'].action_space.contains(self.zero_action), 'The zero action provided for "%s" is not contained in the action space of this environment.' % self.obj_name
 
     def reset(self):
         # This controller is stateless (in contrast to e.g. a PID controller).
-        self.simulator[self.obj_name]['next_action'] = None
+        self.simulator[self.obj_name]['next_action'] = self.zero_action
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None, action: Optional[Float32MultiArray] = None) -> return_typehint(Float32MultiArray):
         assert isinstance(self.simulator[self.obj_name], dict), 'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
 
         # Set action in simulator for next step.
-        self.simulator[self.obj_name]['next_action'] = action.msgs[-1].data[0] if self.is_discrete else action.msgs[-1].data
+        if len(action.msgs) > 0:
+            self.simulator[self.obj_name]['next_action'] = action.msgs[-1].data[0] if self.is_discrete else action.msgs[-1].data
+        else:
+            self.simulator[self.obj_name]['next_action'] = self.zero_action
+
+        # Prepare output message
+        action_applied = self.simulator[self.obj_name]['next_action']
 
         # Send action that has been applied.
-        return dict(action_applied=action.msgs[-1])
+        return dict(action_applied=Float32MultiArray(data=action_applied))
 
 
 class GymRenderer(SimNode):
@@ -167,7 +183,8 @@ class GymRenderer(SimNode):
             # Prepare ROS msg
             height = rgb.shape[0]
             width = rgb.shape[1]
-            msg = Image(data=rgb.reshape(-1).tolist(), height=height, width=width)
+            data = rgb.tobytes('C')
+            msg = Image(data=data, height=height, width=width, encoding='rgb8')
             # self._show_ros_image(msg)
         else:
             msg = Image()

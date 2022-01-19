@@ -87,14 +87,16 @@ class PendulumInput(SimNode):
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None,
                  action: Optional[Float32MultiArray] = None) -> return_typehint(Float32MultiArray):
-
-        input = np.squeeze(action.msgs[-1].data)
-        if input is not None:
-            req = MopsWriteRequest()
-            req.actuators.digital_outputs = 1
-            req.actuators.voltage0 = input
-            req.actuators.voltage1 = 0.0
-            req.actuators.timeout = 0.5
-            self.service(req)
-        # Send action that has been applied.
-        return dict(action_applied=action.msgs[-1])
+        if len(action.msgs) > 0:
+            input = np.squeeze(action.msgs[-1].data)
+            if input is not None:
+                req = MopsWriteRequest()
+                req.actuators.digital_outputs = 1
+                req.actuators.voltage0 = input
+                req.actuators.voltage1 = 0.0
+                req.actuators.timeout = 0.5
+                self.service(req)
+            # Send action that has been applied.
+        else:
+            input = 0
+        return dict(action_applied=Float32MultiArray(data=[input]))

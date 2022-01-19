@@ -33,6 +33,27 @@ class OdeOutput(SimNode):
         data = self.simulator[self.obj_name]['state']
         return dict(observation=Float32MultiArray(data=data))
 
+
+class ActionApplied(SimNode):
+    msg_types = {'inputs': {'tick': UInt64, 'action_applied': Float32MultiArray},
+                 'outputs': {'action_applied': Float32MultiArray}}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.obj_name = self.object_params['name']
+
+    def reset(self):
+        pass
+
+    def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None,
+                 action_applied: Optional[Float32MultiArray] = None) -> return_typehint(Float32MultiArray):
+        if len(action_applied.msgs) > 0:
+            data = action_applied.msgs[-1].data
+        else:
+            data = [0]
+        return dict(action_applied=Float32MultiArray(data=data))
+
+
 class PendulumRender(SimNode):
     msg_types = {'inputs': {'tick': UInt64,
                             'theta': Float32MultiArray},
@@ -40,13 +61,9 @@ class PendulumRender(SimNode):
 
     def __init__(self, shape, **kwargs):
         super().__init__(**kwargs)
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
-        # assert kwargs['process'] == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.cv_bridge = CvBridge()
         self.shape = tuple(shape)
-        self.always_render = self.object_params['always_render']
         self.render_toggle = False
-        self.obj_name = self.object_params['name']
         self.render_toggle_pub = rospy.Subscriber('%s/env/render/toggle' % self.ns, Bool, self._set_render_toggle)
 
     def _set_render_toggle(self, msg):
@@ -62,17 +79,22 @@ class PendulumRender(SimNode):
 
     def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None, theta: Optional[Float32MultiArray] = None) -> return_typehint(Image):
         data = theta.msgs[-1].data
-        if self.always_render or self.render_toggle:
+        if self.render_toggle:
             width, height = self.shape
             l = width // 3
             img = np.zeros((height, width, 3), np.uint8)
             img = cv2.circle(img, (width // 2, height // 2), height // 2, (255, 0, 0), -1)
             img = cv2.circle(img, (width // 2, height // 2), height // 8, (192, 192, 192), -1)
-            if data is not None:
-                stheta, ctheta = data
-                img = cv2.circle(img, (width // 2 + int(l * stheta), height // 2 - int(l * ctheta)), height // 6,
+            if len(np.squeeze(data)) == 3:
+                sin_theta, cos_theta, _ = np.squeeze(data)
+                img = cv2.circle(img, (width // 2 + int(l * sin_theta), height // 2 - int(l * cos_theta)), height // 6,
                                  (192, 192, 192), -1)
-            msg = self.cv_bridge.cv2_to_imgmsg(img, 'bgr8')
+            try:
+                msg = self.cv_bridge.cv2_to_imgmsg(img, 'bgr8')
+            except ImportError as e:
+                rospy.logwarn_once('[%s] %s. Using numpy instead.' % (self.ns_name, e))
+                data = img.tobytes('C')
+                msg = Image(data=data, height=height, width=width, encoding='bgr8')
         else:
             msg = Image()
         return dict(image=msg)

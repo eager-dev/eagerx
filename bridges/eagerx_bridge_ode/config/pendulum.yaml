@@ -1,5 +1,5 @@
 default:
-  sensors: [observation]
+  sensors: [observation, action_applied]
   actuators: [action]
   states: [model_state]
   rate: 30
@@ -12,10 +12,23 @@ sensors: # inputs of ode
   observation:
     rate: $(default rate)
     msg_type: std_msgs.msg/Float32MultiArray
+    window: 1
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
-      low: [ -3.14159265359, -9 ]
-      high: [ 3.14159265359, 9 ]
+      low: [ -1, -1, -9 ]
+      high: [ 1, 1, 9 ]
+    converter:
+      converter_type: eagerx_bridge_ode.converters/AngleDecomposition
+
+  action_applied:
+    rate: $(default rate)
+    msg_type: std_msgs.msg/Float32MultiArray
+    window: 1
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3 ]
+      high: [ 3 ]
+
   image:
     rate: $(default rate)
     msg_type: sensor_msgs.msg/Image
@@ -24,6 +37,7 @@ actuators: # outputs of ode
   action:
     rate: $(default rate)
     msg_type: std_msgs.msg/Float32MultiArray
+    window: 1
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
       low: [ -3 ]
@@ -47,12 +61,17 @@ eagerx_bridge_ode/bridge:
       node_config: eagerx_bridge_ode/observation # These nodes cannot have an internal state
       outputs: [observation]
 
+    action_applied:
+      node_config:  eagerx_bridge_ode/action_applied
+      inputs: {action_applied: $(ns obj_name)/actuators/action/outputs/action_applied}
+      outputs: [action_applied]
+
     image:
       node_config: eagerx_bridge_ode/render # These nodes cannot have an internal state
       inputs: {theta: $(ns obj_name)/sensors/observation}
       outputs: [ image ]
       color: cyan
-      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       shape: [ 480, 480 ]
 
   actuators:  # Inputs as defined above
@@ -69,6 +88,11 @@ eagerx_bridge_real/bridge:
     observation:
       node_config: eagerx_bridge_real/observation # These nodes cannot have an internal state
       outputs: [observation]
+
+    action_applied:
+      node_config: eagerx_bridge_ode/action_applied
+      inputs: { action_applied: $(ns obj_name)/actuators/action/outputs/action_applied }
+      outputs: [ action_applied ]
 
   actuators:  # Inputs as defined above
     action:

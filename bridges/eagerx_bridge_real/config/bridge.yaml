@@ -8,6 +8,7 @@ default:
   log_level: 30  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
   is_reactive: False
   real_time_factor: 1
+  simulate_delays: False
 
 
 outputs:

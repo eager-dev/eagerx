@@ -9,6 +9,7 @@ default:
   is_reactive: True
   real_time_factor: 0  # 0 == as fast as possible
   rtol: 2e-8  # The input parameters rtol and atol determine the error control performed by the solver.
+  simulate_delays: True
   atol: 2e-8  # The input parameters rtol and atol determine the error control performed by the solver.
   hmax: 0.0  # The maximum absolute step size allowed.
   hmin: 0.0  # The minimum absolute step size allowed.

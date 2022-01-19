@@ -9,6 +9,7 @@ default:
   log_level: 10  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
   is_reactive: True
   real_time_factor: 0  # 0 == as fast as possible
+  simulate_delays: True  # Whether to simulate the delay
   num_substeps: 10
   nonreactive_address: '/nonreactive_input_topic'  # Only required to test nonreactive inputs
 

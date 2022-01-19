@@ -43,11 +43,12 @@ class RxNode(object):
         # Get info from bridge on reactive properties
         is_reactive = get_param_with_blocking(self.ns + '/bridge/is_reactive')
         real_time_factor = get_param_with_blocking(self.ns + '/bridge/real_time_factor')
+        simulate_delays = get_param_with_blocking(self.ns + '/bridge/simulate_delays')
 
         # Get node
         node_cls = get_attribute_from_module(params['node_type'])
         node = node_cls(ns=self.ns, message_broker=self.mb, is_reactive=is_reactive, real_time_factor=real_time_factor,
-                        **kwargs, **params)
+                        simulate_delays=simulate_delays, **kwargs, **params)
 
         # Prepare input topics
         for i in params['inputs']:

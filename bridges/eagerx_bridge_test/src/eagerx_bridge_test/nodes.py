@@ -74,14 +74,8 @@ class ProcessNode(SimNode):
     def __init__(self, test_arg, **kwargs):
         super().__init__(**kwargs)
 
-    def reset(self, state_1: Optional[UInt64] = None, state_2: Optional[UInt64] = None) -> return_typehint(UInt64):
-        # Send initial message for outputs with 'start_with_msg' = True
-        init_msgs = dict()
-        for i in self.outputs:
-            if not i['start_with_msg']: continue
-            name = i['name']
-            init_msgs[name] = UInt64(data=999)
-        return init_msgs
+    def reset(self, state_1: Optional[UInt64] = None, state_2: Optional[UInt64] = None) -> None:
+        return
 
     def callback(self, node_tick: int, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, in_3: Optional[Msg] = None, tick: Optional[Msg] = None) -> return_typehint(UInt64):
         inputs = {'in_1': in_1,

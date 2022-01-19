@@ -13,7 +13,7 @@ inputs:
     window: 0
   theta:
     msg_type: std_msgs.msg/Float32MultiArray
-      window: 1
+    window: 1
 
 outputs:
   image:

@@ -4,7 +4,7 @@ from std_msgs.msg import Bool, UInt64
 
 # RX IMPORTS
 import rx
-from rx import Observable, typing, operators as ops, create
+from rx import Observable, typing, operators as ops
 from rx.disposable import Disposable, SingleAssignmentDisposable, CompositeDisposable
 from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
@@ -407,7 +407,9 @@ def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perform_checks=Tr
 
 
 def expected_inputs(idx_n, rate_in, rate_node, delay):
-    if idx_n == 0:
+    if idx_n < 0:
+        return 0
+    elif idx_n == 0:
         return 1
     else:
         # N = idx_n + 1, because idx_n starts at 0
@@ -421,17 +423,20 @@ def expected_inputs(idx_n, rate_in, rate_node, delay):
 
 
 def calculate_inputs(N_node, rate_in, rate_node, delay):
-    N_in = max(0, int((rate_in * (N_node - 1) - rate_in * delay) // rate_node))  # Current timestep
-    # sum_t_min_1 = max(0, int(((rate_in * (N_t_min_1 - 1) - rate_in * delay) / rate_node)))  # Current timestep
-    # sum_t_min_1 = max(0, int(round(((dt_n * (N_t_min_1 - 1) - delay) / dt_i), 11)))  # Current timestep
-    # sum_t_min_1 = max(0, int(((dt_n * (N_t_min_1 - 1) - delay) / dt_i)))  # Current timestep
+    N_in = max(0, int((rate_in * (N_node - 1) - rate_node * rate_in * delay) // rate_node))  # Current timestep
+    # N_in = max(0, int(((rate_in * (N_node - 1) - rate_node * rate_in * delay) / rate_node)))  # Current timestep
+    # N_in = max(0, int(round(((dt_n * (N_node - 1) - delay) / dt_i), 11)))  # Current timestep
+    # N_in = max(0, int(((dt_n * (N_node - 1) - delay) / dt_i)))  # Current timestep
     return N_in
 
 
-def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, window: int, delay: float, is_reactive: bool, real_time_factor: float, node: NodeBase = None):
+def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, params: dict, is_reactive: bool, real_time_factor: float, simulate_delays: bool, node: NodeBase = None):
     dt_i = 1 / rate_in
 
     def _generate_msgs(source_msg: Observable):
+        window = params['window']
+        skip = int(params['skip'])
+
         def subscribe(observer: typing.Observer,
                       scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
             start = time.time()
@@ -446,8 +451,8 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
             @synchronized(lock)
             def next(i):
-                if len(num_queue) > 0:
-                    if len(msgs_queue) >= num_queue[0]:
+                if len(tick_queue) > 0:
+                    if not is_reactive or len(msgs_queue) >= num_queue[0]:
                         try:
                             tick = tick_queue.pop(0)
                             if is_reactive:
@@ -458,8 +463,8 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                                 msgs_queue[:] = msgs_queue[num_msgs:]
                                 t_i_queue[:] = t_i_queue[num_msgs:]
                             else:  # Empty complete buffer
-                                msgs = msgs_queue
-                                t_i = t_i_queue
+                                msgs = msgs_queue.copy()
+                                t_i = t_i_queue.copy()
                                 msgs_queue[:] = []
                                 t_i_queue[:] = []
                         except Exception as ex:  # pylint: disable=broad-except
@@ -493,7 +498,8 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
             def on_next_Nc(x):
                 if is_reactive:
                     # Caculate expected number of message to be received
-                    num_msgs = expected_inputs(x, rate_in, rate_node, delay)
+                    delay = params['delay'] if simulate_delays else 0.
+                    num_msgs = expected_inputs(x-skip, rate_in, rate_node, delay)
                     num_queue.append(num_msgs)
                 tick_queue.append(x)
                 next(x)
@@ -515,7 +521,11 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
                 next(x)
 
             sad = SingleAssignmentDisposable()
-            sad.disposable = source_msg.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
+            if not is_reactive and simulate_delays:
+                source_msg_delayed = source_msg.pipe(ops.delay(params['delay'] / real_time_factor))
+            else:
+                source_msg_delayed = source_msg
+            sad.disposable = source_msg_delayed.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
             subscriptions.append(sad)
 
             return CompositeDisposable(subscriptions)
@@ -523,13 +533,7 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
     return _generate_msgs
 
 
-# def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
-    # if is_reactive:
-    # return create_reactive_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
-
-
-def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node: NodeBase):
-    # todo: remove ops.observe_on?
+def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simulate_delays, E, scheduler, is_feedthrough, node: NodeBase):
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
@@ -550,12 +554,10 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, sc
         else:
             rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
             rate = get_param_with_blocking(rate_str)
-        dt_i = 1 / rate
     except Exception as e:
-        dt_i = None
-        rate = None
         print('Probably cannot find key "%s" on ros param server.' % inpt['name'] + '/rate')
         print(e)
+        raise
 
     # Create input channel
     if real_time_factor == 0:
@@ -564,7 +566,7 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, sc
     else:
         Nc = Nc.pipe(ops.observe_on(scheduler))
 
-    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, window=inpt['window'], delay=inpt['delay'], is_reactive=True, real_time_factor=real_time_factor, node=node), ops.share())
+    channel = Ir.pipe(generate_msgs(Nc, rate_node, name, rate, params=inpt, is_reactive=is_reactive, real_time_factor=real_time_factor, simulate_delays=simulate_delays, node=node), ops.share())
 
     # Create reset flag
     flag = Ir.pipe(ops.map(lambda val: val[0] + 1),
@@ -575,12 +577,12 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, E, sc
     return channel, flag
 
 
-def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, E, scheduler, node: NodeBase, is_feedthrough=False):
+def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, simulate_delays, E, scheduler, node: NodeBase, is_feedthrough=False):
     # Create channels
     channels = []
     flags = []
     for i in inputs:
-        channel, flag = create_channel(ns, Nc, rate_node, i, is_reactive, real_time_factor, E, scheduler, is_feedthrough, node)
+        channel, flag = create_channel(ns, Nc, rate_node, i, is_reactive, real_time_factor, simulate_delays, E, scheduler, is_feedthrough, node)
         channels.append(channel)
         if is_feedthrough:
             name = i['address']
@@ -589,11 +591,13 @@ def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, E, s
         flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node))
         flags.append(flag)
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
-    zipped_channels = rx.zip(*channels).pipe(regroup_inputs(node, rate_node=rate_node), ops.share())
+    zipped_channels = rx.zip(*channels).pipe(ops.combine_latest(E),  # Latch output on '/end_reset' --> Can only receive 1 each episode.
+                                             ops.map(lambda x: x[0]),
+                                             regroup_inputs(node, rate_node=rate_node), ops.share())
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, E, scheduler, node: NodeBase):
+def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, simulate_delays, E, scheduler, node: NodeBase):
     # Create real reset pipeline
     dispose = []
     if real_reset:
@@ -604,7 +608,7 @@ def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_
                 raise ValueError('Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s).' % (rate_node, rate_node))
 
         # Create zipped action channel
-        zipped_channels, zipped_flags = init_channels(ns, Nc, rate_node, feedthrough, is_reactive, real_time_factor, E, scheduler, node, is_feedthrough=True)
+        zipped_channels, zipped_flags = init_channels(ns, Nc, rate_node, feedthrough, is_reactive, real_time_factor, simulate_delays, E, scheduler, node, is_feedthrough=True)
 
         # Create switch subject
         target_signal = rx.zip(*[t['msg'] for t in targets])
@@ -891,16 +895,6 @@ def node_reset_flags(ns, node_flags, node: NodeBase):
     return stream
 
 
-def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
-    def _subscribe(observer, scheduler=None) -> Disposable:
-        try:
-            rospy.Subscriber(topic_name, topic_type, lambda msg: observer.on_next(msg))
-        except Exception as e:
-            print('[%s]: %s' % (node_name, e))
-        return observer
-    return create(_subscribe)
-
-
 def filter_dict_on_key(key):
     def _filter_dict_on_key(source):
         def subscribe(observer, scheduler=None):
@@ -964,27 +958,6 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, n
                                                    is_reactive, rate_node, node),
                                       ops.share())
     return Nct
-
-
-def add_offset(offset, skip=0):
-    def _add_offset(source):
-        def subscribe(observer, scheduler=None):
-            counter = [0]
-            def on_next(value):
-                counter[0] += 1
-                if counter[0] > skip:
-                    observer.on_next(value + offset)
-                else:
-                    observer.on_next(value)
-
-            return source.subscribe(
-                on_next,
-                observer.on_error,
-                observer.on_completed,
-                scheduler)
-
-        return rx.create(subscribe)
-    return _add_offset
 
 
 def throttled_Nc(source_Nc: Observable, is_reactive, rate_node: float, node: NodeBase, rate_tol: float = 0.95, log_level: int = WARN):

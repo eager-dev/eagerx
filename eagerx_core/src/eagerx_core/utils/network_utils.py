@@ -22,10 +22,10 @@ def reset_graph(G):
 
 
 def episode_graph(G):
-    # Create a shallow copy graph that excludes "start_with_msg" edges
+    # Create a shallow copy graph that excludes "skip" edges
     H = nx.MultiDiGraph(G)
     for u, v, key, data in G.edges(data=True, keys=True):
-        if data['start_with_msg']:
+        if data['skip']:
             H.remove_edge(u, v, key=key)
 
     # Color cyclic edges red
@@ -93,7 +93,7 @@ def plot_graph(G, ax=None, k=2, pos=None):
     stale_line = Line2D([0], [0], label='stale', color='lightgrey')
     cyclic_line = Line2D([0], [0], label='cyclic', color='red')
     dag_line = Line2D([0], [0], label='acyclic', color='black')
-    nondag_line = Line2D([0], [0], label='start_with_msg', color='green', linestyle='dotted')
+    nondag_line = Line2D([0], [0], label='skipped', color='green', linestyle='dotted')
     ax.legend(handles=[root_patch, sink_patch, node_patch, stale_patch, dag_line, cyclic_line, nondag_line, stale_line],
               ncol=4, prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True)
     return nodes_plt, lines, labels, pos
