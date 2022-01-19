@@ -32,8 +32,8 @@ if __name__ == '__main__':
 
     # Define graph
     graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
+    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
     graph.connect(source=(KF.name, 'outputs', 'out_1'),     observation='obs_3', delay=0.0)
     graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)

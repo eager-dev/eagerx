@@ -606,6 +606,22 @@ class RxBridgeParams(RxNodeParams):
         return RxNodeParams.create('bridge', package_name, config_name, **kwargs)
 
 
+class RxSimNodeParams(RxNodeParams):
+    pass
+
+
+class RxConverterParams(Params):
+    pass
+
+
+class RxSpaceConverterParams(Params):
+    pass
+
+
+class RxSimStateParams(Params):
+    pass
+
+
 init_fn = {'inputs': RxInput.__init__,
            'outputs': RxOutput.__init__,
            'feedthroughs': RxFeedthrough.__init__,

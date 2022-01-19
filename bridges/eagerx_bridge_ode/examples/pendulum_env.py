@@ -65,6 +65,7 @@ if __name__ == '__main__':
         reward_fn=partial(reward_fn, decompose_angle=decompose_angle),
     )
     env = Flatten(env)
+    env.render('human')
 
     # Use stable-baselines
     parent_folder = os.path.dirname(os.path.realpath(__file__))
