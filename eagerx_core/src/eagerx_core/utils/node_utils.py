@@ -6,9 +6,8 @@ from roslaunch.core import RLException
 from std_msgs.msg import UInt64
 
 # RXEAGER
-from eagerx_core.params import RxNodeParams
+
 from eagerx_core.utils.utils import substitute_args
-from eagerx_core.rxnode import RxNode
 from eagerx_core.constants import process
 
 # OTHER
@@ -40,7 +39,7 @@ def launch_node(launch_file, args):
     return launch
 
 
-def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodeParams, Dict]]],
+def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
                      process_id: int,
                      ns: str,
                      owner: str,
@@ -49,9 +48,14 @@ def initialize_nodes(nodes: Union[Union[RxNodeParams, Dict], List[Union[RxNodePa
                      sp_nodes: Dict,
                      launch_nodes: Dict,
                      in_object: bool = False,
-                     rxnode_cls: Any = RxNode,
+                     rxnode_cls: Any = None,
                      node_args: Dict = None,
                      ):
+    if rxnode_cls is None:
+        from eagerx_core.rxnode import RxNode
+        rxnode_cls = RxNode
+
+    from eagerx_core.params import RxNodeParams
     if isinstance(nodes, (RxNodeParams, dict)):
         nodes = [nodes]
 

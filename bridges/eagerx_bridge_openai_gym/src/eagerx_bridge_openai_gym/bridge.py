@@ -10,10 +10,10 @@ from genpy.message import Message
 
 # RX IMPORTS
 from eagerx_core.utils.utils import Msg
-from eagerx_core.bridge import BridgeBase
+from eagerx_core.entities import Bridge
 
 
-class GymBridge(BridgeBase):
+class GymBridge(Bridge):
     msg_types = {'outputs': {'tick': UInt64},
                  'states': {}}
 

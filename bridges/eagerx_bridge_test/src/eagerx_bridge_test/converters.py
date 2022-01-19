@@ -1,4 +1,4 @@
-from eagerx_core.converters import SpaceConverter, Converter, BaseProcessor
+from eagerx_core.converters import SpaceConverter, Converter, Processor
 
 # Converter specific
 from std_msgs.msg import UInt64, String

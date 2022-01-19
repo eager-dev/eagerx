@@ -606,22 +606,6 @@ class RxBridgeParams(RxNodeParams):
         return RxNodeParams.create('bridge', package_name, config_name, **kwargs)
 
 
-class RxSimNodeParams(RxNodeParams):
-    pass
-
-
-class RxConverterParams(Params):
-    pass
-
-
-class RxSpaceConverterParams(Params):
-    pass
-
-
-class RxSimStateParams(Params):
-    pass
-
-
 init_fn = {'inputs': RxInput.__init__,
            'outputs': RxOutput.__init__,
            'feedthroughs': RxFeedthrough.__init__,
@@ -639,3 +623,4 @@ def add_default_args(d, component):
     for key, value in zip(default_keys, default_values):
         if key not in d:
             d[key] = value
+

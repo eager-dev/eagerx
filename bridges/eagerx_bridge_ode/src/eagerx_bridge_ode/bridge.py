@@ -12,10 +12,10 @@ from genpy.message import Message
 
 # RX IMPORTS
 from eagerx_core.utils.utils import Msg, get_attribute_from_module
-from eagerx_core.bridge import BridgeBase
+from eagerx_core.entities import Bridge
 
 
-class OdeBridge(BridgeBase):
+class OdeBridge(Bridge):
     msg_types = {'outputs': {'tick': UInt64}}
 
     def __init__(self, rtol, atol, hmax, hmin, mxstep, **kwargs):

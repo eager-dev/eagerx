@@ -6,11 +6,12 @@ import rospy
 from std_msgs.msg import UInt64
 
 # EAGERx IMPORTS
-from eagerx_core.bridge import BridgeBase
+from eagerx_core.entities import Bridge
+from eagerx_core.registration import register
 from eagerx_core.utils.utils import Msg
 
 
-class TestBridgeNode(BridgeBase):
+class TestBridgeNode(Bridge):
     msg_types = {'outputs': {'tick': UInt64},
                  'states': {'param_1': UInt64}}
 
@@ -23,6 +24,23 @@ class TestBridgeNode(BridgeBase):
         # Initialize nonreactive input
         self.nonreactive_pub = rospy.Publisher(kwargs['ns'] + nonreactive_address, UInt64, queue_size=0, latch=True)
         super(TestBridgeNode, self).__init__(simulator=simulator, **kwargs)
+
+    @staticmethod
+    @register('test_bridge', Bridge)
+    def spec(template, rate, is_reactive=True, real_time_factor=0, simulate_delays=True, log_level=10):
+        bridge = template.params
+        bridge['default']['rate'] = rate
+        bridge['default']['is_reactive'] = is_reactive
+        bridge['default']['real_time_factor'] = real_time_factor
+        bridge['default']['simulate_delays'] = simulate_delays
+        bridge['default']['log_level'] = log_level
+        bridge['default']['color'] = 'magenta'
+
+        # add param_1 as state
+        # todo: add space_converter
+        bridge['default']['states'].append('param_1')
+        bridge['states'] = {'param_1': {'msg_type': 'std_msgs.msg/UInt64'}}
+        return bridge
 
     def add_object_to_simulator(self, object_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)

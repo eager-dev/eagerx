@@ -10,7 +10,6 @@ from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
-from eagerx_core.nodes import NodeBase
 from eagerx_core.converters import Identity
 from eagerx_core.params import RxInput
 from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS, process
@@ -73,7 +72,7 @@ def print_info(node_name, color, id=None, trace_type=None, value=None, date=None
         raise ValueError('Print mode not recognized. Only print_modes %s are available.' % (print_modes.values()))
 
 
-def spy(id: str, node: NodeBase, log_level: int = DEBUG, mapper: Callable = lambda msg: msg):
+def spy(id: str, node, log_level: int = DEBUG, mapper: Callable = lambda msg: msg):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -97,7 +96,7 @@ def spy(id: str, node: NodeBase, log_level: int = DEBUG, mapper: Callable = lamb
     return _spy
 
 
-def trace_observable(id: str, node: NodeBase, trace_next=False, trace_next_payload=False, trace_subscribe=False, date=None):
+def trace_observable(id: str, node, trace_next=False, trace_next_payload=False, trace_subscribe=False, date=None):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -365,7 +364,7 @@ def remap_cb_input(mode=0):
     return _remap_cb_input
 
 
-def regroup_inputs(node: NodeBase, rate_node=1, is_input=True, perform_checks=True):
+def regroup_inputs(node, rate_node=1, is_input=True, perform_checks=True):
     node_name = node.ns_name
     color = node.color
     print_mode = node.print_mode
@@ -430,7 +429,7 @@ def calculate_inputs(N_node, rate_in, rate_node, delay):
     return N_in
 
 
-def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, params: dict, is_reactive: bool, real_time_factor: float, simulate_delays: bool, node: NodeBase = None):
+def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: float, params: dict, is_reactive: bool, real_time_factor: float, simulate_delays: bool, node = None):
     dt_i = 1 / rate_in
 
     def _generate_msgs(source_msg: Observable):
@@ -533,7 +532,7 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
     return _generate_msgs
 
 
-def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simulate_delays, E, scheduler, is_feedthrough, node: NodeBase):
+def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simulate_delays, E, scheduler, is_feedthrough, node):
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
@@ -577,7 +576,7 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simul
     return channel, flag
 
 
-def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, simulate_delays, E, scheduler, node: NodeBase, is_feedthrough=False):
+def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, simulate_delays, E, scheduler, node, is_feedthrough=False):
     # Create channels
     channels = []
     flags = []
@@ -597,7 +596,7 @@ def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, simu
     return zipped_channels, zipped_flags
 
 
-def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, simulate_delays, E, scheduler, node: NodeBase):
+def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_reactive, real_time_factor, simulate_delays, E, scheduler, node):
     # Create real reset pipeline
     dispose = []
     if real_reset:
@@ -627,7 +626,7 @@ def init_real_reset(ns, Nc, rate_node, RR, real_reset, feedthrough, targets, is_
     return rr_channel, zipped_flags, dispose
 
 
-def init_target_channel(states, scheduler, node: NodeBase):
+def init_target_channel(states, scheduler, node):
     channels = []
     for s in states:
         c = s['msg'].pipe(ops.map(s['converter'].convert), ops.share(),
@@ -645,7 +644,7 @@ def merge_dicts(dict_1, dict_2):
     return dict_1
 
 
-def init_state_inputs_channel(ns, state_inputs, scheduler, node: NodeBase):
+def init_state_inputs_channel(ns, state_inputs, scheduler, node):
     if len(state_inputs) > 0:
         channels = []
         for s in state_inputs:
@@ -663,7 +662,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node: NodeBase):
         return rx.never().pipe(ops.start_with(dict()))
 
 
-def init_state_resets(ns, state_inputs, trigger, scheduler, node: NodeBase):
+def init_state_resets(ns, state_inputs, trigger, scheduler, node):
     if len(state_inputs) > 0:
         channels = []
         for s in state_inputs:
@@ -694,7 +693,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node: NodeBase):
         return rx.never().pipe(ops.start_with(dict()))
 
 
-def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, state_outputs, outputs, scheduler, node: NodeBase):
+def init_callback_pipeline(ns, cb_tick, cb_ft, stream, real_reset, targets, state_outputs, outputs, scheduler, node):
     d_msg = []
     if real_reset:
         target_stream = init_target_channel(targets, scheduler, node)
@@ -881,7 +880,7 @@ def switch_with_check_pipeline(init_ho=None):
     return check, stream, stream_ho
 
 
-def node_reset_flags(ns, node_flags, node: NodeBase):
+def node_reset_flags(ns, node_flags, node):
     flags = [nf['msg'].pipe(flag_dict(nf['name']), spy('has_reset', node), ops.start_with({nf['name']: False})) for nf in node_flags]
     init_dict = dict()
     for nf in node_flags:
@@ -912,7 +911,7 @@ def filter_dict_on_key(key):
     return _filter_dict_on_key
 
 
-def throttle_with_time(dt, node: NodeBase):
+def throttle_with_time(dt, node):
     def _throttle_with_time(source):
         def subscribe(observer, scheduler=None):
             next_tick = [None]
@@ -943,7 +942,7 @@ def throttle_with_time(dt, node: NodeBase):
     return _throttle_with_time
 
 
-def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node: NodeBase):
+def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node):
     if is_reactive and real_time_factor == 0:
         Nct = Nc
     else:
@@ -960,7 +959,7 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, n
     return Nct
 
 
-def throttled_Nc(source_Nc: Observable, is_reactive, rate_node: float, node: NodeBase, rate_tol: float = 0.95, log_level: int = WARN):
+def throttled_Nc(source_Nc: Observable, is_reactive, rate_node: float, node, rate_tol: float = 0.95, log_level: int = WARN):
     node_name = node.ns_name
     color = 'red'  # node.color
     print_mode = node.print_mode

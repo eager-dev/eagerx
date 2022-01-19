@@ -1,17 +1,35 @@
-# ROS packages required
 import rospy
-from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
+launch_roscore()  # First launch roscore
+rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+
+# ROS packages required
+from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 from eagerx_core.converters import Identity
 from eagerx_bridge_test.converters import RosString_RosUInt64, RosImage_RosUInt64
 from yaml import dump
 
-if __name__ == '__main__':
-    roscore = launch_roscore()  # First launch roscore
+from eagerx_core.entities import Node, SimNode, Bridge
+import eagerx_bridge_test.nodes
+import eagerx_bridge_test.bridge
 
-    rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
+if __name__ == '__main__':
+    # todo: implement templates, check_specs, pre_makes (make use of templates?)
+    # todo: How to pass through node args to space_converter of observation
+    # todo: render node does not work for test bridge. Why does display change to True?
+    # todo: How to infer msg_types from node class?
+    # todo: add space_converter to bridge state
+    # todo: Create spec functions for all entities
+    # todo: Create spec checks for all entities (e.g. no entry is "None"--> all ros_compatible)
+    # todo: Create all <Entity>Templates
+    # todo: Create simstates entity
+    # todo: implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
+    tmp = Node.get_spec('process')
+    bridge = Bridge.make('test_bridge', 10)
+    N1 = Node.make('process', 'N1')
+    sim_act = SimNode.make('sim_actuator', 'sim_act')
 
     # Define converter (optional)
     RosString_RosUInt64 = RosString_RosUInt64(test_arg='test')

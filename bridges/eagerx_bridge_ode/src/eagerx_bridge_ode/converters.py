@@ -2,7 +2,7 @@
 from std_msgs.msg import Float32MultiArray
 
 # RX IMPORTS
-from eagerx_core.converters import SpaceConverter, BaseProcessor
+from eagerx_core.converters import SpaceConverter, Processor
 import numpy as np
 from gym.spaces import Box
 
@@ -29,7 +29,7 @@ class Space_RosFloat32MultiArray(SpaceConverter):
     def B_to_A(self, msg):
         return np.squeeze(msg.data)
 
-class AngleDecomposition(BaseProcessor):
+class AngleDecomposition(Processor):
     MSG_TYPE = Float32MultiArray
 
     def __init__(self, angle_idx=0):
@@ -44,7 +44,7 @@ class AngleDecomposition(BaseProcessor):
         new_data = np.concatenate((new_data, data[self.angle_idx+1:]))
         return Float32MultiArray(data=new_data)
 
-class AngleNormalization(BaseProcessor):
+class AngleNormalization(Processor):
     MSG_TYPE = Float32MultiArray
 
     def __init__(self, angle_idx=0):

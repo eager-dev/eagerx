@@ -1,38 +1,5 @@
-from eagerx_core.utils.utils import check_valid_rosparam_type
-from copy import deepcopy
-import inspect
+from eagerx_core.entities import BaseConverter
 import abc
-
-
-class BaseConverter(object):
-    """
-    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
-    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
-    """
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, *args, **kwargs):
-        self.yaml_args = kwargs
-        argspec = inspect.getfullargspec(self.__init__).args
-        argspec.remove('self')
-        for key, value in zip(argspec, args):
-            self.yaml_args[key] = value
-        check_valid_rosparam_type(self.yaml_args)
-
-    def get_yaml_definition(self):
-        converter_type = self.__module__ + '/' + self.__class__.__name__
-        yaml_dict = dict(converter_type=converter_type)
-        yaml_dict.update(deepcopy(self.yaml_args))
-        return yaml_dict
-
-    @abc.abstractmethod
-    def convert(self, msg):
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def get_opposite_msg_type(cls, msg_type):
-        pass
 
 
 class Converter(BaseConverter):
@@ -101,7 +68,7 @@ class Identity(BaseConverter):
         return msg
 
 
-class BaseProcessor(BaseConverter):
+class Processor(BaseConverter):
     """
     Use this processor if the converted msg type is one-way and the msg_type after conversion is equal to
     the msg_type before conversion. In addition, make sure to specify the static attribute "MSG_TYPE".

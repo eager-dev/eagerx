@@ -7,7 +7,8 @@ from std_msgs.msg import UInt64, String, Bool
 
 # EAGERx IMPORTS
 from eagerx_core.utils.utils import return_typehint, Msg
-from eagerx_core.nodes import Node, SimNode
+from eagerx_core.entities import Node, SimNode
+from eagerx_core.registration import register
 
 
 class RealResetNode(Node):
@@ -20,6 +21,12 @@ class RealResetNode(Node):
 
     def __init__(self, test_arg, **kwargs):
         super().__init__(**kwargs)
+
+    @staticmethod
+    @register('realreset', Node)
+    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+              color='white', test_arg='changed'):
+        return template
 
     def reset(self, state_1: Optional[UInt64] = None) -> None:
         return
@@ -61,7 +68,7 @@ class RealResetNode(Node):
         return output_msgs
 
 
-class ProcessNode(SimNode):
+class TestNode(SimNode):
     msg_types = {'inputs': {'in_1': UInt64,
                             'in_2': UInt64,
                             'in_3': String,
@@ -107,3 +114,35 @@ class ProcessNode(SimNode):
             name = i['name']
             output_msgs[name] = UInt64(data=Nc)
         return output_msgs
+
+
+class ProcessNode(TestNode):
+    @staticmethod
+    @register('process', Node)
+    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+              color='white', test_arg='changed'):
+        return template
+
+
+class KalmanNode(TestNode):
+    @staticmethod
+    @register('kf', Node)
+    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+              color='white', test_arg='changed'):
+        return template
+
+
+class SimActuator(TestNode):
+    @staticmethod
+    @register('sim_actuator', SimNode)
+    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+              color='white', test_arg='changed'):
+        return template
+
+
+class SimSensor(TestNode):
+    @staticmethod
+    @register('sim_sensor', SimNode)
+    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+              color='white', test_arg='changed'):
+        return template
