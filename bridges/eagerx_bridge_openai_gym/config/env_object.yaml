@@ -1,9 +1,11 @@
 default:
-  sensors: [observation, reward, done, image]
+  sensors: [observation, reward, done]
   actuators: [action]
   gym_id: 'Pendulum-v1'
   rate: 20
   always_render: False
+  zero_action: 'not_defined'
+  render_shape: [200, 200]
 
 #########################
 ## Agnostic definition ##
@@ -36,7 +38,7 @@ sensors: # inputs of env
       converter_type: eagerx_bridge_openai_gym.converters/SpaceImage
       low: 0
       high: 1
-      shape: [28, 28, 3]
+      shape: $(default render_shape)
       dtype: 'float32'
 
 actuators: # outputs of env
@@ -73,7 +75,7 @@ eagerx_bridge_openai_gym/bridge:
       outputs: [image]
       color: cyan
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
-      shape: [28, 28]
+      shape: $(default render_shape)
 
   actuators:  # Inputs as defined above
     action:
@@ -81,3 +83,4 @@ eagerx_bridge_openai_gym/bridge:
       inputs: {action: } # actuator input mapping to sim_node input name inside node_config
       color: green
       process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      zero_action: $(default zero_action)

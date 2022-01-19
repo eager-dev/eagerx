@@ -1,0 +1,335 @@
+connects:
+- - - env/actions
+    - outputs
+    - action
+  - - pendulum
+    - actuators
+    - action
+- - - pendulum
+    - sensors
+    - observation
+  - - env/observations
+    - inputs
+    - observation
+nodes:
+  env/actions:
+    default:
+      default:
+        color: red
+        config_name: actions
+        inputs:
+        - observations_set
+        - step
+        name: env/actions
+        outputs:
+        - set
+        package_name: eagerx_core
+        process: 1
+        rate: 1
+      inputs:
+        observations_set:
+          address: env/observations/outputs/set
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/UInt64
+          rate: null
+          space_converter: null
+          window: 0
+        step:
+          address: env/supervisor/outputs/step
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/UInt64
+          rate: null
+          space_converter: null
+          window: 0
+      node_type: eagerx_core.nodes/ActionsNode
+      outputs:
+        set:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/UInt64
+          space_converter: null
+          start_with_msg: true
+    params:
+      default:
+        color: red
+        config_name: actions
+        inputs:
+        - observations_set
+        - step
+        name: env/actions
+        outputs:
+        - set
+        - action
+        package_name: eagerx_core
+        process: 1
+        rate: 1.0
+      inputs:
+        observations_set:
+          address: env/observations/outputs/set
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/UInt64
+          rate: null
+          space_converter: null
+          window: 0
+        step:
+          address: env/supervisor/outputs/step
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/UInt64
+          rate: null
+          space_converter: null
+          window: 0
+      node_type: eagerx_core.nodes/ActionsNode
+      outputs:
+        action:
+          converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3
+            low:
+            - -3
+          msg_type: numpy/ndarray
+          space_converter: null
+          start_with_msg: false
+        set:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/UInt64
+          space_converter: null
+          start_with_msg: true
+    pos:
+    - 34.927199999999885
+    - -3.175200000000018
+  env/observations:
+    default:
+      default:
+        color: yellow
+        config_name: observations
+        inputs:
+        - actions_set
+        log_level: 10
+        name: env/observations
+        outputs:
+        - set
+        package_name: eagerx_core
+        process: 1
+        rate: 1
+      inputs:
+        actions_set:
+          address: env/actions/outputs/set
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/UInt64
+          rate: null
+          space_converter: null
+          window: 0
+      node_type: eagerx_core.nodes/ObservationsNode
+      outputs:
+        set:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/UInt64
+          space_converter: null
+          start_with_msg: false
+    params:
+      default:
+        color: yellow
+        config_name: observations
+        inputs:
+        - actions_set
+        - observation
+        log_level: 10
+        name: env/observations
+        outputs:
+        - set
+        package_name: eagerx_core
+        process: 1
+        rate: 1.0
+      inputs:
+        actions_set:
+          address: env/actions/outputs/set
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/UInt64
+          rate: null
+          space_converter: null
+          window: 0
+        observation:
+          converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3.1415926536
+            low:
+            - -3.1415926536
+          delay: 0.0
+          is_reactive: true
+          msg_type: numpy/ndarray
+          rate: null
+          space_converter: null
+          window: 0
+      node_type: eagerx_core.nodes/ObservationsNode
+      outputs:
+        set:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/UInt64
+          space_converter: null
+          start_with_msg: false
+    pos:
+    - 600.0
+    - 0.0
+  pendulum:
+    default:
+      actuators:
+        action:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/Float32MultiArray
+          rate: $(default rate)
+          space_converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3
+            low:
+            - -3
+          window: 0
+      default:
+        actuators:
+        - action
+        config_name: pendulum
+        name: pendulum
+        package_name: eagerx_bridge_ode
+        rate: 30
+        sensors:
+        - observation
+        states:
+        - state
+      eagerx_bridge_ode/bridge:
+        actuators:
+          action:
+            inputs:
+              action: null
+            node_config: eagerx_bridge_ode/action
+        ode: eagerx_bridge_ode.ode/eom_pendulum
+        sensors:
+          observation:
+            node_config: eagerx_bridge_ode/observation
+            outputs:
+            - observation
+        states:
+          state:
+            state_type: eagerx_bridge_ode.simstates/OdeSimState
+      sensors:
+        observation:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/Float32MultiArray
+          rate: $(default rate)
+          space_converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3.1415926536
+            low:
+            - -3.1415926536
+          start_with_msg: false
+      states:
+        state:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/Float32MultiArray
+          space_converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3.1415926536
+            - 999
+            low:
+            - -3.1415926536
+            - -999
+    params:
+      actuators:
+        action:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          delay: 0.0
+          is_reactive: true
+          msg_type: std_msgs.msg/Float32MultiArray
+          rate: $(default rate)
+          space_converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3
+            low:
+            - -3
+          window: 0
+      default:
+        actuators:
+        - action
+        config_name: pendulum
+        name: pendulum
+        package_name: eagerx_bridge_ode
+        rate: 30
+        sensors:
+        - observation
+        states:
+        - state
+      eagerx_bridge_ode/bridge:
+        actuators:
+          action:
+            inputs:
+              action: null
+            node_config: eagerx_bridge_ode/action
+        ode: eagerx_bridge_ode.ode/eom_pendulum
+        sensors:
+          observation:
+            node_config: eagerx_bridge_ode/observation
+            outputs:
+            - observation
+        states:
+          state:
+            state_type: eagerx_bridge_ode.simstates/OdeSimState
+      sensors:
+        observation:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/Float32MultiArray
+          rate: $(default rate)
+          space_converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3.1415926536
+            low:
+            - -3.1415926536
+          start_with_msg: false
+      states:
+        state:
+          converter:
+            converter_type: eagerx_core.converters/Identity
+          msg_type: std_msgs.msg/Float32MultiArray
+          space_converter:
+            converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+            high:
+            - 3.1415926536
+            - 999
+            low:
+            - -3.1415926536
+            - -999
+    pos:
+    - 364.84202751999993
+    - 76.47678182400004

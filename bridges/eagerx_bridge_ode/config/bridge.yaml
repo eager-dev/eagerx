@@ -1,0 +1,21 @@
+node_type: eagerx_bridge_ode.bridge/OdeBridge
+default:
+  rate:
+  outputs: [tick]
+  process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+  launch_file: '$(find eagerx_core)/launch/rxbridge.launch'
+  color: magenta
+  log_level: 30  # {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}
+  is_reactive: True
+  real_time_factor: 0  # 0 == as fast as possible
+  rtol: 2e-8  # The input parameters rtol and atol determine the error control performed by the solver.
+  simulate_delays: True
+  atol: 2e-8  # The input parameters rtol and atol determine the error control performed by the solver.
+  hmax: 0.0  # The maximum absolute step size allowed.
+  hmin: 0.0  # The minimum absolute step size allowed.
+  mxstep: 0  # Maximum number of (internally defined) steps allowed for each integration point in t.
+
+
+outputs:
+  tick:
+    msg_type: std_msgs.msg/UInt64

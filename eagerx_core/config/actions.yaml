@@ -17,4 +17,3 @@ inputs:
 outputs:
   set:
     msg_type: std_msgs.msg/UInt64
-    start_with_msg: True

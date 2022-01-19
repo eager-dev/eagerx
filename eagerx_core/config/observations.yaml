@@ -11,6 +11,7 @@ inputs:
     address: env/actions/outputs/set
     msg_type: std_msgs.msg/UInt64
     window: 0
+    skip: True
 outputs:
   set:
     msg_type: std_msgs.msg/UInt64

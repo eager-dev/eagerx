@@ -49,6 +49,8 @@ class SpaceImage(SpaceConverter):
 
     def __init__(self, low=None, high=None, shape=None, dtype='float32'):
         super().__init__(low, high, shape, dtype)
+        if shape is not None and len(shape) == 2:
+            shape = shape.append(3)
         self.low = low
         self.high = high
         if isinstance(low, list):

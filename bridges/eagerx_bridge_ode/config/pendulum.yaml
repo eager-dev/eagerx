@@ -1,0 +1,64 @@
+default:
+  sensors: [observation]
+  actuators: [action]
+  states: [model_state]
+  rate: 30
+  always_render: False
+
+#########################
+## Agnostic definition ##
+#########################
+sensors: # inputs of ode
+  observation:
+    rate: $(default rate)
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3.14159265359, -9 ]
+      high: [ 3.14159265359, 9 ]
+  image:
+    rate: $(default rate)
+    msg_type: sensor_msgs.msg/Image
+
+actuators: # outputs of ode
+  action:
+    rate: $(default rate)
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3 ]
+      high: [ 3 ]
+
+states:  # reset states inside bridge
+  model_state:
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [ -3.14159265359, -9 ]
+      high: [ 3.14159265359, 9 ]
+
+#########################
+### Engine definition ###
+#########################
+eagerx_bridge_ode/bridge:
+  ode: eagerx_bridge_ode.ode/eom_pendulum
+  sensors:
+    observation:
+      node_config: eagerx_bridge_ode/observation # These nodes cannot have an internal state
+      outputs: [observation]
+
+    image:
+      node_config: eagerx_bridge_ode/render # These nodes cannot have an internal state
+      outputs: [ image ]
+      color: cyan
+      process: 2  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      shape: [ 480, 480 ]
+
+  actuators:  # Inputs as defined above
+    action:
+      node_config: eagerx_bridge_ode/action
+      inputs: {action: } # actuator input mapping to sim_node input name inside node_config
+
+  states:
+    model_state:
+      state_type: eagerx_bridge_ode.simstates/OdeSimState

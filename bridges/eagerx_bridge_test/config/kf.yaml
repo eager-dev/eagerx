@@ -29,7 +29,6 @@ inputs:
 outputs:
   out_1:
     msg_type: std_msgs.msg/UInt64
-    start_with_msg: True
     space_converter:
       converter_type: eagerx_bridge_test.converters/Space_RosUInt64
       dtype: uint64

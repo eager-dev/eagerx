@@ -3,12 +3,6 @@ from copy import deepcopy
 import inspect
 import abc
 
-# Converter specific
-from std_msgs.msg import UInt64, String
-from sensor_msgs.msg import Image
-import numpy as np
-from gym.spaces import Box
-
 
 class BaseConverter(object):
     """

@@ -1,7 +1,7 @@
 import abc
 import os
 import time
-from typing import  Optional
+from typing import Optional, Dict, Any, Union, List
 from tabulate import tabulate
 import logging
 
@@ -14,18 +14,46 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
-from eagerx_core.constants import TERMCOLOR, ERROR, INFO, DEBUG, SILENT
-from eagerx_core.utils.utils import initialize_converter, return_typehint, Msg
+from eagerx_core.rxmessage_broker import RxMessageBroker
+from eagerx_core.constants import TERMCOLOR, ERROR, SILENT  # , INFO, DEBUG
+from eagerx_core.utils.utils import initialize_converter, Msg
 from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 
 class NodeBase:
-    def __init__(self, ns, message_broker, name, config_name, package_name, node_type, rate, process,
-                 inputs, outputs, states, feedthroughs,  targets, is_reactive, real_time_factor, launch_file=None,
-                 color='grey', print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT):
+    def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, config_name: str, package_name: str,
+                 node_type: str, rate: float, process: int, inputs: List[Dict], outputs: List[Dict], states: List[Dict],
+                 feedthroughs: List[Dict], targets: List[Dict], is_reactive: bool, real_time_factor: float,
+                 simulate_delays: bool, launch_file=None, color: str = 'grey', print_mode: int = TERMCOLOR, log_level:
+                 int = ERROR, log_level_memory: int = SILENT):
         """
+        The base class from which all (simulation) nodes and bridges inherit.
+
         All parameters that were uploaded via RxNodeParams.get_params(ns=..) to the rosparam server are stored in this object.
-        Optional arguments are added, and may not necessarily be uploaded via the rosparam server.
+
+        Optional arguments are added, and may not necessarily be uploaded to the rosparam server.
+
+        :param ns: Namespace of the environment. Corresponds to argument "name" provided to eagerx_core.rxenv.RxEnv.
+        :param message_broker: Responsible for all I/O communication within this process. Node possibly share the same message broker.
+        :param name: User specified node name.
+        :param config_name: Config file name. Relates to <package_name>/config/../<config_name>.yaml
+        :param package_name: ROS package name. Relates to <package_name>/config/../<config_name>.yaml
+        :param node_type: The python implementation used by this node. Follows naming convention <module>/<NodeClassName>
+        :param rate: Rate at which this node's callback is run.
+        :param process: Process in which this node is launched. See :func:`~eagerx_core.constants.process` for all options.
+        :param inputs: List of dicts containing the parameters of each input as specified in the <package_name>/config/../<config_name>.yaml.
+        :param outputs: List of dicts containing the parameters of each output as specified in the <package_name>/config/../<config_name>.yaml.
+        :param states: List of dicts containing the parameters of each state as specified in the <package_name>/config/../<config_name>.yaml.
+        :param feedthroughs: List of dicts containing the parameters of each feedthrough.
+        :param targets: List of dicts containing the parameters of each target as specified in the <package_name>/config/../<config_name>.yaml.
+        :param is_reactive: Boolean flag. Specifies whether we run reactive or asynchronous.
+        :param real_time_factor: Sets an upper bound of real_time factor. Wall-clock rate=real_time_factor*rate. If real_time_factor < 1 the simulation is slower than real time.
+        :param simulate_delays: Simulate delays. You probably want to set this to False if running in the real-world.
+        :param launch_file:
+        :param color: A color specifying the color of logged messages & node color in the GUI.
+        :param print_mode: Specifies the different methods for printing. See :func:`~eagerx_core.constants` for all print modes.
+        :param log_level: Overall log level of this node. See :func:`~eagerx_core.constants` for all log levels.
+        :param log_level_memory: Log level of memory diagnostics. See :func:`~eagerx_core.constants` for all log levels.
         """
         self.ns = ns
         self.name = name
@@ -44,6 +72,7 @@ class NodeBase:
         self.targets = targets
         self.is_reactive = is_reactive
         self.real_time_factor = real_time_factor
+        self.simulate_delays = simulate_delays
         self.color = color
         self.print_mode = print_mode
         self.log_level = log_level
@@ -57,13 +86,29 @@ class NodeBase:
 
 class Node(NodeBase):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         """
-        All arguments, in addition to the arguments to NodeBase, must be added here as (optional) args.
-        Not specifying them here as argument in the constructor will raise an error.
-        Make sure to pass down all required arguments to NodeBase.
-        """
+        The node base class from which all nodes must inherit.
 
+        Users are only expected to interact with the constructor & abstract methods of this class.
+
+        Note that all node subclasses must:
+        - Implement the abstract methods
+        - Pass down all arguments (possibly inside kwargs), that are required by the node baseclass' constructor (NodeBase).
+        - Define a static property that specifies the msg_type for every input, output, state and/or target.
+
+        Example of such a static property:
+        msg_types = {'inputs': {'in_1': UInt64,
+                                'in_2': UInt64,
+                                'in_3': String,
+                                'tick': UInt64},
+                     'outputs': {'out_1': UInt64,
+                                 'out_2': UInt64},
+                     'states': {'state_1': UInt64,
+                                'state_2': UInt64}}
+
+        :param kwargs: Arguments that are to be passed down to the baseclass. See NodeBase for this.
+        """
+        super().__init__(**kwargs)
         # Message counter
         self.num_ticks = 0
 
@@ -126,40 +171,109 @@ class Node(NodeBase):
         self.num_ticks += 1
         return output
 
+    def set_delay(self, delay: float, component: str, cname: str):
+        assert delay >= 0, 'Delay must be non-negative.'
+        for i in getattr(self, component):
+            if i['name'] == cname:
+                i['delay'] = delay
+
     @abc.abstractmethod
-    def reset(self, **kwargs: Optional[Message]) -> return_typehint(Message, done=True):
+    def reset(self, **kwargs: Optional[Message]):
         """
-        All states in the .yaml must be defined as optional arguments in the node subclass.
-        If additional states may be specified later-on (not yet specified in yaml), then **kwargs must remain in the
-        reset signature of the subclass.
-        Additional states can then be found in the **kwargs object.
+        A method to reset this simulation node.
+
+        Could be used to:
+        - reset the internal state of this node if it has one.
+
+        :param kwargs: Optionally the node states if any are defined in the node_ros_package/config/<node>.yaml.
+        :return None
         """
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]) -> return_typehint(Message, done=True):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Union[Message, Bool]]:
         """
-        All inputs in the .yaml must be defined as optional arguments in the node subclass.
-        If an input is required, add an assert that checks that input is not None.
-        If additional inputs may be specified later-on (not yet specified in yaml), then **kwargs must remain in the
-        callback signature of the subclass.
-        Additional inputs can then be found in the **kwargs object.
+        The node callback that is performed at the specified node rate.
+
+        All inputs specified in the package/config/<node>.yaml must be defined as optional arguments to this callback method.
+
+        :param node_tick: The number of times this callback has run since the last reset.
+        :param t_n: Time passed since last reset according to the provided rate (t_n = node_tick * 1/self.rate).
+        :param kwargs: All selected inputs specified in package/config/<object>.yaml under <bridge>/<component>/<cname>.
+        :return: A dict containing output messages.
         """
         pass
 
 
 class SimNode(Node):
-    def __init__(self, simulator=None, object_params=None, **kwargs):
+    """
+    The simulation node baseclass from which all nodes, used to simulate sensors/actuators, must inherit.
+
+    Users are only expected to interact with the constructor & abstract methods of this class.
+
+    Note that all simulation node subclasses must:
+     - Implement the abstract methods
+     - Create a (placeholder) simulator object, that is passed down to the baseclass' constructor.
+     - Pass down all arguments (possibly inside kwargs), that are required by the node baseclasses' constructor (see Node, NodeBase).
+     - Define a static property that specifies the msg_type for every input, output, state and/or target.
+
+    Example of such a static property:
+    msg_types = {'inputs': {'in_1': UInt64,
+                            'in_2': UInt64,
+                            'in_3': String,
+                            'tick': UInt64},
+                 'outputs': {'out_1': UInt64,
+                             'out_2': UInt64},
+                 'states': {'state_1': UInt64,
+                            'state_2': UInt64}}
+
+    For more info see baseclasses Node and NodeBase.
+    """
+    def __init__(self, simulator: Any = None, object_params: Dict = None, **kwargs):
+        """
+        Simulation node class constructor.
+
+        Note: This node only has access to the object_params & simulator if the node is launched inside the same
+        process as the bridge.
+
+        :param simulator: Simulator object. Passed along by the bridge if the node is launched inside the bridge process.
+        :param object_params: A dictionary containing the following: First, all the parameters defined under "default"
+        in the package/config/<object>.yaml. Secondly, it contains all object parameters that are specific for this bridge
+        implementation under the keyword 'bridge". These are the parameters defined under "<bridge>" in the object_package/config/<object>.yaml.
+        :param kwargs: Arguments that are to be passed down to the baseclass. See Node & NodeBase for this.
+        """
         self.simulator = simulator
         self.object_params = object_params
         super().__init__(**kwargs)
 
     @abc.abstractmethod
-    def reset(self, **kwargs: Optional[Message]):
+    def reset(self, **kwargs: Optional[Message]) -> Optional[Dict[str, Message]]:
+        """
+        A method to reset this simulation node.
+
+        Could be used to:
+        - reset the internal state of a sensor/actuator.
+
+        Important: Be careful to define states for simulation nodes, as you risk making your environment non-agnostic.
+        Instead, always try to implement states of the environment as states of objects (i.e. inside the object's .yaml).
+
+        :param kwargs: Optionally the node states if any are defined in the node_ros_package/config/<node>.yaml.
+        :return None
+        """
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
+    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Message]:
+        """
+        The simulation node callback that is performed at the specified node rate.
+
+        All inputs specified in the package/config/<simnode>.yaml must be defined as optional arguments to this callback method.
+
+        :param node_tick: The number of times this callback has run since the last reset.
+        :param t_n: Time passed since last reset according to the provided rate (t_n = node_tick * 1/self.rate).
+        :param kwargs: All selected inputs specified in package/config/<object>.yaml under <bridge>/<component>/<cname>.
+        :return: A dict containing output messages.
+        """
         pass
 
 
@@ -181,7 +295,7 @@ class ObservationsNode(Node):
                 converter = i['converter']
             else:
                 converter = None
-            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter}
+            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter, 'window': i['window']}
 
     def reset(self):
         # Set all messages to None
@@ -252,6 +366,7 @@ class RenderNode(Node):
 
     def _set_render_toggle(self, msg):
         if msg.data:
+
             rospy.loginfo('START RENDERING!')
         else:
             rospy.loginfo('STOP RENDERING!')
@@ -264,13 +379,23 @@ class RenderNode(Node):
         self.last_image = Image()
 
     def callback(self, node_tick: int, t_n: float, image: Optional[Msg] = None):
-        self.last_image = image.msgs[-1]
+        if len(image.msgs) > 0:
+            self.last_image = image.msgs[-1]
         if self.display and self.render_toggle:
             try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image)
+                try:
+                    cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, 'bgr8')
+                except ImportError as e:
+                    rospy.logwarn_once('[%s] %s. Using numpy instead.' % (self.ns_name, e))
+                    if isinstance(self.last_image.data, bytes):
+                        cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
+                    else:
+                        cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
+                    if 'rgb' in self.last_image.encoding:
+                        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
             except CvBridgeError as e:
                 rospy.logwarn(e)
-                return dict(done=UInt64)
+                return dict(done=UInt64())
             cv2.imshow('Render', cv_image)
             cv2.waitKey(1)
             self.window_closed = False
@@ -279,5 +404,5 @@ class RenderNode(Node):
             self.window_closed = True
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=UInt64)
+        output_msgs = dict(done=UInt64())
         return output_msgs

@@ -1,6 +1,9 @@
 # OTHER
 from typing import Optional, Dict, Union, List
-import gym
+
+import numpy as np
+from math import fmod
+from scipy.integrate import odeint
 
 # ROS IMPORTS
 import rospy
@@ -8,16 +11,17 @@ from std_msgs.msg import UInt64
 from genpy.message import Message
 
 # RX IMPORTS
-from eagerx_core.utils.utils import Msg
+from eagerx_core.utils.utils import Msg, get_attribute_from_module
 from eagerx_core.bridge import BridgeBase
 
 
-class GymBridge(BridgeBase):
-    msg_types = {'outputs': {'tick': UInt64},
-                 'states': {}}
+class OdeBridge(BridgeBase):
+    msg_types = {'outputs': {'tick': UInt64}}
 
-    def __init__(self, **kwargs):
+    def __init__(self, rtol, atol, hmax, hmin, mxstep, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
+        self.odeint_args = dict(rtol=rtol, atol=atol, hmax=hmax, hmin=hmin, mxstep=mxstep)
+
         simulator = dict()
         super().__init__(simulator=simulator, **kwargs)
 
@@ -28,27 +32,23 @@ class GymBridge(BridgeBase):
 
         # Extract relevant object_params
         obj_name = object_params['name']
-        id = object_params['gym_id']
+        ode = get_attribute_from_module(object_params['bridge']['ode'])
+        Dfun = get_attribute_from_module(object_params['bridge']['Dfun']) if 'Dfun' in object_params else None
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(env=gym.make(id), buffer_obs=[], buffer_reward=None, buffer_done=None, next_action=None)
+        self.simulator[obj_name] = dict(ode=ode, Dfun=Dfun, state=None, input=None)
         return object_params
 
     def pre_reset(self, **kwargs: Optional[Msg]):
         pass
 
     def reset(self, **kwargs: Optional[Msg]):
-        for obj_name, sim in self.simulator.items():
-            obs = sim['env'].reset()
-            # sim['buffer_obs'].append(obs)
-            sim['buffer_obs'] = [obs]
-            sim['buffer_reward'] = []
-            sim['buffer_done'] = []
+        pass
 
     def callback(self, node_tick: int, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
         for obj_name, sim in self.simulator.items():
-            next_action = sim['next_action']
-            obs, reward, is_done, _ = sim['env'].step(next_action)
-            sim['buffer_obs'].append(obs)
-            sim['buffer_reward'].append(reward)
-            sim['buffer_done'].append(is_done)
+            input = sim['input']
+            ode = sim['ode']
+            Dfun = sim['Dfun']
+            x = sim['state']
+            sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input,), Dfun=Dfun, **self.odeint_args)[-1]
