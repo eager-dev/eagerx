@@ -8,14 +8,21 @@ from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 from eagerx_core.converters import Identity
-from eagerx_bridge_test.converters import RosString_RosUInt64, RosImage_RosUInt64
 from yaml import dump
 
-from eagerx_core.entities import Node, SimNode, Bridge
+from eagerx_core.entities import Object, Node, SimNode, Bridge, Converter, SpaceConverter, Processor, BaseConverter
 import eagerx_bridge_test.nodes
 import eagerx_bridge_test.bridge
+import eagerx_bridge_test.converters
 
 if __name__ == '__main__':
+    # Process configuration (optional)
+    node_p = process.ENVIRONMENT
+    bridge_p = process.ENVIRONMENT
+    rate = 7
+
+    # todo: if you want to create a engine-specific definition, infer required args from bridge.
+    # todo: create a "ros_compatible" and "yaml_compatible" wrapper for all parameter fns.
     # todo: implement templates, check_specs, pre_makes (make use of templates?)
     # todo: How to pass through node args to space_converter of observation
     # todo: render node does not work for test bridge. Why does display change to True?
@@ -25,20 +32,23 @@ if __name__ == '__main__':
     # todo: Create spec checks for all entities (e.g. no entry is "None"--> all ros_compatible)
     # todo: Create all <Entity>Templates
     # todo: Create simstates entity
+    # todo: rename .get_params(ns) to templates, and rename to "build"
+    # todo: convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
     # todo: implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
-    tmp = Node.get_spec('process')
-    bridge = Bridge.make('test_bridge', 10)
-    N1 = Node.make('process', 'N1')
-    sim_act = SimNode.make('sim_actuator', 'sim_act')
+    bridge = Bridge.make('TestBridge', 20)
+    N1 = Node.make('Process', 'N1')
+    N3 = Node.make('RealReset', 'N3', rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
+    KF = Node.make('KalmanFilter', 'KF', rate, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
+    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
 
     # Define converter (optional)
+    RosString_RosUInt64 = Converter.make('RosString_RosUInt64', test_arg='test')
+    RosImage_RosUInt64 = Converter.make('RosImage_RosUInt64', test_arg='test')
+
+    # Old
+    from eagerx_bridge_test.converters import RosString_RosUInt64, RosImage_RosUInt64
     RosString_RosUInt64 = RosString_RosUInt64(test_arg='test')
     RosImage_RosUInt64 = RosImage_RosUInt64(test_arg='test')
-
-    # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
-    rate = 7
 
     # Define nodes
     N1 = RxNode.create('N1', 'eagerx_bridge_test', 'process',   rate=1.0, process=node_p)

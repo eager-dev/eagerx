@@ -13,7 +13,7 @@ from eagerx_core.rxnode import RxNode
 import eagerx_core.rxmessage_broker
 import eagerx_core.rxoperators
 import eagerx_core.rxpipelines
-from eagerx_core.entities import NodeBase
+from eagerx_core.entities import BaseNode
 from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, get_opposite_msg_cls
 from eagerx_core.utils.node_utils import initialize_nodes
@@ -25,7 +25,7 @@ import eagerx_core
 from threading import Event
 
 
-class SupervisorNode(NodeBase):
+class SupervisorNode(BaseNode):
     msg_types = {'outputs': {'step': UInt64}}
 
     def __init__(self, ns, states, **kwargs):

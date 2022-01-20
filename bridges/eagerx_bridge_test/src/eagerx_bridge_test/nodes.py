@@ -23,10 +23,10 @@ class RealResetNode(Node):
         super().__init__(**kwargs)
 
     @staticmethod
-    @register('realreset', Node)
-    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+    @register('RealReset', Node)
+    def spec(spec, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
               color='white', test_arg='changed'):
-        return template
+        return spec
 
     def reset(self, state_1: Optional[UInt64] = None) -> None:
         return
@@ -118,31 +118,31 @@ class TestNode(SimNode):
 
 class ProcessNode(TestNode):
     @staticmethod
-    @register('process', Node)
-    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+    @register('Process', Node)
+    def spec(spec, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
               color='white', test_arg='changed'):
-        return template
+        return spec
 
 
 class KalmanNode(TestNode):
     @staticmethod
-    @register('kf', Node)
-    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+    @register('KalmanFilter', Node)
+    def spec(spec, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
               color='white', test_arg='changed'):
-        return template
+        return spec
 
 
 class SimActuator(TestNode):
     @staticmethod
-    @register('sim_actuator', SimNode)
-    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+    @register('SimActuator', SimNode)
+    def spec(spec, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
               color='white', test_arg='changed'):
-        return template
+        return spec
 
 
 class SimSensor(TestNode):
     @staticmethod
-    @register('sim_sensor', SimNode)
-    def spec(template, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
+    @register('SimSensor', SimNode)
+    def spec(spec, name, rate=1, process=1, inputs=['in_1'], outputs=['out_1'], states=['state_1'],
               color='white', test_arg='changed'):
-        return template
+        return spec

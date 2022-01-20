@@ -22,7 +22,7 @@ def register(id, entity_cls):
             REGISTRY[entity_cls] = dict()
         if id in REGISTRY[entity_cls]:
             """Check if spec of duplicate id corresponds to same spec function"""
-            assert spec == REGISTRY[entity_cls][id], f'There is already a {entity_cls.__class__} with id "{id}" registered.'
+            assert spec == REGISTRY[entity_cls][id], f'There is already a {entity_cls.__name__} with id "{id}" registered.'
         REGISTRY[entity_cls][id] = spec
         return spec
     return _register

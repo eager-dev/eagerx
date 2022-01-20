@@ -1,5 +1,5 @@
-from eagerx_core.converters import SpaceConverter, Converter, Processor
-
+from eagerx_core.entities import SpaceConverter, Converter
+from eagerx_core.registration import register
 # Converter specific
 from std_msgs.msg import UInt64, String
 from sensor_msgs.msg import Image
@@ -17,6 +17,13 @@ class Space_RosUInt64(SpaceConverter):
         self.high = np.array(high)
         self.shape = shape
         self.dtype = dtype
+
+    @staticmethod
+    @register('Space_RosUInt64', SpaceConverter)
+    def spec(spec, low, high, shape=None, dtype='uint64'):
+        params = dict(low=low, high=high, shape=shape, dtype=dtype)
+        spec.set_parameters(params)
+        return spec
 
     def get_space(self):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
@@ -48,6 +55,13 @@ class Space_RosString(SpaceConverter):
         self.shape = shape
         self.dtype = dtype
 
+    @staticmethod
+    @register('Space_RosString', SpaceConverter)
+    def spec(spec, low, high, shape=None, dtype='uint64'):
+        params = dict(low=low, high=high, shape=shape, dtype=dtype)
+        spec.set_parameters(params)
+        return spec
+
     def get_space(self):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
 
@@ -66,6 +80,12 @@ class RosImage_RosUInt64(Converter):
         super().__init__(test_arg)
         self.test_arg = test_arg
 
+    @staticmethod
+    @register('RosImage_RosUInt64', Converter)
+    def spec(spec, test_arg):
+        spec.set_parameter('test_arg', test_arg)
+        return spec
+
     def A_to_B(self, msg):
         return UInt64(data=999)
 
@@ -80,6 +100,12 @@ class RosString_RosUInt64(Converter):
     def __init__(self, test_arg):
         super().__init__(test_arg)
         self.test_arg = test_arg
+
+    @staticmethod
+    @register('RosString_RosUInt64', Converter)
+    def spec(spec, test_arg):
+        spec.set_parameter('test_arg', test_arg)
+        return spec
 
     def A_to_B(self, msg):
         return UInt64(data=int(msg.data[8:]))

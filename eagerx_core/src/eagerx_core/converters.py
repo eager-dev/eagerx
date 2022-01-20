@@ -1,57 +1,5 @@
 from eagerx_core.entities import BaseConverter
-import abc
-
-
-class Converter(BaseConverter):
-    """
-    Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the
-    static attributes "MSG_TYPE_A" and "MSG_TYPE_B", such that the correct conversion method can be inferred.
-    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
-    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
-    """
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def get_opposite_msg_type(cls, msg_type):
-        if msg_type == cls.MSG_TYPE_A:
-            return cls.MSG_TYPE_B
-        elif msg_type == cls.MSG_TYPE_B:
-            return cls.MSG_TYPE_A
-        else:
-            raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
-                (msg_type, cls.MSG_TYPE_A, cls.MSG_TYPE_B))
-
-    def convert(self, msg):
-        if isinstance(msg, self.MSG_TYPE_A):
-            return self.A_to_B(msg)
-        elif isinstance(msg, self.MSG_TYPE_B):
-            return self.B_to_A(msg)
-        else:
-            raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
-                (type(msg), self.MSG_TYPE_A, self.MSG_TYPE_B))
-
-    @abc.abstractmethod
-    def A_to_B(self, msg):
-        pass
-
-    @abc.abstractmethod
-    def B_to_A(self, msg):
-        pass
-
-
-class SpaceConverter(Converter):
-    """
-    Inherit your converter from this baseclass if the converter is used for actions/observations/states,
-    such that the space can be inferred. See Converter for other abstract methods that must be implemented.
-    """
-    @abc.abstractmethod
-    def get_space(self):
-        pass
+from eagerx_core.registration import register
 
 
 class Identity(BaseConverter):
@@ -61,6 +9,11 @@ class Identity(BaseConverter):
         super().__init__()
 
     @staticmethod
+    @register('Identity', BaseConverter)
+    def spec(spec):
+        return spec
+
+    @staticmethod
     def get_opposite_msg_type(cls, msg_type):
         return msg_type
 
@@ -68,31 +21,3 @@ class Identity(BaseConverter):
         return msg
 
 
-class Processor(BaseConverter):
-    """
-    Use this processor if the converted msg type is one-way and the msg_type after conversion is equal to
-    the msg_type before conversion. In addition, make sure to specify the static attribute "MSG_TYPE".
-    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
-    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
-    """
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def get_opposite_msg_type(cls, msg_type):
-        if msg_type == cls.MSG_TYPE:
-            return cls.MSG_TYPE
-        else:
-            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(msg_type, cls.MSG_TYPE))
-
-    def convert(self, msg):
-        if isinstance(msg, self.MSG_TYPE):
-            return self._convert(msg)
-        else:
-            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(type(msg), self.MSG_TYPE))
-
-    @abc.abstractmethod
-    def _convert(self, msg):
-        pass

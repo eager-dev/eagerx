@@ -10,8 +10,7 @@ import rospy
 from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.converters import SpaceConverter
-from eagerx_core.entities import BaseConverter
+from eagerx_core.entities import BaseConverter, SpaceConverter
 
 
 class RxGraph:

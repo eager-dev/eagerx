@@ -1,10 +1,11 @@
+from typing import List, Dict, Optional, Union, Any
 import abc
 import inspect
 import logging
 import os
 import time
 from copy import deepcopy
-from typing import List, Dict, Optional, Union, Any
+from yaml import dump
 
 import numpy as np
 import psutil
@@ -15,49 +16,22 @@ from tabulate import tabulate
 
 from eagerx_core.constants import TERMCOLOR, ERROR, SILENT, process
 from eagerx_core.rxmessage_broker import RxMessageBroker
+from eagerx_core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import Msg, initialize_state, check_valid_rosparam_type
-
-
-class EntityTemplate(object):
-    def __init__(self, params):
-        self.params = params
-
-
-class NodeTemplate(EntityTemplate):
-    # todo: define mutation functions here
-    pass
-
-
-class SimNodeTemplate(EntityTemplate):
-    # todo: add assertion on adding states (could make graph engine-specific)
-    # todo: define mutation functions here
-    pass
-
-
-class BridgeTemplate(EntityTemplate):
-    pass
-
-
-class ObjectTemplate(EntityTemplate):
-    pass
-
-
-class ConverterTemplate(EntityTemplate):
-    pass
 
 
 class Entity(object):
     @classmethod
     def make(cls, id, *args, **kwargs):
         from eagerx_core import registration
-        entity = registration.make(cls, id, *args, **kwargs)
+        spec = registration.make(cls, id, *args, **kwargs)
         try:
-            cls.check_spec(entity)
+            cls.check_spec(spec)
         except AssertionError as e:
             print(e)
             raise
-        return entity
+        return spec
 
     @classmethod
     def get_spec(cls, id):
@@ -66,14 +40,14 @@ class Entity(object):
 
     @classmethod
     def pre_make(cls, entity_type):
-        return EntityTemplate(dict(entity_type=entity_type))
+        return EntitySpec(dict(entity_type=entity_type))
 
     @classmethod
     def check_spec(cls, spec):
         pass
 
 
-class NodeBase(Entity):
+class BaseNode(Entity):
     def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, config_name: str, package_name: str,
                  node_type: str, rate: float, process: int, inputs: List[Dict], outputs: List[Dict], states: List[Dict],
                  feedthroughs: List[Dict], targets: List[Dict], is_reactive: bool, real_time_factor: float,
@@ -138,19 +112,21 @@ class NodeBase(Entity):
 
     @classmethod
     def pre_make(cls, entity_type):
-        params = super().pre_make(entity_type).params
-        # todo: add all (relevant) arguments
+        spec = super().pre_make(entity_type)
+        params = spec.params
         params['node_type'] = params.pop('entity_type')
-        params['default'] = dict(name=None, rate=None, process=0, inputs=[], outputs=[], states=[], targets=[], color='grey',
+        params['default'] = dict(name=None, rate=None, process=0, inputs=[], outputs=[], states=[], color='grey',
                                  print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT)
-        return EntityTemplate(params)
+        params.update(dict(inputs=dict(), outputs=dict(), states=dict()))
+        return BaseNodeSpec(params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
+        return
 
 
-class Node(NodeBase):
+class Node(BaseNode):
     def __init__(self, **kwargs):
         """
         The node base class from which all nodes must inherit.
@@ -272,10 +248,10 @@ class Node(NodeBase):
 
     @classmethod
     def pre_make(cls, entity_type):
-        params = super().pre_make(entity_type).params
+        spec = super().pre_make(entity_type)
+        spec.set_parameter('targets', [])
         # todo: perform Node mutations on params of BaseNode
-        # from eagerx_core.params import RxNodeParams
-        return EntityTemplate(params)
+        return NodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -355,16 +331,15 @@ class SimNode(Node):
 
     @classmethod
     def pre_make(cls, entity_type):
-        params = super().pre_make(entity_type).params
-        # todo: perform SimNode mutations on params of Node
-        return SimNodeTemplate(params)
+        spec = super().pre_make(entity_type)
+        return SimNodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
 
 
-class Bridge(NodeBase):
+class Bridge(BaseNode):
     """
     The bridge baseclass from which all bridges must inherit.
 
@@ -519,14 +494,16 @@ class Bridge(NodeBase):
         return dict(tick=UInt64(data=node_tick + 1))
 
     @classmethod
-    def pre_make(cls, entity_cls):
-        params = super().pre_make(entity_cls).params
+    def pre_make(cls, entity_type):
+        spec = super().pre_make(entity_type)
+        # Set default bridge params
         default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
-                       launch_file='$(find eagerx_core)/launch/rxbridge.launch')
-        params['default'].update(default)
-        params['default']['outputs'].append('tick')
-        params['outputs'] = {'tick': {'msg_type': 'std_msgs.msg/UInt64'}}
-        return EntityTemplate(params)
+                       launch_file='$(find eagerx_core)/launch/rxbridge.launch', outputs=['tick'])
+        spec.set_parameters(default)
+
+        # Add bridge tick as output
+        spec.add_output('tick', msg_type=UInt64)
+        return BridgeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -609,13 +586,14 @@ class Bridge(NodeBase):
 class Object(Entity):
     @classmethod
     def pre_make(cls, entity_type):
-        params = super().pre_make(entity_type).params
+        spec = super().pre_make(entity_type)
+        params = spec.params
         # todo: perform Object mutations on params of Entity
         params['default'] = dict(sensors=[], actuators=[], states=[])
         params['sensors'] = dict()
         params['actuators'] = dict()
         params['states'] = dict()
-        return ObjectTemplate(params)
+        return ObjectSpec(params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -654,11 +632,122 @@ class BaseConverter(Entity):
 
     @classmethod
     def pre_make(cls, entity_type):
-        params = super().pre_make(entity_type).params
+        spec = super().pre_make(entity_type)
+        params = spec.params
         params['converter_type'] = params.pop('entity_type')
-        # todo: perform Converter mutations on params of Entity
-        # todo: add converter default arguments.
-        return ConverterTemplate(params)
+        return ConverterSpec(params)
+
+    @classmethod
+    def check_spec(cls, spec):
+        super().check_spec(spec)
+
+
+class Processor(BaseConverter):
+    """
+    Use this processor if the converted msg type is one-way and the msg_type after conversion is equal to
+    the msg_type before conversion. In addition, make sure to specify the static attribute "MSG_TYPE".
+    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
+    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
+    """
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def get_opposite_msg_type(cls, msg_type):
+        if msg_type == cls.MSG_TYPE:
+            return cls.MSG_TYPE
+        else:
+            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(msg_type, cls.MSG_TYPE))
+
+    def convert(self, msg):
+        if isinstance(msg, self.MSG_TYPE):
+            return self._convert(msg)
+        else:
+            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(type(msg), self.MSG_TYPE))
+
+    @abc.abstractmethod
+    def _convert(self, msg):
+        pass
+
+    @classmethod
+    def pre_make(cls, entity_type):
+        spec = super().pre_make(entity_type)
+        params = spec.params
+        return ConverterSpec(params)
+
+    @classmethod
+    def check_spec(cls, spec):
+        super().check_spec(spec)
+
+
+class Converter(BaseConverter):
+    """
+    Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the
+    static attributes "MSG_TYPE_A" and "MSG_TYPE_B", such that the correct conversion method can be inferred.
+    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
+    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
+    """
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def get_opposite_msg_type(cls, msg_type):
+        if msg_type == cls.MSG_TYPE_A:
+            return cls.MSG_TYPE_B
+        elif msg_type == cls.MSG_TYPE_B:
+            return cls.MSG_TYPE_A
+        else:
+            raise ValueError(
+                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
+                (msg_type, cls.MSG_TYPE_A, cls.MSG_TYPE_B))
+
+    def convert(self, msg):
+        if isinstance(msg, self.MSG_TYPE_A):
+            return self.A_to_B(msg)
+        elif isinstance(msg, self.MSG_TYPE_B):
+            return self.B_to_A(msg)
+        else:
+            raise ValueError(
+                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
+                (type(msg), self.MSG_TYPE_A, self.MSG_TYPE_B))
+
+    @abc.abstractmethod
+    def A_to_B(self, msg):
+        pass
+
+    @abc.abstractmethod
+    def B_to_A(self, msg):
+        pass
+
+    @classmethod
+    def pre_make(cls, entity_type):
+        spec = super().pre_make(entity_type)
+        params = spec.params
+        return ConverterSpec(params)
+
+    @classmethod
+    def check_spec(cls, spec):
+        super().check_spec(spec)
+
+
+class SpaceConverter(Converter):
+    """
+    Inherit your converter from this baseclass if the converter is used for actions/observations/states,
+    such that the space can be inferred. See Converter for other abstract methods that must be implemented.
+    """
+    @abc.abstractmethod
+    def get_space(self):
+        pass
+
+    @classmethod
+    def pre_make(cls, entity_type):
+        spec = super().pre_make(entity_type)
+        params = spec.params
+        return ConverterSpec(params)
 
     @classmethod
     def check_spec(cls, spec):

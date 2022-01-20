@@ -8,15 +8,15 @@ from roslaunch.substitution_args import _collect_args
 from std_msgs.msg import Bool
 
 # OTHER
-from typing import List, NamedTuple, Any, Optional, Dict, Union
+from typing import List, NamedTuple, Any, Optional, Dict, Union, Tuple
 import time
 import importlib
 import inspect
 import glob
-from functools import reduce
+from functools import reduce, wraps
 from time import sleep
 from six import raise_from
-from copy import deepcopy
+import copy
 from yaml import safe_load
 import os
 
@@ -32,7 +32,7 @@ def get_attribute_from_module(attribute, module=None):
 
 
 def initialize_converter(args):
-    converter_args = deepcopy(args)
+    converter_args = copy.deepcopy(args)
     converter_args.pop('converter_type')
     converter_cls = get_attribute_from_module(args['converter_type'])
     return converter_cls(**converter_args)
@@ -145,7 +145,7 @@ def substitute_args(param, context=None, only=None):
         param = resolve_args(param, context, only=only)
         return param
 
-    # For every key in the dictionary (not performing deepcopy!)
+    # For every key in the dictionary (not performing copy.deepcopy!)
     if isinstance(param, dict):
         for key in param:
             # If the value is of type `(Ordered)dict`, then recurse with the value
@@ -382,3 +382,48 @@ def msg_type_error(source, target, msg_type_out, converter_out, msg_type_ros, co
     msg_type_str += '>> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n' % msg_type_in
     msg_type_str += '>> msg_type_target:  %s (as specified in target)\n' % msg_type_in_yaml
     return msg_type_str
+
+
+def deepcopy(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return copy.deepcopy(func(*args, **kwargs))
+    return wrapper
+
+
+def is_supported_type(param: Any, types: Tuple, none_support):
+    if isinstance(param, types) or (param is None and none_support):
+        if isinstance(param, dict):
+            for key, value in param.items():
+                assert isinstance(key, str), f'Invalid key "{key}". Only type "str" is supported as dictionary key.'
+                is_supported_type(value, types, none_support)
+        elif not isinstance(param, str) and hasattr(param, '__iter__'):
+            for value in param:
+                is_supported_type(value, types, none_support)
+    else:
+        raise ValueError(f'Type "{type(param)}" of a specified (nested) param "{param}" is not supported. Only types {types} are supported.')
+
+
+def supported_types(*types: Tuple, is_classmethod=True):
+    # Check if we support NoneType
+    none_support = False
+    for a in types:
+        if a is None:
+            none_support = True
+            break
+
+    # Remove None from types
+    types = tuple([t for t in types if t is not None])
+
+    def _check(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if is_classmethod:
+                check_args = list(args[1:]) + [value for _, value in kwargs.items()]
+            else:
+                check_args = list(args) + [value for _, value in kwargs.items()]
+            for param in check_args:
+                is_supported_type(param, types, none_support)
+            return func(*args, **kwargs)
+        return wrapper
+    return _check
