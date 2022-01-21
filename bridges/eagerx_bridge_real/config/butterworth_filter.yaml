@@ -19,8 +19,8 @@ inputs:
       converter_type: eagerx_bridge_real.converters/GetIndex
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
-      low: [ -1 ]
-      high: [ 1 ]
+      low: [ -3 ]
+      high: [ 3 ]
 
 outputs:
   filtered:

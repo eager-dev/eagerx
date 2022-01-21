@@ -1,5 +1,5 @@
 default:
-  sensors: [observation, action_applied]
+  sensors: [observation, action_applied, image]
   actuators: [action]
   states: [model_state]
   rate: 30
@@ -50,6 +50,12 @@ states:  # reset states inside bridge
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
       low: [ -3.14159265359, -9 ]
       high: [ 3.14159265359, 9 ]
+  model_parameters:
+    msg_type: std_msgs.msg/Float32MultiArray
+    space_converter:
+      converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
+      low: [1.7955e-04, 5.3580e-02, 4.1610e-02, 1.3490e-04, 4.7690e-02, 9.3385e+00, 1.4250e+00, 1.7480e-03]
+      high: [1.98450e-04, 5.92200e-02, 4.59900e-02, 1.49100e-04, 5.27100e-02, 1.03215e+01, 1.57500e+00, 1.93200e-03]
 
 #########################
 ### Engine definition ###
@@ -82,6 +88,8 @@ eagerx_bridge_ode/bridge:
   states:
     model_state:
       state_type: eagerx_bridge_ode.simstates/OdeSimState
+    model_parameters:
+      state_type: eagerx_bridge_ode.simstates/OdeSimState
 
 eagerx_bridge_real/bridge:
   sensors:
@@ -94,7 +102,19 @@ eagerx_bridge_real/bridge:
       inputs: { action_applied: $(ns obj_name)/actuators/action/outputs/action_applied }
       outputs: [ action_applied ]
 
+    image:
+      node_config: eagerx_bridge_real/render
+      outputs: [ image ]
+      color: cyan
+      process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+      shape: [ 480, 480 ]
+      camera_idx: 2
+
   actuators:  # Inputs as defined above
     action:
       node_config: eagerx_bridge_real/action
       inputs: {action: } # actuator input mapping to sim_node input name inside node_config
+
+  states:
+    model_state:
+      state_type: eagerx_bridge_real.simstates/RealSimState
