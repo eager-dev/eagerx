@@ -1,5 +1,5 @@
 from eagerx_core.entities import BaseConverter
-from eagerx_core.registration import register
+import eagerx_core.registration as register
 
 
 class Identity(BaseConverter):
@@ -9,7 +9,7 @@ class Identity(BaseConverter):
         super().__init__()
 
     @staticmethod
-    @register('Identity', BaseConverter)
+    @register.spec('Identity', BaseConverter)
     def spec(spec):
         return spec
 

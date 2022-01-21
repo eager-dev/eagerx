@@ -1,5 +1,5 @@
 # OTHER IMPORTS
-from typing import Optional
+from typing import Optional, List
 from yaml import dump
 
 # ROS IMPORTS
@@ -7,8 +7,9 @@ import rospy
 from std_msgs.msg import UInt64
 
 # EAGERx IMPORTS
+from eagerx_core.constants import process, ERROR
 from eagerx_core.entities import Bridge, SpaceConverter, BaseConverter
-from eagerx_core.registration import register
+import eagerx_core.registration as register
 from eagerx_core.utils.utils import Msg
 
 
@@ -27,10 +28,13 @@ class TestBridgeNode(Bridge):
         super(TestBridgeNode, self).__init__(simulator=simulator, **kwargs)
 
     @staticmethod
-    @register('TestBridge', Bridge)
-    def spec(spec, rate, is_reactive=True, real_time_factor=0, simulate_delays=True, log_level=10, states=['param_1']):
+    @register.spec('TestBridge', Bridge)
+    def spec(spec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = True,
+             real_time_factor: Optional[float] = 0, simulate_delays: Optional[bool] = True,
+             log_level: Optional[int] = ERROR, states: Optional[List[str]] = ['param_1']):
         # Modify default bridge params
         params = dict(rate=rate,
+                      process=process,
                       is_reactive=is_reactive,
                       real_time_factor=real_time_factor,
                       simulate_delays=simulate_delays,
@@ -45,11 +49,7 @@ class TestBridgeNode(Bridge):
         spec.set_parameters(custom)
 
         # Add state: "param_1"
-        param_1_sc = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
-        spec.add_state('param_1', msg_type=UInt64, space_converter=param_1_sc)
-
-        # Add input: "in_1"
-        # spec.add_input('in_1', UInt64, window=1, converter=BaseConverter.make('identity'))
+        spec.add_state('param_1', msg_type=UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64'))
         return spec
 
     def add_object_to_simulator(self, object_params, node_params, state_params):

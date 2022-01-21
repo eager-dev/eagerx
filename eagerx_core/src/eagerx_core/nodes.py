@@ -117,7 +117,7 @@ class RenderNode(Node):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
         # todo: REMOVEEEE!!!!
-        if False and self.display and self.render_toggle:
+        if self.display and self.render_toggle:
             try:
                 try:
                     cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, 'bgr8')

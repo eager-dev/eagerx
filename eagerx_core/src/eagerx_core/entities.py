@@ -249,8 +249,9 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_type):
         spec = super().pre_make(entity_type)
+        spec._params['targets'] = dict()
         spec.set_parameter('targets', [])
-        # todo: perform Node mutations on params of BaseNode
+        spec.set_parameter('launch_file', '$(find eagerx_core)/launch/rxbridge.launch')
         return NodeSpec(spec.params)
 
     @classmethod

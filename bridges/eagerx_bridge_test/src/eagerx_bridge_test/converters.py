@@ -1,5 +1,5 @@
 from eagerx_core.entities import SpaceConverter, Converter
-from eagerx_core.registration import register
+import eagerx_core.registration as register
 # Converter specific
 from std_msgs.msg import UInt64, String
 from sensor_msgs.msg import Image
@@ -19,7 +19,7 @@ class Space_RosUInt64(SpaceConverter):
         self.dtype = dtype
 
     @staticmethod
-    @register('Space_RosUInt64', SpaceConverter)
+    @register.spec('Space_RosUInt64', SpaceConverter)
     def spec(spec, low, high, shape=None, dtype='uint64'):
         params = dict(low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
@@ -56,7 +56,7 @@ class Space_RosString(SpaceConverter):
         self.dtype = dtype
 
     @staticmethod
-    @register('Space_RosString', SpaceConverter)
+    @register.spec('Space_RosString', SpaceConverter)
     def spec(spec, low, high, shape=None, dtype='uint64'):
         params = dict(low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
@@ -81,7 +81,7 @@ class RosImage_RosUInt64(Converter):
         self.test_arg = test_arg
 
     @staticmethod
-    @register('RosImage_RosUInt64', Converter)
+    @register.spec('RosImage_RosUInt64', Converter)
     def spec(spec, test_arg):
         spec.set_parameter('test_arg', test_arg)
         return spec
@@ -102,7 +102,7 @@ class RosString_RosUInt64(Converter):
         self.test_arg = test_arg
 
     @staticmethod
-    @register('RosString_RosUInt64', Converter)
+    @register.spec('RosString_RosUInt64', Converter)
     def spec(spec, test_arg):
         spec.set_parameter('test_arg', test_arg)
         return spec

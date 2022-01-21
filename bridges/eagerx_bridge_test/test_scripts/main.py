@@ -10,10 +10,8 @@ from eagerx_core.wrappers.flatten import Flatten
 from eagerx_core.converters import Identity
 from yaml import dump
 
-from eagerx_core.entities import Object, Node, SimNode, Bridge, Converter, SpaceConverter, Processor, BaseConverter
-import eagerx_bridge_test.nodes
-import eagerx_bridge_test.bridge
-import eagerx_bridge_test.converters
+import eagerx_bridge_test
+from eagerx_core.entities import Object, Node, SimNode, Bridge, Converter, SpaceConverter, Processor
 
 if __name__ == '__main__':
     # Process configuration (optional)
@@ -21,25 +19,24 @@ if __name__ == '__main__':
     bridge_p = process.ENVIRONMENT
     rate = 7
 
-    # todo: if you want to create a engine-specific definition, infer required args from bridge.
-    # todo: create a "ros_compatible" and "yaml_compatible" wrapper for all parameter fns.
-    # todo: implement templates, check_specs, pre_makes (make use of templates?)
-    # todo: How to pass through node args to space_converter of observation
+    # todo: msg_type & component registration with wrapper
+    # todo: remove empty components (e.g. inputs/outputs/targets/states or sensors/actuators/states)
     # todo: render node does not work for test bridge. Why does display change to True?
-    # todo: How to infer msg_types from node class?
-    # todo: add space_converter to bridge state
-    # todo: Create spec functions for all entities
-    # todo: Create spec checks for all entities (e.g. no entry is "None"--> all ros_compatible)
-    # todo: Create all <Entity>Templates
     # todo: Create simstates entity
     # todo: rename .get_params(ns) to templates, and rename to "build"
     # todo: convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
     # todo: implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
-    bridge = Bridge.make('TestBridge', 20)
-    N1 = Node.make('Process', 'N1')
-    N3 = Node.make('RealReset', 'N3', rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
-    KF = Node.make('KalmanFilter', 'KF', rate, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
+
+    # todo: only specs should have a fixed ID and entity_cls.
+    # todo: ids & entity_cls will not match if Node spec reuses callback of subclassed Node
     viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
+    pendulum = Object.make('Pendulum', 'pendulum', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
+    N1 = Node.make('Process', 'N1', rate=1.0, process=node_p)
+    bridge = Bridge.make('TestBridge', rate=20)
+    sim_actuator = SimNode.make('SimActuator', 'sim_actuator', rate=1.0, process=node_p)
+    sim_sensor = SimNode.make('SimSensor', 'sim_sensor', rate=1.0, process=node_p)
+    N3 = Node.make('RealReset', 'N3', rate=rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
+    KF = Node.make('KalmanFilter', 'KF', rate=rate, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make('RosString_RosUInt64', test_arg='test')
