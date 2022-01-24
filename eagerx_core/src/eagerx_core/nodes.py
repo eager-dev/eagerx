@@ -16,8 +16,7 @@ class ObservationsNode(Node):
     msg_types = {'inputs': {'actions_set': UInt64},
                  'outputs': {'set': UInt64}}
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def initialize(self):
         # Define observation buffers
         self.observation_buffer = dict()
         for i in self.inputs:
@@ -52,8 +51,7 @@ class ActionsNode(Node):
                             'step': UInt64},
                  'outputs': {'set': UInt64}}
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def initialize(self):
         # Define action/observation buffers
         self.action_buffer = dict()
         for i in self.outputs:
@@ -84,12 +82,10 @@ class ActionsNode(Node):
 
 
 class RenderNode(Node):
-
     msg_types = {'inputs': {'image': Image},
                  'outputs': {'done': UInt64}}
 
-    def __init__(self, display, **kwargs):
-        super().__init__(**kwargs)
+    def initialize(self, display):
         self.cv_bridge = CvBridge()
         self.window = None
         self.display = display
@@ -116,13 +112,14 @@ class RenderNode(Node):
     def callback(self, node_tick: int, t_n: float, image: Optional[Msg] = None):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
-        # todo: REMOVEEEE!!!!
-        if self.display and self.render_toggle:
+        empty = (self.last_image.height == 0 or self.last_image.width == 0)
+        if not empty and self.display and self.render_toggle:
             try:
                 try:
                     cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, 'bgr8')
                 except ImportError as e:
                     rospy.logwarn_once('[%s] %s. Using numpy instead.' % (self.ns_name, e))
+
                     if isinstance(self.last_image.data, bytes):
                         cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
                     else:

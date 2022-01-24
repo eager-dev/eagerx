@@ -51,8 +51,8 @@ class BaseNode(Entity):
     def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, config_name: str, package_name: str,
                  node_type: str, rate: float, process: int, inputs: List[Dict], outputs: List[Dict], states: List[Dict],
                  feedthroughs: List[Dict], targets: List[Dict], is_reactive: bool, real_time_factor: float,
-                 simulate_delays: bool, launch_file=None, color: str = 'grey', print_mode: int = TERMCOLOR, log_level:
-                 int = ERROR, log_level_memory: int = SILENT):
+                 simulate_delays: bool, *args, launch_file=None, color: str = 'grey', print_mode: int = TERMCOLOR, log_level:
+                 int = ERROR, log_level_memory: int = SILENT, **kwargs):
         """
         The base class from which all (simulation) nodes and bridges inherit.
 
@@ -105,6 +105,7 @@ class BaseNode(Entity):
         self.log_level = log_level
         effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
         self.log_memory = effective_log_level >= log_level and log_level_memory >= effective_log_level
+        self.initialize(*args, **kwargs)
 
     @staticmethod
     def get_msg_type(cls, component, cname):
@@ -116,7 +117,7 @@ class BaseNode(Entity):
         params = spec.params
         params['node_type'] = params.pop('entity_type')
         params['default'] = dict(name=None, rate=None, process=0, inputs=[], outputs=[], states=[], color='grey',
-                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT)
+                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT, launch_file=None)
         params.update(dict(inputs=dict(), outputs=dict(), states=dict()))
         return BaseNodeSpec(params)
 
@@ -124,6 +125,11 @@ class BaseNode(Entity):
     def check_spec(cls, spec):
         super().check_spec(spec)
         return
+
+    @abc.abstractmethod
+    def initialize(self, *args, **kwargs):
+        """A method to initialize this node."""
+        pass
 
 
 class Node(BaseNode):
@@ -150,7 +156,6 @@ class Node(BaseNode):
 
         :param kwargs: Arguments that are to be passed down to the baseclass. See NodeBase for this.
         """
-        super().__init__(**kwargs)
         # Message counter
         self.num_ticks = 0
 
@@ -163,6 +168,9 @@ class Node(BaseNode):
         self.print_iter = 200
         self.history = []
         self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
+
+        # Call baseclass constructor (which eventually calls .initialize())
+        super().__init__(**kwargs)
 
     def reset_cb(self, **kwargs: Optional[Message]):
         self.num_ticks = 0
@@ -250,7 +258,7 @@ class Node(BaseNode):
     def pre_make(cls, entity_type):
         spec = super().pre_make(entity_type)
         spec._params['targets'] = dict()
-        spec.set_parameter('targets', [])
+        spec._set({'default': dict(targets=[])})
         spec.set_parameter('launch_file', '$(find eagerx_core)/launch/rxbridge.launch')
         return NodeSpec(spec.params)
 
@@ -298,6 +306,8 @@ class SimNode(Node):
         """
         self.simulator = simulator
         self.object_params = object_params
+
+        # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
 
     @abc.abstractmethod
@@ -357,7 +367,7 @@ class Bridge(BaseNode):
                      'states': {'state_1': UInt64}}
     For more info see baseclass NodeBase.
     """
-    def __init__(self, simulator, target_addresses, node_names, **kwargs):
+    def __init__(self, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
         """
         Base class constructor.
 
@@ -372,13 +382,12 @@ class Bridge(BaseNode):
          If real_time_factor < 1 the simulation is slower than real time.
         :param kwargs: Arguments that are to be passed down to the node baseclass. See NodeBase for this.
         """
-        super().__init__(**kwargs)
-        self.simulator = simulator
+        self.simulator = None
         self.target_addresses = target_addresses
         self.node_names = node_names
 
         # Check real_time_factor & reactive args
-        assert self.is_reactive or (not self.is_reactive and self.real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
+        assert is_reactive or (not is_reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
 
         # Initialized nodes
         self.is_initialized = dict()
@@ -396,6 +405,9 @@ class Bridge(BaseNode):
         self.history = []
         self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
 
+        # Call baseclass constructor (which eventually calls .initialize())
+        super().__init__(is_reactive=is_reactive, real_time_factor=real_time_factor, **kwargs)
+
     def register_node(self, node_params):
         # Initialize nodes
         sp_nodes = dict()
@@ -412,7 +424,7 @@ class Bridge(BaseNode):
 
     def register_object(self, object_params, node_params, state_params):
         # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
-        _ = self.add_object_to_simulator(object_params, node_params, state_params)
+        _ = self.add_object(object_params, node_params, state_params)
 
         # Initialize states
         for i in state_params:
@@ -500,10 +512,7 @@ class Bridge(BaseNode):
         # Set default bridge params
         default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
                        launch_file='$(find eagerx_core)/launch/rxbridge.launch', outputs=['tick'])
-        spec.set_parameters(default)
-
-        # Add bridge tick as output
-        spec.add_output('tick', msg_type=UInt64)
+        spec._set({'default': default})
         return BridgeSpec(spec.params)
 
     @classmethod
@@ -511,7 +520,7 @@ class Bridge(BaseNode):
         super().check_spec(spec)
 
     @abc.abstractmethod
-    def add_object_to_simulator(self, object_params: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
+    def add_object(self, object_params: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
         """
         Adds an object to the bridge's simulator object.
 
@@ -589,8 +598,7 @@ class Object(Entity):
     def pre_make(cls, entity_type):
         spec = super().pre_make(entity_type)
         params = spec.params
-        # todo: perform Object mutations on params of Entity
-        params['default'] = dict(sensors=[], actuators=[], states=[])
+        params['default'] = dict(name=None, sensors=[], actuators=[], states=[])
         params['sensors'] = dict()
         params['actuators'] = dict()
         params['states'] = dict()

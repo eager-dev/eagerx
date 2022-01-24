@@ -1,6 +1,6 @@
 
 
-# import eagerx_bridge_test.nodes
-# import eagerx_bridge_test.bridge
-# import eagerx_bridge_test.converters
+import eagerx_bridge_test.nodes
+import eagerx_bridge_test.converters
+import eagerx_bridge_test.bridge
 import eagerx_bridge_test.objects

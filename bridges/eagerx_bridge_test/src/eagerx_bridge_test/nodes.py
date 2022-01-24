@@ -21,8 +21,9 @@ class RealResetNode(Node):
                  'states': {'state_1': UInt64},
                  'targets': {'target_1': UInt64}}
 
-    def __init__(self, test_arg, **kwargs):
-        super().__init__(**kwargs)
+    @register.node_params(test_arg='test')
+    def initialize(self, test_arg):
+        pass
 
     @staticmethod
     @register.spec('RealReset', Node)
@@ -31,6 +32,9 @@ class RealResetNode(Node):
              states: Optional[List[str]] = ['state_1'], targets: Optional[List[str]] = ['target_1'],
              color: Optional[str] = 'blue', test_arg: Optional[str] = 'test_argument'):
         """Create the default spec that is compatible with __init__(...), .callback(...), and .reset(...)"""
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(RealResetNode)
+
         # Modify default node params
         params = dict(name=name,
                       rate=rate,
@@ -45,21 +49,20 @@ class RealResetNode(Node):
         # Add custom params
         spec.set_parameter('test_arg', test_arg)
 
-        # Add inputs
-        spec.add_input('in_1', UInt64, window=0, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.add_input('in_2', UInt64, window=0, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
+        # set input parameters
+        space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
+        spec.set_component_parameters('inputs', 'in_1', dict(window=0, space_converter=space_converter))
+        spec.set_component_parameters('inputs', 'in_2', dict(window=0, space_converter=space_converter))
 
-        # Add outputs
-        spec.add_output('out_1', UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.add_output('out_2', UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
+        # Set outputs parameters
+        spec.set_component_parameter('outputs', 'out_1', 'space_converter', space_converter)
+        spec.set_component_parameter('outputs', 'out_2', 'space_converter', space_converter)
 
-        # Add states
-        spec.add_state('state_1', msg_type=UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64'))
-
-        # Add targets
-        spec.add_target('target_1', msg_type=UInt64)
+        # Set states parameters
+        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
         return spec
 
+    @register.states(state_1=UInt64)
     def reset(self, state_1: Optional[UInt64] = None) -> None:
         return
 
@@ -113,44 +116,11 @@ class TestNode(SimNode):
                  'states': {'state_1': UInt64,
                             'state_2': UInt64}}
 
-    def __init__(self, test_arg, **kwargs):
-        super().__init__(**kwargs)
+    @register.node_params(test_arg='test')
+    def initialize(self, test_arg):
+        pass
 
-    @staticmethod
-    @register.spec('TestNode', Node)
-    def spec(spec, name: str, rate: float, process: Optional[int] = process.ENVIRONMENT,
-             inputs: Optional[List[str]] = ['in_1'], outputs: Optional[List[str]] = ['out_1'],
-             states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'white',
-             test_arg: Optional[str] = 'test_argument'):
-        """Create the default spec that is compatible with __init__(...), .callback(...), and .reset(...)"""
-        # Modify default node params
-        params = dict(name=name,
-                      rate=rate,
-                      process=process,
-                      color=color,
-                      inputs=inputs,
-                      outputs=outputs,
-                      states=states)
-        spec.set_parameters(params)
-
-        # Add custom params
-        spec.set_parameter('test_arg', test_arg)
-
-        # Add inputs
-        spec.add_input('tick', UInt64, window=0)
-        spec.add_input('in_1', UInt64, window=0, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.add_input('in_2', UInt64, window=0, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.add_input('in_3', String, window=0, space_converter=SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64'))
-
-        # Add outputs
-        spec.add_output('out_1', UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.add_output('out_2', UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-
-        # Add states
-        spec.add_state('state_1', msg_type=UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64'))
-        spec.add_state('state_2', msg_type=UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64'))
-        return spec
-
+    @register.states(state_1=UInt64, state_2=UInt64)
     def reset(self, state_1: Optional[UInt64] = None, state_2: Optional[UInt64] = None) -> None:
         return
 
@@ -196,9 +166,39 @@ class ProcessNode(TestNode):
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'white',
              test_arg: Optional[str] = 'test_argument'):
         """Only making adjustments on the spec produced by the baseclass"""
-        spec = TestNode.spec(spec, name, rate, process, inputs, outputs, states, color, test_arg)
-        spec.remove_input('tick')
-        spec.remove_input('in_3')
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(ProcessNode)
+
+        # Modify default node params
+        params = dict(name=name,
+                      rate=rate,
+                      process=process,
+                      color=color,
+                      inputs=inputs,
+                      outputs=outputs,
+                      states=states)
+        spec.set_parameters(params)
+
+        # Add custom params
+        spec.set_parameter('test_arg', test_arg)
+
+        # Add inputs
+        space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
+        spec.set_component_parameters('inputs', 'tick', dict(window=0))
+        spec.set_component_parameters('inputs', 'in_1', dict(window=0, space_converter=space_converter))
+        spec.set_component_parameters('inputs', 'in_2', dict(window=0, space_converter=space_converter))
+        space_converter = SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64')
+        spec.set_component_parameters('inputs', 'in_3', dict(window=0, space_converter=space_converter))
+
+        # Add outputs
+        space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
+        spec.set_component_parameter('outputs', 'out_1', 'space_converter', space_converter)
+        spec.set_component_parameter('outputs', 'out_2', 'space_converter', space_converter)
+
+        # Add states
+        space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
+        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
+        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
         return spec
 
 
@@ -210,9 +210,40 @@ class KalmanNode(TestNode):
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'blue',
              test_arg: Optional[str] = 'test_argument'):
         """Only making adjustments on the spec produced by the baseclass"""
-        spec = TestNode.spec(spec, name, rate, process, inputs, outputs, states, color, test_arg)
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(KalmanNode)
+
+        # Modify default node params
+        params = dict(name=name,
+                      rate=rate,
+                      process=process,
+                      color=color,
+                      inputs=inputs,
+                      outputs=outputs,
+                      states=states)
+        spec.set_parameters(params)
+
+        # Add custom params
+        spec.set_parameter('test_arg', test_arg)
+
+        # Remove unused inputs
         spec.remove_input('tick')
         spec.remove_input('in_3')
+
+        # Set input parameters
+        space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
+        spec.set_component_parameters('inputs', 'in_1', dict(window=0, space_converter=space_converter))
+        spec.set_component_parameters('inputs', 'in_2', dict(window=0, space_converter=space_converter))
+
+        # Set output parameters
+        space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
+        spec.set_component_parameter('outputs', 'out_1', 'space_converter', space_converter)
+        spec.set_component_parameter('outputs', 'out_2', 'space_converter', space_converter)
+
+        # Set state parameters
+        space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
+        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
+        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
         return spec
 
 
@@ -223,6 +254,9 @@ class SimActuator(TestNode):
              inputs: Optional[List[str]] = ['tick', 'in_1', 'in_2', 'in_3'], outputs: Optional[List[str]] = ['out_1'],
              color: Optional[str] = 'green', test_arg: Optional[str] = 'test_argument'):
         """This node's spec will be so different from the baseclass', so we define it from scratch."""
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(SimActuator)
+
         # Modify default node params
         params = dict(name=name,
                       rate=rate,
@@ -234,15 +268,6 @@ class SimActuator(TestNode):
 
         # Add custom params
         spec.set_parameter('test_arg', test_arg)
-
-        # Add inputs
-        spec.add_input('tick', UInt64, window=0)
-        spec.add_input('in_1', UInt64, window=0)
-        spec.add_input('in_2', UInt64, window=0)
-        spec.add_input('in_3', UInt64, window=0)
-
-        # Add outputs
-        spec.add_output('out_1', UInt64)
         return spec
 
 
@@ -250,29 +275,23 @@ class SimSensor(TestNode):
     @staticmethod
     @register.spec('SimSensor', SimNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
-             inputs: Optional[List[str]] = ['in_1'], outputs: Optional[List[str]] = ['out_1'],
+             inputs: Optional[List[str]] = ['tick_1', 'in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'cyan',
              test_arg: Optional[str] = 'test_argument'):
         """This node's spec will be so different from the baseclass', so we define it from scratch."""
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(SimSensor)
+
         # Modify default node params
         params = dict(name=name,
                       rate=rate,
                       process=process,
                       color=color,
                       inputs=inputs,
-                      outputs=outputs)
+                      outputs=outputs,
+                      states=states)
         spec.set_parameters(params)
 
         # Add custom params
         spec.set_parameter('test_arg', test_arg)
-
-        # Add inputs
-        spec.add_input('tick', UInt64, window=0)
-        spec.add_input('in_1', UInt64, window=0)
-
-        # Add outputs
-        spec.add_output('out_1', UInt64)
-
-        # Add states
-        spec.add_state('state_1', msg_type=UInt64, space_converter=SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64'))
         return spec

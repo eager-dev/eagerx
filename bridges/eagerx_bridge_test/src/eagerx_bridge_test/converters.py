@@ -90,7 +90,7 @@ class RosImage_RosUInt64(Converter):
         return UInt64(data=999)
 
     def B_to_A(self, msg):
-        return Image(data=[msg.data])
+        return Image()
 
 
 class RosString_RosUInt64(Converter):

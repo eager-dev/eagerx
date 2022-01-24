@@ -19,19 +19,43 @@ if __name__ == '__main__':
     bridge_p = process.ENVIRONMENT
     rate = 7
 
-    # todo: msg_type & component registration with wrapper
-    # todo: remove empty components (e.g. inputs/outputs/targets/states or sensors/actuators/states)
-    # todo: render node does not work for test bridge. Why does display change to True?
-    # todo: Create simstates entity
-    # todo: rename .get_params(ns) to templates, and rename to "build"
-    # todo: convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
-    # todo: implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
+    # todo: PLACEHOLDERS
+    # Allow engine-specific params to be modified via agnostic params by coupling them with a Placeholder(name=, parameter)
+    # When saving a graph, convert all Placeholders to $(ph $(name) parameter).
+    # When loading a graph, convert all (ph $(name) parameter) to Placeholders.
+    # How to couple space_converter inside other actions/observations? Create a weakref when copying space_converter.
+    # Do not allow coupled arguments to be changed.
+    # Lock coupled arguments, and substitute the placeholders when hovering/showing dialog box.
+    # Inside graph.register(), create a big context dict and resolve all placeholders
 
-    # todo: only specs should have a fixed ID and entity_cls.
-    # todo: ids & entity_cls will not match if Node spec reuses callback of subclassed Node
-    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
-    pendulum = Object.make('Pendulum', 'pendulum', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
+    # todo: BRIDGE_SPECIFIC IMPLEMENTATION
+    # todo: FIRST THING TO DO: Implement bridge based on bridge_cls!! SHOULD BE "EASY"
+    # spec.couple_component(simnode_id='', simnode_args) --> how to know simnode_args? get_spec... and verify that all arguments were provided.
+    # Make bridge_id register add_object --> make coupling with sensors, actuators, & states
+    # Must receive a spec that is bridge specific and directly linked to the object spec (or we copy out into it after return)
+    # Agnostic-params cannot become engine-specific --> hence, they cannot be variable.
+    # Make all additional variables engine-specific & pass as object_params
+    # Couple sensor/actuator/state cname to specific nodes inside register.bridge(..)
+    # Create simstates entity
+
+    # todo: SPEC IMPLEMENTATION
+    # Create initialize(entity_cls) (BaseNode, BaseConverter). Add I/O, default params.
+    # Only allow changes to already initialized params in spec
+
+    # todo: CHECK_SPEC IMPLEMENTATION
+    # Do all agnostic definitions have a space_converter?
+    # Are empty components removed (e.g. inputs/outputs/targets/states or sensors/actuators/states)
+
+    # todo: OTHER
+    # Perform type checking inside register_types.
+    # Render node does not work for test bridge. Why does display change to True?
+    # Rename .get_params(ns) to templates, and rename to "build"
+    # Convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
+    # Implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
+
     N1 = Node.make('Process', 'N1', rate=1.0, process=node_p)
+    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
+    arm = Object.make('Arm', 'arm', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
     bridge = Bridge.make('TestBridge', rate=20)
     sim_actuator = SimNode.make('SimActuator', 'sim_actuator', rate=1.0, process=node_p)
     sim_sensor = SimNode.make('SimSensor', 'sim_sensor', rate=1.0, process=node_p)

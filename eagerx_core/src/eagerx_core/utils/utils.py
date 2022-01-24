@@ -17,10 +17,14 @@ from functools import reduce, wraps
 from time import sleep
 from six import raise_from
 import copy
-from yaml import safe_load
+from yaml import safe_load, dump
 import os
 
 from eagerx_core import constants
+
+
+def pretty_print(params):
+    print(dump(params))
 
 
 def get_attribute_from_module(attribute, module=None):
@@ -79,7 +83,9 @@ def merge(a, b, path=None):
             elif a[key] == b[key]:
                 pass  # same leaf value
             else:
-                raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
+                a[key] = b[key]
+            # else:
+            #     raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
         else:
             a[key] = b[key]
     return a
@@ -427,3 +433,53 @@ def supported_types(*types: Tuple, is_classmethod=True):
             return func(*args, **kwargs)
         return wrapper
     return _check
+
+
+def exists(func):
+    argspec = inspect.getfullargspec(func)
+    if argspec.defaults:
+        positional_count = len(argspec.args) - len(argspec.defaults)
+        defaults = dict(zip(argspec.args[positional_count:], argspec.defaults))
+    else:
+        defaults = []
+
+    def _exists(self, *args, **kwargs):
+        check_args = dict()
+        for _args in [zip(argspec.args[1:], args), kwargs.items()]:
+            for arg, value in _args:
+                if arg in ['component', 'cname', 'parameter', 'bridge_id', 'level']:
+                    check_args[arg] = value
+
+        if 'level' not in check_args and 'level' in defaults:
+            check_args['level'] = defaults['level']
+
+        params = self.params
+        _args = check_args
+        if 'level' in _args:
+            level = _args['level']
+            assert level in params, f"Level '{level}' not found. Available keys({params})={params.keys()}."
+            if 'component' not in _args and 'parameter' in _args:
+                parameter = _args['parameter']
+                assert parameter in params[_args['level']], f"Parameter '{parameter}' not found. Available keys(params[{level}])={params[level].keys()}."
+        if 'component' in _args:
+            component = _args['component']
+            assert component in params, f"Component '{component}' not found. Available keys(params)={params.keys()}."
+            assert component in params['default'], f"Component '{component}' not found. Available keys(params['default'])={params['default'].keys()}."
+            if 'cname' in _args:
+                cname = _args['cname']
+                assert cname in params[component], f"Cname '{cname}' not found. Available keys(params[{component}])={params[component].keys()}."
+                if 'parameter' in _args:
+                    parameter = _args['parameter']
+                    assert parameter in params[component][cname], f"Parameter '{parameter}' not found. Available keys(params[{component}][{cname}])={params[component][cname].keys()}."
+        if 'bridge_id' in _args:
+            bridge_id = _args['bridge_id']
+            assert bridge_id in params, f"Bridge (id) '{bridge_id}' not found. Available keys(params)={params.keys()}."
+            if 'component' in _args:
+                component = _args['component']
+                assert component in params[bridge_id], f"Component '{component}' not found. Available keys(params[{bridge_id}])={params[bridge_id].keys()}."
+                if 'cname' in _args:
+                    cname = _args['cname']
+                    assert cname in params[bridge_id][component], f"Cname '{cname}' not found. Available keys(params[{bridge_id}][{component}])={params[bridge_id][component].keys()}."
+
+        return func(self, *args, **kwargs)
+    return _exists

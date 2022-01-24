@@ -22,7 +22,7 @@ class GymBridge(Bridge):
         simulator = dict()
         super().__init__(simulator=simulator, **kwargs)
 
-    def add_object_to_simulator(self, object_params, node_params, state_params) -> Dict:
+    def add_object(self, object_params, node_params, state_params) -> Dict:
         # add object to simulator (we have a ref to the simulator with self.simulator)
         rospy.loginfo('Adding object "%s" of type "%s.yaml" from package "%s" to the simulator.' % (
         object_params['name'], object_params['config_name'], object_params['package_name']))
