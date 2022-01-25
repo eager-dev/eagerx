@@ -16,7 +16,7 @@ from tabulate import tabulate
 
 from eagerx_core.constants import TERMCOLOR, ERROR, SILENT, process
 from eagerx_core.rxmessage_broker import RxMessageBroker
-from eagerx_core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec
+from eagerx_core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 
@@ -257,10 +257,22 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_type):
         spec = super().pre_make(entity_type)
-        spec._params['targets'] = dict()
-        spec._set({'default': dict(targets=[])})
         spec.set_parameter('launch_file', '$(find eagerx_core)/launch/rxbridge.launch')
         return NodeSpec(spec.params)
+
+    @classmethod
+    def check_spec(cls, spec):
+        super().check_spec(spec)
+
+
+class ResetNode(Node):
+    """Reset node baseclass from which all nodes that perform a real reset routine inherit"""
+    @classmethod
+    def pre_make(cls, entity_type):
+        spec = super().pre_make(entity_type)
+        spec._params['targets'] = dict()
+        spec._set({'default': dict(targets=[])})
+        return ResetNodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -623,12 +635,17 @@ class BaseConverter(Entity):
         for key, value in zip(argspec, args):
             self.yaml_args[key] = value
         check_valid_rosparam_type(self.yaml_args)
+        self.initialize(*args, **kwargs)
 
     def get_yaml_definition(self):
         converter_type = self.__module__ + '/' + self.__class__.__name__
         yaml_dict = dict(converter_type=converter_type)
         yaml_dict.update(deepcopy(self.yaml_args))
         return yaml_dict
+
+    @abc.abstractmethod
+    def initialize(self):
+        pass
 
     @abc.abstractmethod
     def convert(self, msg):
@@ -761,3 +778,38 @@ class SpaceConverter(Converter):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
+
+
+class SimState(Entity):
+    def __init__(self, ns, name, simulator, object_params, *args, color='grey', print_mode='termcolor', **kwargs):
+        self.ns = ns
+        self.name = name
+
+        # If node is simulator, we will probably use this in reset
+        self.simulator = simulator
+        self.object_params = object_params
+        self.color = color
+        self.print_mode = print_mode
+        self.initialize(*args, **kwargs)
+
+    @classmethod
+    def pre_make(cls, entity_type):
+        spec = super().pre_make(entity_type)
+        params = spec.params
+        params['state_type'] = params.pop('entity_type')
+        return SimStateSpec(params)
+
+    @classmethod
+    def check_spec(cls, spec):
+        super().check_spec(spec)
+        return
+
+    @abc.abstractmethod
+    def initialize(self, *args, **kwargs):
+        """A method to initialize this simstate."""
+        pass
+
+    @abc.abstractmethod
+    def reset(self, state, done):
+        """A Method to reset the simstate."""
+        pass

@@ -9,11 +9,11 @@ from std_msgs.msg import UInt64, String, Bool
 # EAGERx IMPORTS
 from eagerx_core.constants import process, ERROR
 from eagerx_core.utils.utils import return_typehint, Msg
-from eagerx_core.entities import Node, SimNode, SpaceConverter, Converter
+from eagerx_core.entities import Node, ResetNode, SimNode, SpaceConverter, Converter
 import eagerx_core.registration as register
 
 
-class RealResetNode(Node):
+class RealResetNode(ResetNode):
     msg_types = {'inputs': {'in_1': UInt64,
                             'in_2': UInt64},
                  'outputs': {'out_1': UInt64,
@@ -26,7 +26,7 @@ class RealResetNode(Node):
         pass
 
     @staticmethod
-    @register.spec('RealReset', Node)
+    @register.spec('RealReset', ResetNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.ENVIRONMENT,
              inputs: Optional[List[str]] = ['in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], targets: Optional[List[str]] = ['target_1'],
@@ -165,7 +165,7 @@ class ProcessNode(TestNode):
              inputs: Optional[List[str]] = ['in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'white',
              test_arg: Optional[str] = 'test_argument'):
-        """Only making adjustments on the spec produced by the baseclass"""
+        """ProcessNode spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(ProcessNode)
 
@@ -209,7 +209,7 @@ class KalmanNode(TestNode):
              inputs: Optional[List[str]] = ['in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'blue',
              test_arg: Optional[str] = 'test_argument'):
-        """Only making adjustments on the spec produced by the baseclass"""
+        """KalmanNode spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(KalmanNode)
 
@@ -253,7 +253,7 @@ class SimActuator(TestNode):
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick', 'in_1', 'in_2', 'in_3'], outputs: Optional[List[str]] = ['out_1'],
              color: Optional[str] = 'green', test_arg: Optional[str] = 'test_argument'):
-        """This node's spec will be so different from the baseclass', so we define it from scratch."""
+        """SimActuator spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(SimActuator)
 
@@ -278,7 +278,7 @@ class SimSensor(TestNode):
              inputs: Optional[List[str]] = ['tick_1', 'in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'cyan',
              test_arg: Optional[str] = 'test_argument'):
-        """This node's spec will be so different from the baseclass', so we define it from scratch."""
+        """SimSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(SimSensor)
 

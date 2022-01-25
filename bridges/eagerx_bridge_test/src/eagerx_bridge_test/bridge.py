@@ -32,7 +32,8 @@ class TestBridgeNode(Bridge):
     def spec(spec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = True,
              real_time_factor: Optional[float] = 0, simulate_delays: Optional[bool] = True,
              log_level: Optional[int] = ERROR, states: Optional[List[str]] = ['param_1']):
-
+        """TestBridge spec"""
+        # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(TestBridgeNode)
 
         # Modify default bridge params

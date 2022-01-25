@@ -11,8 +11,8 @@ class Space_RosUInt64(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = UInt64
 
-    def __init__(self, low, high, shape=None, dtype='uint64'):
-        super().__init__(low, high, shape, dtype)
+    @register.converter_params(low=None, high=None, shape=None, dtype='uint64')
+    def initialize(self, low, high, shape=None, dtype='uint64'):
         self.low = np.array(low)
         self.high = np.array(high)
         self.shape = shape
@@ -39,8 +39,8 @@ class Space_RosString(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = String
 
-    def __init__(self, low, high, shape=None, dtype='uint64'):
-        super().__init__(low, high, shape, dtype)
+    @register.converter_params(low=None, high=None, shape=None, dtype='uint64')
+    def initialize(self, low, high, shape=None, dtype='uint64'):
         self.low = low
         self.high = high
         if isinstance(low, list):
@@ -48,8 +48,10 @@ class Space_RosString(SpaceConverter):
         if isinstance(high, list):
             self.high = np.array(self.high)
         if shape is not None:
-            assert isinstance(low, (int, float)) or self.low.shape == shape, 'If a shape is defined, low must be of a list or type (int, float).'
-            assert isinstance(high, (int, float)) or self.high.shape == shape, 'If a shape is defined, high must be a list of type (int, float).'
+            assert isinstance(low, (int,
+                                    float)) or self.low.shape == shape, 'If a shape is defined, low must be of a list or type (int, float).'
+            assert isinstance(high, (
+            int, float)) or self.high.shape == shape, 'If a shape is defined, high must be a list of type (int, float).'
             self.low = low
             self.high = high
         self.shape = shape
@@ -76,8 +78,8 @@ class RosImage_RosUInt64(Converter):
     MSG_TYPE_A = Image
     MSG_TYPE_B = UInt64
 
-    def __init__(self, test_arg):
-        super().__init__(test_arg)
+    @register.converter_params(test_arg=None)
+    def initialize(self, test_arg):
         self.test_arg = test_arg
 
     @staticmethod
@@ -97,8 +99,8 @@ class RosString_RosUInt64(Converter):
     MSG_TYPE_A = String
     MSG_TYPE_B = UInt64
 
-    def __init__(self, test_arg):
-        super().__init__(test_arg)
+    @register.converter_params(test_arg=None)
+    def initialize(self, test_arg):
         self.test_arg = test_arg
 
     @staticmethod

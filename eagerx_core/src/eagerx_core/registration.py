@@ -133,7 +133,7 @@ def actuators(**actuators):
     return functools.partial(_register_types, TYPE_REGISTER, 'actuators', actuators)
 
 def simstates(**simstates):
-    """Register simstate msg_types"""
+    """Register simstates msg_type"""
     return functools.partial(_register_types, TYPE_REGISTER, 'states', simstates)
 
 def object_params(**object_params):
@@ -147,6 +147,14 @@ def agnostic_params(**agnostic_params):
 def node_params(**node_params):
     """Register default node_params arguments"""
     return functools.partial(_register_types, TYPE_REGISTER, 'node_params', node_params, cls_only=False)
+
+def simstate_params(**simstate_params):
+    """Register default simstate_params arguments"""
+    return functools.partial(_register_types, TYPE_REGISTER, 'simstate_params', simstate_params, cls_only=False)
+
+def converter_params(**converter_params):
+    """Register default converter_params arguments"""
+    return functools.partial(_register_types, TYPE_REGISTER, 'converter_params', converter_params, cls_only=False)
 
 
 ############# BRIDGES ###############
@@ -164,7 +172,9 @@ def bridge(bridge_cls):
         @functools.wraps(func)
         def bridge_fn(cls, spec):
             """First, initialize spec with object_info, then call the bridge function"""
-            spec._initialize_bridge(bridge_id, object_params)
-            return func(cls, spec, bridge_id)
+            graph = spec._initialize_bridge(bridge_id, object_params)
+            res = func(cls, spec, bridge_id, graph)
+            # spec._remove_unpaired_components(bridge_id)
+            return res
         return bridge_fn
     return _bridge

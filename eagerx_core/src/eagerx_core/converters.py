@@ -20,4 +20,8 @@ class Identity(BaseConverter):
     def convert(self, msg):
         return msg
 
+    @register.converter_params()
+    def initialize(self):
+        pass
+
 

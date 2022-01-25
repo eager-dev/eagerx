@@ -1,7 +1,9 @@
 from typing import Dict, List, Tuple, Union, Any, Optional
 import inspect
 from yaml import dump
+from eagerx_core.objectgraph import ObjectGraph
 from eagerx_core.utils.utils import deepcopy, supported_types, get_module_type_string, exists
+
 
 def merge(a, b, path=None):
     "merges b into a"
@@ -35,6 +37,11 @@ class EntitySpec(object):
 
 
 class ConverterSpec(EntitySpec):
+    def initialize(self, spec_cls):
+        import eagerx_core.registration as register
+        params = register.LOOKUP_TYPES[spec_cls.initialize]
+        self._set(params['converter_params'])
+
     def set_parameter(self, parameter: str, value: Any):
         self.set_parameters({parameter: value})
 
@@ -47,6 +54,34 @@ class ConverterSpec(EntitySpec):
 
     def get_parameters(self):
         return self.params
+
+    @supported_types(str, int, list, float, bool, dict, None)
+    def _set(self, mapping):
+        merge(self._params, mapping)
+
+
+class SimStateSpec(EntitySpec):
+    def initialize(self, spec_cls):
+        import eagerx_core.registration as register
+        params = register.LOOKUP_TYPES[spec_cls.initialize]
+        self._set(params['simstate_params'])
+
+    def set_parameter(self, parameter: str, value: Any):
+        self.set_parameters({parameter: value})
+
+    @supported_types(str, int, list, float, bool, dict, None)
+    def set_parameters(self, mapping: Dict):
+        self._params.update(mapping)
+
+    def get_parameter(self, parameter: str, default: Optional[Any] = None):
+        return self.params.get(parameter, default)
+
+    def get_parameters(self):
+        return self.params
+
+    @supported_types(str, int, list, float, bool, dict, None)
+    def _set(self, mapping):
+        merge(self._params, mapping)
 
 
 class BaseNodeSpec(EntitySpec):
@@ -66,17 +101,30 @@ class BaseNodeSpec(EntitySpec):
         if 'object_params' in params:
             params.pop('object_params')
 
+        if 'targets' in params:
+            from eagerx_core.entities import ResetNode
+            assert issubclass(spec_cls, ResetNode), f'You can only have targets registered for nodes that inherit from the ResetNode baseclass.'
+            add_ft = True
+        else:
+            add_ft = False
+
         # Set default components
         for component, cnames in params.items():
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
                 if component == 'outputs':
                     mapping = dict(msg_type=msg_type, rate=1, converter=self.identity.params, space_converter=None)
+                    # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
+                    if add_ft:
+                        mapping_ft = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=False,
+                                          converter=self.identity.params, space_converter=None, address=None)
+                        self._set({'feedthroughs': {cname: mapping_ft}})
+
                 elif component == 'inputs':
                     mapping = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=False,
-                                   converter=self.identity.params, space_converter=None)
+                                   converter=self.identity.params, space_converter=None, address=None)
                 elif component == 'targets':
-                    mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None)
+                    mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None, address=None)
                 else:
                     component = 'states'
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None)
@@ -177,7 +225,6 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
-    # todo: add assertion on adding states (could make graph engine-specific)
     # todo: define mutation functions here
     pass
 
@@ -188,8 +235,14 @@ class SimNodeSpec(BaseNodeSpec):
     pass
 
 
+class ResetNodeSpec(BaseNodeSpec):
+    # todo: define mutation functions here
+    pass
+
+
 class BridgeSpec(BaseNodeSpec):
     pass
+
 
 class ObjectSpec(EntitySpec):
     def __init__(self, params):
@@ -222,11 +275,53 @@ class ObjectSpec(EntitySpec):
         # Create param mapping
         bridge_params = {bridge_id: object_params}
         self._set(bridge_params)
-        return bridge_id
+
+        graph = self._initialize_object_graph(bridge_id)
+
+        # Add all components to engine-specific params
+        # for component in ['sensors', 'actuators', 'states']:
+        #     try:
+        #         cnames = self._get_components(component)
+        #     except AssertionError:
+        #         continue
+        #     for cname, params in cnames.items():
+        #         self._set({bridge_id: {component: {cname: None}}})
+        return graph
+
+    def _remove_unpaired_components(self, bridge_id):
+        # Add all components to engine-specific params
+        for component in ['sensors', 'actuators', 'states']:
+            try:
+                cnames = self._get_components(component)
+            except AssertionError:
+                continue
+            for cname, params in cnames.items():
+                bridge_params = self._params[bridge_id][component][cname]
+                if bridge_params is None:
+                    self._params[bridge_id][component].pop(cname)
+            if len(self._params[bridge_id][component]) == 0:
+                self._params[bridge_id].pop(component)
+
+    def _initialize_object_graph(self, bridge_id):
+        mapping = dict()
+        for component in ['sensors', 'actuators', 'states']:
+            try:
+                mapping[component] = self._get_components(component)
+            except AssertionError:
+                continue
+
+        graph = ObjectGraph.create(**mapping)
+        assert 'graph' not in self._params[bridge_id], f'Graph is a reserved keyword and cannot be used as a parameter for adding objects in "{bridge_id}".'
+        self._set({bridge_id: {'graph': graph._state}})
+        return graph
 
     @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
     def _set(self, mapping):
         merge(self._params, mapping)
+
+    @exists
+    def _get_components(self, component: str):
+        return self.get_parameters(level=component)
 
     # CHANGE COMPONENT
     @exists
@@ -239,9 +334,26 @@ class ObjectSpec(EntitySpec):
     def _set_components(self, bridge_id: str, component: str, mapping: Dict):
         self.set_parameters({component: mapping}, level=bridge_id)
 
+    @exists
+    def get_component_parameter(self, bridge_id: str, component: str, cname: str, parameter: str):
+        return self.params[bridge_id][component][cname].get(parameter)
+
+    @exists
+    def get_component_parameters(self, bridge_id: str, component: str, cname: str):
+        return self.params[bridge_id][component][cname]
+
     # CHANGE AGNOSTIC COMPONENT PARAMETERS
     def set_space_converter(self, component: str, cname: str, space_converter: ConverterSpec):
         self.set_agnostic_parameter(component, cname, 'space_converter', space_converter.params)
+
+    @exists
+    def set_agnostic_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
+        self._set({component: {cname: {parameter: value}}})
+
+    @exists
+    def set_agnostic_parameters(self, component: str, cname: str, mapping: Dict):
+        for parameter, value in mapping.items():
+            self._set({component: {cname: {parameter: value}}})
 
     @exists
     def set_agnostic_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
@@ -269,5 +381,3 @@ class ObjectSpec(EntitySpec):
     @exists
     def get_parameters(self, level='default'):
         return self.params[level]
-
-
