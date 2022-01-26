@@ -18,7 +18,7 @@ class ObjectGraph:
         self._state = state
 
     @classmethod
-    def create(cls, actuators: Optional[List[Dict]] = None, sensors: Optional[List[Dict]] = None, states: Optional[List[Dict]] = None, nodes: Optional[List] = None):
+    def create(cls, actuators: Optional[List[Dict]] = None, sensors: Optional[List[Dict]] = None, nodes: Optional[List] = None):
         from eagerx_core.specs import SimNodeSpec
         if nodes is None:
             nodes = []
@@ -47,16 +47,6 @@ class ObjectGraph:
             spec.add_input(cname, msg_type=params['msg_type'], converter=ConverterSpec(params['converter']), space_converter=ConverterSpec(params['space_converter']))
             inputs.append(cname)
         spec.set_parameter('inputs', inputs)
-
-        # Create state node
-        simstates = []
-        spec = SimNode.pre_make(None)
-        spec.set_parameter('name', 'states')
-        nodes.append(spec)
-        for cname, params in states.items():
-            spec.add_state(cname, msg_type=params['msg_type'], space_converter=ConverterSpec(params['space_converter']))
-            simstates.append(cname)
-        spec.set_parameter('states', simstates)
 
         # Create a state
         state = dict(nodes=dict(), connects=list())
@@ -735,47 +725,53 @@ class ObjectGraph:
 
         # Add addresses based on connections
         state = deepcopy(self._state)
+        actuators = dict()
+        sensors = dict()
         for source, target in state['connects']:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
-            address = '%s/%s/%s' % (source_name, source_comp, source_cname)
+            address = ObjectGraph._get_address(source, target)
             state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
+            if source_name == 'actuators':
+                actuators[source_cname] = {'name': f'$(ns obj_name)/{target_name}', 'component': target_comp, 'cname': target_cname}
+            if target_name == 'sensors':
+                sensors[target_cname] = {'name': f'$(ns obj_name)/{source_name}', 'component': source_comp, 'cname': source_cname}
 
+            # todo: replace key properties (e.g. rate) with placeholder value.
             # For actions & observations, replace default args
-            if source_name == 'env/actions':
-                default = state['nodes'][target_name]['params']['default']
-                context = {'default': default}
-                cname_params = state['nodes'][source_name]['params'][source_comp][source_cname]
-                substitute_args(cname_params, context, only=['default', 'ns'])
-            if target_name == 'env/observations':
-                default = state['nodes'][source_name]['params']['default']
-                context = {'default': default}
-                cname_params = state['nodes'][target_name]['params'][target_comp][target_cname]
-                substitute_args(cname_params, context, only=['default', 'ns'])
+            # if source_name == 'env/actions':
+            #     default = state['nodes'][target_name]['params']['default']
+            #     context = {'default': default}
+            #     cname_params = state['nodes'][source_name]['params'][source_comp][source_cname]
+            #     substitute_args(cname_params, context, only=['default', 'ns'])
+            # if target_name == 'env/observations':
+            #     default = state['nodes'][source_name]['params']['default']
+            #     context = {'default': default}
+            #     cname_params = state['nodes'][target_name]['params'][target_comp][target_cname]
+            #     substitute_args(cname_params, context, only=['default', 'ns'])
 
         # Initialize param objects
-        nodes = []
-        objects = []
-        render = None
-        actions = None
-        observations = None
+        nodes = dict()
+        from eagerx_core.specs import SimNodeSpec
         for name, entry in state['nodes'].items():
             params = entry['params']
             if 'node_type' in params:
-                if name == 'env/actions':
-                    actions = RxNodeParams(name, params)
-                elif name == 'env/observations':
-                    observations = RxNodeParams(name, params)
-                elif name == 'env/render':
-                    render = RxNodeParams(name, params)
+                if name == 'actuators':
+                    pass
+                    # actuators = SimNodeSpec(params)
+                elif name == 'sensors':
+                    pass
+                    # sensors = SimNodeSpec(params)
                 else:
-                    nodes.append(RxNodeParams(name, params))
-            else:
-                objects.append(RxObjectParams(name, params))
+                    # Put node name into object namespace
+                    spec = SimNodeSpec(params)
+                    name = f'$(ns obj_name)/{spec.get_parameter("name")}'
+                    spec.set_parameter("name", name)
+                    nodes[name] = spec.params
 
-        assert actions, 'No action node defined in the graph.'
-        assert observations, 'No observation node defined in the graph.'
-        return nodes, objects, actions, observations, render
+        assert actuators, 'No actuators node defined in the graph.'
+        assert sensors, 'No sensors node defined in the graph.'
+        return nodes, actuators, sensors
 
     def save(self, path: str):
         with open(path, 'w') as outfile:
@@ -790,15 +786,24 @@ class ObjectGraph:
             except yaml.YAMLError as exc:
                 print(exc)
 
-    def update(self, entities: Optional[List[str]]=None):
-        # todo: updates the default params to the yaml as specified in the config.
-        # todo: update actual params with additional default args & new I/O & name changes & new bridge implementations
-        # todo: if None, update all entities
-        assert False, 'Not implemented'
-
     def gui(self):
         from eagerx_core.gui import launch_gui
         self._state = launch_gui(deepcopy(self._state))
+
+    @staticmethod
+    def _get_address(source: Tuple[str, str, str], target: Tuple[str, str, str]):
+        """ Determine the address."""
+        source_name, source_comp, source_cname = source
+        target_name, target_comp, target_cname = target
+        if source_name == 'actuators':
+            assert not target_name == 'sensors', f'A direct connection between a sensor "{target_cname}" and actuator "{source_cname}" cannot exist.'
+            address = f'$(ns obj_name)/{source_name}/{source_cname}'
+        elif target_name == 'sensors':
+            assert not source_name == 'actuators', f'A direct connection between a sensor "{target_cname}" and actuator "{source_cname}" cannot exist.'
+            address = f'$(ns obj_name)/{target_name}/{target_cname}'
+        else:
+            address = f'$(ns obj_name)/{source_name}/{source_comp}/{source_cname}'
+        return address
 
     @staticmethod
     def _exist(state: Dict, name: str, component: Optional[str] = None, cname: Optional[str] = None, parameter: Optional[str] = None, check_default: Optional[bool] = False):
@@ -905,21 +910,6 @@ class ObjectGraph:
         return True
 
     @staticmethod
-    def _get_address(source: Tuple[str, str, str], target: Tuple[str, str, str]):
-        """ Determine the address."""
-        source_name, source_comp, source_cname = source
-        target_name, target_comp, target_cname = target
-        if source_name == 'actuators':
-            assert not target_name == 'sensors', f'A direct connection between a sensor "{target_cname}" and actuator "{source_cname}" cannot exist.'
-            address = f'$(ns obj_name)/{source_name}/{source_cname}'
-        elif target_name == 'sensors':
-            assert not source_name == 'actuators', f'A direct connection between a sensor "{target_cname}" and actuator "{source_cname}" cannot exist.'
-            address = f'$(ns obj_name)/{target_name}/{target_cname}'
-        else:
-            address = f'{source_name}/{source_comp}/{source_cname}'
-        return address
-
-    @staticmethod
     def check_inputs_have_address(state):
         state = deepcopy(state)
         for source, target in state['connects']:
@@ -947,47 +937,33 @@ class ObjectGraph:
         for node, params in state['nodes'].items():
             default = params['params']['default']
             if 'outputs' in default:
+                has_tick = True if 'tick' in default['inputs'] else False
                 for cname in default['outputs']:
                     name = '%s/%s' % (node, cname)
                     remain_active = True if node == 'actuators' else False
-                    G.add_node(name, remain_active=remain_active, always_active=False, is_stale=False)
+                    always_active = True if node == 'actuators' else False
+                    G.add_node(name, remain_active=remain_active, always_active=always_active, is_stale=False, has_tick=has_tick)
             if node == 'sensors':
                 for cname in default['inputs']:
                     name = '%s/%s' % (node, cname)
-                    G.add_node(name, remain_active=True, always_active=True, is_stale=False)
+                    G.add_node(name, remain_active=True, always_active=False, is_stale=False, has_tick=False)
 
         # Add edges
-        # for cname in state['nodes']['actuators']['params']['default']['outputs']:
-        #     if cname == 'set': continue
-        #     name = 'env/actions/%s' % cname
-        #     label_mapping[name] = 'actions/%s' % cname
-        #     G.add_edge('env/observations/set', name, # key='%s/%s' % ('inputs', 'observations_set'),
-        #                feedthrough=False, style='solid', color='black', alpha=1.0, is_stale=False, skip=False,
-        #                source=('env/observations', 'outputs', 'set'), target=('env/actions', 'inputs', 'observations_set'))
         target_comps = ['inputs']
         source_comps = ['outputs']
         for source, target in state['connects']:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
             if source_comp in source_comps and target_comp in target_comps:
-                # Determine source node name
-                # if 'node_type' in state['nodes'][source_name]['params']:
                 source_edge = '%s/%s' % (source_name, source_cname)
-                # else:
-                #     source_edge = '%s/%s/%s' % (source_name, source_comp, source_cname)
                 # Determine target node name
                 target_edges = []
                 target_default = state['nodes'][target_name]['params']['default']
-                # if 'node_type' in state['nodes'][target_name]['params']:
                 for cname in target_default['outputs']:
                     target_edge = '%s/%s' % (target_name, cname)
                     target_edges.append(target_edge)
                 if target_name == 'sensors':
-                    for cname in target_default['inputs']:
-                        target_edge = '%s/%s' % (target_name, cname)
-                        target_edges.append(target_edge)
-                # else:
-                #     target_edge = '%s/%s/%s' % (target_name, target_comp, target_cname)
+                    target_edge = '%s/%s' % (target_name, target_cname)
                     target_edges.append(target_edge)
 
                 # Determine stale nodes in real_reset routine via feedthrough edges
@@ -1008,12 +984,9 @@ class ObjectGraph:
                                is_stale=False, skip=skip, source=source, target=target)
 
         # Color nodes based on in/out going edges
-        not_active = is_stale(G)
+        not_active = is_stale(G, exclude_skip=True)
         color_nodes(G)
         color_edges(G)
-
-        # Remap action & observation labels to more readable form
-        # G = nx.relabel_nodes(G, label_mapping)
 
         # Check if graph is acyclic (excluding 'skip' edges)
         H, cycles = episode_graph(G)
@@ -1022,7 +995,7 @@ class ObjectGraph:
         # Plot graphs
         if plot:
             fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
-            ax_env.set_title('Communication graph (episode)')
+            ax_env.set_title('Engine-specific graph')
             _, _, _, pos = plot_graph(G, k=2, ax=ax_env)
             plt.show()
 
@@ -1050,21 +1023,4 @@ class ObjectGraph:
             connect.pop(-1)
         assert is_dag, ''.join(cycle_strs)
         assert len(not_active) == 0, 'Stale episode graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
-
-        # Create a shallow copy graph that excludes feedthrough edges
-        F = reset_graph(G)
-        not_active = is_stale(F)
-        color_nodes(F)
-        color_edges(F)
-
-        # Plot graphs
-        if plot:
-            fig_reset, ax_reset = plt.subplots(nrows=1, ncols=1)
-            ax_reset.set_title('Communication graph (reset)')
-            _, _, _, pos = plot_graph(F, pos=pos, ax=ax_reset)
-            plt.show()
-
-        # Assert if reset graph is not stale
-        has_real_reset = len([e for e, ft in nx.get_edge_attributes(G, 'feedthrough').items() if ft]) > 0
-        assert len(not_active) == 0 or not has_real_reset, 'Stale reset graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
         return True

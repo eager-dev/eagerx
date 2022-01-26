@@ -259,6 +259,7 @@ class ObjectSpec(EntitySpec):
         self._set({'default': agnostic.pop('agnostic_params')})
 
         # Set default components
+        agnostic_spec = AgnosticSpec(dict())
         for component, cnames in agnostic.items():
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
@@ -269,51 +270,41 @@ class ObjectSpec(EntitySpec):
                 else:
                     component = 'states'
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None)
-                self._set({component: {cname: mapping}})
-        spec_cls.agnostic(self)
+                agnostic_spec._set({component: {cname: mapping}})
+        spec_cls.agnostic(agnostic_spec)
+        self._set(agnostic_spec.params)
 
-    def _initialize_bridge(self, bridge_id, object_params):
+    def _initialize_engine_spec(self, object_params):
         # Create param mapping
-        bridge_params = {bridge_id: object_params}
-        self._set(bridge_params)
+        spec = EngineSpec(object_params)
+        graph = self._initialize_object_graph()
 
-        graph = self._initialize_object_graph(bridge_id)
-
-        # Add all components to engine-specific params
-        # for component in ['sensors', 'actuators', 'states']:
-        #     try:
-        #         cnames = self._get_components(component)
-        #     except AssertionError:
-        #         continue
-        #     for cname, params in cnames.items():
-        #         self._set({bridge_id: {component: {cname: None}}})
-        return graph
-
-    def _remove_unpaired_components(self, bridge_id):
-        # Add all components to engine-specific params
-        for component in ['sensors', 'actuators', 'states']:
+        # Add all states to engine-specific params
+        for component in ['states']:
             try:
                 cnames = self._get_components(component)
             except AssertionError:
                 continue
             for cname, params in cnames.items():
-                bridge_params = self._params[bridge_id][component][cname]
-                if bridge_params is None:
-                    self._params[bridge_id][component].pop(cname)
-            if len(self._params[bridge_id][component]) == 0:
-                self._params[bridge_id].pop(component)
+                spec._set({component: {cname: None}})
+        return spec, graph
 
-    def _initialize_object_graph(self, bridge_id):
+    def _add_engine_spec(self, bridge_id, engine_spec, graph):
+        nodes, actuators, sensors = graph.register()
+        engine_spec._set({'actuators': actuators})
+        engine_spec._set({'sensors': sensors})
+        engine_spec._set({'nodes': nodes})
+        self._set({bridge_id: engine_spec})
+
+    def _initialize_object_graph(self):
         mapping = dict()
-        for component in ['sensors', 'actuators', 'states']:
+        for component in ['sensors', 'actuators']:
             try:
                 mapping[component] = self._get_components(component)
             except AssertionError:
                 continue
 
         graph = ObjectGraph.create(**mapping)
-        assert 'graph' not in self._params[bridge_id], f'Graph is a reserved keyword and cannot be used as a parameter for adding objects in "{bridge_id}".'
-        self._set({bridge_id: {'graph': graph._state}})
         return graph
 
     @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
@@ -327,9 +318,10 @@ class ObjectSpec(EntitySpec):
     # CHANGE COMPONENT
     @exists
     def set_component_parameter(self, bridge_id: str, component: str, cname: str, parameter: str, value: Any):
-        self._set_component(bridge_id, component, cname, {parameter: value})
+        self.set_component_parameters(bridge_id, component, cname, {parameter: value})
 
-    def _set_component(self, bridge_id: str, component: str, cname: str, mapping: Dict):
+    @exists
+    def set_component_parameters(self, bridge_id: str, component: str, cname: str, mapping: Dict):
         self._set_components(bridge_id, component, {cname: mapping})
 
     def _set_components(self, bridge_id: str, component: str, mapping: Dict):
@@ -342,28 +334,6 @@ class ObjectSpec(EntitySpec):
     @exists
     def get_component_parameters(self, bridge_id: str, component: str, cname: str):
         return self.params[bridge_id][component][cname]
-
-    # CHANGE AGNOSTIC COMPONENT PARAMETERS
-    def set_space_converter(self, component: str, cname: str, space_converter: ConverterSpec):
-        self.set_agnostic_parameter(component, cname, 'space_converter', space_converter.params)
-
-    @exists
-    def set_agnostic_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
-        self._set({component: {cname: {parameter: value}}})
-
-    @exists
-    def set_agnostic_parameters(self, component: str, cname: str, mapping: Dict):
-        for parameter, value in mapping.items():
-            self._set({component: {cname: {parameter: value}}})
-
-    @exists
-    def set_agnostic_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
-        self._set({component: {cname: {parameter: value}}})
-
-    @exists
-    def set_agnostic_parameters(self, component: str, cname: str, mapping: Dict):
-        for parameter, value in mapping.items():
-            self._set({component: {cname: {parameter: value}}})
 
     # CHANGE OBJECT PARAMETERS. level=('default', bridge_id)
     @exists
@@ -382,3 +352,66 @@ class ObjectSpec(EntitySpec):
     @exists
     def get_parameters(self, level='default'):
         return self.params[level]
+
+
+class AgnosticSpec(EntitySpec):
+    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
+    def _set(self, mapping):
+        merge(self._params, mapping)
+
+    # CHANGE AGNOSTIC COMPONENT PARAMETERS
+    def set_space_converter(self, component: str, cname: str, space_converter: ConverterSpec):
+        self.set_parameter(component, cname, 'space_converter', space_converter.params)
+
+    @exists
+    def set_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
+        self._set({component: {cname: {parameter: value}}})
+
+    @exists
+    def set_parameters(self, component: str, cname: str, mapping: Dict):
+        for parameter, value in mapping.items():
+            self._set({component: {cname: {parameter: value}}})
+
+    @exists
+    def set_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
+        self._set({component: {cname: {parameter: value}}})
+
+    @exists
+    def set_parameters(self, component: str, cname: str, mapping: Dict):
+        for parameter, value in mapping.items():
+            self._set({component: {cname: {parameter: value}}})
+
+
+class EngineSpec(EntitySpec):
+    @exists
+    def set_parameter(self, parameter: str, value: Any):
+        self._set({parameter: value})
+
+    @exists
+    def set_parameters(self, mapping: Dict):
+        for parameter, value in mapping.items():
+            self.set_parameter(parameter, value)
+
+    @exists
+    def get_parameter(self, parameter: str):
+        return self.params.get(parameter)
+
+    @exists
+    def get_parameters(self):
+        return self.params
+
+    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
+    def _set(self, mapping):
+        merge(self._params, mapping)
+
+    def set_state_parameter(self, cname: str, parameter: str, value: Any):
+        self.set_state(cname, {parameter: value})
+
+    def set_state(self, cname: str, mapping: Dict):
+        self._set_component_parameters('states', cname, mapping)
+
+    @exists
+    def _set_component_parameters(self, component: str, cname: str, mapping: Dict):
+        # assert component in self._params, f"Component '{component}' not found. Available keys(params['default'])={self._params.keys()}."
+        # assert cname in self._params[component],  f"Cname '{cname}' not found. Available keys(params[{component}])={self._params[component].keys()}."
+        self._set({component: {cname: mapping}})

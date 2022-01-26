@@ -86,7 +86,7 @@ def plot_graph(G, ax=None, k=2, pos=None):
     nodes_plt = nx.draw_networkx_nodes(G, pos, node_color='white', node_size=350, alpha=1.0, ax=ax)
 
     # Create legend
-    root_patch = mpatches.Patch(color='skyblue', label='root')
+    root_patch = mpatches.Patch(color='skyblue', label='source')
     sink_patch = mpatches.Patch(color='lightgreen', label='sink')
     stale_patch = mpatches.Patch(color='lightgrey', label='stale')
     node_patch = mpatches.Patch(color='khaki', label='node')
@@ -126,12 +126,12 @@ def color_edges(G):
             data['alpha'] = 1.0
 
 
-def is_stale(G):
+def is_stale(G, exclude_skip=False):
     new_stale_nodes = [n for n, is_stale in nx.get_node_attributes(G, 'is_stale').items() if is_stale]
     for n, data_n in G.nodes(data=True):
         # First, determine stale nodes, based on edges_in & always connected
         in_degree = G.in_degree(n)
-        if in_degree == 0 and not data_n['always_active']:
+        if in_degree == 0 and not data_n['always_active'] and not data_n['has_tick']:
             data_n['is_stale'] = True
             new_stale_nodes.append(n)
 
@@ -149,9 +149,13 @@ def is_stale(G):
         for n in stale_nodes:
             for u, v, key, data_e in G.out_edges(n, data=True, keys=True):
                 data_e['is_stale'] = True
-                if not G.nodes[v]['is_stale']:
-                    new_stale_nodes.append(v)
-                    G.nodes[v]['is_stale'] = True
+                skip = data_e['skip'] if exclude_skip else False
+                if u == 'N8/out_1' and v == 'N7/out_1':
+                    print('wait')
+                if not G.nodes[v]['is_stale'] and not skip:
+                    if not G.nodes[v]['always_active']:
+                        new_stale_nodes.append(v)
+                        G.nodes[v]['is_stale'] = True
     remain_active = [n for n, is_stale in nx.get_node_attributes(G, 'remain_active').items() if is_stale]
     stale_nodes = [n for n, is_stale in nx.get_node_attributes(G, 'is_stale').items() if is_stale]
     not_active = [n for n in stale_nodes if n in remain_active]

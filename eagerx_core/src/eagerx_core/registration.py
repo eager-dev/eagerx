@@ -2,7 +2,7 @@ import functools
 import inspect
 import rospy
 from eagerx_core.utils.utils import deepcopy
-from eagerx_core.specs import EntitySpec
+from eagerx_core.specs import EntitySpec, EngineSpec
 
 
 # Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
@@ -170,11 +170,11 @@ def bridge(bridge_cls):
         entry = func.__module__ + '/' + func.__qualname__
         rospy.logdebug(f'[{cls_name}][{fn_name}]: bridge_id={bridge_id}, entry={entry}')
         @functools.wraps(func)
-        def bridge_fn(cls, spec):
+        def bridge_fn(cls, object_spec):
             """First, initialize spec with object_info, then call the bridge function"""
-            graph = spec._initialize_bridge(bridge_id, object_params)
-            res = func(cls, spec, bridge_id, graph)
-            # spec._remove_unpaired_components(bridge_id)
-            return res
+            engine_spec, graph = object_spec._initialize_engine_spec(object_params)
+            func(cls, engine_spec, graph)
+            object_spec._add_engine_spec(bridge_id, engine_spec, graph)
+            # return object_spec
         return bridge_fn
     return _bridge

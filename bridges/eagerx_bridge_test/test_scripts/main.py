@@ -34,7 +34,8 @@ if __name__ == '__main__':
     # Make all additional variables engine-specific & pass as object_params
 
     # todo: CHECK_SPEC IMPLEMENTATION
-    # simnodes cannot have the same agnostic params as object --> else clash with $(default arg) placeholders --> directly resolve after objectgraph has been created.
+    # Check that all simnode rates are not None, similar with names etc...
+    # Simnodes cannot have the same agnostic params as object --> else clash with $(default arg) placeholders --> directly resolve after objectgraph has been created.
     # Do all agnostic definitions have a space_converter?
     # Are empty components removed (e.g. inputs/outputs/targets/states or sensors/actuators/states)
 

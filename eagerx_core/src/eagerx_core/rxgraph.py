@@ -971,13 +971,13 @@ class RxGraph:
                 if 'sensors' in default:
                     for cname in default['sensors']:
                         name = '%s/sensors/%s' % (node, cname)
-                        G.add_node('%s/sensors/%s' % (node, cname), remain_active=False, always_active=True, is_stale=False)
+                        G.add_node('%s/sensors/%s' % (node, cname), remain_active=False, always_active=True, is_stale=False, has_tick=False)
                         if not ('actuators' in default and cname in default['actuators']):
                             label_mapping[name] = '%s/%s' % (node, cname)
                 if 'actuators' in default:
                     for cname in default['actuators']:
                         name = '%s/actuators/%s' % (node, cname)
-                        G.add_node('%s/actuators/%s' % (node, cname), remain_active=True, always_active=False, is_stale=False)
+                        G.add_node('%s/actuators/%s' % (node, cname), remain_active=True, always_active=False, is_stale=False, has_tick=False)
                         if not ('sensors' in default and cname in default['sensors']):
                             label_mapping[name] = '%s/%s' % (node, cname)
             else:  # node
@@ -985,7 +985,7 @@ class RxGraph:
                     for cname in default['outputs']:
                         name = '%s/%s' % (node, cname)
                         if name == 'env/actions/set': continue
-                        G.add_node(name, remain_active=False, always_active=False, is_stale=False)
+                        G.add_node(name, remain_active=False, always_active=False, is_stale=False, has_tick=False)
 
         # Add edges
         for cname in state['nodes']['env/actions']['params']['default']['outputs']:

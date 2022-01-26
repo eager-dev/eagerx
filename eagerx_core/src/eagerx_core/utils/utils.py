@@ -464,7 +464,7 @@ def exists(func):
         if 'component' in _args:
             component = _args['component']
             assert component in params, f"Component '{component}' not found. Available keys(params)={params.keys()}."
-            assert component in params['default'], f"Component '{component}' not found. Available keys(params['default'])={params['default'].keys()}."
+            assert 'level' not in check_args or component in params['default'], f"Component '{component}' not found. Available keys(params['default'])={params['default'].keys()}."
             if 'cname' in _args:
                 cname = _args['cname']
                 assert cname in params[component], f"Cname '{cname}' not found. Available keys(params[{component}])={params[component].keys()}."

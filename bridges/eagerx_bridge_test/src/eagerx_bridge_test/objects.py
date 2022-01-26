@@ -20,21 +20,22 @@ class Arm(Object):
     def agnostic(spec):
         """Agnostic definition of the Arm object"""
         # Set state properties: space_converters
-        spec.set_space_converter('sensors', 'N6', SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.set_agnostic_parameter('sensors', 'N6', 'rate', '${default rate}')
-        spec.set_space_converter('sensors', 'N7', SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.set_agnostic_parameter('sensors', 'N7', 'rate', 2)
+        space_rosuint64 = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
+        spec.set_space_converter('sensors', 'N6', space_rosuint64)
+        spec.set_parameter('sensors', 'N6', 'rate', '${default rate}')
+        spec.set_space_converter('sensors', 'N7', space_rosuint64)
+        spec.set_parameter('sensors', 'N7', 'rate', 2)
 
         # Set actuator properties: space_converters
-        spec.set_space_converter('actuators', 'N8', SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64'))
-        spec.set_agnostic_parameter('actuators', 'N8', 'rate', '${default rate}')
-        spec.set_space_converter('actuators', 'ref_vel', SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.set_agnostic_parameter('actuators', 'ref_vel', 'rate', 1)
+        space_rosstring = SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64')
+        spec.set_space_converter('actuators', 'N8', space_rosstring)
+        spec.set_parameter('actuators', 'N8', 'rate', '${default rate}')
+        spec.set_space_converter('actuators', 'ref_vel', space_rosuint64)
+        spec.set_parameter('actuators', 'ref_vel', 'rate', 1)
 
         # Set state properties: space_converters
-        spec.set_space_converter('states', 'N9', SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        spec.set_space_converter('states', 'N10', SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64'))
-        return spec
+        spec.set_space_converter('states', 'N9', space_rosuint64)
+        spec.set_space_converter('states', 'N10', space_rosuint64)
 
     @staticmethod
     @register.spec('Arm', Object)
@@ -90,35 +91,27 @@ class Viper(Arm):
 
     @classmethod
     @register.bridge(TestBridgeNode)  # This decorator pre-initializes bridge implementation with default object_params
-    def test_bridge(cls, spec, bridge_id, graph):
+    def test_bridge(cls, spec, graph):
         """Engine-specific implementation of the Viper with the test bridge."""
         # Set object arguments
         object_params = dict(req_arg='TEST ARGUMENT',
                              xacro='$(find some_package)/urdf/viper.urdf.xacro')
-        spec.set_parameters(object_params, level=bridge_id)
-
-        # Create sensor simnodes
-        N6 = SimNode.make('SimSensor', 'N6', rate=None, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default test_string)')
-        N7 = SimNode.make('SimSensor', 'N7', rate=None, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
-
-        # Create actuator simnodes
-        N8 = SimNode.make('SimActuator', 'N8', rate=None, process=2, inputs=['tick', 'in_2', 'in_3'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
-        ref_vel = SimNode.make('SimActuator', 'ref_vel', rate=None, process=2, inputs=['tick', 'in_1', 'in_2'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+        spec.set_parameters(object_params)
 
         # Create simstates
-        N9 = SimState.make('TestSimState', test_arg='arg_N9')
-        N10 = SimState.make('TestSimState', test_arg='arg_N10')
+        spec.set_state('N9', SimState.make('TestSimState', test_arg='arg_N9'))
+        spec.set_state('N10', SimState.make('TestSimState', test_arg='arg_N10'))
 
-        # Add nodes to graph and connect them to actuators/sensors/states
+        # Create sensor simnodes
+        N6 = SimNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default test_string)')
+        N7 = SimNode.make('SimSensor', 'N7', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
+
+        # Create actuator simnodes
+        N8 = SimNode.make('SimActuator', 'N8', rate=1, process=2, inputs=['tick', 'in_2', 'in_3'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+        ref_vel = SimNode.make('SimActuator', 'ref_vel', rate=1, process=2, inputs=['tick', 'in_1', 'in_2'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+
+        # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])
-
-        # todo: implement graph functions
-        #  graph._connect_state(),
-        #  implement is_valid(),
-        #  check_graph_is_acyclic,
-        #  check_msg_type,
-        #  check_msg_types_are_consistent,
-        #  check_inputs_have_address
 
         # Connect sensors & actuators to simnodes
         graph.connect(source=('N6', 'outputs', 'out_1'), sensor='N6')
@@ -129,7 +122,7 @@ class Viper(Arm):
         graph.connect(actuator='ref_vel',                target=('ref_vel', 'inputs', 'in_1'))
 
         # Interconnect simnodes
-        graph.connect(source=('N6', 'outputs', 'out_1'), target=('N7', 'inputs', 'in_1'))
+        graph.connect(source=('N8', 'outputs', 'out_1'), target=('N7', 'inputs', 'in_1'), skip=True)
         graph.connect(source=('N6', 'outputs', 'out_1'), target=('N8', 'inputs', 'in_2'))
         graph.connect(source=('N6', 'outputs', 'out_1'), target=('ref_vel', 'inputs', 'in_2'))
 
@@ -137,8 +130,4 @@ class Viper(Arm):
         graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
         graph.disconnect(target=('N6', 'inputs', 'in_1'))
         graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
-
-        graph.is_valid(plot=True)
-        graph.register()
-        return spec
 
