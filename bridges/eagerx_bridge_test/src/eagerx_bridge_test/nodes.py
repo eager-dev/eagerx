@@ -21,8 +21,7 @@ class RealResetNode(ResetNode):
                  'states': {'state_1': UInt64},
                  'targets': {'target_1': UInt64}}
 
-    @register.node_params(test_arg='test')
-    def initialize(self, test_arg):
+    def initialize(self, test_arg, test_kwarg='test'):
         pass
 
     @staticmethod
@@ -116,7 +115,6 @@ class TestNode(SimNode):
                  'states': {'state_1': UInt64,
                             'state_2': UInt64}}
 
-    @register.node_params(test_arg='test')
     def initialize(self, test_arg):
         pass
 

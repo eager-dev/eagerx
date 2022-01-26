@@ -303,7 +303,7 @@ class SimNode(Node):
 
     For more info see baseclasses Node and NodeBase.
     """
-    def __init__(self, simulator: Any = None, object_params: Dict = None, **kwargs):
+    def __init__(self, simulator: Any = None, agnostic_params: Dict = None, bridge_params: Dict = None, **kwargs):
         """
         Simulation node class constructor.
 
@@ -317,7 +317,8 @@ class SimNode(Node):
         :param kwargs: Arguments that are to be passed down to the baseclass. See Node & NodeBase for this.
         """
         self.simulator = simulator
-        self.object_params = object_params
+        self.agnostic_params = agnostic_params
+        self.bridge_params = bridge_params
 
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
@@ -436,7 +437,8 @@ class Bridge(BaseNode):
 
     def register_object(self, object_params, node_params, state_params):
         # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
-        _ = self.add_object(object_params, node_params, state_params)
+        bridge_params = object_params.pop('bridge')
+        self.add_object(object_params, bridge_params, node_params, state_params)
 
         # Initialize states
         for i in state_params:
@@ -449,7 +451,7 @@ class Bridge(BaseNode):
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        node_args = dict(object_params=object_params, simulator=self.simulator)
+        node_args = dict(agnostic_params=object_params, bridge_params=bridge_params, simulator=self.simulator)
         initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args)
         for name, node in sp_nodes.items():
             # Initialize
@@ -532,7 +534,7 @@ class Bridge(BaseNode):
         super().check_spec(spec)
 
     @abc.abstractmethod
-    def add_object(self, object_params: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
+    def add_object(self, node_params: List[Dict], state_params: List[Dict], *args, **kwargs) -> None:
         """
         Adds an object to the bridge's simulator object.
 
@@ -644,7 +646,8 @@ class BaseConverter(Entity):
         return yaml_dict
 
     @abc.abstractmethod
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
+        """An abstract method to initialize the converter."""
         pass
 
     @abc.abstractmethod
@@ -806,7 +809,7 @@ class SimState(Entity):
 
     @abc.abstractmethod
     def initialize(self, *args, **kwargs):
-        """A method to initialize this simstate."""
+        """An abstract method to initialize this simstate."""
         pass
 
     @abc.abstractmethod

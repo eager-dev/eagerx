@@ -483,3 +483,17 @@ def exists(func):
 
         return func(self, *args, **kwargs)
     return _exists
+
+
+def get_default_params(func):
+    argspec = inspect.getfullargspec(func)
+    if argspec.defaults:
+        positional_count = len(argspec.args) - len(argspec.defaults)
+        defaults = dict(zip(argspec.args[positional_count:], argspec.defaults))
+    else:
+        defaults = dict()
+        positional_count = len(argspec.args)
+    for arg in argspec.args[:positional_count]:
+        if arg == 'self': continue
+        defaults[arg] = None
+    return defaults

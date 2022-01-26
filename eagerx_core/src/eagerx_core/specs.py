@@ -2,7 +2,7 @@ from typing import Dict, List, Tuple, Union, Any, Optional
 import inspect
 from yaml import dump
 from eagerx_core.objectgraph import ObjectGraph
-from eagerx_core.utils.utils import deepcopy, supported_types, get_module_type_string, exists
+from eagerx_core.utils.utils import deepcopy, supported_types, get_module_type_string, exists, get_default_params
 
 
 def merge(a, b, path=None):
@@ -38,9 +38,9 @@ class EntitySpec(object):
 
 class ConverterSpec(EntitySpec):
     def initialize(self, spec_cls):
-        import eagerx_core.registration as register
-        params = register.LOOKUP_TYPES[spec_cls.initialize]
-        self._set(params['converter_params'])
+        # Set default params
+        defaults = get_default_params(spec_cls.initialize)
+        self._set(defaults)
 
     def set_parameter(self, parameter: str, value: Any):
         self.set_parameters({parameter: value})
@@ -62,9 +62,9 @@ class ConverterSpec(EntitySpec):
 
 class SimStateSpec(EntitySpec):
     def initialize(self, spec_cls):
-        import eagerx_core.registration as register
-        params = register.LOOKUP_TYPES[spec_cls.initialize]
-        self._set(params['simstate_params'])
+        # Set default params
+        defaults = get_default_params(spec_cls.initialize)
+        self._set(defaults)
 
     def set_parameter(self, parameter: str, value: Any):
         self.set_parameters({parameter: value})
@@ -95,9 +95,9 @@ class BaseNodeSpec(EntitySpec):
         params = register.LOOKUP_TYPES[spec_cls.callback]
 
         # Set default params
-        self._set({'default': params.pop('node_params')})
+        defaults = get_default_params(spec_cls.initialize)
+        self._set({'default': defaults})
 
-        # Remove object_params (only applies to bridge nodes)
         if 'object_params' in params:
             params.pop('object_params')
 

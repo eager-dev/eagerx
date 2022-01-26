@@ -40,7 +40,6 @@ if __name__ == '__main__':
     # Are empty components removed (e.g. inputs/outputs/targets/states or sensors/actuators/states)
 
     # todo: OTHER
-    # replace register.init and register.add_object with automatic inspect.signature to find args. Make add_object args explicit.
     # graph check if address is None, instead of checking whether it is present.
     # graph check if cname not already connected (possibly with external address before connecting
     # Perform type checking inside register_types.

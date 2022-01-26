@@ -16,7 +16,6 @@ class TestSimState(SimState):
         spec.set_parameter('test_arg', test_arg)
         return spec
 
-    @register.simstate_params(test_arg='test')
     def initialize(self, test_arg):
         self.test_arg = test_arg
 

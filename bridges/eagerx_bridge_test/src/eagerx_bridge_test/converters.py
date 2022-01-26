@@ -11,7 +11,6 @@ class Space_RosUInt64(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = UInt64
 
-    @register.converter_params(low=None, high=None, shape=None, dtype='uint64')
     def initialize(self, low, high, shape=None, dtype='uint64'):
         self.low = np.array(low)
         self.high = np.array(high)
@@ -39,7 +38,6 @@ class Space_RosString(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = String
 
-    @register.converter_params(low=None, high=None, shape=None, dtype='uint64')
     def initialize(self, low, high, shape=None, dtype='uint64'):
         self.low = low
         self.high = high
@@ -78,7 +76,6 @@ class RosImage_RosUInt64(Converter):
     MSG_TYPE_A = Image
     MSG_TYPE_B = UInt64
 
-    @register.converter_params(test_arg=None)
     def initialize(self, test_arg):
         self.test_arg = test_arg
 
@@ -99,7 +96,6 @@ class RosString_RosUInt64(Converter):
     MSG_TYPE_A = String
     MSG_TYPE_B = UInt64
 
-    @register.converter_params(test_arg=None)
     def initialize(self, test_arg):
         self.test_arg = test_arg
 

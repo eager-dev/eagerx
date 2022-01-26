@@ -2,7 +2,7 @@ import functools
 import inspect
 import rospy
 from eagerx_core.utils.utils import deepcopy
-from eagerx_core.specs import EntitySpec, EngineSpec
+from eagerx_core.specs import EntitySpec
 
 
 # Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
@@ -143,18 +143,6 @@ def object_params(**object_params):
 def agnostic_params(**agnostic_params):
     """Register default agnostic_params arguments"""
     return functools.partial(_register_types, TYPE_REGISTER, 'agnostic_params', agnostic_params, cls_only=False)
-
-def node_params(**node_params):
-    """Register default node_params arguments"""
-    return functools.partial(_register_types, TYPE_REGISTER, 'node_params', node_params, cls_only=False)
-
-def simstate_params(**simstate_params):
-    """Register default simstate_params arguments"""
-    return functools.partial(_register_types, TYPE_REGISTER, 'simstate_params', simstate_params, cls_only=False)
-
-def converter_params(**converter_params):
-    """Register default converter_params arguments"""
-    return functools.partial(_register_types, TYPE_REGISTER, 'converter_params', converter_params, cls_only=False)
 
 
 ############# BRIDGES ###############
