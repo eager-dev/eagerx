@@ -12,15 +12,12 @@ from typing import List, NamedTuple, Any, Optional, Dict, Union, Tuple
 import time
 import importlib
 import inspect
-import glob
 from functools import reduce, wraps
 from time import sleep
 from six import raise_from
 import copy
 from yaml import safe_load, dump
 import os
-
-from eagerx_core import constants
 
 
 def pretty_print(params):
@@ -302,31 +299,39 @@ def get_yaml_type(yaml):
 
 
 def get_nodes_and_objects_library():
-    library = {'reset_node': {}, 'node': {}, 'object': {}}
-    config_dict = {}
-    ros_package_list = rospkg.RosPack().list()
-    eagerx_packages = [package for package in ros_package_list if 'eagerx' in package]
-    for package in eagerx_packages:
-        file_type = '.yaml'
-        package_path = substitute_args('$(find {})'.format(package))
-        files = glob.glob(package_path + "/config/**/*{}".format(file_type), recursive=True)
-        config_dict[package] = [path.split('/')[-1][:-len(file_type)] for path in files]
-    for package, configs in config_dict.items():
-        for config in configs:
-            if package in constants.GUI_CONFIG_TO_IGNORE and config in constants.GUI_CONFIG_TO_IGNORE[package]:
-                continue
-            if package is not None and config is not None:
-                yaml = load_yaml(package, config)
-                yaml_type = get_yaml_type(yaml)
-                # Filter out simulation nodes/bridges
-                if yaml_type == 'node':
-                    if 'inputs' in yaml and 'tick' in yaml['inputs']:
-                        continue
-                    if 'outputs' in yaml and 'tick' in yaml['outputs']:
-                        continue
-                if package not in library[yaml_type].keys():
-                    library[yaml_type][package] = []
-                library[yaml_type][package].append({'name': config, 'default': yaml})
+    from eagerx_core.registration import REGISTRY
+    library = dict()
+    for entity_cls, entities in REGISTRY.items():
+        library[entity_cls.__name__] = []
+        for id, spec in entities.items():
+            library[entity_cls.__name__].append({'id': id, 'spec': spec, 'entity_cls': entity_cls})
+    #
+    #
+    # library = {'reset_node': {}, 'node': {}, 'object': {}, 'converter'}
+    # config_dict = {}
+    # ros_package_list = rospkg.RosPack().list()
+    # eagerx_packages = [package for package in ros_package_list if 'eagerx' in package]
+    # for package in eagerx_packages:
+    #     file_type = '.yaml'
+    #     package_path = substitute_args('$(find {})'.format(package))
+    #     files = glob.glob(package_path + "/config/**/*{}".format(file_type), recursive=True)
+    #     config_dict[package] = [path.split('/')[-1][:-len(file_type)] for path in files]
+    # for package, configs in config_dict.items():
+    #     for config in configs:
+    #         if package in constants.GUI_CONFIG_TO_IGNORE and config in constants.GUI_CONFIG_TO_IGNORE[package]:
+    #             continue
+    #         if package is not None and config is not None:
+    #             yaml = load_yaml(package, config)
+    #             yaml_type = get_yaml_type(yaml)
+    #             # Filter out simulation nodes/bridges
+    #             if yaml_type == 'node':
+    #                 if 'inputs' in yaml and 'tick' in yaml['inputs']:
+    #                     continue
+    #                 if 'outputs' in yaml and 'tick' in yaml['outputs']:
+    #                     continue
+    #             if package not in library[yaml_type].keys():
+    #                 library[yaml_type][package] = []
+    #             library[yaml_type][package].append({'name': config, 'default': yaml})
     return library
 
 

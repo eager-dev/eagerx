@@ -4,14 +4,15 @@ launch_roscore()  # First launch roscore
 rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
 # ROS packages required
-from eagerx_core.core import RxBridge, RxNode, RxObject, EAGERxEnv, RxGraph
+from eagerx_core.core import EAGERxEnv, RxGraph
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
-from eagerx_core.converters import Identity
-from yaml import dump
 
+import eagerx_core
 import eagerx_bridge_test
-from eagerx_core.entities import Object, Node, ResetNode, SimNode, Bridge, Converter, SpaceConverter, Processor
+from eagerx_core.entities import Object, Node, ResetNode, SimNode, Bridge, Converter, SpaceConverter, Processor, BaseConverter
+
+from yaml import dump
 
 if __name__ == '__main__':
     # Process configuration (optional)
@@ -37,7 +38,13 @@ if __name__ == '__main__':
     # Check that all simnode rates are not None, similar with names etc...
     # Simnodes cannot have the same agnostic params as object --> else clash with $(default arg) placeholders --> directly resolve after objectgraph has been created.
     # Do all agnostic definitions have a space_converter?
-    # Are empty components removed (e.g. inputs/outputs/targets/states or sensors/actuators/states)
+
+    # todo: GUI
+    #  Make gui work for ObjectGraph
+    #  First show dialog box when creating a node with the spec arguments
+    #  Modify converter dialog box to only show registered converters
+    #  External_rate can be bool & int. Should be ignored in AgnosticGUI, but shown in EngineGUI
+    #  Add external addresses in EngineGUI
 
     # todo: OTHER
     # graph check if address is None, instead of checking whether it is present.
@@ -47,95 +54,81 @@ if __name__ == '__main__':
     # Convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
     # Implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
 
-    N3 = ResetNode.make('RealReset', 'N3', rate=rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
-    N1 = Node.make('Process', 'N1', rate=1.0, process=node_p)
-    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
-    arm = Object.make('Arm', 'arm', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
-    bridge = Bridge.make('TestBridge', rate=20)
-    sim_actuator = SimNode.make('SimActuator', 'sim_actuator', rate=1.0, process=node_p)
-    sim_sensor = SimNode.make('SimSensor', 'sim_sensor', rate=1.0, process=node_p)
+    # Define nodes
+    N1 = Node.make('Process', 'N1',         rate=1.0,  process=node_p)
+    KF = Node.make('KalmanFilter', 'KF',    rate=rate, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
+    N3 = ResetNode.make('RealReset', 'N3',  rate=rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
 
-    KF = Node.make('KalmanFilter', 'KF', rate=rate, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
+    # Define object
+    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make('RosString_RosUInt64', test_arg='test')
     RosImage_RosUInt64 = Converter.make('RosImage_RosUInt64', test_arg='test')
 
-    # Define converter (optional)
-    from eagerx_bridge_test.converters import RosString_RosUInt64, RosImage_RosUInt64
-    RosString_RosUInt64 = RosString_RosUInt64(test_arg='test')
-    RosImage_RosUInt64 = RosImage_RosUInt64(test_arg='test')
-
-    # Define nodes
-    N1 = RxNode.create('N1', 'eagerx_bridge_test', 'process',   rate=1.0, process=node_p)
-    N3 = RxNode.create('N3', 'eagerx_bridge_test', 'realreset', rate=rate, process=node_p, targets=['target_1'], inputs=['in_1', 'in_2'])
-    KF = RxNode.create('KF', 'eagerx_bridge_test', 'kf',        rate=20.0, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
-
-    # Define object
-    viper = RxObject.create('obj', 'eagerx_bridge_test', 'viper', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
-
     # Define graph
     graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     observation='obs_1', delay=0.0)
-    graph.connect(source=(KF.name, 'outputs', 'out_1'),     observation='obs_3', delay=0.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(KF.name, 'inputs', 'in_1'), delay=1.0)
-    graph.connect(action='act_2',                           target=(KF.name, 'inputs', 'in_2'), skip=True)
-    graph.connect(action='act_2',                           target=(N3.name, 'feedthroughs', 'out_1'), delay=1.0)
-    graph.connect(source=(viper.name, 'sensors', 'N6'),     target=(N3.name, 'inputs', 'in_1'))
-    graph.connect(source=(viper.name, 'states', 'N9'),      target=(N3.name, 'targets', 'target_1'))
-    graph.connect(source=(N3.name, 'outputs', 'out_1'),     target=(viper.name, 'actuators', 'N8'), delay=1.0, converter=RosString_RosUInt64)
+    graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
+    graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
+    graph.connect(source=('obj', 'sensors', 'N6'),     observation='obs_1', delay=0.0)
+    graph.connect(source=('KF', 'outputs', 'out_1'),   observation='obs_3', delay=0.0)
+    graph.connect(source=('obj', 'sensors', 'N6'),     target=('KF', 'inputs', 'in_1'), delay=1.0)
+    graph.connect(action='act_2',                      target=('KF', 'inputs', 'in_2'), skip=True)
+    graph.connect(action='act_2',                      target=('N3', 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(source=('obj', 'sensors', 'N6'),     target=('N3', 'inputs', 'in_1'))
+    graph.connect(source=('obj', 'states', 'N9'),      target=('N3', 'targets', 'target_1'))
+    graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'N8'), delay=1.0, converter=RosString_RosUInt64)
 
     # Set & get parameters
     _ = graph.get_parameter('converter', action='act_2')
     graph.set_parameter('window', 1, observation='obs_1')
     _ = graph.get_parameter('converter', observation='obs_1')
-    _ = graph.get_parameter('test_arg', name=N3.name)
-    _ = graph.get_parameters(viper.name, 'sensors', 'N6')
-    graph.set_parameter('test_arg', 'Modified with set_parameter', name=N3.name)
-    graph.set_parameter('test_arg', 'Modified with set_parameter', name=N3.name)
-    graph.set_parameter('position', [1, 1, 1], name=viper.name)
+    _ = graph.get_parameter('test_arg', name='N3')
+    _ = graph.get_parameters('obj', 'sensors', 'N6')
+    graph.set_parameter('test_arg', 'Modified with set_parameter', name='N3')
+    graph.set_parameter('test_arg', 'Modified with set_parameter', name='N3')
+    graph.set_parameter('position', [1, 1, 1], name='obj')
 
     # Replace output converter
-    graph.set_parameter('converter', RosString_RosUInt64, name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
-    graph.set_parameter('converter', Identity(), name=viper.name, component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
-    graph.render (source=(viper.name, 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)  # Reconnect
-    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', delay=0.0)  # Reconnect
-    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'), delay=1.0)  # Reconnect
-    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(N3.name, 'inputs', 'in_1'))  # Reconnect
+    identity = BaseConverter.make('Identity')
+    graph.set_parameter('converter', RosString_RosUInt64, name='obj', component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
+    graph.set_parameter('converter', identity, name='obj', component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
+    graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)  # Reconnect
+    graph.connect(source=('obj', 'sensors', 'N6'), observation='obs_1', delay=0.0)  # Reconnect
+    graph.connect(source=('obj', 'sensors', 'N6'), target=('KF', 'inputs', 'in_1'), delay=1.0)  # Reconnect
+    graph.connect(source=('obj', 'sensors', 'N6'), target=('N3', 'inputs', 'in_1'))  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
     # graph.remove_component(observation='obs_1')
-    # graph.remove_component(KF.name, 'outputs', 'out_1')
-    graph.remove_component(N3.name, 'inputs', 'in_2')
+    # graph.remove_component('KF', 'outputs', 'out_1')
+    graph.remove_component('N3', 'inputs', 'in_2')
 
     # Rename entity (object/node) and all associated connections
-    graph.rename(KF.name, 'KF2')
-    graph.rename('KF2', KF.name)
+    graph.rename('KF', 'KF2')
+    graph.rename('KF2', 'KF')
 
     # Rename action & observation
     graph.rename('act_2', 'act_1', name='env/actions', component='outputs')
     graph.rename('obs_3', 'obs_2', observation='obs_2')
 
     # Remove & add action (without action terminal removal)
-    graph.disconnect(action='act_1', target=(KF.name, 'inputs', 'in_2'))
-    graph.connect(action='act_1', target=(KF.name, 'inputs', 'in_2'), converter=None, delay=None, window=None, skip=True)
+    graph.disconnect(action='act_1', target=('KF', 'inputs', 'in_2'))
+    graph.connect(action='act_1', target=('KF', 'inputs', 'in_2'), converter=None, delay=None, window=None, skip=True)
 
     # Remove & add observation (with observation terminal removal)
-    graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1')
+    graph.disconnect(source=('obj', 'sensors', 'N6'), observation='obs_1')
     graph.add_component(observation='obs_1')  # Add input terminal
-    graph.connect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', converter=None, delay=None, window=None)
+    graph.connect(source=('obj', 'sensors', 'N6'), observation='obs_1', converter=None, delay=None, window=None)
 
     # Remove & add other input
-    graph.disconnect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
-    graph.connect(source=(viper.name, 'sensors', 'N6'), target=(KF.name, 'inputs', 'in_1'))
+    graph.disconnect(source=('obj', 'sensors', 'N6'), target=('KF', 'inputs', 'in_1'))
+    graph.connect(source=('obj', 'sensors', 'N6'), target=('KF', 'inputs', 'in_1'))
 
     # Works with other sources as well, but then specify "source" instead of "action" as optional arg to connect(..) and disconnect(..).
-    graph.disconnect(source=(viper.name, 'sensors', 'N6'), observation='obs_1', remove=False)  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
+    graph.disconnect(source=('obj', 'sensors', 'N6'), observation='obs_1', remove=False)  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
 
     # GUI routine for making connections
-    source = (viper.name, 'sensors', 'N6')
+    source = ('obj', 'sensors', 'N6')
     target = ('env/observations', 'inputs', 'obs_1')
     # GUI: Identify if source/target is action/observation
     observation = target[2] if target[0] == 'env/observations' else None
@@ -143,7 +136,7 @@ if __name__ == '__main__':
     params = graph.get_parameters(name=target[0], component=target[1], cname=target[2])  # Grab already defined parameters from input component
     if len(params) == 0:  # If observation, dict will be empty.
         converter = graph.get_parameter(parameter='space_converter', name=source[0], component=source[1], cname=source[2],
-                                        default=Identity)  # grab space_converter from source (viper.name, 'sensors', 'N6')
+                                        default=identity)  # grab space_converter from source ('obj', 'sensors', 'N6')
         delay, window = 0, 0
     else:  # If not observation, these values will always be present
         converter, delay, window = params['converter'], params['delay'], params['window']
@@ -155,18 +148,21 @@ if __name__ == '__main__':
     graph.connect(source=source, target=target, action=action, observation=observation, converter=converter, delay=delay, window=window)
 
     # TEST Test with KF having skipped all inputs at t=0
-    graph.remove_component(KF.name, 'inputs', 'in_1')
+    graph.remove_component('KF', 'inputs', 'in_1')
 
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = RxBridge.create('eagerx_bridge_test', 'bridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
+    # bridge = RxBridge.create('eagerx_bridge_test', 'bridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
+    bridge = Bridge.make('TestBridge', rate=20)
 
     # Initialize Environment
+    # todo: node spec for supervisor
+    # todo: spec.get_params(...)
     env = EAGERxEnv(name='rx',
                     rate=rate,
                     graph=graph,

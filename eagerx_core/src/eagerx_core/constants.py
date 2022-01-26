@@ -78,9 +78,8 @@ GUI_COLORS = {
 }
 
 # Config files to ignore in GUI
-GUI_CONFIG_TO_IGNORE = {
-    'eagerx_core': ['actions', 'observations', 'bridge', 'supervisor', 'render'],
-}
+GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'SimNode', 'Bridge', 'SimState'}
+GUI_NODE_IDS_TO_IGNORE = {'Observations', 'Actions', 'Render', 'Supervisor'}
 
 # PROCESS
 class process:

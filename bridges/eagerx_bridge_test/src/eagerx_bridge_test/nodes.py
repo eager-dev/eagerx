@@ -14,13 +14,6 @@ import eagerx_core.registration as register
 
 
 class RealResetNode(ResetNode):
-    msg_types = {'inputs': {'in_1': UInt64,
-                            'in_2': UInt64},
-                 'outputs': {'out_1': UInt64,
-                             'out_2': UInt64},
-                 'states': {'state_1': UInt64},
-                 'targets': {'target_1': UInt64}}
-
     def initialize(self, test_arg, test_kwarg='test'):
         pass
 
@@ -45,7 +38,7 @@ class RealResetNode(ResetNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Add custom params
+        # Modifu extra node params
         spec.set_parameter('test_arg', test_arg)
 
         # set input parameters
@@ -106,15 +99,6 @@ class RealResetNode(ResetNode):
 
 
 class TestNode(SimNode):
-    msg_types = {'inputs': {'in_1': UInt64,
-                            'in_2': UInt64,
-                            'in_3': String,
-                            'tick': UInt64},
-                 'outputs': {'out_1': UInt64,
-                             'out_2': UInt64},
-                 'states': {'state_1': UInt64,
-                            'state_2': UInt64}}
-
     def initialize(self, test_arg):
         pass
 
@@ -177,7 +161,7 @@ class ProcessNode(TestNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Add custom params
+        # Modifu extra node params
         spec.set_parameter('test_arg', test_arg)
 
         # Add inputs
@@ -221,7 +205,7 @@ class KalmanNode(TestNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Add custom params
+        # Modifu extra node params
         spec.set_parameter('test_arg', test_arg)
 
         # Remove unused inputs
@@ -264,7 +248,7 @@ class SimActuator(TestNode):
                       outputs=outputs)
         spec.set_parameters(params)
 
-        # Add custom params
+        # Modifu extra node params
         spec.set_parameter('test_arg', test_arg)
         return spec
 
@@ -290,6 +274,6 @@ class SimSensor(TestNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Add custom params
+        # Modifu extra node params
         spec.set_parameter('test_arg', test_arg)
         return spec

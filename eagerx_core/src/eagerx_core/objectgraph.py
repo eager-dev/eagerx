@@ -8,9 +8,9 @@ from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error
-from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-# from eagerx_core.entities import BaseConverter, SpaceConverter
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_cls_from_string, substitute_args, msg_type_error
+from eagerx_core.utils.network_utils import episode_graph, plot_graph, color_nodes, color_edges, is_stale
+from eagerx_core.specs import SimNodeSpec, ConverterSpec
 
 
 class ObjectGraph:
@@ -19,14 +19,13 @@ class ObjectGraph:
 
     @classmethod
     def create(cls, actuators: Optional[List[Dict]] = None, sensors: Optional[List[Dict]] = None, nodes: Optional[List] = None):
-        from eagerx_core.specs import SimNodeSpec
+
         if nodes is None:
             nodes = []
         if isinstance(nodes, SimNodeSpec):
             nodes = [nodes]
 
         from eagerx_core.entities import SimNode
-        from eagerx_core.specs import ConverterSpec
 
         # Create actuator node
         outputs = []
@@ -53,7 +52,7 @@ class ObjectGraph:
         cls._add(state, nodes)
         return cls(state)
 
-    def add(self, nodes: Union[Any, List]):
+    def add(self, nodes: Union[SimNodeSpec, List[SimNodeSpec]]):
         """
         Add a node or object to the state of this graph.
         """
@@ -264,11 +263,11 @@ class ObjectGraph:
             self.set_parameter('address', address, *target)
             assert external_rate is not None, f'When providing an external address "{address}", an external rate must also be provided.'
             assert external_rate > 0, f'Invalid external rate "{external_rate}". External rate must be > 0.'
+            self.set_parameter('external_rate', external_rate, *target)
             return
         else:
             assert external_rate is None, f'An external rate may only be provided in combination with an address.'
 
-        from eagerx_core.specs import ConverterSpec
         if isinstance(converter, ConverterSpec):
             converter = converter.params
 
@@ -298,7 +297,6 @@ class ObjectGraph:
         after which an additional call to connect_actuator/sensor is required before calling this method.
         For more info, see self.connect.
         """
-        from eagerx_core.specs import ConverterSpec
         if isinstance(converter, ConverterSpec):
             converter = converter.params
 
@@ -615,7 +613,6 @@ class ObjectGraph:
             for parameter, value in mapping.items():
                 self._exist(self._state, name, component=component, cname=cname, parameter=parameter)
                 if parameter == 'converter':
-                    from eagerx_core.specs import ConverterSpec
                     if isinstance(value, ConverterSpec):
                         value = value.params
                     self._set_converter(name, component, cname, value)
@@ -811,7 +808,7 @@ class ObjectGraph:
         Check if provided entry exists.
         """
         # Check that node/object exists
-        assert name in state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+        assert name in state['nodes'], f'There is no node or object registered in this graph with name "{name}".'
 
         # See if we must check both default and current params.
         if check_default:
@@ -856,12 +853,12 @@ class ObjectGraph:
             assert actuator is None, 'If {name, component, cname} are specified, actuator argument cannot be specified.'
             assert sensor is None, 'If {name, component, cname} are specified, sensor argument cannot be specified.'
         if component is not None:  # entity parameter
-            assert name is not None, 'Either both or None of component "%s" and name "%s" must be specified.' % (component, name)
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
             assert actuator is None, 'If {name, component, cname} are specified, actuator argument cannot be specified.'
             assert sensor is None, 'If {name, component, cname} are specified, sensor argument cannot be specified.'
         if cname is not None:  # entity parameter
-            assert name is not None, 'Either both or None of component "%s" and name "%s" must be specified.' % (component, name)
-            assert component is not None, 'If cname "%s" is specified, also component "%s" and name "%s" must be specified.' % (cname, component, name)
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
+            assert component is not None, f'If cname "{cname}" is specified, also component "{component}" and name "{name}" must be specified.'
             assert actuator is None, 'If {name, component, cname} are specified, actuator argument cannot be specified.'
             assert sensor is None, 'If {name, component, cname} are specified, sensor argument cannot be specified.'
         if actuator:

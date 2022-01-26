@@ -51,9 +51,12 @@ def spec(entity_id, entity_cls):
                 rospy.logdebug('[make]: entity_id=%s, entity=%s, entry=%s' % (entity_id, entity_cls.__name__, entity_type))
 
             if len(args) > 0 and isinstance(args[0], EntitySpec):
-                return func(*args, **kwargs)
+                spec = args[0]
+                func(*args, **kwargs)
             else:
-                return func(entity_cls.pre_make(entity_type), *args, **kwargs)
+                spec = entity_cls.pre_make(entity_type)
+                func(spec, *args, **kwargs)
+            return spec
         if entity_cls not in REGISTRY:
             """Add entity if this is the first registration of entity kind"""
             REGISTRY[entity_cls] = dict()

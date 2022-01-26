@@ -7,10 +7,9 @@ from typing import List, Union, Dict, Tuple, Optional, Any
 from yaml import dump
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
-from eagerx_core.params import RxNodeParams, RxObjectParams, add_default_args
-from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error
+from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error, supported_types
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.entities import BaseConverter, SpaceConverter
+from eagerx_core.entities import Node, BaseConverter, SpaceConverter, BaseNodeSpec, ObjectSpec, ConverterSpec, EntitySpec, merge
 
 
 class RxGraph:
@@ -18,19 +17,19 @@ class RxGraph:
         self._state = state
 
     @classmethod
-    def create(cls, nodes: Optional[List[RxNodeParams]] = None, objects: Optional[List[RxObjectParams]] = None):
+    def create(cls, nodes: Optional[List[BaseNodeSpec]] = None, objects: Optional[List[ObjectSpec]] = None):
         if nodes is None:
             nodes = []
         if objects is None:
             objects = []
-        if isinstance(nodes, RxNodeParams):
+        if isinstance(nodes, BaseNodeSpec):
             nodes = [nodes]
-        if isinstance(objects, RxObjectParams):
+        if isinstance(objects, ObjectSpec):
             objects = [objects]
 
         # Add action & observation node to list
-        actions = RxNodeParams.create(name='env/actions', package_name='eagerx_core', config_name='actions', rate=1.0)
-        observations = RxNodeParams.create(name='env/observations', package_name='eagerx_core', config_name='observations', rate=1.0)
+        actions = Node.make('Actions')
+        observations = Node.make('Observations')
         nodes += [actions, observations]
 
         # Create a state
@@ -39,14 +38,14 @@ class RxGraph:
         cls._add(state, objects)
         return cls(state)
 
-    def add(self, entities: Union[Union[RxNodeParams, RxObjectParams], List[Union[RxNodeParams, RxObjectParams]]]):
+    def add(self, entities: Union[Union[BaseNodeSpec, ObjectSpec], List[Union[BaseNodeSpec, ObjectSpec]]]):
         """
         Add a node or object to the state of this graph.
         """
         self._add(self._state, entities)
 
     @staticmethod
-    def _add(state: Dict, entities: Union[Union[RxNodeParams, RxObjectParams], List[Union[RxNodeParams, RxObjectParams]]]):
+    def _add(state: Dict, entities: Union[Union[BaseNodeSpec, ObjectSpec], List[Union[BaseNodeSpec, ObjectSpec]]]):
         """
         Add a node/object to the provided state.
         """
@@ -54,20 +53,13 @@ class RxGraph:
             entities = [entities]
 
         for entity in entities:
-            name = entity.name
-            assert name not in state['nodes'], 'There is already a node or object registered in this graph with name "%s".' % name
+            name = entity.get_parameter('name')
+            assert name not in state['nodes'], f'There is already a node or object registered in this graph with name "{name}".'
 
             # Add node to state
-            params = entity.params
-            package_name = params['default']['package_name']
-            config_name = params['default']['config_name']
-            if isinstance(entity, RxNodeParams):
-                params_default = RxNodeParams.create(name, package_name, config_name, rate=1).params
-            else:
-                params_default = RxObjectParams.create(name, package_name, config_name).params
             state['nodes'][name] = dict()
-            state['nodes'][name]['params'] = deepcopy(params)
-            state['nodes'][name]['default'] = params_default
+            state['nodes'][name]['params'] = entity.params
+            state['nodes'][name]['default'] = entity.params
 
     def remove(self, names: Union[str, List[str]], remove: bool = False):
         """
@@ -255,8 +247,8 @@ class RxGraph:
         assert not target or not observation, 'You cannot specify a target if you wish to connect observation "%s", as the observation will act as the target.' % observation
         assert not (observation and action), 'You cannot connect an action directly to an observation.'
 
-        if isinstance(converter, BaseConverter):
-            converter = converter.get_yaml_definition()
+        if isinstance(converter, ConverterSpec):
+            converter = converter.params
 
         if action:  # source = action
             try:
@@ -286,8 +278,8 @@ class RxGraph:
         after which an additional call to connect_action/observation is required before calling this method.
         For more info, see self.connect.
         """
-        if isinstance(converter, BaseConverter):
-            converter = converter.get_yaml_definition()
+        if isinstance(converter, ConverterSpec):
+            converter = converter.params
 
         if isinstance(source, tuple):
             source = list(source)
@@ -355,9 +347,9 @@ class RxGraph:
             # Verify that converter is not modifying the msg_type (i.e. it is a processor).
             assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type as the converted msg_type will not be compatible with the space_converter specified in the .yaml.'
             msg_type_A = get_opposite_msg_cls(msg_type_B, space_converter)
-            params_action['outputs'][action]['msg_type'] = get_module_type_string(msg_type_A)
-            params_action['outputs'][action]['converter'] = space_converter
-            add_default_args(params_action['outputs'][action], component='outputs')
+            msg_type = get_module_type_string(msg_type_A)
+            mapping = dict(msg_type=msg_type, converter=space_converter, space_converter=None)
+            self._set(params_action['outputs'], {action: mapping})
 
     def _connect_observation(self, source, observation, converter):
         """
@@ -380,8 +372,11 @@ class RxGraph:
 
         # Set properties in node params of 'env/observations'
         assert len(params_obs['inputs'][observation]) == 0, 'Observation "%s" already connected.' % observation
+        msg_type = get_module_type_string(msg_type_C)
         params_obs['inputs'][observation]['msg_type'] = get_module_type_string(msg_type_C)
-        add_default_args(params_obs['inputs'][observation], component='inputs')
+        mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
+                       converter=BaseConverter.make('Identity'), space_converter=None, address=None)
+        self._set(params_obs['inputs'], {observation: mapping})
         return converter
 
     def disconnect(self,
@@ -625,19 +620,18 @@ class RxGraph:
             for parameter, value in mapping.items():
                 self._exist(self._state, name, component=component, cname=cname, parameter=parameter)
                 if parameter == 'converter':
-                    if isinstance(value, BaseConverter):
-                        value = value.get_yaml_definition()
+                    if isinstance(value, ConverterSpec):
+                        value = value.params
                     self._set_converter(name, component, cname, value)
                 else:
-                    self._state['nodes'][name]['params'][component][cname][parameter] = value
+                    self._set(self._state['nodes'][name]['params'][component][cname], {parameter: value})
         else:  # Default parameter
             for parameter, value in mapping.items():
                 self._exist(self._state, name, component=component, cname=cname, parameter=parameter)
                 assert parameter not in ['sensors', 'actuators', 'targets', 'states', 'inputs', 'outputs'], 'You cannot modify component parameters with this function. Use _add/remove_component(..) instead.'
-                assert parameter not in ['config_name', 'package_name'], 'Cannot change the config_name or package_name parameter.'
                 assert parameter not in ['name'], 'You cannot rename with this function. Use rename_(name) instead.'
                 default = self._state['nodes'][name]['params']['default']
-                default[parameter] = value
+                self._set(default, {parameter: value})
 
     def _set_converter(self, name: str, component: str, cname: str, converter: Dict):
         """
@@ -670,7 +664,7 @@ class RxGraph:
             assert issubclass(converter_cls, SpaceConverter), 'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
 
         # Replace converter
-        params[component][cname]['converter'] = converter
+        self._set(params[component][cname], {'converter': converter})
 
     def get_parameter(self, parameter: str, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None, default=None):
         """
@@ -786,13 +780,13 @@ class RxGraph:
         return nodes, objects, actions, observations, render
 
     def render(self, source: Tuple[str, str, str], rate: float, converter: Optional[Dict] = None, window: Optional[int] = None, delay: Optional[float] = None, skip: Optional[bool] = None,
-               package_name='eagerx_core', config_name='render', **kwargs):
+               id='Render', **kwargs):
         # Delete old render node from self._state['nodes'] if it exists
         if 'env/render' in self._state['nodes']:
             self.remove('env/render')
 
         # Add (new) render node to self._state['node']
-        render = RxNodeParams.create('env/render', package_name, config_name, rate=rate, **kwargs)
+        render = Node.make(id, rate=rate, **kwargs)
         self.add(render)
 
         # Create connection
@@ -819,7 +813,6 @@ class RxGraph:
         assert False, 'Not implemented'
 
     def gui(self):
-        # todo: JELLE opens gui with state and outputs state
         from eagerx_core.gui import launch_gui
         self._state = launch_gui(deepcopy(self._state))
 
@@ -829,7 +822,7 @@ class RxGraph:
         Check if provided entry exists.
         """
         # Check that node/object exists
-        assert name in state['nodes'], 'There is no node or object registered in this graph with name "%s".' % name
+        assert name in state['nodes'], f'There is no node or object registered in this graph with name "{name}".'
 
         # See if we must check both default and current params.
         if check_default:
@@ -842,17 +835,17 @@ class RxGraph:
             default = params['default']
 
             # Check that components and specific entry (cname) exists
-            assert component is None or component in params, 'Component "%s" not present in "%s". Check config "%s.yaml" of "%s" in package "%s".' % (component, name, default['config_name'], default['name'], default['package_name'])
+            assert component is None or component in params, f'Component "{component}" not present in "{name}".'
             if component is None:
-                assert cname is None, 'Cannot check if "%s" exists, because no component was specified.' % cname
-            assert cname is None or cname in params[component], '"%s" not defined in "%s" under %s. Check config "%s.yaml" of "%s" in package "%s".' % (cname, name, component, default['config_name'], default['name'], default['package_name'])
+                assert cname is None, f'Cannot check if "{name}" exists, because no component was specified.'
+            assert cname is None or cname in params[component], f'"{cname}" not defined in "{name}" under {component}.'
 
             # check that parameter exists
             if parameter is not None:
                 if (component is not None) and (cname is not None):  # component parameter
-                    assert parameter in params[component][cname], 'Cannot set parameter "%s". Parameter does not exist in "%s" under %s. Check config "%s.yaml" of "%s" in package "%s".' % (parameter, cname, component, default['config_name'], default['name'], default['package_name'])
+                    assert parameter in params[component][cname], f'Cannot set parameter "{parameter}". Parameter does not exist in "{cname}" under {component}.'
                 else:
-                    assert parameter in default, 'Cannot set parameter "%s". Parameter does not exist under "default". Check config "%s.yaml" of "%s" in package "%s".' % (parameter, default['config_name'], default['name'], default['package_name'])
+                    assert parameter in default, f'Cannot set parameter "{parameter}". Parameter does not exist under "default" of {name}.'
 
     @staticmethod
     def _is_selected(state: Dict, name: str, component: str, cname: str):
@@ -874,12 +867,12 @@ class RxGraph:
             assert action is None, 'If {name, component, cname} are specified, action argument cannot be specified.'
             assert observation is None, 'If {name, component, cname} are specified, observation argument cannot be specified.'
         if component is not None:  # entity parameter
-            assert name is not None, 'Either both or None of component "%s" and name "%s" must be specified.' % (component, name)
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
             assert action is None, 'If {name, component, cname} are specified, action argument cannot be specified.'
             assert observation is None, 'If {name, component, cname} are specified, observation argument cannot be specified.'
         if cname is not None:  # entity parameter
-            assert name is not None, 'Either both or None of component "%s" and name "%s" must be specified.' % (component, name)
-            assert component is not None, 'If cname "%s" is specified, also component "%s" and name "%s" must be specified.' % (cname, component, name)
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
+            assert component is not None, f'If cname "{cname}" is specified, also component "{component}" and name "{name}" must be specified.'
             assert action is None, 'If {name, component, cname} are specified, action argument cannot be specified.'
             assert observation is None, 'If {name, component, cname} are specified, observation argument cannot be specified.'
         if action:
@@ -1157,3 +1150,8 @@ class RxGraph:
         tabulate_str = tabulate(objects, headers=headers, tablefmt=tablefmt, colalign=["center"]*len(headers))
         assert len(compatible), 'No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s' % tabulate_str
         return tabulate_str
+
+    @staticmethod
+    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
+    def _set(state, mapping):
+        merge(state, mapping)

@@ -25,6 +25,7 @@ from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_nodes_and_objects_library
 from eagerx_core.utils.pyqtgraph_utils import exception_handler
 
+
 # pyside and pyqt use incompatible ui files.
 rx_ui_template = importlib.import_module('eagerx_core.gui.templates.ui_{}'.format(QT_LIB.lower()))
 
@@ -53,12 +54,12 @@ class RxGui(RxGraph, QtCore.QObject):
     def add_pos_to_state(state):
         for n in state['nodes'].values():
             if 'pos' not in n:
-                if n['params']['default']['package_name'] == 'eagerx_core':
-                    if n['params']['default']['config_name'] == 'actions':
+                if n['params']['default']['name'] in ['env/observations', 'env/actions', 'env/render']:
+                    if n['params']['default']['name'] == 'env/actions':
                         pos = [0, 0]
-                    elif n['params']['default']['config_name'] == 'observations':
+                    elif n['params']['default']['name'] == 'env/observations':
                         pos = [600, 0]
-                    elif n['params']['default']['config_name'] == 'render':
+                    elif n['params']['default']['name'] == 'env/render':
                         pos = [600, 150]
                     else:
                         pos = np.array([150, 0]) + np.random.randint((300, 150))
@@ -446,19 +447,17 @@ class EagerxGraphWidget(dockarea.DockArea):
 
     def buildMenu(self, pos=None):
         def build_sub_menu(library, root_menu, submenus, pos=None):
-            for package, nodes in library.items():
-                package_menu = QtGui.QMenu(package)
-                root_menu.addMenu(package_menu)
-                submenus.append(package_menu)
-                for node in nodes:
-                    act = package_menu.addAction(node['name'])
-                    node['package_name'] = package
-                    act.nodeType = node
-                    act.pos = pos
+            for node in library:
+                id = node['id']
+                if id in constants.GUI_NODE_IDS_TO_IGNORE: continue
+                act = root_menu.addAction(id)
+                act.nodeType = node
+                act.pos = pos
 
         self.submenus = []
         self.nodeMenu = []
         for node_type, library in self.chart.library.items():
+            if node_type in constants.GUI_ENTITIES_TO_IGNORE: continue
             menu = QtGui.QMenu('Add {}'.format(node_type.replace('_', ' ')))
             build_sub_menu(library, menu, self.submenus, pos=pos)
             menu.triggered.connect(self.node_menu_triggered)
@@ -488,20 +487,24 @@ class EagerxGraphWidget(dockarea.DockArea):
 
         n = 0
         while True:
-            name = '{}'.format(node_type['name'])
+            name = '{}'.format(node_type['id'])
             if n > 0:
                 name += '_{}'.format(n + 1)
             if name not in self.chart.nodes:
                 break
             n += 1
 
-        default = node_type['default']
-        if 'node_type' in default.keys():
-            rx_entity = RxNodeParams.create(name, node_type['package_name'], node_type['name'], rate=1.)
-        else:
-            rx_entity = RxObjectParams.create(name, node_type['package_name'], node_type['name'])
+        from eagerx_core.registration import get_spec
+        signature = node_type['entity_cls'].get_spec(node_type['id'])
+        args = signature.parameters.keys()
+        mapping = dict()
+        if 'name' in args:
+            mapping['name'] = name
+        if 'rate' in args:
+            mapping['rate'] = 1.0
+        rx_entity = node_type['spec'](**mapping)
         self.chart.add(rx_entity)
-        self.chart._state['nodes'][node_type['name']]['pos'] = pos
+        self.chart._state['nodes'][name]['pos'] = pos
         self.chart.create_node(name, pos)
 
     def selection_changed(self):

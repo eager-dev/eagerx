@@ -16,7 +16,7 @@ from tabulate import tabulate
 
 from eagerx_core.constants import TERMCOLOR, ERROR, SILENT, process
 from eagerx_core.rxmessage_broker import RxMessageBroker
-from eagerx_core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec
+from eagerx_core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec, merge
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 

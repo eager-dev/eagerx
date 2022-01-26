@@ -7,14 +7,40 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
+import eagerx_core.registration as register
+from eagerx_core.constants import process, DEBUG
 from eagerx_core.entities import Node
 from eagerx_core.utils.utils import initialize_converter, Msg
 from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 
 
 class ObservationsNode(Node):
-    msg_types = {'inputs': {'actions_set': UInt64},
-                 'outputs': {'set': UInt64}}
+    @staticmethod
+    @register.spec('Observations', Node)
+    def spec(spec, rate=1, log_level=DEBUG, color='yellow'):
+        """ObservationsNode spec"""
+        # Initialize spec
+        spec.initialize(ObservationsNode)
+
+        # Modify default node params
+        params = dict(name='env/observations',
+                      rate=rate,
+                      process=process.ENVIRONMENT,
+                      color=color,
+                      log_level=log_level,
+                      inputs=['actions_set', 'step'],
+                      outputs=['set'],
+                      states=[])
+        spec.set_parameters(params)
+
+        # Pre-set address
+        spec.set_component_parameter('inputs', 'actions_set', 'address', 'env/actions/outputs/set')
+
+        # Pre-set window
+        spec.set_component_parameter('inputs', 'actions_set', 'window', 0)
+
+        # Set skip for first action_set (so that we do not block at t=0)
+        spec.set_component_parameter('inputs', 'actions_set', 'skip', True)
 
     def initialize(self):
         # Define observation buffers
@@ -36,6 +62,8 @@ class ObservationsNode(Node):
         for name, buffer in self.observation_buffer.items():
             buffer['msgs'] = None
 
+    @register.inputs(actions_set=UInt64)
+    @register.outputs(set=UInt64)
     def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # Set all observations to messages in inputs
         for name, buffer in self.observation_buffer.items():
@@ -47,9 +75,31 @@ class ObservationsNode(Node):
 
 
 class ActionsNode(Node):
-    msg_types = {'inputs': {'observations_set': UInt64,
-                            'step': UInt64},
-                 'outputs': {'set': UInt64}}
+    @staticmethod
+    @register.spec('Actions', Node)
+    def spec(spec, rate=1, log_level=DEBUG, color='red'):
+        """ActionsNode spec"""
+        # Initialize spec
+        spec.initialize(ActionsNode)
+
+        # Modify default node params
+        params = dict(name='env/actions',
+                      rate=rate,
+                      process=process.ENVIRONMENT,
+                      color=color,
+                      log_level=log_level,
+                      inputs=['observations_set', 'step'],
+                      outputs=['set'],
+                      states=[])
+        spec.set_parameters(params)
+
+        # Pre-set addresses
+        spec.set_component_parameter('inputs', 'observations_set', 'address', 'env/observations/outputs/set')
+        spec.set_component_parameter('inputs', 'step', 'address', 'env/supervisor/outputs/step')
+
+        # Pre-set window
+        spec.set_component_parameter('inputs', 'observations_set', 'window', 0)
+        spec.set_component_parameter('inputs', 'step', 'window', 0)
 
     def initialize(self):
         # Define action/observation buffers
@@ -73,6 +123,8 @@ class ActionsNode(Node):
         # start_with an initial action message, so that the first observation can pass.
         return dict(set=UInt64())
 
+    @register.inputs(observations_set=UInt64, step=UInt64)
+    @register.outputs(set=UInt64)
     def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # Fill output_msg with buffered actions
         output_msgs = dict(set=UInt64())
@@ -82,8 +134,29 @@ class ActionsNode(Node):
 
 
 class RenderNode(Node):
-    msg_types = {'inputs': {'image': Image},
-                 'outputs': {'done': UInt64}}
+    @staticmethod
+    @register.spec('Render', Node)
+    def spec(spec, rate, display=True, log_level=DEBUG, color='red'):
+        """RenderNode spec"""
+        # Initialize spec
+        spec.initialize(RenderNode)
+
+        # Modify default node params
+        params = dict(name='env/render',
+                      rate=rate,
+                      process=process.NEW_PROCESS,
+                      color=color,
+                      log_level=log_level,
+                      inputs=['image'],
+                      outputs=['done'],
+                      states=[])
+        spec.set_parameters(params)
+
+        # Modify custom params
+        spec.set_parameter('display', display)
+
+        # Pre-set window
+        spec.set_component_parameter('inputs', 'image', 'window', 0)
 
     def initialize(self, display):
         self.cv_bridge = CvBridge()
@@ -109,6 +182,8 @@ class RenderNode(Node):
     def reset(self):
         self.last_image = Image()
 
+    @register.inputs(image=Image)
+    @register.outputs(done=UInt64)
     def callback(self, node_tick: int, t_n: float, image: Optional[Msg] = None):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]

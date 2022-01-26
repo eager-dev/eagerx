@@ -1,7 +1,6 @@
 from typing import Dict, List, Tuple, Union, Any, Optional
 import inspect
 from yaml import dump
-from eagerx_core.objectgraph import ObjectGraph
 from eagerx_core.utils.utils import deepcopy, supported_types, get_module_type_string, exists, get_default_params
 
 
@@ -116,13 +115,13 @@ class BaseNodeSpec(EntitySpec):
                     mapping = dict(msg_type=msg_type, rate=1, converter=self.identity.params, space_converter=None)
                     # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
                     if add_ft:
-                        mapping_ft = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=False,
+                        mapping_ft = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
                                           converter=self.identity.params, space_converter=None, address=None)
                         self._set({'feedthroughs': {cname: mapping_ft}})
 
                 elif component == 'inputs':
                     address = '$(ns env_name)/bridge/outputs/tick' if cname == 'tick' else None
-                    mapping = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=False,
+                    mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
                                    converter=self.identity.params, space_converter=None, address=address)
                 elif component == 'targets':
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None, address=None)
@@ -304,6 +303,7 @@ class ObjectSpec(EntitySpec):
             except AssertionError:
                 continue
 
+        from eagerx_core.objectgraph import ObjectGraph
         graph = ObjectGraph.create(**mapping)
         return graph
 
