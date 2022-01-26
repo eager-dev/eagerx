@@ -732,7 +732,7 @@ class RxGraph:
         # Replace the converter with the default converter
         self._set_converter(name, component, cname, converter_default)
 
-    def register_graph(self):
+    def register(self):
         """
         Set the addresses in all incoming components.
         Validate the graph.
@@ -1025,8 +1025,6 @@ class RxGraph:
 
                 # Determine edges that do not break DAG property (i.e. edges that are skipped)
                 skip = state['nodes'][target_name]['params'][target_comp][target_cname]['skip']
-                if skip:
-                    print('wait')
                 color = 'green' if skip else 'black'
                 style = 'dotted' if skip else 'solid'
 

@@ -121,8 +121,9 @@ class BaseNodeSpec(EntitySpec):
                         self._set({'feedthroughs': {cname: mapping_ft}})
 
                 elif component == 'inputs':
+                    address = '$(ns env_name)/bridge/outputs/tick' if cname == 'tick' else None
                     mapping = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=False,
-                                   converter=self.identity.params, space_converter=None, address=None)
+                                   converter=self.identity.params, space_converter=None, address=address)
                 elif component == 'targets':
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None, address=None)
                 else:

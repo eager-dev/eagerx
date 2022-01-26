@@ -42,7 +42,7 @@ class RxEnv(gym.Env):
 
         # Register graph
         self.graph = graph
-        nodes, objects, actions, observations, self.render_node = graph.register_graph()
+        nodes, objects, actions, observations, self.render_node = graph.register()
 
         # Initialize supervisor node
         self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)

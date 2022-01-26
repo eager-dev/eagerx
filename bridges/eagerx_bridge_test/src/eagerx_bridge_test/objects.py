@@ -49,20 +49,12 @@ class Arm(Object):
 
         # Modify default node params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        default = dict(name=name,
-                       sensors=sensors,
-                       actuators=actuators,
-                       states=states)
+        default = dict(name=name, sensors=sensors, actuators=actuators, states=states)
         spec.set_parameters(default)
 
         # Add custom params
-        params = dict(position=position,
-                      orientation=orientation,
-                      string=string,
-                      test_string=test_string,
-                      test_list=test_list,
-                      low=low,
-                      rate=15)
+        params = dict(position=position, orientation=orientation, string=string, test_string=test_string,
+                      test_list=test_list, low=low, rate=15)
         spec.set_parameters(params)
 
         # Add bridge-specific implementation
@@ -84,20 +76,12 @@ class Viper(Arm):
 
         # Modify default node params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        default = dict(name=name,
-                       sensors=sensors,
-                       actuators=actuators,
-                       states=states)
+        default = dict(name=name, sensors=sensors, actuators=actuators, states=states)
         spec.set_parameters(default, level='default')
 
         # Add custom params
-        params = dict(position=position,
-                      orientation=orientation,
-                      string=string,
-                      test_string=test_string,
-                      test_list=test_list,
-                      low=low,
-                      rate=15)
+        params = dict(position=position, orientation=orientation, string=string, test_string=test_string,
+                      test_list=test_list, low=low, rate=15)
         spec.set_parameters(params, level='default')
 
         # Add bridge implementation
@@ -138,15 +122,23 @@ class Viper(Arm):
 
         # Connect sensors & actuators to simnodes
         graph.connect(source=('N6', 'outputs', 'out_1'), sensor='N6')
+        graph.disconnect(source=('N6', 'outputs', 'out_1'), sensor='N6')
+        graph.connect(source=('N6', 'outputs', 'out_1'), sensor='N6')
         graph.connect(source=('N7', 'outputs', 'out_1'), sensor='N7')
         graph.connect(actuator='N8',                     target=('N8', 'inputs', 'in_3'))
         graph.connect(actuator='ref_vel',                target=('ref_vel', 'inputs', 'in_1'))
 
         # Interconnect simnodes
+        graph.connect(source=('N6', 'outputs', 'out_1'), target=('N7', 'inputs', 'in_1'))
         graph.connect(source=('N6', 'outputs', 'out_1'), target=('N8', 'inputs', 'in_2'))
         graph.connect(source=('N6', 'outputs', 'out_1'), target=('ref_vel', 'inputs', 'in_2'))
 
         # Connect simnode with external address (cannot be actuator or sensor)
-        graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'))
+        graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
+        graph.disconnect(target=('N6', 'inputs', 'in_1'))
+        graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
+
+        graph.is_valid(plot=True)
+        graph.register()
         return spec
 

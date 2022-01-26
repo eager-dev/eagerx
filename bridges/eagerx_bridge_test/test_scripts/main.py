@@ -20,6 +20,7 @@ if __name__ == '__main__':
     rate = 7
 
     # todo: PLACEHOLDERS
+    # Make sure to replace all default node args (e.g. rate) with object args, then replace args inside nodes.
     # Allow engine-specific params to be modified via agnostic params by coupling them with a Placeholder(name=, parameter)
     # When saving a graph, convert all Placeholders to $(ph $(name) parameter).
     # When loading a graph, convert all (ph $(name) parameter) to Placeholders.
@@ -38,6 +39,9 @@ if __name__ == '__main__':
     # Are empty components removed (e.g. inputs/outputs/targets/states or sensors/actuators/states)
 
     # todo: OTHER
+    # replace register.init and register.add_object with automatic inspect.signature to find args. Make add_object args explicit.
+    # graph check if address is None, instead of checking whether it is present.
+    # graph check if cname not already connected (possibly with external address before connecting
     # Perform type checking inside register_types.
     # Move .get_params(ns) to Specs, and rename function to "build"
     # Convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
@@ -54,11 +58,10 @@ if __name__ == '__main__':
     KF = Node.make('KalmanFilter', 'KF', rate=rate, process=node_p, inputs=['in_1', 'in_2'], outputs=['out_1', 'out_2'])
 
     # Define converter (optional)
-
     RosString_RosUInt64 = Converter.make('RosString_RosUInt64', test_arg='test')
     RosImage_RosUInt64 = Converter.make('RosImage_RosUInt64', test_arg='test')
 
-    # Old
+    # Define converter (optional)
     from eagerx_bridge_test.converters import RosString_RosUInt64, RosImage_RosUInt64
     RosString_RosUInt64 = RosString_RosUInt64(test_arg='test')
     RosImage_RosUInt64 = RosImage_RosUInt64(test_arg='test')
