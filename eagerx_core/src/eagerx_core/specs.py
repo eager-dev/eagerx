@@ -306,6 +306,7 @@ class BaseNodeSpec(EntitySpec):
         node_params = {name: default, 'rate': rate_dict}
         return replace_None(node_params)
 
+
 class NodeSpec(BaseNodeSpec):
     # todo: define mutation functions here
     pass
@@ -469,6 +470,7 @@ class ObjectSpec(EntitySpec):
             nodes[key_sub] = nodes.pop(key)
 
         # Sensors & actuators
+        sensor_addresses = dict()
         rates = dict()
         for obj_comp in ['sensors', 'actuators']:
             for obj_cname in default[obj_comp]:
@@ -493,10 +495,18 @@ class ObjectSpec(EntitySpec):
                 if obj_comp == 'sensors':
                     node_comp_params.update(obj_comp_params)
                     node_comp_params['address'] = f'{name}/{obj_comp}/{obj_cname}'
+                    sensor_addresses[f'{node_name}/{node_comp}/{node_cname}'] = f'{name}/{obj_comp}/{obj_cname}'
                 else:  # Actuators
                     node_comp_params.update(obj_comp_params)
                     node_comp_params.pop('rate')
 
+        # Replace simnode outputs that have been renamed to sensor outputs
+        for node_address, sensor_address in sensor_addresses.items():
+            for _, node_params in nodes.items():
+                for cname, comp_params in node_params['inputs'].items():
+                    if node_address == comp_params['address']:
+                        print(cname, comp_params['address'], sensor_address)
+                        comp_params['address'] = sensor_address
 
         # Create states
         states = []

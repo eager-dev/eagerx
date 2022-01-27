@@ -66,7 +66,7 @@ if __name__ == '__main__':
     N3 = ResetNode.make('RealReset', 'N3',  rate=rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
 
     # Define object
-    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'])
+    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8', 'ref_vel'], sensors=['N6'])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make('RosString_RosUInt64', test_arg='test')
@@ -78,12 +78,13 @@ if __name__ == '__main__':
     graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
     graph.connect(source=('obj', 'sensors', 'N6'),     observation='obs_1', delay=0.0)
     graph.connect(source=('KF', 'outputs', 'out_1'),   observation='obs_3', delay=0.0)
-    graph.connect(source=('obj', 'sensors', 'N6'),     target=('KF', 'inputs', 'in_1'), delay=1.0)
+    graph.connect(source=('obj', 'sensors', 'N6'),     target=('KF', 'inputs', 'in_1'), delay=0.0)
     graph.connect(action='act_2',                      target=('KF', 'inputs', 'in_2'), skip=True)
     graph.connect(action='act_2',                      target=('N3', 'feedthroughs', 'out_1'), delay=1.0)
     graph.connect(source=('obj', 'sensors', 'N6'),     target=('N3', 'inputs', 'in_1'))
     graph.connect(source=('obj', 'states', 'N9'),      target=('N3', 'targets', 'target_1'))
-    graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'N8'), delay=1.0, converter=RosString_RosUInt64)
+    graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'N8'), delay=0.0, converter=RosString_RosUInt64)
+    graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'ref_vel'), delay=0.0)
 
     # Set & get parameters
     _ = graph.get_parameter('converter', action='act_2')
@@ -101,7 +102,7 @@ if __name__ == '__main__':
     graph.set_parameter('converter', identity, name='obj', component='sensors', cname='N6')  # Disconnects all connections (obs_1, KF, N3)
     graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64)  # Reconnect
     graph.connect(source=('obj', 'sensors', 'N6'), observation='obs_1', delay=0.0)  # Reconnect
-    graph.connect(source=('obj', 'sensors', 'N6'), target=('KF', 'inputs', 'in_1'), delay=1.0)  # Reconnect
+    graph.connect(source=('obj', 'sensors', 'N6'), target=('KF', 'inputs', 'in_1'), delay=0.0)  # Reconnect
     graph.connect(source=('obj', 'sensors', 'N6'), target=('N3', 'inputs', 'in_1'))  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.

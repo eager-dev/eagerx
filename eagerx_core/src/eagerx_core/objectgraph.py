@@ -577,11 +577,13 @@ class ObjectGraph:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
             address = ObjectGraph._get_address(source, target)
-            state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
             if source_name == 'actuators':
                 actuators[source_cname] = {'name': f'$(ns obj_name)/{target_name}', 'component': target_comp, 'cname': target_cname}
+                continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             if target_name == 'sensors':
                 sensors[target_cname] = {'name': f'$(ns obj_name)/{source_name}', 'component': source_comp, 'cname': source_cname}
+                continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
+            state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
 
         # Initialize param objects
         nodes = dict()
