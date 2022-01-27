@@ -100,7 +100,7 @@ eagerx_bridge_real/bridge:
 
     action_applied:
       node_config: eagerx_bridge_ode/action_applied
-      inputs: { action_applied: $(ns obj_name)/actuators/action/outputs/action_applied }
+      inputs: { action_applied: $(ns obj_name)/actuators/mops_input/outputs/action_applied }
       outputs: [ action_applied ]
 
     image:
