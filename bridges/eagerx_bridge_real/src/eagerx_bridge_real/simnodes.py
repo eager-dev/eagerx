@@ -1,10 +1,9 @@
 from typing import Optional
-import numpy as np
 import cv2
 import rospy
 
 # IMPORT ROS
-from std_msgs.msg import UInt64, Float32MultiArray, Bool
+from std_msgs.msg import UInt64, Bool
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
@@ -12,27 +11,8 @@ from cv_bridge import CvBridge
 from eagerx_core.utils.utils import return_typehint, Msg
 from eagerx_core.nodes import SimNode
 
-from dcsc_fpga.srv import MopsWrite, MopsWriteRequest, MopsReadRequest, MopsRead
 
-class PendulumOutput(SimNode):
-    msg_types = {'inputs': {'tick': UInt64},
-                 'outputs': {'observation': Float32MultiArray}}
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.service = rospy.ServiceProxy('/mops/read', MopsRead)
-        self.service.wait_for_service()
-
-    def reset(self):
-        pass
-
-    def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32MultiArray):
-        response = self.service.call(MopsReadRequest())
-        data = [np.pi - response.sensors.position0, response.sensors.speed]
-        return dict(observation=Float32MultiArray(data=data))
-
-
-class PendulumRender(SimNode):
+class Render(SimNode):
     msg_types = {'inputs': {'tick': UInt64},
                  'outputs': {'image': Image}}
 
@@ -74,33 +54,3 @@ class PendulumRender(SimNode):
         else:
             msg = Image()
         return dict(image=msg)
-
-
-class PendulumInput(SimNode):
-    msg_types = {'inputs': {'tick': UInt64,
-                            'action': Float32MultiArray},
-                 'outputs': {'action_applied': Float32MultiArray}}
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.service = rospy.ServiceProxy('/mops/write', MopsWrite)
-        self.service.wait_for_service()
-
-    def reset(self):
-        pass
-
-    def callback(self, node_tick: int, t_n: float, tick: Optional[Msg] = None,
-                 action: Optional[Float32MultiArray] = None) -> return_typehint(Float32MultiArray):
-        if len(action.msgs) > 0:
-            input = np.squeeze(action.msgs[-1].data)
-            if input is not None:
-                req = MopsWriteRequest()
-                req.actuators.digital_outputs = 1
-                req.actuators.voltage0 = input
-                req.actuators.voltage1 = 0.0
-                req.actuators.timeout = 0.5
-                self.service(req)
-            # Send action that has been applied.
-        else:
-            input = 0
-        return dict(action_applied=Float32MultiArray(data=[input]))

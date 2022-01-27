@@ -1,4 +1,4 @@
-node_type: eagerx_bridge_ode.simnodes/PendulumRender
+node_type: eagerx_dcsc_setups.mops.simnodes/MopsRender
 default:
   rate:
   inputs: [tick, theta]

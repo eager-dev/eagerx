@@ -3,7 +3,7 @@ from random import random
 from eagerx_core.simstates import SimStateBase
 from dcsc_fpga.srv import MopsWrite, MopsWriteRequest
 
-class RealSimState(SimStateBase):
+class RandomActionAndSleep(SimStateBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.service = rospy.ServiceProxy('/mops/write', MopsWrite)

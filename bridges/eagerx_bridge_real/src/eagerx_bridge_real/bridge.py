@@ -18,7 +18,6 @@ class RealBridge(BridgeBase):
 
     def __init__(self, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
-
         simulator = dict()
         super().__init__(simulator=simulator, **kwargs)
 
@@ -30,15 +29,13 @@ class RealBridge(BridgeBase):
         # Extract relevant object_params
         obj_name = object_params['name']
 
-        if 'launch_file' in object_params:
-            launch_file = object_params['launch_file']
-            launch_args = object_params['launch_args'] if 'launch_args' in object_params else []
+        if 'launch_file' in object_params['bridge']:
+            launch_file = object_params['bridge']['launch_file']
+            launch_args = object_params['bridge']['launch_args'] if 'launch_args' in object_params['bridge'] else []
             launch_node(launch_file, launch_args)
-        position = object_params['position'] if 'position' in object_params else None
-        orientation = object_params['orientation'] if 'orientation' in object_params else None
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(state=None, input=None, position=position, orientation=orientation)
+        self.simulator[obj_name] = dict(state=None, input=None)
         return object_params
 
     def pre_reset(self, **kwargs: Optional[Msg]):

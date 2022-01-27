@@ -1,6 +1,6 @@
 default:
-  sensors: [observation, action_applied, image]
-  actuators: [action]
+  sensors: [mops_output, action_applied, image]
+  actuators: [mops_input]
   states: [model_state]
   rate: 30
   always_render: False
@@ -9,7 +9,7 @@ default:
 ## Agnostic definition ##
 #########################
 sensors: # inputs of ode
-  observation:
+  mops_output:
     rate: $(default rate)
     msg_type: std_msgs.msg/Float32MultiArray
     window: 1
@@ -18,7 +18,7 @@ sensors: # inputs of ode
       low: [ -1, -1, -9 ]
       high: [ 1, 1, 9 ]
     converter:
-      converter_type: eagerx_bridge_ode.converters/AngleDecomposition
+      converter_type: eagerx_dcsc_setups.converters/AngleDecomposition
 
   action_applied:
     rate: $(default rate)
@@ -34,7 +34,7 @@ sensors: # inputs of ode
     msg_type: sensor_msgs.msg/Image
 
 actuators: # outputs of ode
-  action:
+  mops_input:
     rate: $(default rate)
     msg_type: std_msgs.msg/Float32MultiArray
     window: 1
@@ -61,27 +61,27 @@ states:  # reset states inside bridge
 ### Engine definition ###
 #########################
 eagerx_bridge_ode/bridge:
-  ode: eagerx_bridge_ode.ode/eom_pendulum
+  ode: eagerx_dcsc_setups.mops.ode/mops_ode
   sensors:
-    observation:
+    mops_output:
       node_config: eagerx_bridge_ode/observation # These nodes cannot have an internal state
       outputs: [observation]
 
     action_applied:
       node_config:  eagerx_bridge_ode/action_applied
-      inputs: {action_applied: $(ns obj_name)/actuators/action/outputs/action_applied}
+      inputs: {action_applied: $(ns obj_name)/actuators/mops_input/outputs/action_applied}
       outputs: [action_applied]
 
     image:
-      node_config: eagerx_bridge_ode/render # These nodes cannot have an internal state
-      inputs: {theta: $(ns obj_name)/sensors/observation}
+      node_config: eagerx_dcsc_setups/mops_render # These nodes cannot have an internal state
+      inputs: {theta: $(ns obj_name)/sensors/mops_output}
       outputs: [ image ]
       color: cyan
       process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
       shape: [ 480, 480 ]
 
   actuators:  # Inputs as defined above
-    action:
+    mops_input:
       node_config: eagerx_bridge_ode/action
       inputs: {action: } # actuator input mapping to sim_node input name inside node_config
 
@@ -92,10 +92,11 @@ eagerx_bridge_ode/bridge:
       state_type: eagerx_bridge_ode.simstates/OdeSimState
 
 eagerx_bridge_real/bridge:
+  launch_file: $(find eagerx_dcsc_setups)/launch/mops.launch
   sensors:
-    observation:
-      node_config: eagerx_bridge_real/observation # These nodes cannot have an internal state
-      outputs: [observation]
+    mops_output:
+      node_config: eagerx_dcsc_setups/mops_output # These nodes cannot have an internal state
+      outputs: [ mops_output ]
 
     action_applied:
       node_config: eagerx_bridge_ode/action_applied
@@ -111,10 +112,10 @@ eagerx_bridge_real/bridge:
       camera_idx: 2
 
   actuators:  # Inputs as defined above
-    action:
-      node_config: eagerx_bridge_real/action
-      inputs: {action: } # actuator input mapping to sim_node input name inside node_config
+    mops_input:
+      node_config: eagerx_dcsc_setups/mops_input
+      inputs: {mops_input: } # actuator input mapping to sim_node input name inside node_config
 
   states:
     model_state:
-      state_type: eagerx_bridge_real.simstates/RealSimState
+      state_type: eagerx_dcsc_setups.mops.simstates/RandomActionAndSleep

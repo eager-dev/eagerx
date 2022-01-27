@@ -1,4 +1,4 @@
-node_type: eagerx_bridge_real.nodes/ButterworthFilter
+node_type: eagerx_dcsc_setups.nodes/ButterworthFilter
 default:
   rate:
   inputs: [signal]
@@ -16,7 +16,7 @@ inputs:
     msg_type: std_msgs.msg/Float32MultiArray
     window: $(default N)
     converter:
-      converter_type: eagerx_bridge_real.converters/GetIndex
+      converter_type: eagerx_dcsc_setups.converters/GetIndex
     space_converter:
       converter_type: eagerx_bridge_ode.converters/Space_RosFloat32MultiArray
       low: [ -3 ]

@@ -1,8 +1,8 @@
-node_type: eagerx_bridge_real.simnodes/PendulumOutput
+node_type: eagerx_dcsc_setups.mops.simnodes/MopsOutput
 default:
   rate:
   inputs: [tick]
-  outputs: [observation]
+  outputs: [mops_output]
   process: 0  # {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
   launch_file: '$(find eagerx_core)/launch/rxnode.launch'
 
@@ -12,5 +12,5 @@ inputs:
     window: 0
 
 outputs:
-  observation:
+  mops_output:
     msg_type: std_msgs.msg/Float32MultiArray

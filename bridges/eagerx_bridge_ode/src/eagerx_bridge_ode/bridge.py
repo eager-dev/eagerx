@@ -1,8 +1,5 @@
 # OTHER
 from typing import Optional, Dict, Union, List
-
-import numpy as np
-from math import fmod
 from scipy.integrate import odeint
 
 # ROS IMPORTS

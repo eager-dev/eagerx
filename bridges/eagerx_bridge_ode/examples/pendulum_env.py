@@ -19,20 +19,20 @@ if __name__ == '__main__':
     # Initialize empty graph
     graph = RxGraph.create()
 
-    # Create Pendulum
-    pendulum = RxObject.create('pendulum', 'eagerx_bridge_ode', 'pendulum')
-    graph.add(pendulum)
+    # Create mops
+    mops = RxObject.create('mops', 'eagerx_dcsc_setups', 'mops')
+    graph.add(mops)
 
     # Create Butterworth filter
-    butterworth_filter = RxNode.create('butterworth_filter', 'eagerx_bridge_real', 'butterworth_filter', N=2, Wn=13, rate=rate)
+    butterworth_filter = RxNode.create('butterworth_filter', 'eagerx_dcsc_setups', 'butterworth_filter', N=2, Wn=13, rate=rate)
     graph.add(butterworth_filter)
 
     # Connect the nodes
     graph.connect(action='action', target=('butterworth_filter', 'inputs', 'signal'))
-    graph.connect(source=('butterworth_filter', 'outputs', 'filtered'), target=('pendulum', 'actuators', 'action'))
-    graph.connect(source=('pendulum', 'sensors', 'observation'), observation='observation', window=1)
-    graph.connect(source=('pendulum', 'sensors', 'action_applied'), observation='action_applied', window=1)
-    graph.render(source=('pendulum', 'sensors', 'image'), rate=20, display=True)
+    graph.connect(source=('butterworth_filter', 'outputs', 'filtered'), target=('mops', 'actuators', 'mops_input'))
+    graph.connect(source=('mops', 'sensors', 'mops_output'), observation='observation', window=1)
+    graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
+    graph.render(source=('mops', 'sensors', 'image'), rate=20, display=True)
 
     # Show in the gui
     graph.gui()

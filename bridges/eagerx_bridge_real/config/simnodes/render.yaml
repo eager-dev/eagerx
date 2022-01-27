@@ -1,4 +1,4 @@
-node_type: eagerx_bridge_real.simnodes/PendulumRender
+node_type: eagerx_bridge_real.simnodes/Render
 default:
   rate:
   inputs: [tick]

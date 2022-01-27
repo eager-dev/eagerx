@@ -1,0 +1,4 @@
+eagerx_dcsc_setups/MopsActuators actuators
+---
+bool success
+string message
