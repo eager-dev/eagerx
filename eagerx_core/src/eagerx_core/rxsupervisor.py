@@ -86,7 +86,7 @@ class SupervisorNode(BaseNode):
         assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
 
         # Upload object params to rosparam server
-        params, nodes = object.build(ns=self.ns, bridge=bridge_name)
+        params, nodes = object.build(ns=self.ns, bridge_id=bridge_name)
         rosparam.upload_params(self.ns, params)
 
         # Upload node parameters to ROS param server

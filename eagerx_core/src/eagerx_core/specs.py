@@ -123,7 +123,7 @@ class BaseNodeSpec(EntitySpec):
                         self._set({'feedthroughs': {cname: mapping_ft}})
 
                 elif component == 'inputs':
-                    address = '$(ns env_name)/bridge/outputs/tick' if cname == 'tick' else None
+                    address = 'bridge/outputs/tick' if cname == 'tick' else None
                     mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
                                    converter=self.identity.params, space_converter=None, address=address)
                 elif component == 'targets':
@@ -189,12 +189,14 @@ class BaseNodeSpec(EntitySpec):
     # CHANGE COMPONENT PARAMETER
     @exists
     def set_component_parameter(self, component: str, cname: str, parameter: str, value: Any):
+        if isinstance(value, dict):
+            self._params[component][cname][parameter] = None
         self._set({component: {cname: {parameter: value}}})
 
     @exists
     def set_component_parameters(self, component: str, cname: str, mapping: Dict):
         for parameter, value in mapping.items():
-            self._set({component: {cname: {parameter: value}}})
+            self.set_component_parameter(component, cname, parameter, value)
 
     @exists
     def get_component_parameter(self, component: str, cname: str, parameter: str):
@@ -207,6 +209,8 @@ class BaseNodeSpec(EntitySpec):
     # CHANGE NODE PARAMETERS. level=('default')
     @exists
     def set_parameter(self, parameter: str, value: Any, level='default'):
+        if isinstance(value, dict):
+            self._params[level][parameter] = None
         self._set({level: {parameter: value}})
 
     @exists
@@ -227,7 +231,7 @@ class BaseNodeSpec(EntitySpec):
         merge(self._params, mapping)
 
     def build(self, ns):
-        from eagerx_core.params.params import RxInput, RxOutput, RxState, RxSimState, RxFeedthrough
+        from eagerx_core.params.params import RxInput, RxOutput, RxState, RxFeedthrough
         params = self.params  # Creates a deepcopy
         default = self.get_parameters()  # Creates a deepcopy
         name = default['name']
@@ -285,11 +289,11 @@ class BaseNodeSpec(EntitySpec):
                 n = RxFeedthrough(feedthrough_to=cname, **params['feedthroughs'][cname])
                 feedthroughs.append(n)
 
-        default['outputs'] = [i.get_params(ns=ns) for i in outputs]
-        default['inputs'] = [i.get_params(ns=ns) for i in inputs]
-        default['states'] = [i.get_params(ns=ns) for i in states]
-        default['targets'] = [i.get_params(ns=ns) for i in targets]
-        default['feedthroughs'] = [i.get_params(ns=ns) for i in feedthroughs]
+        default['outputs'] = [i.build(ns=ns) for i in outputs]
+        default['inputs'] = [i.build(ns=ns) for i in inputs]
+        default['states'] = [i.build(ns=ns) for i in states]
+        default['targets'] = [i.build(ns=ns) for i in targets]
+        default['feedthroughs'] = [i.build(ns=ns) for i in feedthroughs]
 
         # Create rate dictionary with outputs
         chars_ns = len(ns)+1
@@ -431,8 +435,103 @@ class ObjectSpec(EntitySpec):
     def get_parameters(self, level='default'):
         return self.params[level]
 
-    # def build(self, ns, bridge_id):
+    def build(self, ns, bridge_id):
+        params = self.params  # Creates a deepcopy
+        default = self.get_parameters()  # Creates a deepcopy
+        name = default['name']
+        entity_id = default['entity_id']
 
+        # Construct context
+        context = {'ns': {'env_name': ns, 'obj_name': name}, 'default': default}
+        substitute_args(default, context, only=['default', 'ns'])  # First resolve args within the context
+        substitute_args(params, context, only=['default', 'ns'])  # Resolve rest of params
+
+        # Get agnostic definition
+        agnostic = dict()
+        for key in list(params.keys()):
+            if key not in ['actuators', 'sensors', 'states']:
+                if not key in ['default', bridge_id]:
+                    params.pop(key)
+                continue
+            agnostic[key] = params.pop(key)
+
+        # Get bridge definition
+        bridge = params.pop(bridge_id)
+        nodes = bridge.pop('nodes')
+        specific = dict()
+        for key in list(bridge.keys()):
+            if key not in ['actuators', 'sensors', 'states']: continue
+            specific[key] = bridge.pop(key)
+
+        # Replace node names
+        for key in list(nodes.keys()):
+            key_sub = substitute_args(key, context, only=['ns'])
+            nodes[key_sub] = nodes.pop(key)
+
+        # Sensors & actuators
+        rates = dict()
+        for obj_comp in ['sensors', 'actuators']:
+            for obj_cname in default[obj_comp]:
+                entry = specific[obj_comp][obj_cname]
+                node_name, node_comp, node_cname = entry['name'], entry['component'], entry['cname']
+                obj_comp_params = agnostic[obj_comp][obj_cname]
+                node_params = nodes[node_name]
+
+                # Set rate
+                rate = obj_comp_params['rate']
+                if node_name in rates:
+                    assert rates[node_name] == rate, f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a simnode "{node_name}". If this simnode is used for multiple sensors/components, then their specified rates must be equal.'
+                else:
+                    rates[node_name] = rate
+                node_params['default']['rate'] = rate
+                for o in node_params['default']['outputs']:
+                    node_params['outputs'][o]['rate'] = rate
+
+                # Set component params
+                node_comp_params = nodes[node_name][node_comp][node_cname]
+
+                if obj_comp == 'sensors':
+                    node_comp_params.update(obj_comp_params)
+                    node_comp_params['address'] = f'{name}/{obj_comp}/{obj_cname}'
+                else:  # Actuators
+                    node_comp_params.update(obj_comp_params)
+                    node_comp_params.pop('rate')
+
+
+        # Create states
+        states = []
+        state_names = []
+        obj_comp = 'states'
+        from eagerx_core.params.params import RxSimState
+        for obj_cname in default['states']:
+            args = agnostic[obj_comp][obj_cname]
+            args['name'] = f'{name}/{obj_comp}/{obj_cname}'
+            args['address'] = f'{name}/{obj_comp}/{obj_cname}'
+            args['state'] = specific[obj_comp][obj_cname]
+            states.append(RxSimState(**args))
+            state_names.append(f'{ns}/{args["name"]}')
+
+        # Create obj parameters
+        obj_params = params['default']
+
+        # Gather node names
+        obj_params['node_names'] = [f'{ns}/{node_name}' for node_name in list(nodes.keys())]
+        obj_params['state_names'] = state_names
+
+        # Add bridge
+        obj_params['bridge'] = bridge
+
+        # Clean up parameters
+        for component in ['sensors', 'actuators', 'states']:
+            try:
+                obj_params.pop(component)
+            except KeyError:
+                pass
+
+        # Add states
+        obj_params['states'] = [s.build(ns) for s in states]
+        nodes = [SimNodeSpec(params) for name, params in nodes.items()]
+        return {name: replace_None(obj_params)}, nodes
 
 class AgnosticSpec(EntitySpec):
     @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
@@ -445,6 +544,8 @@ class AgnosticSpec(EntitySpec):
 
     @exists
     def set_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
+        if isinstance(value, dict):
+            self._params['component'][cname][parameter] = None
         self._set({component: {cname: {parameter: value}}})
 
     @exists
@@ -465,6 +566,8 @@ class AgnosticSpec(EntitySpec):
 class EngineSpec(EntitySpec):
     @exists
     def set_parameter(self, parameter: str, value: Any):
+        if isinstance(value, dict):
+            self._params[parameter] = None
         self._set({parameter: value})
 
     @exists

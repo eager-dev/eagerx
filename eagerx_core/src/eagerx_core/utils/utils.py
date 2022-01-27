@@ -22,7 +22,7 @@ from yaml import safe_load, dump
 import os
 
 
-def dict_clean(items):
+def dict_null(items):
     result = {}
     for key, value in items:
         if value is None:
@@ -30,10 +30,22 @@ def dict_clean(items):
         result[key] = value
     return result
 
+def dict_None(items):
+    result = {}
+    for key, value in items:
+        if value == 'null':
+            value = None
+        result[key] = value
+    return result
 
-def replace_None(d):
+
+def replace_None(d, to_null=True):
     dict_str = json.dumps(d)
-    return json.loads(dict_str, object_pairs_hook=dict_clean)
+    if to_null:
+        object_pairs_hook = dict_null
+    else:
+        object_pairs_hook = dict_None
+    return json.loads(dict_str, object_pairs_hook=object_pairs_hook)
 
 
 def pretty_print(params):
@@ -155,7 +167,8 @@ def get_param_with_blocking(name, timeout=5):
         if time.time() - start > timeout:
             break
         it += 1
-    return params
+
+    return replace_None(params, to_null=False)
 
 
 def substitute_args(param, context=None, only=None):
@@ -268,8 +281,13 @@ _eval_ns = _eval_default
 def tryeval(val):
   try:
     val = ast.literal_eval(val)
-  except ValueError:
-    pass
+  except Exception as e:
+    if isinstance(e, ValueError):
+        pass
+    elif isinstance(e, SyntaxError):
+        pass
+    else:
+        raise
   return val
 
 

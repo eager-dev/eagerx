@@ -28,7 +28,7 @@ class ObservationsNode(Node):
                       process=process.ENVIRONMENT,
                       color=color,
                       log_level=log_level,
-                      inputs=['actions_set', 'step'],
+                      inputs=['actions_set'],
                       outputs=['set'],
                       states=[])
         spec.set_parameters(params)
@@ -62,7 +62,7 @@ class ObservationsNode(Node):
         for name, buffer in self.observation_buffer.items():
             buffer['msgs'] = None
 
-    @register.inputs(actions_set=UInt64, step=UInt64)
+    @register.inputs(actions_set=UInt64)
     @register.outputs(set=UInt64)
     def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         # Set all observations to messages in inputs

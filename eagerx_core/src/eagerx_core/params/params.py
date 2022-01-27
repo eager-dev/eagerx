@@ -44,9 +44,9 @@ class RxInput(Params):
 
         # Error check the parameters here.
 
-    def get_params(self, ns=''):
+    def build(self, ns=''):
         params = self.__dict__.copy()
-        if params['external_rate']:
+        if not params['external_rate']:
             params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
@@ -77,7 +77,7 @@ class RxOutput(Params):
 
         # Error check the parameters here.
 
-    def get_params(self, ns=''):
+    def build(self, ns=''):
         params = self.__dict__.copy()
         params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
@@ -113,7 +113,7 @@ class RxFeedthrough(Params):
 
         # Error check the parameters here.
 
-    def get_params(self, ns=''):
+    def build(self, ns=''):
         params = self.__dict__.copy()
         params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
@@ -144,7 +144,7 @@ class RxState(Params):
 
         # Error check the parameters here.
 
-    def get_params(self, ns=''):
+    def build(self, ns=''):
         params = self.__dict__.copy()
         params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
@@ -176,7 +176,7 @@ class RxSimState(Params):
 
         # Error check the parameters here.
 
-    def get_params(self, ns=''):
+    def build(self, ns=''):
         params = self.__dict__.copy()
         params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params

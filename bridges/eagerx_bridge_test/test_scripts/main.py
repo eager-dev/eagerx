@@ -47,7 +47,11 @@ if __name__ == '__main__':
     #  Add external addresses in EngineGUI
 
     # todo: OTHER
-    # Why is this commented out in _init_bridge: node_names.append(i.params['default']['name'])
+    # todo: If simnode connected to output that happens to be a sensor, change address.
+    # todo: Optimize object graph & cut-out nodes on which no sensor or actuator depends.
+    # todo: What if an bridge_implementation does not implement all actuators/sensors/states? ObjectGraph check
+
+    # only execute find in initialize_node(...)
     # Check that cnames selected in 'default' are also registered (i.e. they exist).
     # graph check if address is None, instead of checking whether it is present.
     # graph check if cname not already connected (possibly with external address before connecting
@@ -162,8 +166,6 @@ if __name__ == '__main__':
     bridge = Bridge.make('TestBridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
-    # todo: node spec for supervisor
-    # todo: spec.get_params(...)
     env = EAGERxEnv(name='rx',
                     rate=rate,
                     graph=graph,

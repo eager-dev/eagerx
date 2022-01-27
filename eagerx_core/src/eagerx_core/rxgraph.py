@@ -625,6 +625,7 @@ class RxGraph:
             assert issubclass(converter_cls, SpaceConverter), 'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
 
         # Replace converter
+        params[component][cname].pop('converter')
         self._set(params[component][cname], {'converter': converter})
 
     def get_parameter(self, parameter: str, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None, default=None):
@@ -892,17 +893,17 @@ class RxGraph:
                     if component not in ['inputs', 'outputs', 'targets', 'feedthroughs', 'states']:
                         continue
                     for cname in params['default'][component]:
-                        assert cname in params[component], '"%s" was selected in %s of "%s", but has no implementation.' % (cname, component, name)
+                        assert cname in params[component], f'"{cname}" was selected in {component} of "{name}", but has no implementation.'
                         if component not in ['inputs', 'targets', 'feedthroughs']: continue
-                        assert 'address' in params[component][cname], '"%s" was selected in %s of "%s", but no address was specified. Either deselect it, or connect it.' % (cname, component, name)
+                        assert params[component][cname]['address'] is not None, f'"{cname}" was selected in {component} of "{name}", but no address could be produced/inferred. Either deselect it, or connect it.'
             else:
                 for component in params['default']:
                     if component not in ['sensors', 'actuators', 'states']:
                         continue
                     for cname in params['default'][component]:
-                        assert cname in params[component], '"%s" was selected in %s of "%s", but has no (agnostic) implementation.' % (cname, component, name)
+                        assert cname in params[component], f'"{cname}" was selected in {component} of "{name}", but has no (agnostic) implementation.'
                         if component not in ['actuators']: continue
-                        assert 'address' in params[component][cname], '"%s" was selected in %s of "%s", but no address was specified. Either deselect it, or connect it.' % (cname, component, name)
+                        assert 'address' in params[component][cname], f'"{cname}" was selected in {component} of "{name}", but no address could be produced/inferred. Either deselect it, or connect it.'
         return True
 
     @staticmethod

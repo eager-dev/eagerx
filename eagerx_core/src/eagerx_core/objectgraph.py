@@ -583,19 +583,6 @@ class ObjectGraph:
             if target_name == 'sensors':
                 sensors[target_cname] = {'name': f'$(ns obj_name)/{source_name}', 'component': source_comp, 'cname': source_cname}
 
-            # todo: replace key properties (e.g. rate) with placeholder value.
-            # For actions & observations, replace default args
-            # if source_name == 'env/actions':
-            #     default = state['nodes'][target_name]['params']['default']
-            #     context = {'default': default}
-            #     cname_params = state['nodes'][source_name]['params'][source_comp][source_cname]
-            #     substitute_args(cname_params, context, only=['default', 'ns'])
-            # if target_name == 'env/observations':
-            #     default = state['nodes'][source_name]['params']['default']
-            #     context = {'default': default}
-            #     cname_params = state['nodes'][target_name]['params'][target_comp][target_cname]
-            #     substitute_args(cname_params, context, only=['default', 'ns'])
-
         # Initialize param objects
         nodes = dict()
         from eagerx_core.specs import SimNodeSpec

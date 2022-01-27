@@ -22,14 +22,14 @@ class Arm(Object):
         # Set state properties: space_converters
         space_rosuint64 = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
         spec.set_space_converter('sensors', 'N6', space_rosuint64)
-        spec.set_parameter('sensors', 'N6', 'rate', '${default rate}')
+        spec.set_parameter('sensors', 'N6', 'rate', '$(default rate)')
         spec.set_space_converter('sensors', 'N7', space_rosuint64)
         spec.set_parameter('sensors', 'N7', 'rate', 2)
 
         # Set actuator properties: space_converters
         space_rosstring = SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64')
         spec.set_space_converter('actuators', 'N8', space_rosstring)
-        spec.set_parameter('actuators', 'N8', 'rate', '${default rate}')
+        spec.set_parameter('actuators', 'N8', 'rate', '$(default rate)')
         spec.set_space_converter('actuators', 'ref_vel', space_rosuint64)
         spec.set_parameter('actuators', 'ref_vel', 'rate', 1)
 

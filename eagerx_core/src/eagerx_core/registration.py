@@ -49,11 +49,6 @@ def spec(entity_id, entity_cls):
             entity_type = func.__module__ + '/' + func.__qualname__[:-5]
             if not entity_id == 'Identity':
                 rospy.logdebug('[make]: entity_id=%s, entity=%s, entry=%s' % (entity_id, entity_cls.__name__, entity_type))
-
-            # if len(args) > 0 and isinstance(args[0], EntitySpec):
-            #     spec = args[0]
-            #     func(*args, **kwargs)
-            # else:
             spec = entity_cls.pre_make(entity_id, entity_type)
             func(spec, *args, **kwargs)
             return spec

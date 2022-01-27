@@ -547,9 +547,8 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simul
 
     # Get rate from rosparam server
     try:
-        # if 'is_reactive' in inpt and not inpt['is_reactive']:
-        if 'rate' in inpt:
-            rate = inpt['rate']
+        if 'external_rate' in inpt and inpt['external_rate'] > 0:
+            rate = inpt['external_rate']
         else:
             rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
             rate = get_param_with_blocking(rate_str)
@@ -809,7 +808,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                 converted_outputs[i['address']] = (get_attribute_from_module(i['msg_type']), i['converter'], ros_msg_type, source)
 
             # Create a new input topic for each SimNode output topic
-            n = RxInput(name=i['address'], address=i['address'], msg_type=get_module_type_string(ros_msg_type), is_reactive=True, window=0).get_params()
+            n = RxInput(name=i['address'], address=i['address'], msg_type=get_module_type_string(ros_msg_type), external_rate=False, window=0).build()
 
             # Convert to classes
             n['msg_type'] = get_attribute_from_module(n['msg_type'])
@@ -824,7 +823,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
             inputs.append(n)
 
         for i in params['inputs']:
-            if not i['is_reactive']:
+            if i['external_rate']:
                 # Convert to classes
                 i['msg_type'] = get_attribute_from_module(i['msg_type'])
                 if isinstance(i['converter'], dict):
@@ -863,7 +862,7 @@ def initialize_reactive_proxy_reset(rate_node, RM, reactive_proxy, node):
     for rx in reactive_proxy:
         if 'disposable' in rx:
             continue
-        rate_in = rx['rate']
+        rate_in = rx['external_rate']
         rx['disposable'] = RM.pipe(ops.map(lambda msg: msg.data),
                                    ops.map(lambda idx_n: 1 + int((idx_n - 1) * rate_in // rate_node)),  # We subtract -1 from msg to account for the initial tick.
                                    ops.map(lambda i: UInt64(data=i)),
