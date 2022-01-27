@@ -21,8 +21,7 @@ class RxInput(Params):
                  msg_type: str,
                  window: int = 0,
                  converter: Dict = Identity().get_yaml_definition(),
-                 is_reactive: bool = True,
-                 rate: float = None,
+                 external_rate: float = False,
                  space_converter: Dict = None,
                  delay: float = 0.0,
                  skip: bool = False,
@@ -37,11 +36,6 @@ class RxInput(Params):
         if not space_converter:
             del space_converter
 
-        if is_reactive:
-            del rate
-        else:
-            assert rate is not None, 'Input (%s) is not reactive, so the rate must be defined.' % address
-
         kwargs = locals().copy()
         kwargs.pop('self')
         super(RxInput, self).__init__(**kwargs)
@@ -52,7 +46,7 @@ class RxInput(Params):
 
     def get_params(self, ns=''):
         params = self.__dict__.copy()
-        if params['is_reactive']:
+        if params['external_rate']:
             params['address'] = '/'.join(filter(None, [ns, params['address']]))
         return params
 
@@ -96,7 +90,7 @@ class RxFeedthrough(Params):
                  feedthrough_to: str,
                  window: int = 1,
                  converter: Dict = Identity().get_yaml_definition(),
-                 is_reactive: bool = True,
+                 external_rate: float = None,
                  space_converter: Dict = None,
                  delay: float = 0.0,
                  skip: bool = False,
@@ -110,6 +104,7 @@ class RxFeedthrough(Params):
 
         if not space_converter:
             del space_converter
+
         kwargs = locals().copy()
         kwargs.pop('self')
         super(RxFeedthrough, self).__init__(**kwargs)

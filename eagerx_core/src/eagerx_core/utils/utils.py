@@ -16,8 +16,24 @@ from functools import reduce, wraps
 from time import sleep
 from six import raise_from
 import copy
+import ast
+import json
 from yaml import safe_load, dump
 import os
+
+
+def dict_clean(items):
+    result = {}
+    for key, value in items:
+        if value is None:
+            value = 'null'
+        result[key] = value
+    return result
+
+
+def replace_None(d):
+    dict_str = json.dumps(d)
+    return json.loads(dict_str, object_pairs_hook=dict_clean)
 
 
 def pretty_print(params):
@@ -157,6 +173,7 @@ def substitute_args(param, context=None, only=None):
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
                 param[key] = resolve_args(param[key], context, only=only)
+    return param
 
 
 def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=None):
@@ -248,6 +265,14 @@ def _eval_default(name, args):
 _eval_ns = _eval_default
 
 
+def tryeval(val):
+  try:
+    val = ast.literal_eval(val)
+  except ValueError:
+    pass
+  return val
+
+
 def _default(resolved, a, args, context):
     """
     process $(default) arg
@@ -262,7 +287,15 @@ def _default(resolved, a, args, context):
 
     if 'default' not in context:
         context['default'] = {}
-    return safe_load(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context['default']))))
+    try:
+        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context['default']))))
+    except Exception as e:# sub.ArgException:
+        if isinstance(e, sub.ArgException):
+            return resolved
+        elif isinstance(e, TypeError):
+            raise
+        else:
+            raise
 
 
 def _ns(resolved, a, args, context):
@@ -279,7 +312,15 @@ def _ns(resolved, a, args, context):
 
     if 'ns' not in context:
         context['ns'] = {}
-    return resolved.replace("$(%s)" % a, _eval_ns(name=args[0], args=context['ns']))
+    try:
+        return tryeval(resolved.replace("$(%s)" % a, str(_eval_ns(name=args[0], args=context['ns']))))
+    except Exception as e:# sub.ArgException:
+        if isinstance(e, sub.ArgException):
+            return resolved
+        elif isinstance(e, TypeError):
+            raise
+        else:
+            raise
 
 
 def get_ROS_log_level(name):

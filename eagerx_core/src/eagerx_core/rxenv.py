@@ -1,17 +1,18 @@
 # ROS packages required
 import rospy
 import rosparam
+from std_msgs.msg import UInt64
 from rosgraph.masterapi import Error
 from sensor_msgs.msg import Image
 
 # EAGERX
-from eagerx_core.params import RxNodeParams, RxObjectParams, RxBridgeParams
+from eagerx_core.specs import NodeSpec, ObjectSpec, BridgeSpec
+from eagerx_core.entities import Node
 from eagerx_core.rxgraph import RxGraph
-from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx_core.utils.utils import load_yaml
+from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization, substitute_args
 from eagerx_core.rxnode import RxNode
 from eagerx_core.rxbridge import RxBridge
-from eagerx_core.rxsupervisor import RxSupervisor
+from eagerx_core.rxsupervisor import RxSupervisor, SupervisorNode
 from eagerx_core.rxmessage_broker import RxMessageBroker
 from eagerx_core.constants import process
 
@@ -22,23 +23,30 @@ from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
 import gym
 import logging
+from yaml import dump
 
 
 class RxEnv(gym.Env):
     @staticmethod
     def create_supervisor():
-        states = RxNodeParams.create('env/supervisor', 'eagerx_core', 'supervisor')
-        return states
+        entity_type = f'{SupervisorNode.__module__}/{SupervisorNode.__name__}'
+        supervisor = Node.pre_make('N/a', entity_type)
+        supervisor.add_output('step', msg_type=UInt64)
+        supervisor.set_parameter('name', 'env/supervisor')
+        supervisor.set_parameter('color', 'yellow')
+        supervisor.set_parameter('process', process.ENVIRONMENT)
+        supervisor.set_parameter('outputs', ['step'])
+        return supervisor
 
     def __init__(self, name: str, rate: float,
                  graph: RxGraph,
-                 bridge: RxBridgeParams) -> None:
+                 bridge: BridgeSpec) -> None:
         assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = '/' + name
         self.rate = rate
         self.initialized = False
-        self._bridge_name = '%s/%s' % (bridge.params['default']['package_name'], bridge.params['default']['config_name'])  # bridge.name
+        self._bridge_name = bridge.params['default']['entity_id']
 
         # Register graph
         self.graph = graph
@@ -63,7 +71,7 @@ class RxEnv(gym.Env):
         # Register objects
         self.register_objects(objects)
 
-    def _init_supervisor(self, bridge: RxBridgeParams, nodes: List[RxNodeParams], objects: List[RxObjectParams]):
+    def _init_supervisor(self, bridge: BridgeSpec, nodes: List[NodeSpec], objects: List[ObjectSpec]):
         # Initialize supervisor
         supervisor = self.create_supervisor()
 
@@ -71,44 +79,43 @@ class RxEnv(gym.Env):
         for i in [bridge] + nodes + objects:
             if 'states' not in i.params['default']: continue
             for cname in i.params['default']['states']:
-                name = '%s/%s' % (i.name, cname)
-                address = '%s/states/%s' % (i.name, cname)
+                entity_name = i.get_parameter('name')
+                name = f"{entity_name}/{cname}"
+                address = f'{entity_name}/states/{cname}'
                 msg_type = i.params['states'][cname]['msg_type']
                 space_converter = i.params['states'][cname]['space_converter']
 
-                assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                assert name not in supervisor.params['states'], f'Cannot have duplicate states. State "{name}" is defined multiple times.'
 
-                supervisor.params['states'][name] = dict(address=address, msg_type=msg_type, converter=space_converter)
-                supervisor.params['default']['states'].append(name)
+                mapping = dict(address=address, msg_type=msg_type, converter=space_converter)
+                supervisor._set({'states': {name: mapping}})
+                supervisor._params['default']['states'].append(name)
 
             # Get states from simnodes. WARNING: can make environment non-agnostic.
-            if isinstance(i, RxObjectParams):
-                for component in ('sensors', 'actuators'):
-                    if component in i.params['default']:
-                        for cname in i.params['default'][component]:
-                            params_simnode = i.params[self._bridge_name][component][cname]
-                            package_name, config_name = params_simnode['node_config'].split('/')
-                            node_yaml = load_yaml(package_name, config_name)
-                            if 'states' in params_simnode:
-                                node_yaml['default']['states'] = params_simnode['states']
-                            if 'states' in node_yaml['default']:
-                                for simnode_cname in node_yaml['default']['states']:
-                                    name = '%s/%s/%s/%s' % (i.name, component, cname, simnode_cname)
-                                    address = '%s/%s/%s/states/%s' % (i.name, component, cname, simnode_cname)
-                                    msg_type = node_yaml['states'][simnode_cname]['msg_type']
-                                    space_converter = node_yaml['states'][simnode_cname]['space_converter']
+            if isinstance(i, ObjectSpec):
+                obj_name = i.get_parameter('name')
+                context = {'ns': {'obj_name': obj_name}, 'default': i.get_parameters()}
+                for node_name, params_simnode in i.params[self._bridge_name]['nodes'].items():
+                    if 'states' in params_simnode['default']:
+                        for cname in params_simnode['default']['states']:
+                            comp_params = params_simnode['states'][cname]
+                            node_name_sub = substitute_args(node_name, context=context, only=['ns', 'default'])
+                            name = f'{node_name_sub}/{cname}'
+                            address = f'{node_name_sub}/states/{cname}'
+                            msg_type = comp_params['msg_type']
+                            space_converter = comp_params['space_converter']
 
-                                    rospy.logwarn('Adding state "%s" to simulation nodes can potentially make the environment for object "%s" non-agnostic. Check "%s.yaml" in package "%s" for more info.' % (name, i.name, config_name, package_name))
-                                    assert name not in supervisor.params['states'], 'Cannot have duplicate states. State "%s" is defined multiple times.' % name
+                            rospy.logwarn(f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.get_parameter("entity_id")}" under bridge implementation "{self._bridge_name}" for more info.')
+                            assert name not in supervisor.params['states'], f'Cannot have duplicate states. State "{name}" is defined multiple times.'
 
-                                    supervisor.params['states'][name] = dict(address=address, msg_type=msg_type,
-                                                                             converter=space_converter)
-                                    supervisor.params['default']['states'].append(name)
+                            mapping = dict(address=address, msg_type=msg_type, converter=space_converter)
+                            supervisor._set({'states': {name: mapping}})
+                            supervisor._params['default']['states'].append(name)
 
         # Delete pre-existing parameters
         try:
-            rosparam.delete_param('/%s' % self.name)
-            rospy.loginfo('Pre-existing parameters under namespace "/%s" deleted.' % self.name)
+            rosparam.delete_param(f'/{self.name}')
+            rospy.loginfo(f'Pre-existing parameters under namespace "/{self.name}" deleted.')
         except Error:
             pass
 
@@ -120,25 +127,26 @@ class RxEnv(gym.Env):
         mb = RxMessageBroker(owner='%s/%s' % (self.ns, 'env'))
 
         # Get info from bridge on reactive properties
-        is_reactive = bridge.params['default']['is_reactive']
-        real_time_factor = bridge.params['default']['real_time_factor']
-        simulate_delays = bridge.params['default']['simulate_delays']
+        is_reactive = bridge.get_parameter('is_reactive')
+        real_time_factor = bridge.get_parameter('real_time_factor')
+        simulate_delays = bridge.get_parameter('simulate_delays')
 
         # Create env node
-        supervisor.params['default']['rate'] = self.rate
-        supervisor_params = supervisor.get_params(ns=self.ns)
+        name = supervisor.get_parameter('name')
+        supervisor.set_parameter('rate', self.rate)
+        supervisor_params = supervisor.build(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_supervisor = RxSupervisor('%s/%s' % (self.ns, supervisor.name), mb, is_reactive, real_time_factor, simulate_delays)
+        rx_supervisor = RxSupervisor('%s/%s' % (self.ns, name), mb, is_reactive, real_time_factor, simulate_delays)
         rx_supervisor.node_initialized()
 
         # Connect io
         mb.connect_io()
         return mb, rx_supervisor.node, rx_supervisor
 
-    def _init_bridge(self, bridge: RxNodeParams, nodes: List[RxNodeParams]) -> None:
+    def _init_bridge(self, bridge: BridgeSpec, nodes: List[NodeSpec]) -> None:
         # Check that reserved keywords are not already defined.
-        assert 'node_names' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'node_names'
-        assert 'target_addresses' not in bridge.params['default'], 'Keyword "%s" is a reserved keyword within the bridge params and cannot be used twice.' % 'target_addresses'
+        assert 'node_names' not in bridge.params['default'], f'Keyword "{"node_names"}" is a reserved keyword within the bridge params and cannot be used twice.'
+        assert 'target_addresses' not in bridge.params['default'], f'Keyword "{"target_addresses"}" is a reserved keyword within the bridge params and cannot be used twice.'
         assert not bridge.params['default']['process'] == process.BRIDGE, 'Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}.'
 
         # Extract node_names
@@ -150,33 +158,35 @@ class RxEnv(gym.Env):
                 for cname in i.params['default']['targets']:
                     address = i.params['targets'][cname]['address']
                     target_addresses.append(address)
-        bridge.params['default']['node_names'] = node_names
-        bridge.params['default']['target_addresses'] = target_addresses
+        bridge._set({'default': {'node_names': node_names}})
+        bridge._set({'default': {'target_addresses': target_addresses}})
 
         initialize_nodes(bridge, process.ENVIRONMENT, self.ns, self.name, self.mb, self.supervisor_node.is_initialized, self.supervisor_node.sp_nodes, self.supervisor_node.launch_nodes, rxnode_cls=RxBridge)
         wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
-    def _init_actions_and_observations(self, actions: RxNodeParams, observations: RxNodeParams, message_broker):
+    def _init_actions_and_observations(self, actions: NodeSpec, observations: NodeSpec, message_broker):
         # Check that env has at least one input & output.
-        assert len(observations.params['default']['inputs']) > 0, 'Environment "%s" must have at least one input (i.e. input).' % self.name
-        assert len(actions.params['default']['outputs']) > 0, 'Environment "%s" must have at least one action (i.e. output).' % self.name
+        assert len(observations.params['default']['inputs']) > 0, f'Environment "{self.name}" must have at least one input (i.e. input).'
+        assert len(actions.params['default']['outputs']) > 0, f'Environment "{self.name}" must have at least one action (i.e. output).'
 
         # Check that all observation addresses are unique
         addresses_obs = [observations.params['inputs'][cname]['address'] for cname in observations.params['default']['inputs']]
         len(set(addresses_obs)) == len(addresses_obs), 'Duplicate observations found: %s. Make sure to only have unique observations' % (set([x for x in addresses_obs if addresses_obs.count(x) > 1]))
 
         # Create observation node
-        observations.params['default']['rate'] = self.rate
-        obs_params = observations.get_params(ns=self.ns)
+        name = observations.get_parameter('name')
+        observations.set_parameter('rate', self.rate)
+        obs_params = observations.build(ns=self.ns)
         rosparam.upload_params(self.ns, obs_params)
-        rx_obs = RxNode(name='%s/%s' % (self.ns, observations.name), message_broker=message_broker)
+        rx_obs = RxNode(name='%s/%s' % (self.ns, name), message_broker=message_broker)
         rx_obs.node_initialized()
 
         # Create action node
-        actions.params['default']['rate'] = self.rate
-        act_params = actions.get_params(ns=self.ns)
+        name = actions.get_parameter('name')
+        actions.set_parameter('rate', self.rate)
+        act_params = actions.build(ns=self.ns)
         rosparam.upload_params(self.ns, act_params)
-        rx_act = RxNode(name='%s/%s' % (self.ns, actions.name), message_broker=message_broker)
+        rx_act = RxNode(name='%s/%s' % (self.ns, name), message_broker=message_broker)
         rx_act.node_initialized()
 
         return rx_act.node, rx_obs.node, rx_act, rx_obs
@@ -290,7 +300,7 @@ class RxEnv(gym.Env):
         except:
             pass
 
-    def register_nodes(self, nodes: Union[List[RxNodeParams], RxNodeParams]) -> None:
+    def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(nodes, list):
             nodes = [nodes]
@@ -298,7 +308,7 @@ class RxEnv(gym.Env):
         # Register nodes
         [self.supervisor_node.register_node(n) for n in nodes]
 
-    def register_objects(self, objects: Union[List[RxObjectParams], RxObjectParams]) -> None:
+    def register_objects(self, objects: Union[List[ObjectSpec], ObjectSpec]) -> None:
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(objects, list):
             objects = [objects]
@@ -346,7 +356,7 @@ class RxEnv(gym.Env):
 class EAGERxEnv(RxEnv):
     def __init__(self, name: str, rate: float,
                  graph: RxGraph,
-                 bridge: RxBridgeParams,
+                 bridge: BridgeSpec,
                  reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
                  is_done_fn: Callable = lambda obs, action, steps: False,
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:

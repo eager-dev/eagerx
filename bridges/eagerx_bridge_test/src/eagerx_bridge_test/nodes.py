@@ -38,7 +38,7 @@ class RealResetNode(ResetNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Modifu extra node params
+        # Modify extra node params
         spec.set_parameter('test_arg', test_arg)
 
         # set input parameters
@@ -161,7 +161,7 @@ class ProcessNode(TestNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Modifu extra node params
+        # Modify extra node params
         spec.set_parameter('test_arg', test_arg)
 
         # Add inputs
@@ -205,7 +205,7 @@ class KalmanNode(TestNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Modifu extra node params
+        # Modify extra node params
         spec.set_parameter('test_arg', test_arg)
 
         # Remove unused inputs
@@ -248,8 +248,13 @@ class SimActuator(TestNode):
                       outputs=outputs)
         spec.set_parameters(params)
 
-        # Modifu extra node params
+        # Modify extra node params
         spec.set_parameter('test_arg', test_arg)
+
+        # Set state parameters
+        space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
+        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
+        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
         return spec
 
 
@@ -274,6 +279,11 @@ class SimSensor(TestNode):
                       states=states)
         spec.set_parameters(params)
 
-        # Modifu extra node params
+        # Modify extra node params
         spec.set_parameter('test_arg', test_arg)
+
+        # Set state parameters
+        space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
+        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
+        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
         return spec

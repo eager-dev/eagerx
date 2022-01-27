@@ -2,7 +2,7 @@ import functools
 import inspect
 import rospy
 from eagerx_core.utils.utils import deepcopy
-from eagerx_core.specs import EntitySpec
+# from eagerx_core.specs import EntitySpec
 
 
 # Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
@@ -50,12 +50,12 @@ def spec(entity_id, entity_cls):
             if not entity_id == 'Identity':
                 rospy.logdebug('[make]: entity_id=%s, entity=%s, entry=%s' % (entity_id, entity_cls.__name__, entity_type))
 
-            if len(args) > 0 and isinstance(args[0], EntitySpec):
-                spec = args[0]
-                func(*args, **kwargs)
-            else:
-                spec = entity_cls.pre_make(entity_type)
-                func(spec, *args, **kwargs)
+            # if len(args) > 0 and isinstance(args[0], EntitySpec):
+            #     spec = args[0]
+            #     func(*args, **kwargs)
+            # else:
+            spec = entity_cls.pre_make(entity_id, entity_type)
+            func(spec, *args, **kwargs)
             return spec
         if entity_cls not in REGISTRY:
             """Add entity if this is the first registration of entity kind"""

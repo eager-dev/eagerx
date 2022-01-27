@@ -13,11 +13,9 @@ from eagerx_core.rxnode import RxNode
 import eagerx_core.rxmessage_broker
 import eagerx_core.rxoperators
 import eagerx_core.rxpipelines
-from eagerx_core.entities import BaseNode
-from eagerx_core.params import RxObjectParams, RxNodeParams
+from eagerx_core.entities import BaseNode, NodeSpec, ObjectSpec
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, get_opposite_msg_cls
 from eagerx_core.utils.node_utils import initialize_nodes
-from eagerx_core.converters import Identity
 from eagerx_core.srv import ImageUInt8
 import eagerx_core
 
@@ -76,19 +74,19 @@ class SupervisorNode(BaseNode):
             rospy.wait_for_service('%s/env/render/get_last_image' % self.ns)
         return self.get_last_image_service().image
 
-    def register_node(self, node: RxNodeParams):
-        node_name = node.name
+    def register_node(self, node: NodeSpec):
+        node_name = node.get_parameter('name')
         initialize_nodes(node, process.ENVIRONMENT, self.ns, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
         self.subjects['register_node'].on_next(String(self.ns + '/' + node_name))
 
-    def register_object(self, object: RxObjectParams, bridge_name: str):
+    def register_object(self, object: ObjectSpec, bridge_name: str):
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         # Check if object name is unique
-        obj_name = object.name
-        assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, 'Object name "%s" already exists. Object names must be unique.' % self.ns + '/' + obj_name
+        obj_name = object.get_parameter('name')
+        assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
 
         # Upload object params to rosparam server
-        params, nodes = object.get_params(ns=self.ns, bridge=bridge_name)
+        params, nodes = object.build(ns=self.ns, bridge=bridge_name)
         rosparam.upload_params(self.ns, params)
 
         # Upload node parameters to ROS param server

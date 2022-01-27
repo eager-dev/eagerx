@@ -29,7 +29,7 @@ class ObjectGraph:
 
         # Create actuator node
         outputs = []
-        spec = SimNode.pre_make(None)
+        spec = SimNode.pre_make(None, None)
         spec.set_parameter('name', 'actuators')
         nodes.append(spec)
         for cname, params in actuators.items():
@@ -39,7 +39,7 @@ class ObjectGraph:
 
         # Create sensor node
         inputs = []
-        spec = SimNode.pre_make(None)
+        spec = SimNode.pre_make(None, None)
         spec.set_parameter('name', 'sensors')
         nodes.append(spec)
         for cname, params in sensors.items():
@@ -142,10 +142,6 @@ class ObjectGraph:
 
         # if (name is not None) and (component is not None) and (cname is not None):  # component parameter
         self._add_component(name, component, cname)
-        # if action:
-        #     self._add_action(action)
-        # if observation:
-        #     self._add_observation(observation)
 
     def _add_component(self, name: str, component: str, cname: str):
         """
@@ -159,28 +155,6 @@ class ObjectGraph:
         assert cname not in params['default'][component], '"%s" already selected in "%s" under %s.' % (cname, name, component)
         params['default'][component].append(cname)
 
-    # def _add_action(self, action: str):
-    #     """
-    #     Adds disconnected action entry to 'env/actions' node in self._state.
-    #     """
-    #     assert action != 'set', 'Cannot define an action with the reserved name "set".'
-    #     params_action = self._state['nodes']['env/actions']['params']
-    #     if action not in params_action['outputs']:  # Action already registered
-    #         params_action['outputs'][action] = dict()
-    #         self._add_component('env/actions', 'outputs', action)
-    #
-    # def _add_observation(self, observation: str):
-    #     """
-    #     Adds disconnected observation entry to 'env/observations' node in self._state.
-    #     """
-    #     assert observation != 'actions_set', 'Cannot define an observations with the reserved name "actions_set".'
-    #     params_obs = self._state['nodes']['env/observations']['params']
-    #     if observation in params_obs['inputs']:
-    #         assert len(params_obs['inputs'][observation]) == 0, 'Observation "%s" already exists and is connected.' % observation
-    #     else:
-    #         params_obs['inputs'][observation] = dict()
-    #         self._add_component('env/observations', 'inputs', observation)
-
     def remove_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, actuator: Optional[str] = None, sensor: Optional[str] = None):
         """
         Removes a component entry from the selection list. It will first disconnect all connections in connect.
@@ -192,13 +166,6 @@ class ObjectGraph:
         if sensor:
             name, component, cname = ('sensors', 'inputs', sensor)
         self._remove_component(name, component, cname)
-
-        # if (name is not None) and (component is not None) and (cname is not None):  # component parameter
-        #     self._remove_component(name, component, cname)
-        # if action:
-        #     self._remove_action(action)
-        # if observation:
-        #     self._remove_observation(observation)
 
     def _remove_component(self, name: str, component: str, cname: str):
         """
@@ -212,39 +179,6 @@ class ObjectGraph:
         # Remove cname from selection list
         params = self._state['nodes'][name]['params']
         params['default'][component].remove(cname)
-
-    # def _remove_action(self, action: str):
-    #     """
-    #     Method to remove an action. It will first disconnect all connections in connect.
-    #     """
-    #     self._remove_component('env/actions', 'outputs', action, remove=False)
-    #     params_action = self._state['nodes']['env/actions']['params']
-    #     source = ['env/actions', 'outputs', action]
-    #     connect_exists = False
-    #     for idx, c in enumerate(self._state['connects']):
-    #         if source == c[0]:
-    #             connect_exists = True
-    #             target = c[1]
-    #             break
-    #     assert not connect_exists, 'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.' % (action, target)
-    #     params_action['outputs'].pop(action)
-    #
-    # def _remove_observation(self, observation: str):
-    #     """
-    #     Method to remove an observation. It will first disconnect all connections in connect.
-    #     """
-    #     self._remove_component('env/observations', 'inputs', observation, remove=False)
-    #     params_obs = self._state['nodes']['env/observations']['params']
-    #     target = ['env/observations', 'inputs', observation]
-    #     connect_exists = False
-    #     for idx, c in enumerate(self._state['connects']):
-    #         if target == c[1]:
-    #             connect_exists = True
-    #             source = c[0]
-    #             break
-    #     assert not connect_exists, 'Observation entry "%s" cannot be removed, because it is not disconnected. Connection with source %s still exists.' % (observation, source)
-    #     # assert observation in params_obs['inputs'], 'Observation "%s" cannot be removed, because it does not exist.' % observation
-    #     params_obs['inputs'].pop(observation)
 
     def connect(self,
                 source: Optional[Tuple[str, str, str]] = None,
@@ -327,66 +261,6 @@ class ObjectGraph:
         connect = [source, target]
         ObjectGraph.check_msg_type(source, target, self._state)
         self._state['connects'].append(connect)
-
-    # def _connect_actuator(self, actuator, target, converter=None):
-    #     """
-    #     Method to connect a (previously added) actuator, that *precedes* self._connect(source, target).
-    #     """
-    #     params_actuator = self._state['nodes']['actuators']['params']
-    #     assert actuator in params_actuator['outputs'], f'Actuator "{actuator}" must be added, before you can connect it.'
-    #     name, component, cname = target
-    #     params_target = self._state['nodes'][name]['params']
-    #
-    #     assert 'space_converter' in params_target[component][cname], '"%s" does not have a space_converter defined under %s in the .yaml of object "%s".' % (cname, component, name)
-    #
-    #     # Infer source properties (converter & msg_type) from target
-    #     space_converter = params_target[component][cname]['space_converter']
-    #     msg_type_C = get_cls_from_string(params_target[component][cname]['msg_type'])
-    #     if converter:  # Overwrite msg_type_B if input converter specified
-    #         msg_type_B = get_opposite_msg_cls(msg_type_C, converter)
-    #     else:
-    #         msg_type_B = msg_type_C
-    #
-    #     # Set properties in node params of 'env/actions'
-    #     if len(params_actuator['outputs'][action]) > 0:  # Action already registered
-    #         space_converter_state = params_actuator['outputs'][action]['converter']
-    #         msg_type_B_state = get_opposite_msg_cls(params_actuator['outputs'][action]['msg_type'], space_converter_state)
-    #         assert msg_type_B == msg_type_B_state, 'Conflicting %s for action "%s" that is already used in another connection. Occurs with connection %s' % ('msg_types', action, tuple([name, component, cname]))
-    #         if not space_converter == space_converter_state:
-    #             rospy.logwarn('Conflicting %s for action "%s". Not using the space_converter of %s[%s][%s]' % ('space_converters', action, name, component, cname))
-    #         msg_type_A = get_opposite_msg_cls(msg_type_B_state, space_converter_state)
-    #     else:
-    #         # Verify that converter is not modifying the msg_type (i.e. it is a processor).
-    #         assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type as the converted msg_type will not be compatible with the space_converter specified in the .yaml.'
-    #         msg_type_A = get_opposite_msg_cls(msg_type_B, space_converter)
-    #         params_actuator['outputs'][action]['msg_type'] = get_module_type_string(msg_type_A)
-    #         params_actuator['outputs'][action]['converter'] = space_converter
-    #         add_default_args(params_actuator['outputs'][action], component='outputs')
-    #
-    # def _connect_sensor(self, source, observation, converter):
-    #     """
-    #     Method to connect a (previously added & disconnected) sensor, that *precedes* self._connect(source, target).
-    #     """
-    #     params_obs = self._state['nodes']['env/observations']['params']
-    #     assert observation in params_obs['inputs'], 'Observation "%s" must be added, before you can connect it.' % observation
-    #     name, component, cname = source
-    #     params_source = self._state['nodes'][name]['params']
-    #
-    #     assert converter is not None or 'space_converter' in params_source[component][cname], '"%s" does not have a space_converter defined under %s in the .yaml of "%s". Either specify it there, or add an input converter that acts as a space_converter to this connection.' % (cname, component, name)
-    #
-    #     # Infer target properties (converter & msg_type) from source
-    #     msg_type_A = get_cls_from_string(params_source[component][cname]['msg_type'])
-    #     output_converter = params_source[component][cname]['converter']
-    #     msg_type_B = get_opposite_msg_cls(msg_type_A, output_converter)
-    #     if converter is None:
-    #         converter = params_source[component][cname]['space_converter']
-    #     msg_type_C = get_opposite_msg_cls(msg_type_B, converter)
-    #
-    #     # Set properties in node params of 'env/observations'
-    #     assert len(params_obs['inputs'][observation]) == 0, 'Observation "%s" already connected.' % observation
-    #     params_obs['inputs'][observation]['msg_type'] = get_module_type_string(msg_type_C)
-    #     add_default_args(params_obs['inputs'][observation], component='inputs')
-    #     return converter
 
     def disconnect(self,
                    source: Optional[Tuple[str, str, str]] = None,
@@ -484,31 +358,6 @@ class ObjectGraph:
                 self.disconnect(source, target, actuator, sensor)
                 was_connected = True
         return was_connected
-
-    # def _disconnect_action(self, action: str):
-    #     """
-    #     Returns the action entry back to its disconnected state.
-    #     That is, remove space_converter if it is not connected to any other targets.
-    #     """
-    #     params_action = self._state['nodes']['env/actions']['params']
-    #     assert action in params_action['outputs'], 'Cannot disconnect action "%s", as it does not exist.' % action
-    #     source = ['env/actions', 'outputs', action]
-    #     connect_exists = False
-    #     for idx, c in enumerate(self._state['connects']):
-    #         if source == c[0]:
-    #             connect_exists = True
-    #             break
-    #     if not connect_exists:
-    #         params_action['outputs'][action] = dict()
-    #
-    # def _disconnect_observation(self, observation: str):
-    #     """
-    #     Returns the observation entry back to its disconnected state (i.e. empty dict).
-    #     """
-    #     params_obs = self._state['nodes']['env/observations']['params']
-    #     assert observation in params_obs[
-    #         'inputs'], 'Cannot disconnect observation "%s", as it does not exist.' % observation
-    #     params_obs['inputs'][observation] = dict()
 
     def rename(self, old, new, name: Optional[str] = None, component: Optional[str] = None, actuator: Optional[str] = None, sensor: Optional[str] = None):
         """
@@ -755,16 +604,19 @@ class ObjectGraph:
             if 'node_type' in params:
                 if name == 'actuators':
                     pass
-                    # actuators = SimNodeSpec(params)
                 elif name == 'sensors':
                     pass
-                    # sensors = SimNodeSpec(params)
                 else:
                     # Put node name into object namespace
                     spec = SimNodeSpec(params)
                     name = f'$(ns obj_name)/{spec.get_parameter("name")}'
                     spec.set_parameter("name", name)
-                    nodes[name] = spec.params
+                    params = spec.params
+
+                    # Substitute placeholder args of simnode
+                    context = {'ns': {'node_name': name}, 'default': params['default']}
+                    substitute_args(params, context, only=['default', 'ns'])
+                    nodes[name] = params
 
         assert actuators, 'No actuators node defined in the graph.'
         assert sensors, 'No sensors node defined in the graph.'

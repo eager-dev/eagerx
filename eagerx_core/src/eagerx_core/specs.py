@@ -1,7 +1,7 @@
 from typing import Dict, List, Tuple, Union, Any, Optional
 import inspect
 from yaml import dump
-from eagerx_core.utils.utils import deepcopy, supported_types, get_module_type_string, exists, get_default_params
+from eagerx_core.utils.utils import replace_None, deepcopy, supported_types, get_module_type_string, exists, get_default_params, substitute_args
 
 
 def merge(a, b, path=None):
@@ -28,6 +28,9 @@ def merge(a, b, path=None):
 class EntitySpec(object):
     def __init__(self, params):
         self._params = params
+
+    def __str__(self):
+        return dump(self._params)
 
     @property
     @deepcopy
@@ -112,7 +115,7 @@ class BaseNodeSpec(EntitySpec):
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
                 if component == 'outputs':
-                    mapping = dict(msg_type=msg_type, rate=1, converter=self.identity.params, space_converter=None)
+                    mapping = dict(msg_type=msg_type, rate='$(default rate)', converter=self.identity.params, space_converter=None)
                     # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
                     if add_ft:
                         mapping_ft = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
@@ -163,7 +166,7 @@ class BaseNodeSpec(EntitySpec):
         if not isinstance(msg_type, str):
             assert inspect.isclass(msg_type), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
             msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type)
+        mapping = dict(msg_type=msg_type, rate='$(default rate)')
         mapping['converter'] = converter.params if converter else self.identity.params
         mapping['space_converter'] = space_converter.params if space_converter else None
         self._add_component('outputs', cname, mapping)
@@ -223,6 +226,81 @@ class BaseNodeSpec(EntitySpec):
     def _set(self, mapping):
         merge(self._params, mapping)
 
+    def build(self, ns):
+        from eagerx_core.params.params import RxInput, RxOutput, RxState, RxSimState, RxFeedthrough
+        params = self.params  # Creates a deepcopy
+        default = self.get_parameters()  # Creates a deepcopy
+        name = default['name']
+        default['node_type'] = params['node_type']
+        entity_id = default['entity_id']
+
+        # Replace args in .yaml
+        context = {'ns': {'env_name': ns, 'node_name': name}, 'default': params['default']}
+        substitute_args(params, context, only=['default', 'ns'])
+
+        # Process inputs
+        inputs = []
+        for cname in default['inputs']:
+            assert cname in params['inputs'], f'Received unknown {"input"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
+            assert 'targets' not in params or cname not in params['targets'], f'Input "{cname}" cannot have the same cname as a target. Change either the input or target cname. Check the spec of "{name}" with entity_id "{entity_id}".'
+            n = RxInput(name=cname, **params['inputs'][cname])
+            inputs.append(n)
+
+        # Process outputs
+        outputs = []
+        for cname in default['outputs']:
+            assert cname in params['outputs'], f'Received unknown {"output"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
+            if 'address' in params['outputs'][cname]:
+                address = params['outputs'][cname].pop('address')
+            else:
+                address = '%s/outputs/%s' % (name, cname)
+            n = RxOutput(name=cname, address=address, **params['outputs'][cname])
+            outputs.append(n)
+
+        states = []
+        for cname in default['states']:
+            assert cname in params['states'], f'Received unknown {"state"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
+            if 'address' in params['states'][cname]:  # if 'env/supervisor', the state address is pre-defined (like an input)
+                n = RxState(name=cname, **params['states'][cname])
+            else:
+                address = '%s/states/%s' % (name, cname)
+                n = RxState(name=cname, address=address, **params['states'][cname])
+            states.append(n)
+
+        targets = []
+        if 'targets' in default:
+            for cname in default['targets']:
+                assert cname in params['targets'], f'Received unknown {"target"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
+                n = RxState(name=cname, **params['targets'][cname])
+                targets.append(n)
+
+        feedthroughs = []
+        if 'feedthroughs' in params:
+            for cname in default['outputs']:
+                # Add output details (msg_type, space_converter) to feedthroughs
+                assert cname in params['feedthroughs'], f'Feedthrough "{cname}" must directly correspond to a selected output. Check the spec of "{name}" with entity_id "{entity_id}".'
+                assert params['outputs'][cname]['msg_type'] == params['feedthroughs'][cname]['msg_type'], f'Mismatch between Msg types of feedthrough "{cname}" and output "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
+                if 'space_converter' in params['outputs'][cname]:
+                    params['feedthroughs'][cname]['space_converter'] = params['outputs'][cname]['space_converter']
+                n = RxFeedthrough(feedthrough_to=cname, **params['feedthroughs'][cname])
+                feedthroughs.append(n)
+
+        default['outputs'] = [i.get_params(ns=ns) for i in outputs]
+        default['inputs'] = [i.get_params(ns=ns) for i in inputs]
+        default['states'] = [i.get_params(ns=ns) for i in states]
+        default['targets'] = [i.get_params(ns=ns) for i in targets]
+        default['feedthroughs'] = [i.get_params(ns=ns) for i in feedthroughs]
+
+        # Create rate dictionary with outputs
+        chars_ns = len(ns)+1
+        rate_dict = dict()
+        for i in default['outputs']:
+            address = i['address'][chars_ns:]
+            rate_dict[address] = i['rate']  # {'rate': i['rate']}
+
+        # Put parameters in node namespace (watch out, order of dict keys probably matters...)
+        node_params = {name: default, 'rate': rate_dict}
+        return replace_None(node_params)
 
 class NodeSpec(BaseNodeSpec):
     # todo: define mutation functions here
@@ -352,6 +430,8 @@ class ObjectSpec(EntitySpec):
     @exists
     def get_parameters(self, level='default'):
         return self.params[level]
+
+    # def build(self, ns, bridge_id):
 
 
 class AgnosticSpec(EntitySpec):

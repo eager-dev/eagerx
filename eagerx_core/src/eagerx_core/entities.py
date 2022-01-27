@@ -39,8 +39,8 @@ class Entity(object):
         return registration.get_spec(cls, id)
 
     @classmethod
-    def pre_make(cls, entity_type):
-        return EntitySpec(dict(entity_type=entity_type))
+    def pre_make(cls, entity_id, entity_type):
+        return EntitySpec(dict(entity_id=entity_id, entity_type=entity_type))
 
     @classmethod
     def check_spec(cls, spec):
@@ -48,11 +48,10 @@ class Entity(object):
 
 
 class BaseNode(Entity):
-    def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, config_name: str, package_name: str,
-                 node_type: str, rate: float, process: int, inputs: List[Dict], outputs: List[Dict], states: List[Dict],
-                 feedthroughs: List[Dict], targets: List[Dict], is_reactive: bool, real_time_factor: float,
-                 simulate_delays: bool, *args, launch_file=None, color: str = 'grey', print_mode: int = TERMCOLOR, log_level:
-                 int = ERROR, log_level_memory: int = SILENT, **kwargs):
+    def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, entity_id: str, node_type: str, rate: float, process: int,
+                 inputs: List[Dict], outputs: List[Dict], states: List[Dict], feedthroughs: List[Dict], targets: List[Dict],
+                 is_reactive: bool, real_time_factor: float, simulate_delays: bool, *args, launch_file=None,
+                 color: str = 'grey', print_mode: int = TERMCOLOR, log_level: int = ERROR, log_level_memory: int = SILENT, **kwargs):
         """
         The base class from which all (simulation) nodes and bridges inherit.
 
@@ -63,8 +62,7 @@ class BaseNode(Entity):
         :param ns: Namespace of the environment. Corresponds to argument "name" provided to eagerx_core.rxenv.RxEnv.
         :param message_broker: Responsible for all I/O communication within this process. Node possibly share the same message broker.
         :param name: User specified node name.
-        :param config_name: Config file name. Relates to <package_name>/config/../<config_name>.yaml
-        :param package_name: ROS package name. Relates to <package_name>/config/../<config_name>.yaml
+        :param id: Registered entity id. Relates to the registered name on top of the node's spec.
         :param node_type: The python implementation used by this node. Follows naming convention <module>/<NodeClassName>
         :param rate: Rate at which this node's callback is run.
         :param process: Process in which this node is launched. See :func:`~eagerx_core.constants.process` for all options.
@@ -86,8 +84,7 @@ class BaseNode(Entity):
         self.name = name
         self.ns_name = '%s/%s' % (ns, name)
         self.message_broker = message_broker
-        self.config_name = config_name
-        self.package_name = package_name
+        self.entity_id = entity_id
         self.node_type = node_type
         self.rate = rate
         self.process = process
@@ -112,12 +109,13 @@ class BaseNode(Entity):
         return cls.msg_types[component][cname]
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         params['node_type'] = params.pop('entity_type')
         params['default'] = dict(name=None, rate=None, process=0, inputs=[], outputs=[], states=[], color='grey',
-                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT, launch_file=None)
+                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT, launch_file=None,
+                                 entity_id=params.pop('entity_id'))
         params.update(dict(inputs=dict(), outputs=dict(), states=dict()))
         return BaseNodeSpec(params)
 
@@ -255,9 +253,9 @@ class Node(BaseNode):
         pass
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
-        spec.set_parameter('launch_file', '$(find eagerx_core)/launch/rxbridge.launch')
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
+        spec.set_parameter('launch_file', '$(find eagerx_core)/launch/rxnode.launch')
         return NodeSpec(spec.params)
 
     @classmethod
@@ -268,8 +266,8 @@ class Node(BaseNode):
 class ResetNode(Node):
     """Reset node baseclass from which all nodes that perform a real reset routine inherit"""
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         spec._params['targets'] = dict()
         spec._set({'default': dict(targets=[])})
         return ResetNodeSpec(spec.params)
@@ -354,8 +352,8 @@ class SimNode(Node):
         pass
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         return SimNodeSpec(spec.params)
 
     @classmethod
@@ -521,8 +519,8 @@ class Bridge(BaseNode):
         return dict(tick=UInt64(data=node_tick + 1))
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
         default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
                        launch_file='$(find eagerx_core)/launch/rxbridge.launch', outputs=['tick'])
@@ -609,10 +607,10 @@ class Bridge(BaseNode):
 
 class Object(Entity):
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        params['default'] = dict(name=None, sensors=[], actuators=[], states=[])
+        params['default'] = dict(name=None, sensors=[], actuators=[], states=[], entity_id=params.pop('entity_id'))
         params['sensors'] = dict()
         params['actuators'] = dict()
         params['states'] = dict()
@@ -660,10 +658,11 @@ class BaseConverter(Entity):
         pass
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         params['converter_type'] = params.pop('entity_type')
+        params.pop('entity_id')
         return ConverterSpec(params)
 
     @classmethod
@@ -701,8 +700,8 @@ class Processor(BaseConverter):
         pass
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         return ConverterSpec(params)
 
@@ -753,8 +752,8 @@ class Converter(BaseConverter):
         pass
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         return ConverterSpec(params)
 
@@ -773,8 +772,8 @@ class SpaceConverter(Converter):
         pass
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         return ConverterSpec(params)
 
@@ -796,10 +795,11 @@ class SimState(Entity):
         self.initialize(*args, **kwargs)
 
     @classmethod
-    def pre_make(cls, entity_type):
-        spec = super().pre_make(entity_type)
+    def pre_make(cls, entity_id, entity_type):
+        spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         params['state_type'] = params.pop('entity_type')
+        params.pop('entity_id')
         return SimStateSpec(params)
 
     @classmethod

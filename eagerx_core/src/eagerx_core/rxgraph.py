@@ -9,7 +9,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error, supported_types
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.entities import Node, BaseConverter, SpaceConverter, BaseNodeSpec, ObjectSpec, ConverterSpec, EntitySpec, merge
+from eagerx_core.entities import Node, BaseConverter, SpaceConverter, BaseNodeSpec, ObjectSpec, ConverterSpec, EntitySpec, merge, NodeSpec
 
 
 class RxGraph:
@@ -39,16 +39,12 @@ class RxGraph:
         return cls(state)
 
     def add(self, entities: Union[Union[BaseNodeSpec, ObjectSpec], List[Union[BaseNodeSpec, ObjectSpec]]]):
-        """
-        Add a node or object to the state of this graph.
-        """
+        """Add a node or object to the state of this graph."""
         self._add(self._state, entities)
 
     @staticmethod
     def _add(state: Dict, entities: Union[Union[BaseNodeSpec, ObjectSpec], List[Union[BaseNodeSpec, ObjectSpec]]]):
-        """
-        Add a node/object to the provided state.
-        """
+        """Add a node/object to the provided state."""
         if not isinstance(entities, list):
             entities = [entities]
 
@@ -62,8 +58,7 @@ class RxGraph:
             state['nodes'][name]['default'] = entity.params
 
     def remove(self, names: Union[str, List[str]], remove: bool = False):
-        """
-        Removes a node.
+        """Removes a node.
         First removes all associated connects from self._state.
         Then, removes node/object from self._state.
         Also removes observation entries if they are disconnected when remove=True.
@@ -91,8 +86,7 @@ class RxGraph:
             self._state['nodes'].pop(name)
 
     def _remove(self, names: Union[str, List[str]]):
-        """
-        First removes all associated connects from self._state.
+        """First removes all associated connects from self._state.
         Then, removes node/object from self._state.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
@@ -119,8 +113,7 @@ class RxGraph:
             self._state['nodes'].pop(name)
 
     def add_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
-        """
-        Adds a component entry to the selection list.
+        """Adds a component entry to the selection list.
         For actions, it will also add an entry in self._state['nodes'][env/actions]['params'][outputs]
         For observations, it will also add an entry in self._state['nodes'][env/observations]['params'][inputs]
         """
@@ -134,9 +127,7 @@ class RxGraph:
             self._add_observation(observation)
 
     def _add_component(self, name: str, component: str, cname: str):
-        """
-        Adds a component entry to the selection list.
-        """
+        """Adds a component entry to the selection list."""
         # For feedthroughs, add the corresponding output instead
         component = 'outputs' if component == 'feedthroughs' else component
 
@@ -149,9 +140,7 @@ class RxGraph:
         params['default'][component].append(cname)
 
     def _add_action(self, action: str):
-        """
-        Adds disconnected action entry to 'env/actions' node in self._state.
-        """
+        """Adds disconnected action entry to 'env/actions' node in self._state."""
         assert action != 'set', 'Cannot define an action with the reserved name "set".'
         params_action = self._state['nodes']['env/actions']['params']
         if action not in params_action['outputs']:  # Action already registered
@@ -159,9 +148,7 @@ class RxGraph:
             self._add_component('env/actions', 'outputs', action)
 
     def _add_observation(self, observation: str):
-        """
-        Adds disconnected observation entry to 'env/observations' node in self._state.
-        """
+        """Adds disconnected observation entry to 'env/observations' node in self._state."""
         assert observation != 'actions_set', 'Cannot define an observations with the reserved name "actions_set".'
         params_obs = self._state['nodes']['env/observations']['params']
         if observation in params_obs['inputs']:
@@ -171,8 +158,7 @@ class RxGraph:
             self._add_component('env/observations', 'inputs', observation)
 
     def remove_component(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None, remove: bool = False):
-        """
-        Removes a component entry from the selection list. It will first disconnect all connections in connect.
+        """Removes a component entry from the selection list. It will first disconnect all connections in connect.
         For feedthroughs, it will remove the corresponding output from the selection list.
         For actions, it will also remove the entry in self._state['nodes'][env/actions]['params'][outputs]
         For observations, it will also remove the entry in self._state['nodes'][env/observations]['params'][inputs]
@@ -187,8 +173,7 @@ class RxGraph:
             self._remove_observation(observation)
 
     def _remove_component(self, name: str, component: str, cname: str, remove: bool = False):
-        """
-        Removes a component entry from the selection list. It will first disconnect all connections in connect.
+        """ Removes a component entry from the selection list. It will first disconnect all connections in connect.
         For feedthroughs, it will remove the corresponding output from the selection list.
         """
         # For feedthroughs, remove the corresponding output instead
@@ -203,9 +188,7 @@ class RxGraph:
         params['default'][component].remove(cname)
 
     def _remove_action(self, action: str):
-        """
-        Method to remove an action. It will first disconnect all connections in connect.
-        """
+        """Method to remove an action. It will first disconnect all connections in connect."""
         self._remove_component('env/actions', 'outputs', action, remove=False)
         params_action = self._state['nodes']['env/actions']['params']
         source = ['env/actions', 'outputs', action]
@@ -219,9 +202,7 @@ class RxGraph:
         params_action['outputs'].pop(action)
 
     def _remove_observation(self, observation: str):
-        """
-        Method to remove an observation. It will first disconnect all connections in connect.
-        """
+        """Method to remove an observation. It will first disconnect all connections in connect."""
         self._remove_component('env/observations', 'inputs', observation, remove=False)
         params_obs = self._state['nodes']['env/observations']['params']
         target = ['env/observations', 'inputs', observation]
@@ -273,11 +254,9 @@ class RxGraph:
                 window: Optional[int] = None,
                 delay: Optional[float] = None,
                 skip: Optional[bool] = None):
-        """
-        Method to connect a source to a target. For actions/observations, first a (new) disconnected entry must be created,
+        """Method to connect a source to a target. For actions/observations, first a (new) disconnected entry must be created,
         after which an additional call to connect_action/observation is required before calling this method.
-        For more info, see self.connect.
-        """
+        For more info, see self.connect."""
         if isinstance(converter, ConverterSpec):
             converter = converter.params
 
@@ -316,9 +295,7 @@ class RxGraph:
         self._state['connects'].append(connect)
 
     def _connect_action(self, action, target, converter=None):
-        """
-        Method to connect a (previously added) action, that *precedes* self._connect(source, target).
-        """
+        """Method to connect a (previously added) action, that *precedes* self._connect(source, target)."""
         params_action = self._state['nodes']['env/actions']['params']
         assert action in params_action['outputs'], 'Action "%s" must be added, before you can connect it.' % action
         name, component, cname = target
@@ -348,12 +325,11 @@ class RxGraph:
             assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type as the converted msg_type will not be compatible with the space_converter specified in the .yaml.'
             msg_type_A = get_opposite_msg_cls(msg_type_B, space_converter)
             msg_type = get_module_type_string(msg_type_A)
-            mapping = dict(msg_type=msg_type, converter=space_converter, space_converter=None)
+            mapping = dict(msg_type=msg_type, rate='$(default rate)', converter=space_converter, space_converter=None)
             self._set(params_action['outputs'], {action: mapping})
 
     def _connect_observation(self, source, observation, converter):
-        """
-        Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target).
+        """Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target).
         """
         params_obs = self._state['nodes']['env/observations']['params']
         assert observation in params_obs['inputs'], 'Observation "%s" must be added, before you can connect it.' % observation
@@ -384,8 +360,7 @@ class RxGraph:
                    target: Optional[Tuple[str, str, str]] = None,
                    action: str = None, observation: str = None,
                    remove: bool = False):
-        """
-        Disconnects a source from a target. The target is reset in self._state to its disconnected state.
+        """Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         If remove=True, remove observations and actions in the following cases:
         In case of an observation, the complete entry is always removed.
         In case of an action, it is removed if the action is not connected to any other target.
@@ -408,9 +383,7 @@ class RxGraph:
                    source: Optional[Tuple[str, str, str]] = None,
                    target: Optional[Tuple[str, str, str]] = None,
                    action: str = None, observation: str = None):
-        """
-        Disconnects a source from a target. The target is reset in self._state to its disconnected state.
-        """
+        """Disconnects a source from a target. The target is reset in self._state to its disconnected state."""
         assert not source or not action, 'You cannot specify a source if you wish to disconnect action "%s", as the action will act as the source.' % action
         assert not target or not observation, 'You cannot specify a target if you wish to disconnect observation "%s", as the observation will act as the target.' % observation
         assert not (observation and action), 'You cannot disconnect an action from an observation, as such a connection cannot exist.'
@@ -459,8 +432,7 @@ class RxGraph:
             target_params[target_comp][target_cname] = self._state['nodes'][target_name]['default'][target_comp][target_cname]
 
     def _disconnect_component(self, name: str, component: str, cname: str, remove=False):
-        """
-        Disconnects all associated connects from self._state.
+        """Disconnects all associated connects from self._state.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
@@ -491,10 +463,8 @@ class RxGraph:
         return was_connected
 
     def _disconnect_action(self, action: str):
-        """
-        Returns the action entry back to its disconnected state.
-        That is, remove space_converter if it is not connected to any other targets.
-        """
+        """Returns the action entry back to its disconnected state.
+        That is, remove space_converter if it is not connected to any other targets."""
         params_action = self._state['nodes']['env/actions']['params']
         assert action in params_action['outputs'], 'Cannot disconnect action "%s", as it does not exist.' % action
         source = ['env/actions', 'outputs', action]
@@ -507,18 +477,14 @@ class RxGraph:
             params_action['outputs'][action] = dict()
 
     def _disconnect_observation(self, observation: str):
-        """
-        Returns the observation entry back to its disconnected state (i.e. empty dict).
-        """
+        """Returns the observation entry back to its disconnected state (i.e. empty dict)."""
         params_obs = self._state['nodes']['env/observations']['params']
         assert observation in params_obs[
             'inputs'], 'Cannot disconnect observation "%s", as it does not exist.' % observation
         params_obs['inputs'][observation] = dict()
 
     def rename(self, old, new, name: Optional[str] = None, component: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
-        """
-        Renames the node/object, or action/observation if specified.
-        """
+        """Renames the node/object, or action/observation if specified."""
         self._correct_signature(name=name, component=component, observation=observation, action=action)
         if action:
             name = 'env/actions'
@@ -534,8 +500,7 @@ class RxGraph:
             raise ValueError('Either the arguments {name, component} are None, or they must both be specified.')
 
     def _rename_component(self, name: str, component: str, old_cname: str, new_cname: str):
-        """
-        Renames the component name (cname) of an entity (node/object) in _state['nodes'] and self._state[connects].
+        """Renames the component name (cname) of an entity (node/object) in _state['nodes'] and self._state[connects].
         We cannot change names for node/object components, because their python implementation could depend on it.
         Does not work for feedthroughs.
         """
@@ -569,9 +534,7 @@ class RxGraph:
                 target[2] = new_cname
 
     def _rename_entity(self, old_name: str, new_name: str):
-        """
-        Renames the entity (node/object) in _state['nodes'] and self._state[connects]
-        """
+        """Renames the entity (node/object) in _state['nodes'] and self._state[connects]"""
         self._exist(self._state, old_name)
         assert old_name not in ['env/observations', 'env/actions', 'env/render'], 'Node name "%s" is fixed and cannot be changed.' % old_name
         assert new_name not in self._state['nodes'], 'There is already a node or object registered in this graph with name "%s".' % new_name
@@ -598,8 +561,7 @@ class RxGraph:
         return self.set_parameters({parameter: value}, name=name, component=component, cname=cname, action=action, observation=observation)
 
     def set_parameters(self, mapping: Dict[str, Any], name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
-        """
-        Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
+        """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
         parameter will be set there. Else, the parameter is set under the "default" key.
         For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
         If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
@@ -634,8 +596,7 @@ class RxGraph:
                 self._set(default, {parameter: value})
 
     def _set_converter(self, name: str, component: str, cname: str, converter: Dict):
-        """
-        Replaces the converter specified for a node's/object's I/O.
+        """Replaces the converter specified for a node's/object's I/O.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
@@ -667,8 +628,7 @@ class RxGraph:
         self._set(params[component][cname], {'converter': converter})
 
     def get_parameter(self, parameter: str, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None, default=None):
-        """
-        Get node/object parameters. If component and cname are specified, get the parameter of them instead.
+        """Get node/object parameters. If component and cname are specified, get the parameter of them instead.
         If default was specified, get default parameter instead. Else, raise an error.
         """
         self._correct_signature(name, component, cname, action, observation)
@@ -693,9 +653,7 @@ class RxGraph:
                 raise
 
     def get_parameters(self, name: Optional[str] = None, component: Optional[str] = None, cname: Optional[str] = None, action: Optional[str] = None, observation: Optional[str] = None):
-        """
-        Get all node/object parameters. If component and cname are specified, get the parameters of them instead.
-        """
+        """Get all node/object parameters. If component and cname are specified, get the parameters of them instead."""
         self._correct_signature(name, component, cname, action, observation)
         if action:
             name = 'env/actions'
@@ -712,8 +670,7 @@ class RxGraph:
             return deepcopy(self._state['nodes'][name]['params']['default'])
 
     def _reset_converter(self, name: str, component: str, cname: str):
-        """
-        Replaces the converter specified for a node's/object's I/O defined in self._state[name]['default'].
+        """Replaces the converter specified for a node's/object's I/O defined in self._state[name]['default'].
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
@@ -727,11 +684,9 @@ class RxGraph:
         self._set_converter(name, component, cname, converter_default)
 
     def register(self):
-        """
-        Set the addresses in all incoming components.
+        """Set the addresses in all incoming components.
         Validate the graph.
-        Create params that can be uploaded to the ROS param server.
-        """
+        Create params that can be uploaded to the ROS param server."""
         # Check if valid graph.
         assert self.is_valid(plot=False), 'Graph not valid.'
 
@@ -765,15 +720,15 @@ class RxGraph:
             params = entry['params']
             if 'node_type' in params:
                 if name == 'env/actions':
-                    actions = RxNodeParams(name, params)
+                    actions = NodeSpec(params)
                 elif name == 'env/observations':
-                    observations = RxNodeParams(name, params)
+                    observations = NodeSpec(params)
                 elif name == 'env/render':
-                    render = RxNodeParams(name, params)
+                    render = NodeSpec(params)
                 else:
-                    nodes.append(RxNodeParams(name, params))
+                    nodes.append(NodeSpec(params))
             else:
-                objects.append(RxObjectParams(name, params))
+                objects.append(ObjectSpec(params))
 
         assert actions, 'No action node defined in the graph.'
         assert observations, 'No observation node defined in the graph.'
@@ -818,9 +773,8 @@ class RxGraph:
 
     @staticmethod
     def _exist(state: Dict, name: str, component: Optional[str] = None, cname: Optional[str] = None, parameter: Optional[str] = None, check_default: Optional[bool] = False):
-        """
-        Check if provided entry exists.
-        """
+        """Check if provided entry exists."""
+
         # Check that node/object exists
         assert name in state['nodes'], f'There is no node or object registered in this graph with name "{name}".'
 
@@ -849,9 +803,7 @@ class RxGraph:
 
     @staticmethod
     def _is_selected(state: Dict, name: str, component: str, cname: str):
-        """
-        Check if provided entry was selected in params.
-        """
+        """Check if provided entry was selected in params."""
         RxGraph._exist(state, name, component, cname)
         params = state['nodes'][name]['params']
         component = 'outputs' if component == 'feedthroughs' else component
@@ -1099,13 +1051,13 @@ class RxGraph:
             # todo: only check bridge if it concerns one of the selected components
             if 'node_type' not in state['nodes'][node]['params']:  # Object
                 params = state['nodes'][node]['params']
-                package = '%s/%s' % (params['default']['package_name'], params['default']['config_name'])
+                entity_id = params['default']['entity_id']
                 obj_name = params['default']['name']
-                entry = [obj_name, package]
+                entry = [obj_name, entity_id]
 
                 # Add all (unknown) bridges to the list
                 for key, value in params.items():
-                    if key in ['default', 'sensors', 'actuators', 'states']: continue
+                    if key in ['entity_type', 'default', 'sensors', 'actuators', 'states']: continue
                     if key not in bridges:
                         bridges.append(key)
 
@@ -1120,8 +1072,6 @@ class RxGraph:
                                     else:
                                         e_str = ' '  # Component entry is not supported
                                         break  # Break if entry in component is not supported
-                            # else:
-                            #     raise KeyError('No components in %s' % default)
                     else:  # Bridge name not even mentioned in object config
                         e_str = ' '
                     entry.append(e_str)
@@ -1142,7 +1092,7 @@ class RxGraph:
                 compatible.append(b)
 
         # Objects are entries
-        headers = ['\nname', '\nobject']
+        headers = ['name', 'object']
         for b in bridges:
             headers.append(b.replace('/', '/\n'))
 

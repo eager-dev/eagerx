@@ -55,17 +55,17 @@ def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
         from eagerx_core.rxnode import RxNode
         rxnode_cls = RxNode
 
-    from eagerx_core.params import RxNodeParams
-    if isinstance(nodes, (RxNodeParams, dict)):
+    from eagerx_core.specs import BaseNodeSpec
+    if isinstance(nodes, (BaseNodeSpec, dict)):
         nodes = [nodes]
 
     for node in nodes:
         # Check if we still need to upload params to rosparam server (env)
         if not isinstance(node, dict):
-            params = node.get_params(ns=ns, in_object=in_object)
+            params = node.build(ns=ns)
 
             # Check if node name is unique
-            name = node.name
+            name = node.get_parameter('name')
             assert rospy.get_param(('%s/%s/rate') % (ns, name), None) is None, 'Node name "%s" already exists. Node names must be unique.' % (ns + '/' + name)
 
             # Upload params to rosparam server
