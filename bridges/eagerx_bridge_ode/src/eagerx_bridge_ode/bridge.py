@@ -18,10 +18,10 @@ from eagerx_core.bridge import BridgeBase
 class OdeBridge(BridgeBase):
     msg_types = {'outputs': {'tick': UInt64}}
 
-    def __init__(self, rtol, atol, hmax, hmin, mxstep, model_noise, **kwargs):
+    def __init__(self, rtol, atol, hmax, hmin, mxstep, **kwargs):
         # Initialize any simulator here, that is passed as reference to each simnode
         self.odeint_args = dict(rtol=rtol, atol=atol, hmax=hmax, hmin=hmin, mxstep=mxstep)
-        self.model_noise = model_noise
+
         simulator = dict()
         super().__init__(simulator=simulator, **kwargs)
 

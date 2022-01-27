@@ -1,7 +1,5 @@
 *.pyc
 *.idea
-calibrate.launch
-test.graph
 *.zip
 log/
-dcsc_fpga/
+test.graph
