@@ -100,7 +100,7 @@ class Viper(Arm):
 
         # Create simstates
         spec.set_state('N9', SimState.make('TestSimState', test_arg='arg_N9'))
-        spec.set_state('N10', SimState.make('TestSimState', test_arg='arg_N10'))
+        # spec.set_state('N10', SimState.make('TestSimState', test_arg='arg_N10'))
 
         # Create sensor simnodes
         N6 = SimNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default test_string)')
@@ -130,4 +130,3 @@ class Viper(Arm):
         graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
         graph.disconnect(target=('N6', 'inputs', 'in_1'))
         graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
-

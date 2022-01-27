@@ -376,6 +376,11 @@ class ObjectSpec(EntitySpec):
         engine_spec._set({'actuators': actuators})
         engine_spec._set({'sensors': sensors})
         engine_spec._set({'nodes': nodes})
+
+        for cname in list(engine_spec._params['states'].keys()):
+            if engine_spec._params['states'][cname] is None:
+                engine_spec._params['states'].pop(cname)
+
         self._set({bridge_id: engine_spec})
 
     def _initialize_object_graph(self):
@@ -472,12 +477,19 @@ class ObjectSpec(EntitySpec):
         # Sensors & actuators
         sensor_addresses = dict()
         rates = dict()
+        dependencies = []
         for obj_comp in ['sensors', 'actuators']:
             for obj_cname in default[obj_comp]:
-                entry = specific[obj_comp][obj_cname]
+                try:
+                    entry = specific[obj_comp][obj_cname]
+                except KeyError:
+                    raise KeyError(f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in bridge "{bridge_id}".')
                 node_name, node_comp, node_cname = entry['name'], entry['component'], entry['cname']
                 obj_comp_params = agnostic[obj_comp][obj_cname]
                 node_params = nodes[node_name]
+
+                # Determine node dependency
+                dependencies += entry['dependency']
 
                 # Set rate
                 rate = obj_comp_params['rate']
@@ -500,6 +512,22 @@ class ObjectSpec(EntitySpec):
                     node_comp_params.update(obj_comp_params)
                     node_comp_params.pop('rate')
 
+        # Get set of node we are required to launch
+        dependencies = list(set(dependencies))
+        dependencies = [substitute_args(node_name, context, only=['ns']) for node_name in dependencies]
+
+        # Verify that no dependency is an unlisted actuator node.
+        not_selected = [cname for cname in agnostic['actuators'] if cname not in default['actuators']]
+        for cname in not_selected:
+            try:
+                entry = specific['actuators'][cname]
+                node_name, node_comp, node_cname = entry['name'], entry['component'], entry['cname']
+                assert node_name not in dependencies, f'There appears to be a dependency on simnode "{node_name}" for the implementation of bridge "{bridge_id}" for object "{name}" to work. However, simnode "{node_name}" is directly tied to an unselected actuator "{cname}".'
+            except KeyError:
+                # We pass here, because if cname is not selected, but also not implemented,
+                # we are sure that there is no dependency.
+                pass
+
         # Replace simnode outputs that have been renamed to sensor outputs
         for node_address, sensor_address in sensor_addresses.items():
             for _, node_params in nodes.items():
@@ -517,7 +545,11 @@ class ObjectSpec(EntitySpec):
             args = agnostic[obj_comp][obj_cname]
             args['name'] = f'{name}/{obj_comp}/{obj_cname}'
             args['address'] = f'{name}/{obj_comp}/{obj_cname}'
-            args['state'] = specific[obj_comp][obj_cname]
+            try:
+                args['state'] = specific[obj_comp][obj_cname]
+            except KeyError:
+                raise KeyError(
+                    f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in bridge "{bridge_id}".')
             states.append(RxSimState(**args))
             state_names.append(f'{ns}/{args["name"]}')
 
@@ -525,7 +557,7 @@ class ObjectSpec(EntitySpec):
         obj_params = params['default']
 
         # Gather node names
-        obj_params['node_names'] = [f'{ns}/{node_name}' for node_name in list(nodes.keys())]
+        obj_params['node_names'] = [f'{ns}/{node_name}' for node_name in list(nodes.keys()) if node_name in dependencies]
         obj_params['state_names'] = state_names
 
         # Add bridge
@@ -540,7 +572,7 @@ class ObjectSpec(EntitySpec):
 
         # Add states
         obj_params['states'] = [s.build(ns) for s in states]
-        nodes = [SimNodeSpec(params) for name, params in nodes.items()]
+        nodes = [SimNodeSpec(params) for name, params in nodes.items() if name in dependencies]
         return {name: replace_None(obj_params)}, nodes
 
 class AgnosticSpec(EntitySpec):

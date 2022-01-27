@@ -560,14 +560,63 @@ class ObjectGraph:
         # Replace the converter with the default converter
         self._set_converter(name, component, cname, converter_default)
 
+    def _node_depenencies(self, state):
+        import networkx as nx
+        state = deepcopy(state)
+        G = self._generate_graph(state)
+        G_rev = G.reverse(copy=True)
+
+        # fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
+        # ax_env.set_title('Engine-specific graph')
+        # _, _, _, pos = plot_graph(G, k=2, ax=ax_env)
+        # plt.show()
+        #
+        # fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
+        # ax_env.set_title('Engine-specific graph (reversed)')
+        # _, _, _, _ = plot_graph(G_rev, k=2, ax=ax_env, pos=pos)
+        # plt.show()
+
+        # Determine sensor dependencies
+        dependencies = dict(sensors=dict(), actuators=dict())
+        for cname in state['nodes']['sensors']['params']['inputs']:
+            dependencies['sensors'][cname] = []
+            target_name = f'sensors/{cname}'
+            descendants = nx.descendants(G_rev, target_name)
+            for source in descendants:
+                node_name, source_cname = source.split('/')
+                if node_name in ['actuators', 'sensors']: continue
+                dependencies['sensors'][cname].append(node_name)
+
+        # Determine actuator dependency
+        for cname in state['nodes']['actuators']['params']['outputs']:
+            dependencies['actuators'][cname] = []
+            source_name = f'actuators/{cname}'
+            descendants = nx.descendants(G, source_name)
+            for target in descendants:
+                node_name, target_cname = target.split('/')
+                if node_name in ['actuators', 'sensors']: continue
+                dependencies['actuators'][cname].append(node_name)
+            # Also add dependencies of all targets
+            for target in descendants:
+                rev_descendants = nx.descendants(G_rev, target)
+                for source in descendants:
+                    node_name, source_cname = source.split('/')
+                    if node_name in ['actuators', 'sensors']: continue
+                    dependencies['actuators'][cname].append(node_name)
+            dependencies['actuators'][cname] = list(set(dependencies['actuators'].pop(cname)))
+        return dependencies
+
     def register(self):
-        """
-        Set the addresses in all incoming components.
+        """Set the addresses in all incoming components.
         Validate the graph.
         Create params that can be uploaded to the ROS param server.
         """
+
         # Check if valid graph.
         assert self.is_valid(plot=False), 'Graph not valid.'
+
+        # Find dependencies
+        dependencies = self._node_depenencies(self._state)
 
         # Add addresses based on connections
         state = deepcopy(self._state)
@@ -578,10 +627,12 @@ class ObjectGraph:
             target_name, target_comp, target_cname = target
             address = ObjectGraph._get_address(source, target)
             if source_name == 'actuators':
-                actuators[source_cname] = {'name': f'$(ns obj_name)/{target_name}', 'component': target_comp, 'cname': target_cname}
+                dependency = [f'$(ns obj_name)/{d}' for d in dependencies['actuators'][source_cname]]
+                actuators[source_cname] = {'name': f'$(ns obj_name)/{target_name}', 'component': target_comp, 'cname': target_cname, 'dependency': dependency}
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             if target_name == 'sensors':
-                sensors[target_cname] = {'name': f'$(ns obj_name)/{source_name}', 'component': source_comp, 'cname': source_cname}
+                dependency = [f'$(ns obj_name)/{d}' for d in dependencies['sensors'][target_cname]]
+                sensors[target_cname] = {'name': f'$(ns obj_name)/{source_name}', 'component': source_comp, 'cname': source_cname, 'dependency': dependency}
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             state['nodes'][target_name]['params'][target_comp][target_cname]['address'] = address
 
@@ -769,6 +820,53 @@ class ObjectGraph:
 
     @staticmethod
     def check_graph_is_acyclic(state, plot=True):
+        # Generate graph
+        G = ObjectGraph._generate_graph(state)
+
+        # Color nodes based on in/out going edges
+        not_active = is_stale(G, exclude_skip=True)
+        color_nodes(G)
+        color_edges(G)
+
+        # Check if graph is acyclic (excluding 'skip' edges)
+        H, cycles = episode_graph(G)
+        is_dag = nx.is_directed_acyclic_graph(H)
+
+        # Plot graphs
+        if plot:
+            fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
+            ax_env.set_title('Engine-specific graph')
+            _, _, _, pos = plot_graph(G, k=2, ax=ax_env)
+            plt.show()
+
+        # Assert if graph is a directed-acyclical graph (DAG)
+        cycle_strs = ['Algebraic loops detected: ']
+        for idx, connect in enumerate(cycles):
+            connect.append(connect[0])
+            s = ' Loop %s: ' % idx
+            n = '\n' + ''.join([' ']*len(s)) + '...-->'
+            s = '\n\n' + s + '...-->'
+            for idx in range(len(connect)-1):
+                tmp, target = connect[idx]
+                source, tmp2 = connect[idx+1]
+                source_name, source_comp, source_cname = source
+                target_name, target_comp, target_cname = target
+                assert source_name == target_name, 'Source and target not equal: %s, %s' % (source, target)
+                connect_name = '%s/%s/%s][%s/%s/%s' % tuple(list(source) + list(target))
+                node_name = ('Node: ' + source_name).center(len(connect_name), ' ')
+                s += '[%s]-->' % connect_name
+                n += '[%s]-->' % node_name
+            s += '...'
+            n += '...'
+            cycle_strs.append(s)
+            cycle_strs.append(n)
+            connect.pop(-1)
+        assert is_dag, ''.join(cycle_strs)
+        assert len(not_active) == 0, 'Stale episode graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
+        return True
+
+    @staticmethod
+    def _generate_graph(state):
         # Add nodes
         G = nx.MultiDiGraph()
         # label_mapping = {'env/observations/set': 'observations', 'env/render/done': 'render'}
@@ -780,7 +878,8 @@ class ObjectGraph:
                     name = '%s/%s' % (node, cname)
                     remain_active = True if node == 'actuators' else False
                     always_active = True if node == 'actuators' else False
-                    G.add_node(name, remain_active=remain_active, always_active=always_active, is_stale=False, has_tick=has_tick)
+                    G.add_node(name, remain_active=remain_active, always_active=always_active, is_stale=False,
+                               has_tick=has_tick)
             if node == 'sensors':
                 for cname in default['inputs']:
                     name = '%s/%s' % (node, cname)
@@ -825,40 +924,4 @@ class ObjectGraph:
         not_active = is_stale(G, exclude_skip=True)
         color_nodes(G)
         color_edges(G)
-
-        # Check if graph is acyclic (excluding 'skip' edges)
-        H, cycles = episode_graph(G)
-        is_dag = nx.is_directed_acyclic_graph(H)
-
-        # Plot graphs
-        if plot:
-            fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
-            ax_env.set_title('Engine-specific graph')
-            _, _, _, pos = plot_graph(G, k=2, ax=ax_env)
-            plt.show()
-
-        # Assert if graph is a directed-acyclical graph (DAG)
-        cycle_strs = ['Algebraic loops detected: ']
-        for idx, connect in enumerate(cycles):
-            connect.append(connect[0])
-            s = ' Loop %s: ' % idx
-            n = '\n' + ''.join([' ']*len(s)) + '...-->'
-            s = '\n\n' + s + '...-->'
-            for idx in range(len(connect)-1):
-                tmp, target = connect[idx]
-                source, tmp2 = connect[idx+1]
-                source_name, source_comp, source_cname = source
-                target_name, target_comp, target_cname = target
-                assert source_name == target_name, 'Source and target not equal: %s, %s' % (source, target)
-                connect_name = '%s/%s/%s][%s/%s/%s' % tuple(list(source) + list(target))
-                node_name = ('Node: ' + source_name).center(len(connect_name), ' ')
-                s += '[%s]-->' % connect_name
-                n += '[%s]-->' % node_name
-            s += '...'
-            n += '...'
-            cycle_strs.append(s)
-            cycle_strs.append(n)
-            connect.pop(-1)
-        assert is_dag, ''.join(cycle_strs)
-        assert len(not_active) == 0, 'Stale episode graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
-        return True
+        return G

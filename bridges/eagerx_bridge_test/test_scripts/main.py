@@ -23,12 +23,6 @@ if __name__ == '__main__':
     # todo: PLACEHOLDERS
     # Make sure to replace all default node args (e.g. rate) with object args, then replace args inside nodes.
     # Allow engine-specific params to be modified via agnostic params by coupling them with a Placeholder(name=, parameter)
-    # When saving a graph, convert all Placeholders to $(ph $(name) parameter).
-    # When loading a graph, convert all (ph $(name) parameter) to Placeholders.
-    # How to couple space_converter inside other actions/observations? Create a weakref when copying space_converter.
-    # Do not allow coupled arguments to be changed.
-    # Lock coupled arguments, and substitute the placeholders when hovering/showing dialog box.
-    # Inside graph.register(), create a big context dict and resolve all placeholders
 
     # todo: BRIDGE_SPECIFIC IMPLEMENTATION
     # Agnostic-params cannot become engine-specific --> hence, they cannot be variable.
@@ -40,6 +34,7 @@ if __name__ == '__main__':
     # Do all agnostic definitions have a space_converter?
 
     # todo: GUI
+    #  Do not allow coupled arguments to be changed in the GUI (i.e. $(default rate))
     #  Make gui work for ObjectGraph
     #  First show dialog box when creating a node with the spec arguments
     #  Modify converter dialog box to only show registered converters
@@ -47,18 +42,11 @@ if __name__ == '__main__':
     #  Add external addresses in EngineGUI
 
     # todo: OTHER
-    # todo: If simnode connected to output that happens to be a sensor, change address.
-    # todo: Optimize object graph & cut-out nodes on which no sensor or actuator depends.
-    # todo: What if an bridge_implementation does not implement all actuators/sensors/states? ObjectGraph check
-
     # only execute find in initialize_node(...)
     # Check that cnames selected in 'default' are also registered (i.e. they exist).
     # graph check if address is None, instead of checking whether it is present.
     # graph check if cname not already connected (possibly with external address before connecting
     # Perform type checking inside register_types.
-    # Move .get_params(ns) to Specs, and rename function to "build"
-    # Convert None --> 'null' (and 'null' --> None, when grabbing from rosparam server)
-    # Implement a function (different from make) that accepts {delays, <component>_converters, etc} to make a simnode inside object.get_params().
 
     # Define nodes
     N1 = Node.make('Process', 'N1',         rate=1.0,  process=node_p)
@@ -66,7 +54,8 @@ if __name__ == '__main__':
     N3 = ResetNode.make('RealReset', 'N3',  rate=rate, process=node_p, inputs=['in_1', 'in_2'], targets=['target_1'])
 
     # Define object
-    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8', 'ref_vel'], sensors=['N6'])
+    viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8'], sensors=['N6'], states=['N9'])
+    # viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8', 'ref_vel'], sensors=['N6'], states=['N9'])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make('RosString_RosUInt64', test_arg='test')
@@ -84,7 +73,7 @@ if __name__ == '__main__':
     graph.connect(source=('obj', 'sensors', 'N6'),     target=('N3', 'inputs', 'in_1'))
     graph.connect(source=('obj', 'states', 'N9'),      target=('N3', 'targets', 'target_1'))
     graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'N8'), delay=0.0, converter=RosString_RosUInt64)
-    graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'ref_vel'), delay=0.0)
+    # graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'ref_vel'), delay=0.0)
 
     # Set & get parameters
     _ = graph.get_parameter('converter', action='act_2')
@@ -172,7 +161,6 @@ if __name__ == '__main__':
                     graph=graph,
                     bridge=bridge,
                     reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
-                                          'obj/N10': env.state_space.sample()['obj/N10'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1']}
                     )
     env = Flatten(env)
