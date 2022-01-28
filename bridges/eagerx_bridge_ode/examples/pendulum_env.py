@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-# ROS packages required
-import os
 import rospy
 import numpy as np
-from functools import partial
-from eagerx_core.core import RxObject, RxGraph, RxBridge, EAGERxEnv
+from eagerx_core.core import RxObject, RxNode, RxGraph, RxBridge, EAGERxEnv
 from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
@@ -18,58 +15,80 @@ if __name__ == '__main__':
 
     # Define rate (depends on rate of ode)
     rate = 30.
-    # Decompose angle in sin and cos
-    decompose_angle = True
-    # Add render node
-    render = True
 
+    # Initialize empty graph
     graph = RxGraph.create()
-    pendulum = RxObject.create('pendulum', 'eagerx_bridge_ode', 'pendulum')
-    graph.add(pendulum)
-    graph.connect(action='action', target=('pendulum', 'actuators', 'action'))
-    if decompose_angle:
-        graph.set_parameter('converter', {'converter_type': 'eagerx_bridge_ode.converters/AngleDecomposition'},
-                            'pendulum', 'sensors', 'observation')
-        graph.connect(source=('pendulum', 'sensors', 'observation'), observation='observation',
-                      converter={'converter_type': 'eagerx_bridge_ode.converters/Space_RosFloat32MultiArray',
-                                 'low': [-1, -1, -9], 'high': [1, 1, 9]})
-    else:
-        graph.set_parameter('converter', {'converter_type': 'eagerx_bridge_ode.converters/AngleNormalization'},
-                            'pendulum', 'sensors', 'observation')
-        graph.connect(source=('pendulum', 'sensors', 'observation'), observation='observation')
-    if render:
-        graph.add_component('pendulum', 'sensors', 'image')
-        graph.render(source=('pendulum', 'sensors', 'image'), rate=20, display=True)
 
-    # Define bridge
-    bridge = RxBridge.create('eagerx_bridge_ode', 'bridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
+    # Create mops
+    mops = RxObject.create('mops', 'eagerx_dcsc_setups', 'mops')
+    graph.add(mops)
 
-    def angle_normalize(x):
-        return ((x + np.pi) % (2 * np.pi)) - np.pi
+    # Create Butterworth filter
+    butterworth_filter = RxNode.create('butterworth_filter', 'eagerx_dcsc_setups', 'butterworth_filter', N=2, Wn=13, rate=rate)
+    graph.add(butterworth_filter)
 
-    def reward_fn(prev_obs, obs, action, steps, decompose_angle=True):
-        if decompose_angle:
+    # Connect the nodes
+    graph.connect(action='action', target=('butterworth_filter', 'inputs', 'signal'))
+    graph.connect(source=('butterworth_filter', 'outputs', 'filtered'), target=('mops', 'actuators', 'mops_input'))
+    graph.connect(source=('mops', 'sensors', 'mops_output'), observation='observation', window=1)
+    graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
+    graph.render(source=('mops', 'sensors', 'image'), rate=20, display=True)
+
+    # Show in the gui
+    graph.gui()
+
+    # Define bridges
+    bridge_ode = RxBridge.create('eagerx_bridge_ode', 'bridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
+    bridge_real = RxBridge.create('eagerx_bridge_real', 'bridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
+
+    # Reward and done functions
+    def reward_fn(prev_obs, obs, action, steps):
+        data = np.squeeze(obs['observation'])
+        if len(data) == 3:
             sin_th, cos_th, thdot = np.squeeze(obs['observation'])
-            th = np.arctan2(sin_th, cos_th)
         else:
-            th, thdot = np.squeeze(obs['observation'])
-            th = angle_normalize(th)
+            sin_th, cos_th, thdot = 0, -1, 0
+        th = np.arctan2(sin_th, cos_th)
         cost = th ** 2 + 0.1 * (thdot / (1 + 10 * abs(th))) ** 2
         return - cost
 
+    def is_done_fn(obs, action, steps):
+        return steps > 500
 
     # Initialize Environment
-    env = EAGERxEnv(
-        name='rx', rate=rate, graph=graph, bridge=bridge,
-        is_done_fn=lambda obs, action, steps: steps > 300 or np.all(np.abs(obs['observation']) < 0.1),
-        reward_fn=partial(reward_fn, decompose_angle=decompose_angle),
-    )
-    env = Flatten(env)
+    simulation_env = Flatten(EAGERxEnv(name='ode', rate=rate, graph=graph, bridge=bridge_ode, is_done_fn=is_done_fn, reward_fn=reward_fn))
+    real_env = Flatten(EAGERxEnv(name='real', rate=rate, graph=graph, bridge=bridge_real, is_done_fn=is_done_fn, reward_fn=reward_fn))
 
-    # Use stable-baselines
-    parent_folder = os.path.dirname(os.path.realpath(__file__))
-    save_path = '{}/pendulum'.format(parent_folder)
-    # model = sb.SAC.load(save_path, env=env)
-    model = sb.SAC('MlpPolicy', env, verbose=1, tensorboard_log='{}/log'.format(parent_folder))
-    model.learn(total_timesteps=int(1800*rate))
-    model.save(save_path)
+    # Initialize learner (kudos to Antonin)
+    model =  sb.SAC("MlpPolicy", simulation_env, verbose=1)
+
+    # First train in simulation
+    simulation_env.render('human')
+    model.learn(total_timesteps=int(300*rate))
+    simulation_env.close()
+
+    # Evaluate for 30 seconds in simulation
+    obs = simulation_env.reset()
+    for i in range(int(30 * rate)):
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, info = simulation_env.step(action)
+        if done:
+            obs = simulation_env.reset()
+
+    model.save('simulation')
+
+    # Train on real system
+    model = sb.SAC.load('simulation', env=real_env, ent_coef="auto_0.1")
+    real_env.render('human')
+    model.learn(total_timesteps=int(420*rate))
+    model.save('real')
+
+    # Evaluate on real system
+    rospy.loginfo('Start Evaluation!')
+    obs = real_env.reset()
+    while True:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, info = real_env.step(action)
+        real_env.render()
+        if done:
+            obs = real_env.reset()

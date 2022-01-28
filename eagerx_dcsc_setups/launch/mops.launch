@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="mops" pkg="dcsc_fpga" type="mops" output="screen"/>
+</launch>
