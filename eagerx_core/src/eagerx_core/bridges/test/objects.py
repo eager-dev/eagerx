@@ -5,7 +5,7 @@ from typing import Optional, List
 from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
-from eagerx_bridge_test.bridge import TestBridgeNode
+from eagerx_core.bridges.test.bridge import TestBridgeNode
 from eagerx_core.core.entities import Object, SimNode, SpaceConverter, SimState
 import eagerx_core.core.registration as register
 

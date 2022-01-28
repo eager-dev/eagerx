@@ -12,7 +12,7 @@ from eagerx_core.core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 from eagerx_core.core.entities import Object, Node, ResetNode, Bridge, Converter, BaseConverter
 
-import eagerx_bridge_test
+import eagerx_core.bridges.test
 
 if __name__ == '__main__':
     # Process configuration (optional)

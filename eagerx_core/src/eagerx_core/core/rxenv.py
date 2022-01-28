@@ -10,8 +10,8 @@ from eagerx_core.core.specs import NodeSpec, ObjectSpec, BridgeSpec
 from eagerx_core.core.entities import Node
 from eagerx_core.core.rxgraph import RxGraph
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization, substitute_args
-from eagerx_core.rxnode import RxNode
-from eagerx_core.rxbridge import RxBridge
+from eagerx_core.core.rxnode import RxNode
+from eagerx_core.core.rxbridge import RxBridge
 from eagerx_core.core.rxsupervisor import RxSupervisor, SupervisorNode
 from eagerx_core.core.rxmessage_broker import RxMessageBroker
 from eagerx_core.core.constants import process

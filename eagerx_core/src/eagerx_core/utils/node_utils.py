@@ -52,7 +52,7 @@ def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
                      node_args: Dict = None,
                      ):
     if rxnode_cls is None:
-        from eagerx_core.rxnode import RxNode
+        from eagerx_core.core.rxnode import RxNode
         rxnode_cls = RxNode
 
     from eagerx_core.core.specs import BaseNodeSpec

@@ -189,7 +189,7 @@ class KalmanNode(TestNode):
     @register.spec('KalmanFilter', Node)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.ENVIRONMENT,
              inputs: Optional[List[str]] = ['in_1'], outputs: Optional[List[str]] = ['out_1'],
-             states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'blue',
+             states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'grey',
              test_arg: Optional[str] = 'test_argument'):
         """KalmanNode spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.

@@ -9,7 +9,7 @@ from std_msgs.msg import UInt64, String, Bool
 
 # Rx imports
 from eagerx_core.core.constants import process
-from eagerx_core.rxnode import RxNode
+from eagerx_core.core.rxnode import RxNode
 import eagerx_core.core.rxmessage_broker
 import eagerx_core.core.rxoperators
 import eagerx_core.core.rxpipelines
