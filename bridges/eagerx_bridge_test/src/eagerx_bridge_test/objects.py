@@ -16,20 +16,20 @@ class Arm(Object):
     @register.sensors(N6=UInt64, N7=UInt64)
     @register.actuators(N8=String, ref_vel=UInt64)
     @register.simstates(N9=UInt64, N10=UInt64)
-    @register.agnostic_params(position=[0, 0, 0], orientation=[0, 0, 0], rate=15, low=None, string=None, test_string=None, test_list=None)
+    @register.agnostic_params(position=[0, 0, 0], orientation=[0, 0, 0], arg_rate=15, low=None, string=None, test_string=None, test_list=None)
     def agnostic(spec):
         """Agnostic definition of the Arm object"""
         # Set state properties: space_converters
         space_rosuint64 = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
         spec.set_space_converter('sensors', 'N6', space_rosuint64)
-        spec.set_parameter('sensors', 'N6', 'rate', '$(default rate)')
+        spec.set_parameter('sensors', 'N6', 'rate', '$(default arg_rate)')
         spec.set_space_converter('sensors', 'N7', space_rosuint64)
         spec.set_parameter('sensors', 'N7', 'rate', 2)
 
         # Set actuator properties: space_converters
         space_rosstring = SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64')
         spec.set_space_converter('actuators', 'N8', space_rosstring)
-        spec.set_parameter('actuators', 'N8', 'rate', '$(default rate)')
+        spec.set_parameter('actuators', 'N8', 'rate', '$(default arg_rate)')
         spec.set_space_converter('actuators', 'ref_vel', space_rosuint64)
         spec.set_parameter('actuators', 'ref_vel', 'rate', 1)
 
@@ -55,7 +55,7 @@ class Arm(Object):
 
         # Add custom params
         params = dict(position=position, orientation=orientation, string=string, test_string=test_string,
-                      test_list=test_list, low=low, rate=15)
+                      test_list=test_list, low=low, arg_rate=15)
         spec.set_parameters(params)
 
         # Add bridge-specific implementation
@@ -75,14 +75,14 @@ class Viper(Arm):
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(Viper)
 
-        # Modify default node params
+        # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         default = dict(name=name, sensors=sensors, actuators=actuators, states=states)
         spec.set_parameters(default, level='default')
 
-        # Add custom params
+        # Add custom agnostic params
         params = dict(position=position, orientation=orientation, string=string, test_string=test_string,
-                      test_list=test_list, low=low, rate=15)
+                      test_list=test_list, low=low, arg_rate=15)
         spec.set_parameters(params, level='default')
 
         # Add bridge implementation
@@ -103,7 +103,7 @@ class Viper(Arm):
         # spec.set_state('N10', SimState.make('TestSimState', test_arg='arg_N10'))
 
         # Create sensor simnodes
-        N6 = SimNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default test_string)')
+        N6 = SimNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default req_arg)')
         N7 = SimNode.make('SimSensor', 'N7', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
 
         # Create actuator simnodes

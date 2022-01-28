@@ -64,7 +64,7 @@ class ObservationsNode(Node):
 
     @register.inputs(actions_set=UInt64)
     @register.outputs(set=UInt64)
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
+    def callback(self, t_n: float, **kwargs: Optional[Msg]):
         # Set all observations to messages in inputs
         for name, buffer in self.observation_buffer.items():
             buffer['msgs'] = kwargs[name].msgs
@@ -125,7 +125,7 @@ class ActionsNode(Node):
 
     @register.inputs(observations_set=UInt64, step=UInt64)
     @register.outputs(set=UInt64)
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
+    def callback(self, t_n: float, **kwargs: Optional[Msg]):
         # Fill output_msg with buffered actions
         output_msgs = dict(set=UInt64())
         for name, buffer in self.action_buffer.items():
@@ -184,7 +184,7 @@ class RenderNode(Node):
 
     @register.inputs(image=Image)
     @register.outputs(done=UInt64)
-    def callback(self, node_tick: int, t_n: float, image: Optional[Msg] = None):
+    def callback(self, t_n: float, image: Optional[Msg] = None):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
         empty = (self.last_image.height == 0 or self.last_image.width == 0)

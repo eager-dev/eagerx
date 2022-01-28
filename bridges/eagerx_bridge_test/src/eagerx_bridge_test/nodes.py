@@ -1,5 +1,6 @@
 # OTHER IMPORTS
 from typing import Optional, List
+from math import isclose
 from yaml import dump
 
 # ROS IMPORTS
@@ -61,7 +62,7 @@ class RealResetNode(ResetNode):
     @register.inputs(in_1=UInt64, in_2=UInt64)
     @register.outputs(out_1=UInt64, out_2=UInt64)
     @register.targets(target_1=UInt64)
-    def callback(self, node_tick: int, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, target_1: Optional[Msg] = None) -> return_typehint(UInt64, done=True):
+    def callback(self, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, target_1: Optional[Msg] = None) -> return_typehint(UInt64, done=True):
         # output type is always Dict[str, Union[UInt64, output_msg_types]] because done flags are also inside the output_msgs
         inputs = {'in_1': in_1,
                   'in_2': in_2}
@@ -71,13 +72,12 @@ class RealResetNode(ResetNode):
         [inputs.pop(i) for i in pop_keys]
 
         # Verify that all timestamps are smaller or equal to node time
-        t_n = node_tick * (1 / self.rate)
         for i in self.inputs:
             name = i['name']
             if name in inputs:
                 t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    rospy.logerr(f'[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.')
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -108,7 +108,7 @@ class TestNode(SimNode):
 
     @register.inputs(in_1=UInt64, in_2=UInt64, in_3=String, tick=UInt64)
     @register.outputs(out_1=UInt64, out_2=UInt64)
-    def callback(self, node_tick: int, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, in_3: Optional[Msg] = None, tick: Optional[Msg] = None) -> return_typehint(UInt64):
+    def callback(self, t_n: float, in_1: Optional[Msg] = None, in_2: Optional[Msg] = None, in_3: Optional[Msg] = None, tick: Optional[Msg] = None) -> return_typehint(UInt64):
         inputs = {'in_1': in_1,
                   'in_2': in_2,
                   'tick': tick}
@@ -118,8 +118,9 @@ class TestNode(SimNode):
         [inputs.pop(i) for i in pop_keys]
 
         # Verify that # of ticks equals internal counter
-        if not self.num_ticks == node_tick:
-            rospy.logerr('[%s][callback]: ticks not equal (self.num_ticks=%d, node_tick=%d).' % (self.name, self.num_ticks, node_tick))
+        node_tick = t_n * self.rate
+        if not isclose(self.num_ticks, node_tick):
+            rospy.logerr(f'[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={node_tick}).')
             pass
 
         # Verify that all timestamps are smaller or equal to node time
@@ -129,7 +130,7 @@ class TestNode(SimNode):
             if name in inputs:
                 t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    rospy.logerr(f'[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.')
 
         # Fill output msg with number of node ticks
         output_msgs = dict()

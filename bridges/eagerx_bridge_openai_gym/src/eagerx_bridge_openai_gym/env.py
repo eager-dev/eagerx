@@ -1,4 +1,4 @@
-from eagerx_core.params import RxBridgeParams
+from eagerx_core.entities import BridgeSpec
 from eagerx_core.rxgraph import RxGraph
 from eagerx_core.rxenv import EAGERxEnv
 from typing import Dict, Tuple, Callable
@@ -7,7 +7,7 @@ import gym
 
 
 class EAGERxGym(EAGERxEnv):
-    def __init__(self, name: str, rate: float, graph: RxGraph, bridge: RxBridgeParams,
+    def __init__(self, name: str, rate: float, graph: RxGraph, bridge: BridgeSpec,
                  reward_fn: Callable = lambda prev_obs, obs, action, steps: obs['reward'][0],
                  is_done_fn: Callable = lambda obs, action, steps: obs['done'][0]) -> None:
         super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, reward_fn=reward_fn, is_done_fn=is_done_fn)

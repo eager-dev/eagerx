@@ -21,9 +21,9 @@ from eagerx_core.rxgraph import RxGraph
 from eagerx_core.gui import rxgui_view
 from eagerx_core.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
 from eagerx_core.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
-from eagerx_core.params import RxObjectParams, RxNodeParams
 from eagerx_core.utils.utils import get_nodes_and_objects_library
 from eagerx_core.utils.pyqtgraph_utils import exception_handler
+from eagerx_core.entities import Node
 
 
 # pyside and pyqt use incompatible ui files.
@@ -153,7 +153,7 @@ class RxGui(RxGraph, QtCore.QObject):
             if clear:
                 self.clear()
             if 'env/render' not in self._state['nodes']:
-                render = RxNodeParams.create('env/render', 'eagerx_core', 'render', rate=1.)
+                render = Node.make('Render', rate=1.)
                 self.add(render)
             self.add_pos_to_state(self._state)
             nodes = self._state['nodes']

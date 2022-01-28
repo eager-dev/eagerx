@@ -194,6 +194,8 @@ class ObjectGraph:
         assert not target or not sensor, f'You cannot specify a target if you wish to connect sensor "{sensor}", as the sensor will act as the target.'
         assert not (actuator and sensor), f'You cannot connect an actuator directly to a sensor.'
         if address:
+            curr_address = self.get_parameter('address', *target)
+            assert curr_address is None, f'Cannot connect target "{target}" to external address "{address}", because it is already connected to an external address "{curr_address}". Disconnect target first.'
             self.set_parameter('address', address, *target)
             assert external_rate is not None, f'When providing an external address "{address}", an external rate must also be provided.'
             assert external_rate > 0, f'Invalid external rate "{external_rate}". External rate must be > 0.'
@@ -246,6 +248,13 @@ class ObjectGraph:
         # Perform checks on target
         target_name, target_comp, target_cname = target
         self._is_selected(self._state, target_name, target_comp, target_cname)
+
+        # Make sure that target is not already connected.
+        curr_address = self.get_parameter('address', *target)
+        assert curr_address is None, f'Cannot connect target "{target}" to source "{source}", because it is already connected to an external address "{curr_address}". Disconnect target first.'
+        for _, t in self._state['connects']:
+            t_name, t_comp, t_cname = t
+            assert not (target_name == t_name and target_comp == t_comp and target_cname == t_cname), f'Target "{target}" is already connected to source "{_}"'
 
         # Add properties to target params
         if converter is not None:

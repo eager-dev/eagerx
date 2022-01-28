@@ -122,7 +122,17 @@ class BaseNode(Entity):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        return
+        entity_id = spec.get_parameter('entity_id')
+        name = spec.get_parameter('name')
+        assert name is not None and isinstance(name, str), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
+
+        # Check that there is at least a single input & output defined. # todo: needed?
+        # assert len(spec._params['default']['outputs']) > 0, f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
+
+        # Check that all selected cnames have a corresponding implementation
+        for component in ['inputs', 'outputs', 'states']:
+            for cname in spec._params['default'][component]:
+                assert cname in spec._params[component], f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
 
     @abc.abstractmethod
     def initialize(self, *args, **kwargs):
@@ -181,7 +191,7 @@ class Node(BaseNode):
         [kwargs.pop(key) for key in keys_to_pop]
         return self.reset(**kwargs)
 
-    def callback_cb(self, **kwargs):
+    def callback_cb(self, node_tick: int, t_n: float, **kwargs):
         self.iter_ticks += 1
         if self.log_memory and self.iter_ticks % self.print_iter == 0:
             if self.iter_start:
@@ -215,7 +225,7 @@ class Node(BaseNode):
                     self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
                 rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
-        output = self.callback(**kwargs)
+        output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
         return output
 
@@ -239,7 +249,7 @@ class Node(BaseNode):
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Union[Message, Bool]]:
+    def callback(self, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Union[Message, Bool]]:
         """
         The node callback that is performed at the specified node rate.
 
@@ -261,6 +271,11 @@ class Node(BaseNode):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
+        entity_id = spec.get_parameter('entity_id')
+        name = spec.get_parameter('name')
+
+        # Check that there is atleast a single input & output defined.
+        assert len(spec._params['default']['inputs']) > 0, f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
 
 
 class ResetNode(Node):
@@ -275,6 +290,17 @@ class ResetNode(Node):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
+        entity_id = spec.get_parameter('entity_id')
+        name = spec.get_parameter('name')
+
+        # Check that there is at least a single target & output was defined.
+        assert len(spec._params['default']['outputs']) > 0, f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
+        assert len(spec._params['default']['targets']) > 0, f'Node "{name}" does not have any targets selected. Please select at least one target when making the spec, or check the spec defined for "{entity_id}".'
+
+        # Check if all selected targets have an implementation (other components are checked in BaseNode.check_spec())
+        for component in ['targets']:
+            for cname in spec._params['default'][component]:
+                assert cname in spec._params[component], f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
 
 
 class SimNode(Node):
@@ -338,7 +364,7 @@ class SimNode(Node):
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Message]:
+    def callback(self, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Message]:
         """
         The simulation node callback that is performed at the specified node rate.
 
@@ -512,7 +538,7 @@ class Bridge(BaseNode):
                     self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
                 rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
-        _ = self.callback(node_tick, t_n, **kwargs)
+        _ = self.callback(t_n, **kwargs)
 
         # Fill output msg with number of node ticks
         self.num_ticks += 1
@@ -582,7 +608,7 @@ class Bridge(BaseNode):
         pass
 
     @abc.abstractmethod
-    def callback(self, node_tick: int, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]) -> None:
+    def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]) -> None:
         """
         The bridge callback that is performed at the specified rate.
 

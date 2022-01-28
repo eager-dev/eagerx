@@ -1,6 +1,8 @@
 from typing import Dict, List, Tuple, Union, Any, Optional
 import inspect
 from yaml import dump
+
+# from eagerx_core.converters import Identity
 from eagerx_core.utils.utils import replace_None, deepcopy, supported_types, get_module_type_string, exists, get_default_params, substitute_args
 
 
@@ -90,6 +92,7 @@ class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx_core.entities import BaseConverter
+        from eagerx_core.converters import Identity
         self.identity = BaseConverter.make('Identity')
 
     def initialize(self, spec_cls):
@@ -231,7 +234,6 @@ class BaseNodeSpec(EntitySpec):
         merge(self._params, mapping)
 
     def build(self, ns):
-        from eagerx_core.params.params import RxInput, RxOutput, RxState, RxFeedthrough
         params = self.params  # Creates a deepcopy
         default = self.get_parameters()  # Creates a deepcopy
         name = default['name']
@@ -299,6 +301,7 @@ class BaseNodeSpec(EntitySpec):
         chars_ns = len(ns)+1
         rate_dict = dict()
         for i in default['outputs']:
+            assert i['rate'] is not None and isinstance(i['rate'], (int, float)) and i['rate'] > 0, f'The rate of node "{name}" (and output cname "{i["name"]}") is misspecified: rate="{i["rate"]}". Make sure that it is of type(rate)=("int", "float",) and rate > 0.'
             address = i['address'][chars_ns:]
             rate_dict[address] = i['rate']  # {'rate': i['rate']}
 
@@ -331,6 +334,7 @@ class ObjectSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx_core.entities import BaseConverter
+        from eagerx_core.converters import Identity
         self.identity = BaseConverter.make('Identity')
 
     def initialize(self, spec_cls):
@@ -372,15 +376,39 @@ class ObjectSpec(EntitySpec):
         return spec, graph
 
     def _add_engine_spec(self, bridge_id, engine_spec, graph):
+        # Register EngineGraph
         nodes, actuators, sensors = graph.register()
-        engine_spec._set({'actuators': actuators})
-        engine_spec._set({'sensors': sensors})
-        engine_spec._set({'nodes': nodes})
 
+        # Check that there is no parameter clash between node and object
+        obj_name = self.get_parameter('name')
+        agnostic_params = self.get_parameters()
+        engine_params = engine_spec.get_parameters()
+        for node, params in nodes.items():
+            default = params['default']
+            node_name = default['name']
+            for key in default.keys():
+                if key in ['name', 'states', 'entity_id']: continue
+                assert key not in agnostic_params, f'Possible parameter clash detected. "{key}" is a parameter defined both as an agnostic parameter for object "{obj_name}" and as a parameter of simnode "{node_name}" in bridge implementation "{bridge_id}".'
+                assert key not in engine_params, f'Possible parameter clash detected. "{key}" is a parameter defined both in the registered object_params of bridge "{bridge_id}" for a bridge implementation of object "{obj_name}" and as a parameter of simnode "{node_name}".'
+
+        # Check that there is no parameter clash between bridge registered object_params and agnostic object params
+        for key in engine_params.keys():
+            if key in ['states']: continue
+            assert key not in agnostic_params, f'Possible parameter clash detected. "{key}" is a parameter defined both as an agnostic parameter for object "{obj_name}" and as a registered object_params of bridge "{bridge_id}" for a bridge implementation of the object.'
+
+        # Substitute engine_specific object_params (registered in the bridge implementation)
+        engine_params.pop('states')
+        substitute_args(nodes, context={'default': engine_params}, only=['default'])
+
+        # Pop states that were not implemented.
         for cname in list(engine_spec._params['states'].keys()):
             if engine_spec._params['states'][cname] is None:
                 engine_spec._params['states'].pop(cname)
 
+        # Set engine_spec
+        engine_spec._set({'actuators': actuators})
+        engine_spec._set({'sensors': sensors})
+        engine_spec._set({'nodes': nodes})
         self._set({bridge_id: engine_spec})
 
     def _initialize_object_graph(self):
@@ -540,7 +568,6 @@ class ObjectSpec(EntitySpec):
         states = []
         state_names = []
         obj_comp = 'states'
-        from eagerx_core.params.params import RxSimState
         for obj_cname in default['states']:
             args = agnostic[obj_comp][obj_cname]
             args['name'] = f'{name}/{obj_comp}/{obj_cname}'
@@ -574,6 +601,7 @@ class ObjectSpec(EntitySpec):
         obj_params['states'] = [s.build(ns) for s in states]
         nodes = [SimNodeSpec(params) for name, params in nodes.items() if name in dependencies]
         return {name: replace_None(obj_params)}, nodes
+
 
 class AgnosticSpec(EntitySpec):
     @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
@@ -640,3 +668,192 @@ class EngineSpec(EntitySpec):
         # assert component in self._params, f"Component '{component}' not found. Available keys(params['default'])={self._params.keys()}."
         # assert cname in self._params[component],  f"Cname '{cname}' not found. Available keys(params[{component}])={self._params[component].keys()}."
         self._set({component: {cname: mapping}})
+
+
+# REQUIRED FOR BUILDING SPECS
+
+
+class Params(object):
+    def __init__(self, **kwargs):
+        # Iterates over provided arguments and sets the provided arguments as class properties
+        for key, value in kwargs.items():
+            if key == '__class__': continue   # Skip if __class__ type
+            setattr(self, key, value)
+
+
+class RxInput(Params):
+    def __init__(self,
+                 name: str,
+                 address: str,
+                 msg_type: str,
+                 window: int = 0,
+                 converter: Dict = None,
+                 external_rate: float = False,
+                 space_converter: Dict = None,
+                 delay: float = 0.0,
+                 skip: bool = False,
+                 ):
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        if not converter:
+            from eagerx_core.converters import Identity
+            converter = Identity().get_yaml_definition()
+            del Identity
+
+        # If space_converter undefined, remove it
+        if not space_converter:
+            del space_converter
+
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxInput, self).__init__(**kwargs)
+
+        # Calculate other parameters based on previously defined attributes.
+
+        # Error check the parameters here.
+
+    def build(self, ns=''):
+        params = self.__dict__.copy()
+        if not params['external_rate']:
+            params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        return params
+
+
+class RxOutput(Params):
+    def __init__(self,
+                 name: str,
+                 address: str,
+                 msg_type: str,
+                 rate: float,
+                 converter: Dict = None,
+                 space_converter: Dict = None,
+                 ):
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        # If space_converter undefined, remove it
+        if not converter:
+            from eagerx_core.converters import Identity
+            converter = Identity().get_yaml_definition()
+            del Identity
+
+        if not space_converter:
+            del space_converter
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxOutput, self).__init__(**kwargs)
+
+        # Calculate other parameters based on previously defined attributes.
+
+        # Error check the parameters here.
+
+    def build(self, ns=''):
+        params = self.__dict__.copy()
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        return params
+
+
+class RxFeedthrough(Params):
+    def __init__(self,
+                 address: str,
+                 msg_type: str,
+                 feedthrough_to: str,
+                 window: int = 1,
+                 converter: Dict = None,
+                 external_rate: float = None,
+                 space_converter: Dict = None,
+                 delay: float = 0.0,
+                 skip: bool = False,
+                 ):
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        # If space_converter undefined, remove it
+        if not converter:
+            from eagerx_core.converters import Identity
+            converter = Identity().get_yaml_definition()
+            del Identity
+
+        if not space_converter:
+            del space_converter
+
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxFeedthrough, self).__init__(**kwargs)
+
+        # Calculate other parameters based on previously defined attributes.
+
+        # Error check the parameters here.
+
+    def build(self, ns=''):
+        params = self.__dict__.copy()
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        return params
+
+
+class RxState(Params):
+    def __init__(self,
+                 name: str,
+                 address: str,
+                 msg_type: str,
+                 converter: Dict = None,
+                 space_converter: Dict = None,
+                 ):
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        # If space_converter undefined, remove it
+        if not converter:
+            from eagerx_core.converters import Identity
+            converter = Identity().get_yaml_definition()
+            del Identity
+
+        if not space_converter:
+            del space_converter
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxState, self).__init__(**kwargs)
+
+        # Calculate other parameters based on previously defined attributes.
+
+        # Error check the parameters here.
+
+    def build(self, ns=''):
+        params = self.__dict__.copy()
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        return params
+
+
+class RxSimState(Params):
+    def __init__(self,
+                 name: str,
+                 address: str,
+                 state: Dict,
+                 msg_type: str,
+                 converter: Dict = None,
+                 space_converter: Dict = None
+                 ):
+        # Store parameters as properties in baseclass
+        # IMPORTANT! Do not define variables locally you do **not** want to store
+        # on the parameter server anywhere before calling the baseclass' constructor.
+        # If space_converter undefined, remove it
+        if not converter:
+            from eagerx_core.converters import Identity
+            converter = Identity().get_yaml_definition()
+            del Identity
+
+        if not space_converter:
+            del space_converter
+        kwargs = locals().copy()
+        kwargs.pop('self')
+        super(RxSimState, self).__init__(**kwargs)
+
+        # Calculate other parameters based on previously defined attributes.
+
+        # Error check the parameters here.
+
+    def build(self, ns=''):
+        params = self.__dict__.copy()
+        params['address'] = '/'.join(filter(None, [ns, params['address']]))
+        return params

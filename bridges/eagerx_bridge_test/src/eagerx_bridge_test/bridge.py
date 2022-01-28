@@ -1,5 +1,6 @@
 # OTHER IMPORTS
 from typing import Optional, List
+from math import isclose
 from yaml import dump
 
 # ROS IMPORTS
@@ -71,13 +72,14 @@ class TestBridgeNode(Bridge):
         return 'POST RESET RETURN VALUE'
 
     @register.outputs(tick=UInt64)
-    def callback(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
+    def callback(self, t_n: float, **kwargs: Optional[Msg]):
         # Publish nonreactive input
-        self.nonreactive_pub.publish(UInt64(data=node_tick))
+        self.nonreactive_pub.publish(UInt64(data=self.num_ticks))
 
         # Verify that # of ticks equals internal counter
-        if not self.num_ticks == node_tick:
-            rospy.logerr('[%s][callback]: ticks not equal (self.num_ticks=%d, node_tick=%d).' % (self.name, self.num_ticks, node_tick))
+        node_tick = t_n * self.rate
+        if not isclose(self.num_ticks, node_tick):
+            rospy.logerr(f'[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={node_tick}).')
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * (1 / self.rate)
@@ -86,4 +88,4 @@ class TestBridgeNode(Bridge):
             if name in kwargs:
                 t_i = kwargs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr('[%s][%s]: Not all t_i are smaller or equal to t_n.' % (self.name, name))
+                    rospy.logerr(f'[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.')

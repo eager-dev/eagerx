@@ -171,7 +171,15 @@ def get_param_with_blocking(name, timeout=5):
     return replace_None(params, to_null=False)
 
 
-def substitute_args(param, context=None, only=None):
+def substitute_args(param: Union[str, Dict], context: Optional[Dict] = None, only: Optional[List[str]] = None):
+    """ Substitute arguments based on the context dictionairy (and possibly sourced packages).
+    Follows the xacro substition convention of ROS, with a 'default' and 'ns' command added.
+    :param param: dict or string we wish to perform substitutions on.
+    :param context: dict[command][context] with replacement values .
+    :param only: List of possible commands. If only is not provided, all commands are executed.
+                 Options are ['env', 'optenv', 'dirname', 'anon', 'arg', 'ns', 'default'].
+    :return: Substituted param file
+    """
     # substitute string
     if isinstance(param, str):
         param = resolve_args(param, context, only=only)

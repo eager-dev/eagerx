@@ -10,30 +10,18 @@ from eagerx_core.wrappers.flatten import Flatten
 
 import eagerx_core
 import eagerx_bridge_test
-from eagerx_core.entities import Object, Node, ResetNode, SimNode, Bridge, Converter, SpaceConverter, Processor, BaseConverter
+from eagerx_core.entities import Object, Node, ResetNode, Bridge, Converter, BaseConverter
 
 from yaml import dump
 
 if __name__ == '__main__':
     # Process configuration (optional)
     node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    bridge_p = process.NEW_PROCESS
     rate = 7
 
-    # todo: PLACEHOLDERS
-    # Make sure to replace all default node args (e.g. rate) with object args, then replace args inside nodes.
-    # Allow engine-specific params to be modified via agnostic params by coupling them with a Placeholder(name=, parameter)
-
-    # todo: BRIDGE_SPECIFIC IMPLEMENTATION
-    # Agnostic-params cannot become engine-specific --> hence, they cannot be variable.
-    # Make all additional variables engine-specific & pass as object_params
-
-    # todo: CHECK_SPEC IMPLEMENTATION
-    # Check that all simnode rates are not None, similar with names etc...
-    # Simnodes cannot have the same agnostic params as object --> else clash with $(default arg) placeholders --> directly resolve after objectgraph has been created.
-    # Do all agnostic definitions have a space_converter?
-
     # todo: GUI
+    #  Suppress extra I/O of env/actions & env/observations
     #  Do not allow coupled arguments to be changed in the GUI (i.e. $(default rate))
     #  Make gui work for ObjectGraph
     #  First show dialog box when creating a node with the spec arguments
@@ -42,11 +30,7 @@ if __name__ == '__main__':
     #  Add external addresses in EngineGUI
 
     # todo: OTHER
-    # only execute find in initialize_node(...)
-    # Check that cnames selected in 'default' are also registered (i.e. they exist).
-    # graph check if address is None, instead of checking whether it is present.
-    # graph check if cname not already connected (possibly with external address before connecting
-    # Perform type checking inside register_types.
+    # check I/O msg types, check that ResetNode outputs done flag for every target.
 
     # Define nodes
     N1 = Node.make('Process', 'N1',         rate=1.0,  process=node_p)

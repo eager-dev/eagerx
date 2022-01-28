@@ -279,6 +279,12 @@ class RxGraph:
         else:
             self._is_selected(self._state, target_name, target_comp, target_cname)
 
+        # Make sure that target is not already connected.
+        for _, t in self._state['connects']:
+            t_name, t_comp, t_cname = t
+            assert not (
+                        target_name == t_name and target_comp == t_comp and target_cname == t_cname), f'Target "{target}" is already connected to source "{_}"'
+
         # Add properties to target params
         if converter is not None:
             self.set_parameter('converter', converter, target_name, target_comp, target_cname)
@@ -297,12 +303,12 @@ class RxGraph:
     def _connect_action(self, action, target, converter=None):
         """Method to connect a (previously added) action, that *precedes* self._connect(source, target)."""
         params_action = self._state['nodes']['env/actions']['params']
-        assert action in params_action['outputs'], 'Action "%s" must be added, before you can connect it.' % action
+        assert action in params_action['outputs'], f'Action "{action}" must be added, before you can connect it.'
         name, component, cname = target
         if component == 'feedthroughs': component = 'outputs'
         params_target = self._state['nodes'][name]['params']
 
-        assert 'space_converter' in params_target[component][cname], '"%s" does not have a space_converter defined under %s in the .yaml of object "%s".' % (cname, component, name)
+        assert 'space_converter' in params_target[component][cname], f'"{cname}" does not have a space_converter defined for {component} in the spec of object "{name}".'
 
         # Infer source properties (converter & msg_type) from target
         space_converter = params_target[component][cname]['space_converter']
@@ -322,7 +328,7 @@ class RxGraph:
             msg_type_A = get_opposite_msg_cls(msg_type_B_state, space_converter_state)
         else:
             # Verify that converter is not modifying the msg_type (i.e. it is a processor).
-            assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type as the converted msg_type will not be compatible with the space_converter specified in the .yaml.'
+            assert msg_type_B == msg_type_C, 'Cannot have a converter that maps to a different msg_type as the converted msg_type will not be compatible with the space_converter specified in the spec.'
             msg_type_A = get_opposite_msg_cls(msg_type_B, space_converter)
             msg_type = get_module_type_string(msg_type_A)
             mapping = dict(msg_type=msg_type, rate='$(default rate)', converter=space_converter, space_converter=None)
@@ -336,7 +342,7 @@ class RxGraph:
         name, component, cname = source
         params_source = self._state['nodes'][name]['params']
 
-        assert converter is not None or 'space_converter' in params_source[component][cname], '"%s" does not have a space_converter defined under %s in the .yaml of "%s". Either specify it there, or add an input converter that acts as a space_converter to this connection.' % (cname, component, name)
+        assert converter is not None or 'space_converter' in params_source[component][cname], f'"{cname}" does not have a space_converter defined under {component} in the spec of "{name}". Either specify it there, or add an input converter that acts as a space_converter to this connection.'
 
         # Infer target properties (converter & msg_type) from source
         msg_type_A = get_cls_from_string(params_source[component][cname]['msg_type'])
