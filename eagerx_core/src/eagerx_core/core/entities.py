@@ -470,7 +470,8 @@ class Bridge(BaseNode):
         for i in state_params:
             i['state']['name'] = i['name']
             i['state']['simulator'] = self.simulator
-            i['state']['object_params'] = object_params
+            i['state']['agnostic_params'] = object_params
+            i['state']['bridge_params'] = bridge_params
             i['state']['ns'] = self.ns
             i['state'] = initialize_state(i['state'])
 
@@ -811,13 +812,14 @@ class SpaceConverter(Converter):
 
 
 class SimState(Entity):
-    def __init__(self, ns, name, simulator, object_params, *args, color='grey', print_mode='termcolor', **kwargs):
+    def __init__(self, ns, name, simulator, agnostic_params, bridge_params, *args, color='grey', print_mode='termcolor', **kwargs):
         self.ns = ns
         self.name = name
 
         # If node is simulator, we will probably use this in reset
         self.simulator = simulator
-        self.object_params = object_params
+        self.agnostic_params = agnostic_params
+        self.bridge_params = bridge_params
         self.color = color
         self.print_mode = print_mode
         self.initialize(*args, **kwargs)

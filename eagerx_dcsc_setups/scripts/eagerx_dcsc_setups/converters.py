@@ -2,14 +2,20 @@
 from std_msgs.msg import Float32MultiArray
 
 # RX IMPORTS
-from eagerx_core.converters import BaseProcessor
+import eagerx_core.core.registration as register
+from eagerx_core.core.entities import Processor
 import numpy as np
 
-class AngleDecomposition(BaseProcessor):
+
+class AngleDecomposition(Processor):
     MSG_TYPE = Float32MultiArray
 
-    def __init__(self, angle_idx=0):
-        super().__init__(angle_idx)
+    @staticmethod
+    @register.spec('AngleDecomposition', Processor)
+    def spec(spec, angle_idx: int = 0):
+        spec.set_parameter('angle_idx', angle_idx)
+
+    def initialize(self, angle_idx=0):
         self.angle_idx = angle_idx
 
     def convert(self, msg):
@@ -20,11 +26,16 @@ class AngleDecomposition(BaseProcessor):
         new_data = np.concatenate((new_data, data[self.angle_idx+1:]))
         return Float32MultiArray(data=new_data)
 
-class GetIndex(BaseProcessor):
+
+class GetIndex(Processor):
     MSG_TYPE = Float32MultiArray
 
-    def __init__(self, index=0):
-        super().__init__(index)
+    @staticmethod
+    @register.spec('GetIndex', Processor)
+    def spec(spec, index: int = 0):
+        spec.set_parameter('index', index)
+
+    def initialize(self, index=0):
         self.index = index
 
     def convert(self, msg):

@@ -2,17 +2,25 @@
 from std_msgs.msg import Float32MultiArray
 
 # RX IMPORTS
-from eagerx_core.converters import SpaceConverter
+import eagerx_core.core.registration as register
+from eagerx_core.core.entities import SpaceConverter
+
+# OTHER
 import numpy as np
 from gym.spaces import Box
 
 
-class Space_RosFloat32MultiArray(SpaceConverter):
+class Space_Float32MultiArray(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = Float32MultiArray
 
-    def __init__(self, low=None, high=None, dtype='float32'):
-        super().__init__(low, high, dtype)
+    @staticmethod
+    @register.spec('Space_Float32MultiArray', SpaceConverter)
+    def spec(spec, low=None, high=None, dtype='uint64'):
+        params = dict(low=low, high=high, dtype=dtype)
+        spec.set_parameters(params)
+
+    def initialize(self, low=None, high=None, dtype='float32'):
         self.low = np.array(low)
         self.high = np.array(high)
         # assert isinstance(low, (int, float)), 'Low must be of type (int, float).'

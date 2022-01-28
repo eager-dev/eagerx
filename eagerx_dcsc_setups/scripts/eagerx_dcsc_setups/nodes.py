@@ -5,16 +5,46 @@ from scipy.signal import butter, sosfilt
 from std_msgs.msg import Float32MultiArray
 
 # IMPORT EAGERX
+import eagerx_core.core.registration as register
 from eagerx_core.utils.utils import return_typehint
-from eagerx_core.nodes import Node
+from eagerx_core.core.entities import Node, Processor, SpaceConverter
+from eagerx_core.core.constants import process
 
 
 class ButterworthFilter(Node):
-    msg_types = {'inputs': {'signal': Float32MultiArray},
-                 'outputs': {'filtered': Float32MultiArray}}
+    @staticmethod
+    @register.spec('ButterworthFilter', Node)
+    def spec(spec, name: str, rate: float, N: int = 2, Wn: float = 1, btype: str = 'lowpass',
+             process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'green'):
+        """
 
-    def __init__(self, N, Wn, btype, **kwargs):
-        super().__init__(**kwargs)
+        :param spec: Not provided by user.
+        :param name: Node name
+        :param rate: Rate at which callback is called.
+        :param N: The order of the filter
+        :param Wn: The critical frequency or frequencies
+        :param btype: {'lowpass', 'highpass', 'bandpass', 'bandstop'}
+        :param process: {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+        :param color: color of logged messages
+        :return:
+        """
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(ButterworthFilter)
+
+        # Modify default node params
+        params = dict(name=name, rate=rate, process=process, color=color, inputs=['signal'], outputs=['filtered'])
+        spec.set_parameters(params)
+
+        # Modify custom node params
+        spec.set_parameters({'N': N, 'Wn': Wn, 'btype': btype})
+
+        # Add converter & space_converter
+        c = Processor.make('GetIndex', index=0)
+        sc = SpaceConverter.make('Space_Float32MultiArray', [-3], [3], dtype='float32')
+        mapping = dict(window='$(default N)', space_converter=sc, converter=c)
+        spec.set_component_parameters('inputs', 'signal', mapping)
+
+    def initialize(self, N, Wn, btype):
         for i in self.inputs:
             if i['name'] == 'signal':
                 assert int(i['window']) >= N, \
@@ -23,10 +53,13 @@ class ButterworthFilter(Node):
         self.filter = butter(N, Wn, btype, output='sos', fs=self.rate)
         self.N = N
 
+    @register.states()
     def reset(self):
         pass
 
-    def callback(self, node_tick: int, t_n: float, signal: Optional[Float32MultiArray] = None) -> \
+    @register.inputs(signal=Float32MultiArray)
+    @register.outputs(filtered=Float32MultiArray)
+    def callback(self, t_n: float, signal: Optional[Float32MultiArray] = None) -> \
             return_typehint(Float32MultiArray):
         msgs = signal.msgs
         if len(msgs) >= self.N:

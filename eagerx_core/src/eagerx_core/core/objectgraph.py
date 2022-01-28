@@ -206,16 +206,16 @@ class ObjectGraph:
             converter = converter.params
 
         if actuator:  # source = actuator
-            assert converter is None, f'Cannot specify an input converter when connecting actuator "{actuator}".'
-            assert window is None, f'Cannot specify a window when connecting actuator "{actuator}".'
-            assert delay is None, f'Cannot specify a delay when connecting actuator "{actuator}".'
-            assert skip is None, f'Cannot specify a skip when connecting actuator "{actuator}".'
+            assert converter is None, f'Cannot specify an input converter when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
+            assert window is None, f'Cannot specify a window when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
+            assert delay is None, f'Cannot specify a delay when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
+            assert skip is None, f'Cannot specify a skip when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
             source = ('actuators', 'outputs', actuator)
         elif sensor:  # target = sensor
-            assert converter is None, f'Cannot specify an input converter when connecting sensor "{sensor}".'
-            assert window is None, f'Cannot specify a window when connecting sensor "{sensor}".'
-            assert delay is None, f'Cannot specify a delay when connecting sensor "{sensor}".'
-            assert skip is None, f'Cannot specify a skip when connecting sensor "{sensor}".'
+            assert converter is None, f'Cannot specify an input converter when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
+            assert window is None, f'Cannot specify a window when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
+            assert delay is None, f'Cannot specify a delay when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
+            assert skip is None, f'Cannot specify a skip when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
             target = ('sensors', 'inputs', sensor)
         self._connect(source, target, converter, window, delay, skip)
 
