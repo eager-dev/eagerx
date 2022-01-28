@@ -1,16 +1,15 @@
 # OTHER IMPORTS
 from typing import Optional, List
 from math import isclose
-from yaml import dump
 
 # ROS IMPORTS
 import rospy
 from std_msgs.msg import UInt64
 
 # EAGERx IMPORTS
-from eagerx_core.constants import process, ERROR
-from eagerx_core.entities import Bridge, SpaceConverter, BaseConverter
-import eagerx_core.registration as register
+from eagerx_core.core.constants import process, ERROR
+from eagerx_core.core.entities import Bridge, SpaceConverter
+import eagerx_core.core.registration as register
 from eagerx_core.utils.utils import Msg
 
 

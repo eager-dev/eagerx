@@ -8,9 +8,9 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
 
 # EAGERX IMPORTS
-from eagerx_core.constants import DEBUG
+from eagerx_core.core.constants import DEBUG
 
-from eagerx_core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
+from eagerx_core.core.rxoperators import cb_ft, spy, trace_observable, flag_dict, switch_to_reset, combine_dict, \
     init_channels, init_real_reset, merge_dicts, init_state_inputs_channel, init_state_resets, \
     init_callback_pipeline, get_object_params, extract_inputs_and_reactive_proxy, initialize_reactive_proxy_reset, \
     switch_with_check_pipeline, node_reset_flags, filter_dict_on_key, get_node_params, extract_node_reset, \

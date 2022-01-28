@@ -18,7 +18,7 @@ from six import raise_from
 import copy
 import ast
 import json
-from yaml import safe_load, dump
+from yaml import dump
 import os
 
 
@@ -366,7 +366,7 @@ def get_yaml_type(yaml):
 
 
 def get_nodes_and_objects_library():
-    from eagerx_core.registration import REGISTRY
+    from eagerx_core.core.registration import REGISTRY
     library = dict()
     for entity_cls, entities in REGISTRY.items():
         library[entity_cls.__name__] = []

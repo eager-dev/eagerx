@@ -5,7 +5,6 @@ import logging
 import os
 import time
 from copy import deepcopy
-from yaml import dump
 
 import numpy as np
 import psutil
@@ -14,9 +13,9 @@ from genpy import Message
 from std_msgs.msg import Bool, UInt64
 from tabulate import tabulate
 
-from eagerx_core.constants import TERMCOLOR, ERROR, SILENT, process
-from eagerx_core.rxmessage_broker import RxMessageBroker
-from eagerx_core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec, merge
+from eagerx_core.core.constants import TERMCOLOR, ERROR, SILENT, process
+from eagerx_core.core.rxmessage_broker import RxMessageBroker
+from eagerx_core.core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec, merge
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 
@@ -24,7 +23,7 @@ from eagerx_core.utils.utils import Msg, initialize_state, check_valid_rosparam_
 class Entity(object):
     @classmethod
     def make(cls, id, *args, **kwargs):
-        from eagerx_core import registration
+        from eagerx_core.core import registration
         spec = registration.make(cls, id, *args, **kwargs)
         try:
             cls.check_spec(spec)
@@ -35,7 +34,7 @@ class Entity(object):
 
     @classmethod
     def get_spec(cls, id):
-        from eagerx_core import registration
+        from eagerx_core.core import registration
         return registration.get_spec(cls, id)
 
     @classmethod

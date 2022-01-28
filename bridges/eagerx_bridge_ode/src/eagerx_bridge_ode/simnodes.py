@@ -10,8 +10,8 @@ from cv_bridge import CvBridge
 
 # IMPORT EAGERX
 from eagerx_core.utils.utils import return_typehint, Msg
-from eagerx_core.entities import SimNode
-from eagerx_core.constants import process
+from eagerx_core.core.entities import SimNode
+from eagerx_core.core.constants import process
 
 
 class OdeOutput(SimNode):

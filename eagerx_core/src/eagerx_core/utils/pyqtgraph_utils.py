@@ -7,9 +7,9 @@ from copy import deepcopy
 from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Qt import QtGui
 
-from eagerx_core import constants
+from eagerx_core.core import constants
 from eagerx_core.utils.utils import get_attribute_from_module
-from eagerx_core.entities import BaseConverter
+from eagerx_core.core.entities import BaseConverter
 
 
 def exception_handler(function_to_decorate):

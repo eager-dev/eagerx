@@ -1,16 +1,14 @@
 import yaml
-from tabulate import tabulate
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
-from yaml import dump
+
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
-import rospy
 
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_cls_from_string, substitute_args, msg_type_error
 from eagerx_core.utils.network_utils import episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.specs import SimNodeSpec, ConverterSpec
+from eagerx_core.core.specs import SimNodeSpec, ConverterSpec
 
 
 class ObjectGraph:
@@ -25,7 +23,7 @@ class ObjectGraph:
         if isinstance(nodes, SimNodeSpec):
             nodes = [nodes]
 
-        from eagerx_core.entities import SimNode
+        from eagerx_core.core.entities import SimNode
 
         # Create actuator node
         outputs = []
@@ -647,7 +645,7 @@ class ObjectGraph:
 
         # Initialize param objects
         nodes = dict()
-        from eagerx_core.specs import SimNodeSpec
+        from eagerx_core.core.specs import SimNodeSpec
         for name, entry in state['nodes'].items():
             params = entry['params']
             if 'node_type' in params:

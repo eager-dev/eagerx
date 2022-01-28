@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Union, Any, Optional
+from typing import Dict, Any, Optional
 import inspect
 from yaml import dump
 
@@ -91,12 +91,11 @@ class SimStateSpec(EntitySpec):
 class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
-        from eagerx_core.entities import BaseConverter
-        from eagerx_core.converters import Identity
+        from eagerx_core.core.entities import BaseConverter
         self.identity = BaseConverter.make('Identity')
 
     def initialize(self, spec_cls):
-        import eagerx_core.registration as register
+        import eagerx_core.core.registration as register
         params = register.LOOKUP_TYPES[spec_cls.callback]
 
         # Set default params
@@ -107,7 +106,7 @@ class BaseNodeSpec(EntitySpec):
             params.pop('object_params')
 
         if 'targets' in params:
-            from eagerx_core.entities import ResetNode
+            from eagerx_core.core.entities import ResetNode
             assert issubclass(spec_cls, ResetNode), f'You can only have targets registered for nodes that inherit from the ResetNode baseclass.'
             add_ft = True
         else:
@@ -333,12 +332,11 @@ class BridgeSpec(BaseNodeSpec):
 class ObjectSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
-        from eagerx_core.entities import BaseConverter
-        from eagerx_core.converters import Identity
+        from eagerx_core.core.entities import BaseConverter
         self.identity = BaseConverter.make('Identity')
 
     def initialize(self, spec_cls):
-        import eagerx_core.registration as register
+        import eagerx_core.core.registration as register
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
 
         # Set default agnostic params
@@ -419,7 +417,7 @@ class ObjectSpec(EntitySpec):
             except AssertionError:
                 continue
 
-        from eagerx_core.objectgraph import ObjectGraph
+        from eagerx_core.core.objectgraph import ObjectGraph
         graph = ObjectGraph.create(**mapping)
         return graph
 
@@ -697,7 +695,7 @@ class RxInput(Params):
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
         if not converter:
-            from eagerx_core.converters import Identity
+            from eagerx_core.core.converters import Identity
             converter = Identity().get_yaml_definition()
             del Identity
 
@@ -734,7 +732,7 @@ class RxOutput(Params):
         # on the parameter server anywhere before calling the baseclass' constructor.
         # If space_converter undefined, remove it
         if not converter:
-            from eagerx_core.converters import Identity
+            from eagerx_core.core.converters import Identity
             converter = Identity().get_yaml_definition()
             del Identity
 
@@ -771,7 +769,7 @@ class RxFeedthrough(Params):
         # on the parameter server anywhere before calling the baseclass' constructor.
         # If space_converter undefined, remove it
         if not converter:
-            from eagerx_core.converters import Identity
+            from eagerx_core.core.converters import Identity
             converter = Identity().get_yaml_definition()
             del Identity
 
@@ -805,7 +803,7 @@ class RxState(Params):
         # on the parameter server anywhere before calling the baseclass' constructor.
         # If space_converter undefined, remove it
         if not converter:
-            from eagerx_core.converters import Identity
+            from eagerx_core.core.converters import Identity
             converter = Identity().get_yaml_definition()
             del Identity
 
@@ -839,7 +837,7 @@ class RxSimState(Params):
         # on the parameter server anywhere before calling the baseclass' constructor.
         # If space_converter undefined, remove it
         if not converter:
-            from eagerx_core.converters import Identity
+            from eagerx_core.core.converters import Identity
             converter = Identity().get_yaml_definition()
             del Identity
 

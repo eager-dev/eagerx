@@ -5,7 +5,7 @@
 import numpy as np
 from functools import partial
 
-from eagerx_core import constants
+from eagerx_core.core import constants
 from eagerx_core.utils.utils import get_yaml_type
 from eagerx_core.gui.rxgui_terminal import RxGuiTerminal
 from eagerx_core.utils.pyqtgraph_utils import exception_handler, ParamWindow

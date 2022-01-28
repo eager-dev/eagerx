@@ -3,7 +3,7 @@ from std_msgs.msg import Float32MultiArray, Float32, Bool
 from sensor_msgs.msg import Image
 
 # RX IMPORTS
-from eagerx_core.entities import SpaceConverter
+from eagerx_core.core.entities import SpaceConverter
 import numpy as np
 from gym.spaces import Box
 import gym

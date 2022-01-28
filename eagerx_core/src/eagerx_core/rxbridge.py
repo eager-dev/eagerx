@@ -4,13 +4,12 @@ import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-import eagerx_core.rxmessage_broker
-import eagerx_core.rxoperators
-import eagerx_core.rxpipelines
+import eagerx_core.core.rxmessage_broker
+import eagerx_core.core.rxoperators
+import eagerx_core.core.rxpipelines
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking, get_opposite_msg_cls
 from eagerx_core.utils.node_utils import wait_for_node_initialization
-from eagerx_core.converters import Identity
-from eagerx_core.constants import log_levels_ROS
+from eagerx_core.core.constants import log_levels_ROS
 
 # Other imports
 from threading import Condition
@@ -27,7 +26,7 @@ class RxBridge(object):
         rate, inputs, outputs, states, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx_core.rxpipelines.init_bridge(self.ns, rate, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
+        rx_objects = eagerx_core.core.rxpipelines.init_bridge(self.ns, rate, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
         self.mb.add_rx_objects(node_name=name + '/dynamically_registered', node=self)
         self.mb.connect_io()
@@ -94,7 +93,7 @@ if __name__ == '__main__':
 
     rospy.init_node('rxbridge', log_level=log_levels_ROS[log_level])
 
-    message_broker = eagerx_core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx_core.core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxBridge(name=rospy.get_name(), message_broker=message_broker)
 

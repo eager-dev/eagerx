@@ -7,9 +7,9 @@ from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
 from pyqtgraph import functions as fn
 from pyqtgraph.Point import Point
 
-from eagerx_core import constants
+from eagerx_core.core import constants
 from eagerx_core.utils.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow
-from eagerx_core.converters import Identity
+from eagerx_core.core.converters import Identity
 
 
 class RxGuiTerminal(object):

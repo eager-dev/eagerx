@@ -1,5 +1,5 @@
-from eagerx_core.entities import BaseConverter
-import eagerx_core.registration as register
+from eagerx_core.core.entities import BaseConverter
+import eagerx_core.core.registration as register
 
 
 class Identity(BaseConverter):

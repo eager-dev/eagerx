@@ -16,14 +16,14 @@ from pyqtgraph import dockarea
 from pyqtgraph.debug import printExc
 
 # Import eagerx modules
-from eagerx_core import constants
-from eagerx_core.rxgraph import RxGraph
+from eagerx_core.core import constants
+from eagerx_core.core.rxgraph import RxGraph
 from eagerx_core.gui import rxgui_view
 from eagerx_core.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
 from eagerx_core.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx_core.utils.utils import get_nodes_and_objects_library
 from eagerx_core.utils.pyqtgraph_utils import exception_handler
-from eagerx_core.entities import Node
+from eagerx_core.core.entities import Node
 
 
 # pyside and pyqt use incompatible ui files.
@@ -494,7 +494,6 @@ class EagerxGraphWidget(dockarea.DockArea):
                 break
             n += 1
 
-        from eagerx_core.registration import get_spec
         signature = node_type['entity_cls'].get_spec(node_type['id'])
         args = signature.parameters.keys()
         mapping = dict()

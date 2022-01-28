@@ -7,9 +7,9 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
-import eagerx_core.registration as register
-from eagerx_core.constants import process, DEBUG
-from eagerx_core.entities import Node
+import eagerx_core.core.registration as register
+from eagerx_core.core.constants import process, DEBUG
+from eagerx_core.core.entities import Node
 from eagerx_core.utils.utils import initialize_converter, Msg
 from eagerx_core.srv import ImageUInt8, ImageUInt8Response
 

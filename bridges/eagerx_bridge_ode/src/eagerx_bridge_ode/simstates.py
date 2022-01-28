@@ -1,5 +1,5 @@
 import numpy as np
-from eagerx_core.entities import SimState
+from eagerx_core.core.entities import SimState
 
 
 class OdeSimState(SimState):

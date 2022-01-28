@@ -10,9 +10,9 @@ from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
-from eagerx_core.converters import Identity
-from eagerx_core.specs import RxInput
-from eagerx_core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS, process
+from eagerx_core.core.converters import Identity
+from eagerx_core.core.specs import RxInput
+from eagerx_core.core.constants import SILENT, DEBUG, INFO, ERROR, WARN, FATAL, TERMCOLOR, ROS
 from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, Info, Msg, Stamp, get_opposite_msg_cls, get_module_type_string, msg_type_error
 
 # OTHER IMPORTS

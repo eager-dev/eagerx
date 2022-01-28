@@ -4,15 +4,15 @@ launch_roscore()  # First launch roscore
 rospy.init_node('eagerx_core', anonymous=True, log_level=rospy.DEBUG)
 
 # ROS packages required
-from eagerx_core.core import EAGERxEnv, RxGraph
-from eagerx_core.constants import process
+import eagerx_core.core.nodes
+import eagerx_core.core.converters
+from eagerx_core.core.rxenv import EAGERxEnv
+from eagerx_core.core.rxgraph import RxGraph
+from eagerx_core.core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
+from eagerx_core.core.entities import Object, Node, ResetNode, Bridge, Converter, BaseConverter
 
-import eagerx_core
 import eagerx_bridge_test
-from eagerx_core.entities import Object, Node, ResetNode, Bridge, Converter, BaseConverter
-
-from yaml import dump
 
 if __name__ == '__main__':
     # Process configuration (optional)

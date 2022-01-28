@@ -8,7 +8,7 @@ from std_msgs.msg import UInt64
 # RXEAGER
 
 from eagerx_core.utils.utils import substitute_args
-from eagerx_core.constants import process
+from eagerx_core.core.constants import process
 
 # OTHER
 from time import sleep
@@ -55,7 +55,7 @@ def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
         from eagerx_core.rxnode import RxNode
         rxnode_cls = RxNode
 
-    from eagerx_core.specs import BaseNodeSpec
+    from eagerx_core.core.specs import BaseNodeSpec
     if isinstance(nodes, (BaseNodeSpec, dict)):
         nodes = [nodes]
 

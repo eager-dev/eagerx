@@ -14,7 +14,7 @@ from functools import wraps
 from threading import Condition
 
 # IMPORT EAGERX
-from eagerx_core.constants import DEBUG
+from eagerx_core.core.constants import DEBUG
 
 
 def thread_safe_wrapper(func, condition):

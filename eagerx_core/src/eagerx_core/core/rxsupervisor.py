@@ -8,13 +8,13 @@ import rosparam
 from std_msgs.msg import UInt64, String, Bool
 
 # Rx imports
-from eagerx_core.constants import process
+from eagerx_core.core.constants import process
 from eagerx_core.rxnode import RxNode
-import eagerx_core.rxmessage_broker
-import eagerx_core.rxoperators
-import eagerx_core.rxpipelines
-from eagerx_core.entities import BaseNode, NodeSpec, ObjectSpec
-from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, get_opposite_msg_cls
+import eagerx_core.core.rxmessage_broker
+import eagerx_core.core.rxoperators
+import eagerx_core.core.rxpipelines
+from eagerx_core.core.entities import BaseNode, NodeSpec, ObjectSpec
+from eagerx_core.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx_core.utils.node_utils import initialize_nodes
 from eagerx_core.srv import ImageUInt8
 import eagerx_core
@@ -150,7 +150,7 @@ class RxSupervisor(object):
         outputs, states, self.node = self._prepare_io_topics(self.name, is_reactive, real_time_factor, simulate_delays)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx_core.rxpipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
+        rx_objects, env_subjects = eagerx_core.core.rxpipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
         self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
     rospy.init_node('env', log_level=rospy.INFO)
 
-    message_broker = eagerx_core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx_core.core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
 
     pnode = RxSupervisor(name=rospy.get_name(), message_broker=message_broker)
 

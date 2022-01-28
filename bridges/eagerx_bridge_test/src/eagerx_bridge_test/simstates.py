@@ -1,7 +1,6 @@
 from typing import Optional
-from eagerx_core.entities import SimState
-import eagerx_core.registration as register
-from std_msgs.msg import UInt64
+from eagerx_core.core.entities import SimState
+import eagerx_core.core.registration as register
 
 
 class TestSimState(SimState):

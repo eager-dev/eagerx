@@ -1,4 +1,4 @@
-from typing import Dict, List, Union, Optional
+from typing import Optional
 import skimage.transform
 import numpy as np
 import gym
@@ -10,8 +10,8 @@ from sensor_msgs.msg import Image
 
 # IMPORT EAGERX
 from eagerx_core.utils.utils import return_typehint, Msg
-from eagerx_core.entities import SimNode
-from eagerx_core.constants import process
+from eagerx_core.core.entities import SimNode
+from eagerx_core.core.constants import process
 
 
 class ObservationSensor(SimNode):

@@ -1,14 +1,13 @@
 # OTHER IMPORTS
 from typing import Optional, List
-from yaml import dump
 
 # ROS IMPORTS
-from std_msgs.msg import UInt64, String, Bool
+from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
 from eagerx_bridge_test.bridge import TestBridgeNode
-from eagerx_core.entities import Object, Node, SimNode, SpaceConverter, Converter, SimState
-import eagerx_core.registration as register
+from eagerx_core.core.entities import Object, SimNode, SpaceConverter, SimState
+import eagerx_core.core.registration as register
 
 
 class Arm(Object):

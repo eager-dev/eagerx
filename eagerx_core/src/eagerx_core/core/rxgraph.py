@@ -4,12 +4,12 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
-from yaml import dump
+
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_module_type_string, get_cls_from_string, get_attribute_from_module, substitute_args, msg_type_error, supported_types
 from eagerx_core.utils.network_utils import reset_graph, episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.entities import Node, BaseConverter, SpaceConverter, BaseNodeSpec, ObjectSpec, ConverterSpec, EntitySpec, merge, NodeSpec
+from eagerx_core.core.entities import Node, BaseConverter, SpaceConverter, BaseNodeSpec, ObjectSpec, ConverterSpec, EntitySpec, merge, NodeSpec
 
 
 class RxGraph:

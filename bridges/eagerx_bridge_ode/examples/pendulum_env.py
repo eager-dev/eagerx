@@ -5,9 +5,9 @@ import os
 import rospy
 import numpy as np
 from functools import partial
-from eagerx_core.core import RxObject, RxGraph, RxBridge, EAGERxEnv
+from eagerx_core.core_packages import RxObject, RxGraph, RxBridge, EAGERxEnv
 from eagerx_core.utils.node_utils import launch_roscore
-from eagerx_core.constants import process
+from eagerx_core.core.constants import process
 from eagerx_core.wrappers.flatten import Flatten
 
 import stable_baselines3 as sb

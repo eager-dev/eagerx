@@ -1,8 +1,6 @@
 # OTHER
 from typing import Optional, Dict, Union, List
 
-import numpy as np
-from math import fmod
 from scipy.integrate import odeint
 
 # ROS IMPORTS
@@ -12,7 +10,7 @@ from genpy.message import Message
 
 # RX IMPORTS
 from eagerx_core.utils.utils import Msg, get_attribute_from_module
-from eagerx_core.entities import Bridge
+from eagerx_core.core.entities import Bridge
 
 
 class OdeBridge(Bridge):

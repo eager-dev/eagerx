@@ -1,5 +1,5 @@
-from eagerx_core.entities import SpaceConverter, Converter
-import eagerx_core.registration as register
+from eagerx_core.core.entities import SpaceConverter, Converter
+import eagerx_core.core.registration as register
 # Converter specific
 from std_msgs.msg import UInt64, String
 from sensor_msgs.msg import Image

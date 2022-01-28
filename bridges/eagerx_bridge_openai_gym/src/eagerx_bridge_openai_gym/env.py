@@ -1,6 +1,6 @@
-from eagerx_core.entities import BridgeSpec
-from eagerx_core.rxgraph import RxGraph
-from eagerx_core.rxenv import EAGERxEnv
+from eagerx_core.core.entities import BridgeSpec
+from eagerx_core.core.rxgraph import RxGraph
+from eagerx_core.core.rxenv import EAGERxEnv
 from typing import Dict, Tuple, Callable
 import numpy as np
 import gym

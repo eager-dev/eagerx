@@ -1,7 +1,6 @@
 # OTHER
 from typing import Optional, Dict, Union, List
 import gym
-import numpy as np
 
 # ROS IMPORTS
 import rospy
@@ -10,7 +9,7 @@ from genpy.message import Message
 
 # RX IMPORTS
 from eagerx_core.utils.utils import Msg
-from eagerx_core.entities import Bridge
+from eagerx_core.core.entities import Bridge
 
 
 class GymBridge(Bridge):
