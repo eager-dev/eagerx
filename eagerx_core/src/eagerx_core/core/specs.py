@@ -314,7 +314,7 @@ class NodeSpec(BaseNodeSpec):
     pass
 
 
-class SimNodeSpec(BaseNodeSpec):
+class EngineNodeSpec(BaseNodeSpec):
     # todo: add assertion on adding states (could make graph engine-specific)
     # todo: define mutation functions here
     pass
@@ -360,10 +360,11 @@ class ObjectSpec(EntitySpec):
 
     def _initialize_engine_spec(self, object_params):
         # Create param mapping
-        spec = EngineSpec(object_params)
+        spec = EngineSpecificSpec(object_params)
         graph = self._initialize_object_graph()
 
         # Add all states to engine-specific params
+        spec._set({'states': dict()})
         for component in ['states']:
             try:
                 cnames = self._get_components(component)
@@ -386,8 +387,8 @@ class ObjectSpec(EntitySpec):
             node_name = default['name']
             for key in default.keys():
                 if key in ['name', 'states', 'entity_id']: continue
-                assert key not in agnostic_params, f'Possible parameter clash detected. "{key}" is a parameter defined both as an agnostic parameter for object "{obj_name}" and as a parameter of simnode "{node_name}" in bridge implementation "{bridge_id}".'
-                assert key not in engine_params, f'Possible parameter clash detected. "{key}" is a parameter defined both in the registered object_params of bridge "{bridge_id}" for a bridge implementation of object "{obj_name}" and as a parameter of simnode "{node_name}".'
+                assert key not in agnostic_params, f'Possible parameter clash detected. "{key}" is a parameter defined both as an agnostic parameter for object "{obj_name}" and as a parameter of enginenode "{node_name}" in bridge implementation "{bridge_id}".'
+                assert key not in engine_params, f'Possible parameter clash detected. "{key}" is a parameter defined both in the registered object_params of bridge "{bridge_id}" for a bridge implementation of object "{obj_name}" and as a parameter of enginenode "{node_name}".'
 
         # Check that there is no parameter clash between bridge registered object_params and agnostic object params
         for key in engine_params.keys():
@@ -520,7 +521,7 @@ class ObjectSpec(EntitySpec):
                 # Set rate
                 rate = obj_comp_params['rate']
                 if node_name in rates:
-                    assert rates[node_name] == rate, f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a simnode "{node_name}". If this simnode is used for multiple sensors/components, then their specified rates must be equal.'
+                    assert rates[node_name] == rate, f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a enginenode "{node_name}". If this enginenode is used for multiple sensors/components, then their specified rates must be equal.'
                 else:
                     rates[node_name] = rate
                 node_params['default']['rate'] = rate
@@ -548,13 +549,13 @@ class ObjectSpec(EntitySpec):
             try:
                 entry = specific['actuators'][cname]
                 node_name, node_comp, node_cname = entry['name'], entry['component'], entry['cname']
-                assert node_name not in dependencies, f'There appears to be a dependency on simnode "{node_name}" for the implementation of bridge "{bridge_id}" for object "{name}" to work. However, simnode "{node_name}" is directly tied to an unselected actuator "{cname}".'
+                assert node_name not in dependencies, f'There appears to be a dependency on enginenode "{node_name}" for the implementation of bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is directly tied to an unselected actuator "{cname}".'
             except KeyError:
                 # We pass here, because if cname is not selected, but also not implemented,
                 # we are sure that there is no dependency.
                 pass
 
-        # Replace simnode outputs that have been renamed to sensor outputs
+        # Replace enginenode outputs that have been renamed to sensor outputs
         for node_address, sensor_address in sensor_addresses.items():
             for _, node_params in nodes.items():
                 for cname, comp_params in node_params['inputs'].items():
@@ -597,7 +598,7 @@ class ObjectSpec(EntitySpec):
 
         # Add states
         obj_params['states'] = [s.build(ns) for s in states]
-        nodes = [SimNodeSpec(params) for name, params in nodes.items() if name in dependencies]
+        nodes = [EngineNodeSpec(params) for name, params in nodes.items() if name in dependencies]
         return {name: replace_None(obj_params)}, nodes
 
 
@@ -631,7 +632,7 @@ class AgnosticSpec(EntitySpec):
             self._set({component: {cname: {parameter: value}}})
 
 
-class EngineSpec(EntitySpec):
+class EngineSpecificSpec(EntitySpec):
     @exists
     def set_parameter(self, parameter: str, value: Any):
         if isinstance(value, dict):

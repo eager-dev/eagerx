@@ -14,9 +14,6 @@ from eagerx_core.utils.utils import Msg
 
 
 class TestBridgeNode(Bridge):
-    msg_types = {'outputs': {'tick': UInt64},
-                 'states': {'param_1': UInt64}}
-
     def initialize(self, num_substeps: int, nonreactive_address: str):
         # Initialize any simulator here, that is passed as reference to each simnode
         self.simulator = None
@@ -54,7 +51,6 @@ class TestBridgeNode(Bridge):
         # Add state: "param_1"
         space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
         spec.set_component_parameter('states', 'param_1', 'space_converter', space_converter)
-        return spec
 
     @register.object_params(req_arg=None, xacro='$(find some_package)/urdf/object.urdf.xacro')
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):

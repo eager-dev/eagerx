@@ -5,7 +5,7 @@ import rospy
 from eagerx_core.core_packages import RxBridge, RxObject, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
 from eagerx_core.core.constants import process
-from eagerx_bridge_openai_gym.env import EAGERxGym
+from eagerx_core.bridges.openai_gym.env import EAGERxGym
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches

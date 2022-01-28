@@ -9,7 +9,7 @@ from std_msgs.msg import UInt64, String, Bool
 # EAGERx IMPORTS
 from eagerx_core.core.constants import process
 from eagerx_core.utils.utils import return_typehint, Msg
-from eagerx_core.core.entities import Node, ResetNode, SimNode, SpaceConverter
+from eagerx_core.core.entities import Node, ResetNode, EngineNode, SpaceConverter
 import eagerx_core.core.registration as register
 
 
@@ -97,7 +97,7 @@ class RealResetNode(ResetNode):
         return output_msgs
 
 
-class TestNode(SimNode):
+class TestNode(EngineNode):
     def initialize(self, test_arg):
         pass
 
@@ -231,7 +231,7 @@ class KalmanNode(TestNode):
 
 class SimActuator(TestNode):
     @staticmethod
-    @register.spec('SimActuator', SimNode)
+    @register.spec('SimActuator', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick', 'in_1', 'in_2', 'in_3'], outputs: Optional[List[str]] = ['out_1'],
              color: Optional[str] = 'green', test_arg: Optional[str] = 'test_argument'):
@@ -260,7 +260,7 @@ class SimActuator(TestNode):
 
 class SimSensor(TestNode):
     @staticmethod
-    @register.spec('SimSensor', SimNode)
+    @register.spec('SimSensor', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick_1', 'in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'cyan',

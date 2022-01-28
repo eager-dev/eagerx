@@ -3,20 +3,28 @@ from std_msgs.msg import Float32MultiArray, Float32, Bool
 from sensor_msgs.msg import Image
 
 # RX IMPORTS
+import eagerx_core.core.registration as register
 from eagerx_core.core.entities import SpaceConverter
+
+# OTHER
 import numpy as np
 from gym.spaces import Box
 import gym
 
 
-class GymSpaceFloat32MultiArray(SpaceConverter):
+class GymSpace_Float32MultiArray(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = Float32MultiArray
 
-    def __init__(self, id=None, space=None, low=None, high=None, shape=None, dtype='float32'):
-        super().__init__(id, space, low, high, shape, dtype)
-        if id is not None and space in ['observation', 'action']:
-            self.env = gym.make(id)
+    @staticmethod
+    @register.spec('GymSpace_Float32MultiArray', SpaceConverter)
+    def spec(spec, gym_id: str = None, space: str = None, low=None, high=None, shape=None, dtype='uint64'):
+        params = dict(gym_id=gym_id, space=space, low=low, high=high, shape=shape, dtype=dtype)
+        spec.set_parameters(params)
+
+    def initialize(self, gym_id=None, space=None, low=None, high=None, shape=None, dtype='float32'):
+        if gym_id is not None and space in ['observation', 'action']:
+            self.env = gym.make(gym_id)
             if space == 'observation':
                 self.space = self.env.observation_space
             else:  # space == 'action
@@ -43,12 +51,17 @@ class GymSpaceFloat32MultiArray(SpaceConverter):
         return np.array(msg.data, dtype=self.dtype)
 
 
-class SpaceImage(SpaceConverter):
+class Space_Image(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = Image
 
-    def __init__(self, low=None, high=None, shape=None, dtype='float32'):
-        super().__init__(low, high, shape, dtype)
+    @staticmethod
+    @register.spec('Space_Image', SpaceConverter)
+    def spec(spec, low=None, high=None, shape=None, dtype='uint64'):
+        params = dict(low=low, high=high, shape=shape, dtype=dtype)
+        spec.set_parameters(params)
+
+    def initialize(self, low=None, high=None, shape=None, dtype='float32'):
         if shape is not None and len(shape) == 2:
             shape = shape.append(3)
         self.low = low
@@ -92,12 +105,17 @@ class SpaceImage(SpaceConverter):
         return image
 
 
-class SpaceFloat32(SpaceConverter):
+class Space_Float32(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = Float32
 
-    def __init__(self, low=None, high=None, dtype='float32'):
-        super().__init__(low, high, dtype)
+    @staticmethod
+    @register.spec('Space_Float32', SpaceConverter)
+    def spec(spec, low=None, high=None, dtype='uint64'):
+        params = dict(low=low, high=high, dtype=dtype)
+        spec.set_parameters(params)
+
+    def initialize(self, low=None, high=None, dtype='float32'):
         self.low = low
         self.high = high
         assert isinstance(low, (int, float)), 'Low must be of type (int, float).'
@@ -114,12 +132,16 @@ class SpaceFloat32(SpaceConverter):
         return msg.data
 
 
-class SpaceBool(SpaceConverter):
+class Space_Bool(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = Bool
 
-    def __init__(self):
-        super().__init__()
+    @staticmethod
+    @register.spec('Space_Bool', SpaceConverter)
+    def spec(spec):
+        pass
+
+    def initialize(self):
         self.dtype = np.bool
 
     def get_space(self):

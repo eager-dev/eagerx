@@ -36,7 +36,7 @@ GUI_WIDGETS = {
             'observations': ['rate'],
         },
         'items': {
-            'color': ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'],
+            'color': ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'grey'],
             'log_level': {'silent': 0, 'debug': 10, 'info': 20, 'warn': 30, 'error': 40, 'fatal': 50},
             'process': {'new process': 0, 'environment': 1, 'bridge': 2, 'external': 3},
         },
@@ -78,7 +78,7 @@ GUI_COLORS = {
 }
 
 # Config files to ignore in GUI
-GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'SimNode', 'Bridge', 'SimState'}
+GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'EngineNode', 'Bridge', 'SimState'}
 GUI_NODE_IDS_TO_IGNORE = {'Observations', 'Actions', 'Render', 'Supervisor'}
 
 # PROCESS

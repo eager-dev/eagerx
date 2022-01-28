@@ -8,7 +8,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 
 from eagerx_core.utils.utils import get_opposite_msg_cls, get_cls_from_string, substitute_args, msg_type_error
 from eagerx_core.utils.network_utils import episode_graph, plot_graph, color_nodes, color_edges, is_stale
-from eagerx_core.core.specs import SimNodeSpec, ConverterSpec
+from eagerx_core.core.specs import EngineNodeSpec, ConverterSpec
 
 
 class ObjectGraph:
@@ -20,14 +20,14 @@ class ObjectGraph:
 
         if nodes is None:
             nodes = []
-        if isinstance(nodes, SimNodeSpec):
+        if isinstance(nodes, EngineNodeSpec):
             nodes = [nodes]
 
-        from eagerx_core.core.entities import SimNode
+        from eagerx_core.core.entities import EngineNode
 
         # Create actuator node
         outputs = []
-        spec = SimNode.pre_make(None, None)
+        spec = EngineNode.pre_make(None, None)
         spec.set_parameter('name', 'actuators')
         nodes.append(spec)
         for cname, params in actuators.items():
@@ -37,7 +37,7 @@ class ObjectGraph:
 
         # Create sensor node
         inputs = []
-        spec = SimNode.pre_make(None, None)
+        spec = EngineNode.pre_make(None, None)
         spec.set_parameter('name', 'sensors')
         nodes.append(spec)
         for cname, params in sensors.items():
@@ -50,7 +50,7 @@ class ObjectGraph:
         cls._add(state, nodes)
         return cls(state)
 
-    def add(self, nodes: Union[SimNodeSpec, List[SimNodeSpec]]):
+    def add(self, nodes: Union[EngineNodeSpec, List[EngineNodeSpec]]):
         """
         Add a node or object to the state of this graph.
         """
@@ -645,7 +645,7 @@ class ObjectGraph:
 
         # Initialize param objects
         nodes = dict()
-        from eagerx_core.core.specs import SimNodeSpec
+        from eagerx_core.core.specs import EngineNodeSpec
         for name, entry in state['nodes'].items():
             params = entry['params']
             if 'node_type' in params:
@@ -655,7 +655,7 @@ class ObjectGraph:
                     pass
                 else:
                     # Put node name into object namespace
-                    spec = SimNodeSpec(params)
+                    spec = EngineNodeSpec(params)
                     name = f'$(ns obj_name)/{spec.get_parameter("name")}'
                     spec.set_parameter("name", name)
                     params = spec.params

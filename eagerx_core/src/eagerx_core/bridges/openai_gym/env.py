@@ -6,11 +6,14 @@ import numpy as np
 import gym
 
 
+def step_fn(prev_obs, obs, action, steps):
+    return obs, obs['reward'][0], obs['done'][0], dict()
+
+
 class EAGERxGym(EAGERxEnv):
     def __init__(self, name: str, rate: float, graph: RxGraph, bridge: BridgeSpec,
-                 reward_fn: Callable = lambda prev_obs, obs, action, steps: obs['reward'][0],
-                 is_done_fn: Callable = lambda obs, action, steps: obs['done'][0]) -> None:
-        super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, reward_fn=reward_fn, is_done_fn=is_done_fn)
+                 step_fn: Callable = step_fn) -> None:
+        super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
         # Flatten action spaces
         self._reduced_action_space = super(EAGERxGym, self).action_space
         self._flattened_action_space, self._actions_all_discrete = get_flattened_space(self._reduced_action_space)

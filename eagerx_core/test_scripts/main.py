@@ -21,15 +21,17 @@ if __name__ == '__main__':
     rate = 7
 
     # todo: GUI
+    #  Grab assertions at Node/object creation
+    #  First show dialog box when creating a node with the spec arguments
+    #  do not allow node names changes of env/actions/observations/render
     #  Suppress extra I/O of env/actions & env/observations
     #  Do not allow coupled arguments to be changed in the GUI (i.e. $(default rate))
     #  Make gui work for ObjectGraph
-    #  First show dialog box when creating a node with the spec arguments
     #  Modify converter dialog box to only show registered converters
-    #  External_rate can be bool & int. Should be ignored in AgnosticGUI, but shown in EngineGUI
     #  Add external addresses in EngineGUI
 
     # todo: OTHER
+    # Change external_rate to None.
     # check I/O msg types, check that ResetNode outputs done flag for every target.
 
     # Define nodes
@@ -130,7 +132,7 @@ if __name__ == '__main__':
     # TEST Test with KF having skipped all inputs at t=0
     graph.remove_component('KF', 'inputs', 'in_1')
 
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')

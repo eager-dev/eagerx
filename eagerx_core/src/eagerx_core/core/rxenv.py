@@ -356,13 +356,11 @@ class EAGERxEnv(RxEnv):
     def __init__(self, name: str, rate: float,
                  graph: RxGraph,
                  bridge: BridgeSpec,
-                 reward_fn: Callable = lambda prev_obs, obs, action, steps: 0.0,
-                 is_done_fn: Callable = lambda obs, action, steps: False,
+                 step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
         self.steps = None
         self.prev_observation = None
-        self.reward_fn = reward_fn
-        self.is_done_fn = is_done_fn
+        self.step_fn = step_fn
         self.reset_fn = reset_fn
         super(EAGERxEnv, self).__init__(name, rate, graph, bridge)
 
@@ -371,13 +369,14 @@ class EAGERxEnv(RxEnv):
         observation = self._step(action)
         self.steps += 1
 
-        # Calculate reward
-        reward = self.reward_fn(self.prev_observation, observation, action, self.steps)
-        is_done = self.is_done_fn(observation, action, self.steps)
-        info = {}
+        # Save observation for next step
+        prev_obs = deepcopy(observation)
 
-        # Store previous observation
-        self.prev_observation = deepcopy(observation)
+        # Process after step
+        observation, reward, is_done, info = self.step_fn(self.prev_observation, observation, action, self.steps)
+
+        # Update previous observation with current observation (used in next step)
+        self.prev_observation = prev_obs
         return observation, reward, is_done, info
 
     def reset(self) -> Dict:

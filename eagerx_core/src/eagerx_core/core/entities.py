@@ -15,7 +15,7 @@ from tabulate import tabulate
 
 from eagerx_core.core.constants import TERMCOLOR, ERROR, SILENT, process
 from eagerx_core.core.rxmessage_broker import RxMessageBroker
-from eagerx_core.core.specs import EntitySpec, BaseNodeSpec, SimNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec, merge
+from eagerx_core.core.specs import EntitySpec, BaseNodeSpec, EngineNodeSpec, ObjectSpec, ConverterSpec, BridgeSpec, NodeSpec, SimStateSpec, ResetNodeSpec, merge
 from eagerx_core.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx_core.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 
@@ -302,7 +302,7 @@ class ResetNode(Node):
                 assert cname in spec._params[component], f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
 
 
-class SimNode(Node):
+class EngineNode(Node):
     """
     The simulation node baseclass from which all nodes, used to simulate sensors/actuators, must inherit.
 
@@ -367,7 +367,7 @@ class SimNode(Node):
         """
         The simulation node callback that is performed at the specified node rate.
 
-        All inputs specified in the package/config/<simnode>.yaml must be defined as optional arguments to this callback method.
+        All inputs specified in the package/config/<enginenode>.yaml must be defined as optional arguments to this callback method.
 
         :param node_tick: The number of times this callback has run since the last reset.
         :param t_n: Time passed since last reset according to the provided rate (t_n = node_tick * 1/self.rate).
@@ -379,7 +379,7 @@ class SimNode(Node):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        return SimNodeSpec(spec.params)
+        return EngineNodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -460,7 +460,10 @@ class Bridge(BaseNode):
 
     def register_object(self, object_params, node_params, state_params):
         # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
-        bridge_params = object_params.pop('bridge')
+        try:
+            bridge_params = object_params.pop('bridge')
+        except KeyError:
+            bridge_params = {}
         self.add_object(object_params, bridge_params, node_params, state_params)
 
         # Initialize states

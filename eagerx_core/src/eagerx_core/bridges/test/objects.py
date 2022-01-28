@@ -6,7 +6,7 @@ from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
 from eagerx_core.bridges.test.bridge import TestBridgeNode
-from eagerx_core.core.entities import Object, SimNode, SpaceConverter, SimState
+from eagerx_core.core.entities import Object, EngineNode, SpaceConverter, SimState
 import eagerx_core.core.registration as register
 
 
@@ -101,18 +101,18 @@ class Viper(Arm):
         spec.set_state('N9', SimState.make('TestSimState', test_arg='arg_N9'))
         # spec.set_state('N10', SimState.make('TestSimState', test_arg='arg_N10'))
 
-        # Create sensor simnodes
-        N6 = SimNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default req_arg)')
-        N7 = SimNode.make('SimSensor', 'N7', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
+        # Create sensor engine nodes
+        N6 = EngineNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default req_arg)')
+        N7 = EngineNode.make('SimSensor', 'N7', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
 
-        # Create actuator simnodes
-        N8 = SimNode.make('SimActuator', 'N8', rate=1, process=2, inputs=['tick', 'in_2', 'in_3'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
-        ref_vel = SimNode.make('SimActuator', 'ref_vel', rate=1, process=2, inputs=['tick', 'in_1', 'in_2'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+        # Create actuator engine nodes
+        N8 = EngineNode.make('SimActuator', 'N8', rate=1, process=2, inputs=['tick', 'in_2', 'in_3'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+        ref_vel = EngineNode.make('SimActuator', 'ref_vel', rate=1, process=2, inputs=['tick', 'in_1', 'in_2'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
 
         # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])
 
-        # Connect sensors & actuators to simnodes
+        # Connect sensors & actuators to engine nodes
         graph.connect(source=('N6', 'outputs', 'out_1'), sensor='N6')
         graph.disconnect(source=('N6', 'outputs', 'out_1'), sensor='N6')
         graph.connect(source=('N6', 'outputs', 'out_1'), sensor='N6')
@@ -120,7 +120,7 @@ class Viper(Arm):
         graph.connect(actuator='N8',                     target=('N8', 'inputs', 'in_3'))
         graph.connect(actuator='ref_vel',                target=('ref_vel', 'inputs', 'in_1'))
 
-        # Interconnect simnodes
+        # Interconnect engine nodes
         graph.connect(source=('N8', 'outputs', 'out_1'), target=('N7', 'inputs', 'in_1'), skip=True)
         graph.connect(source=('N6', 'outputs', 'out_1'), target=('N8', 'inputs', 'in_2'))
         graph.connect(source=('N6', 'outputs', 'out_1'), target=('ref_vel', 'inputs', 'in_2'))
@@ -129,3 +129,4 @@ class Viper(Arm):
         graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
         graph.disconnect(target=('N6', 'inputs', 'in_1'))
         graph.connect(address='$(ns env_name)/nonreactive_input_topic', target=('N6', 'inputs', 'in_1'), external_rate=20)
+
