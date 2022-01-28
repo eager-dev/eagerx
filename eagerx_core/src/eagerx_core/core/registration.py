@@ -1,6 +1,7 @@
 import functools
 import inspect
 import rospy
+import copy
 from eagerx_core.utils.utils import deepcopy
 # from eagerx_core.specs import EntitySpec
 
@@ -158,7 +159,7 @@ def bridge(bridge_cls):
         @functools.wraps(func)
         def bridge_fn(cls, object_spec):
             """First, initialize spec with object_info, then call the bridge function"""
-            engine_spec, graph = object_spec._initialize_engine_spec(object_params)
+            engine_spec, graph = object_spec._initialize_engine_spec(copy.deepcopy(object_params))
             func(cls, engine_spec, graph)
             object_spec._add_engine_spec(bridge_id, engine_spec, graph)
             # return object_spec
