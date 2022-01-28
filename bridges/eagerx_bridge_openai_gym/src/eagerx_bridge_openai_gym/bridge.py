@@ -40,6 +40,7 @@ class GymBridge(Bridge):
     def reset(self, **kwargs: Optional[Msg]):
         for obj_name, sim in self.simulator.items():
             obs = sim['env'].reset()
+            # sim['buffer_obs'].append(obs)
             sim['buffer_obs'] = [obs]
             sim['buffer_reward'] = []
             sim['buffer_done'] = []

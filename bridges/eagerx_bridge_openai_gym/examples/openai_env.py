@@ -2,12 +2,13 @@
 
 # ROS packages required
 import rospy
-from eagerx_core.core_packages import RxBridge, RxObject, RxGraph
+from eagerx_core.core import RxBridge, RxNode, RxObject, RxGraph
 from eagerx_core.utils.node_utils import launch_roscore
-from eagerx_core.core.constants import process
+from eagerx_core.constants import process
 from eagerx_bridge_openai_gym.env import EAGERxGym
 
 import stable_baselines3 as sb
+import gym
 
 if __name__ == '__main__':
     roscore = launch_roscore()  # First launch roscore

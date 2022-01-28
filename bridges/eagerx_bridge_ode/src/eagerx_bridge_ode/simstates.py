@@ -1,8 +1,8 @@
 import numpy as np
-from eagerx_core.core.entities import SimState
+from eagerx_core.simstates import SimStateBase
 
 
-class OdeSimState(SimState):
+class OdeSimState(SimStateBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.obj_name = self.object_params['name']
