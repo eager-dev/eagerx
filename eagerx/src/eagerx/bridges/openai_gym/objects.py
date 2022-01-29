@@ -22,7 +22,7 @@ class GymObject(Object):
     def agnostic(spec: AgnosticSpec):
         """Agnostic definition of the GymObject"""
         # Register standard converters, space_converters, and processors
-        import eagerx.converters
+        import eagerx.converters  # pylint: disable=unused-import
 
         # Set observation properties: (space_converters, rate, etc...)
         sc = SpaceConverter.make('GymSpace_Float32MultiArray', gym_id='$(default gym_env_id)', space='observation')

@@ -1,3 +1,3 @@
 from eagerx.core.constants import process, log
 from eagerx.core.entities import Object, Bridge, Node, ResetNode, Converter, Processor, SpaceConverter, BaseConverter
-from eagerx.utils.node_utils import initialize
+from eagerx.utils.node_utils import initialize  # pylint: disable=unused-import

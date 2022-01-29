@@ -40,7 +40,7 @@ class ButterworthFilter(Node):
         spec.set_parameters({'N': N, 'Wn': Wn, 'btype': btype})
 
         # Register standard converters, space_converters, and processors
-        import eagerx.converters
+        import eagerx.converters  # pylint: disable=unused-import
 
         # Add converter & space_converter
         c = Processor.make('GetIndex_Float32MultiArray', index=index)

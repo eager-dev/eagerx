@@ -547,7 +547,7 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simul
 
     # Get rate from rosparam server
     try:
-        if 'external_rate' in inpt and inpt['external_rate'] > 0:
+        if inpt['external_rate'] and inpt['external_rate'] > 0:
             rate = inpt['external_rate']
         else:
             rate_str = '%s/rate/%s' % (ns, inpt['address'][len(ns)+1:])
@@ -808,7 +808,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                 converted_outputs[i['address']] = (get_attribute_from_module(i['msg_type']), i['converter'], ros_msg_type, source)
 
             # Create a new input topic for each SimNode output topic
-            n = RxInput(name=i['address'], address=i['address'], msg_type=get_module_type_string(ros_msg_type), external_rate=False, window=0).build()
+            n = RxInput(name=i['address'], address=i['address'], msg_type=get_module_type_string(ros_msg_type), external_rate=None, window=0).build()
 
             # Convert to classes
             n['msg_type'] = get_attribute_from_module(n['msg_type'])

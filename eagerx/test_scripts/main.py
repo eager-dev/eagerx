@@ -9,7 +9,7 @@ from eagerx.core.rxgraph import RxGraph
 from eagerx.wrappers.flatten import Flatten
 
 # Implementation specific
-import eagerx.bridges.test
+import eagerx.bridges.test  # pylint: disable=unused-import
 
 if __name__ == '__main__':
     # Process configuration (optional)
@@ -18,18 +18,13 @@ if __name__ == '__main__':
     rate = 7
 
     # todo: GUI
-    #  Grab assertions at Node/object creation
+    #  Grab assertions at Node/object creation (i.e. when making the spec)
     #  First show dialog box when creating a node with the spec arguments
-    #  do not allow node names changes of env/actions/observations/render
+    #  Do not allow node name changes of env/actions/observations/render
     #  Suppress extra I/O of env/actions & env/observations
-    #  Do not allow coupled arguments to be changed in the GUI (i.e. $(default rate))
-    #  Make gui work for ObjectGraph
-    #  Modify converter dialog box to only show registered converters
-    #  Add external addresses in EngineGUI
-
-    # todo: OTHER
-    # Change external_rate to None.
-    # check I/O msg types, check that ResetNode outputs done flag for every target.
+    #  Make gui for EngineGraph
+    #  Modify converter dialog box to only show registered converters (which are compatible with static msg_type properties).
+    #  Show address if there is an external_rate defined in EngineGUI
 
     # Define nodes
     N1 = Node.make('Process', 'N1',         rate=1.0,  process=node_p)

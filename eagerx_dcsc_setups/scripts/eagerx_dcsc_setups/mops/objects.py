@@ -20,7 +20,7 @@ class Mops(Object):
     def agnostic(spec: AgnosticSpec):
         """Agnostic definition of the Mops"""
         # Register standard converters, space_converters, and processors
-        import eagerx.converters
+        import eagerx.converters  # pylint: disable=unused-import
 
         # Set observation properties: (space_converters, rate, etc...)
         c = Processor.make('AngleDecomposition', angle_idx=0)
@@ -77,7 +77,7 @@ class Mops(Object):
     def ode_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (OdeBridge) of the object."""
         # Import any object specific entities for this bridge
-        import eagerx_dcsc_setups.mops.ode
+        import eagerx_dcsc_setups.mops.ode  # pylint: disable=unused-import
 
         # Set object arguments (nothing to set here in this case)
         object_params = dict(ode='eagerx_dcsc_setups.mops.ode.mops_ode/mops_ode')
@@ -114,7 +114,7 @@ class Mops(Object):
     def real_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (RealBridge) of the object."""
         # Import any object specific entities for this bridge
-        import eagerx_dcsc_setups.mops.real
+        import eagerx_dcsc_setups.mops.real  # pylint: disable=unused-import
 
         # Set object arguments (nothing to set here in this case)
         object_params = dict(driver_launch_file='$(find eagerx_dcsc_setups)/launch/mops.launch')

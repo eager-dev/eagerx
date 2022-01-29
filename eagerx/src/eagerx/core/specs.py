@@ -119,13 +119,13 @@ class BaseNodeSpec(EntitySpec):
                     mapping = dict(msg_type=msg_type, rate='$(default rate)', converter=self.identity.params, space_converter=None)
                     # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
                     if add_ft:
-                        mapping_ft = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
+                        mapping_ft = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=None,
                                           converter=self.identity.params, space_converter=None, address=None)
                         self._set({'feedthroughs': {cname: mapping_ft}})
 
                 elif component == 'inputs':
                     address = 'bridge/outputs/tick' if cname == 'tick' else None
-                    mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
+                    mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=None,
                                    converter=self.identity.params, space_converter=None, address=address)
                 elif component == 'targets':
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None, address=None)
@@ -154,7 +154,7 @@ class BaseNodeSpec(EntitySpec):
     def _add_component(self, component: str, cname: str, mapping: dict):
         self._set({component: {cname: mapping}})
 
-    def add_input(self, cname: str, msg_type: Any, window: int = 1, delay: float = 0.0, skip: bool = False, external_rate: float = 0, address: str = None, converter: Optional[ConverterSpec] = None, space_converter: Optional[ConverterSpec] = None):
+    def add_input(self, cname: str, msg_type: Any, window: int = 1, delay: float = 0.0, skip: bool = False, external_rate: float = None, address: str = None, converter: Optional[ConverterSpec] = None, space_converter: Optional[ConverterSpec] = None):
         if not isinstance(msg_type, str):
             assert inspect.isclass(msg_type), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
             msg_type = get_module_type_string(msg_type)
@@ -348,7 +348,7 @@ class ObjectSpec(EntitySpec):
                 if component == 'sensors':
                     mapping = dict(msg_type=msg_type, rate=1, converter=self.identity.params, space_converter=None)
                 elif component == 'actuators':
-                    mapping = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=False, converter=self.identity.params, space_converter=None)
+                    mapping = dict(msg_type=msg_type, rate=1, delay=0.0, window=1, skip=False, external_rate=None, converter=self.identity.params, space_converter=None)
                 else:
                     component = 'states'
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None)
@@ -685,7 +685,7 @@ class RxInput(Params):
                  msg_type: str,
                  window: int = 0,
                  converter: Dict = None,
-                 external_rate: float = False,
+                 external_rate: float = None,
                  space_converter: Dict = None,
                  delay: float = 0.0,
                  skip: bool = False,

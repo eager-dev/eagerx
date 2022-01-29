@@ -306,7 +306,7 @@ class EngineGraph:
         if source is None:
             assert self.get_parameter('address', *target) is not None, f"Cannot disconnect. No source was provided, and the target={target} also does not have an address specified."
             self.set_parameter('address', None, *target)
-            self.set_parameter('external_rate', False, *target)
+            self.set_parameter('external_rate', None, *target)
         else:
             self._is_selected(self._state, *source)
             connect_exists = False

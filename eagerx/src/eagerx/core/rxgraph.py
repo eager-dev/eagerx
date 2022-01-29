@@ -357,7 +357,7 @@ class RxGraph:
         assert len(params_obs['inputs'][observation]) == 0, 'Observation "%s" already connected.' % observation
         msg_type = get_module_type_string(msg_type_C)
         params_obs['inputs'][observation]['msg_type'] = get_module_type_string(msg_type_C)
-        mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=False,
+        mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=None,
                        converter=BaseConverter.make('Identity'), space_converter=None, address=None)
         self._set(params_obs['inputs'], {observation: mapping})
         return converter

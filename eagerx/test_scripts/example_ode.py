@@ -10,13 +10,14 @@ from eagerx.core.rxgraph import RxGraph
 from eagerx.wrappers.flatten import Flatten
 
 # Implementation specific
-import eagerx.nodes             # Registers butterworth_filter
-import eagerx.bridges.ode       # Registers OdeBridge
-import eagerx.bridges.real      # Registers RealBridge
-import eagerx_dcsc_setups.mops  # Registers Mops
+import eagerx.nodes             # pylint: disable=unused-import --> Registers butterworth_filter
+import eagerx.bridges.ode       # pylint: disable=unused-import --> Registers OdeBridge
+import eagerx.bridges.real      # pylint: disable=unused-import --> Registers RealBridge
+import eagerx_dcsc_setups.mops  # pylint: disable=unused-import --> Registers Mops
 
 # Other
 import numpy as np
+import rospy
 import stable_baselines3 as sb
 
 if __name__ == '__main__':
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
 
     # Show in the gui
-    # graph.gui()
+    graph.gui()
 
     # Define bridges
     bridge_ode = Bridge.make('OdeBridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
@@ -66,7 +67,6 @@ if __name__ == '__main__':
 
     # Initialize Environment
     real_env = Flatten(EAGERxEnv(name='real', rate=rate, graph=graph, bridge=bridge_real, step_fn=step_fn))
-    # rospy.sleep(100.0)
     simulation_env = Flatten(EAGERxEnv(name='ode', rate=rate, graph=graph, bridge=bridge_ode, step_fn=step_fn))
 
     # Initialize learner (kudos to Antonin)
@@ -74,21 +74,18 @@ if __name__ == '__main__':
 
     # First train in simulation
     simulation_env.render('human')
-    # model.learn(total_timesteps=int(300*rate))
-    # simulation_env.close()
+    model.learn(total_timesteps=int(300*rate))
+    simulation_env.close()
 
     # Evaluate for 30 seconds in simulation
-    action = simulation_env.action_space.sample()
     obs = simulation_env.reset()
     for i in range(int(30 * rate)):
-        # action, _states = model.predict(obs, deterministic=True)
+        action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = simulation_env.step(action)
         if done:
             obs = simulation_env.reset()
 
     model.save('simulation')
-
-    exit()
 
     # Train on real system
     model = sb.SAC.load('simulation', env=real_env, ent_coef="auto_0.1")
