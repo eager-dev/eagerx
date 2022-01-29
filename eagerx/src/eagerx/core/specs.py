@@ -558,7 +558,6 @@ class ObjectSpec(EntitySpec):
             for _, node_params in nodes.items():
                 for cname, comp_params in node_params['inputs'].items():
                     if node_address == comp_params['address']:
-                        print(cname, comp_params['address'], sensor_address)
                         comp_params['address'] = sensor_address
 
         # Create states

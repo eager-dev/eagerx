@@ -48,7 +48,7 @@ if __name__ == '__main__':
     graph.connect(source=('KF', 'outputs', 'out_1'),   observation='obs_3', delay=0.0)
     graph.connect(source=('obj', 'sensors', 'N6'),     target=('KF', 'inputs', 'in_1'), delay=0.0)
     graph.connect(action='act_2',                      target=('KF', 'inputs', 'in_2'), skip=True)
-    graph.connect(action='act_2',                      target=('N3', 'feedthroughs', 'out_1'), delay=1.0)
+    graph.connect(action='act_2',                      target=('N3', 'feedthroughs', 'out_1'), delay=0.0)
     graph.connect(source=('obj', 'sensors', 'N6'),     target=('N3', 'inputs', 'in_1'))
     graph.connect(source=('obj', 'states', 'N9'),      target=('N3', 'targets', 'target_1'))
     graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'N8'), delay=0.0, converter=RosString_RosUInt64)
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(10):
+        for i in range(200):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
@@ -167,9 +167,6 @@ if __name__ == '__main__':
     #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
     #  - The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
     #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
-    #  - Similarly, it cannot be predicted whether a user has tried to register an object before calling "env.reset()".
-    #  Hence, we cannot completely rule out timing issues with a reactive scheme. Could therefore cause a deadlock (but
-    #  chance is very slim, and only at the moment of initialization).
     #  - Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
     #  Hence, we cannot adaptively register new objects or controllers after some episodes.
     #  - If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
@@ -178,9 +175,5 @@ if __name__ == '__main__':
     #  - Nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
     #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
     #  not be agnostic (as they would break in the case is_reactive=True).
-    #  - Every package that contains eagerx nodes/objects/converters must start with "eagerx", else they cannot be added within the GUI.
-    #  - Nonreactive inputs that have 'start_with_msg' could mess up the reset.
-    #  - Delays are ignored when running async.
-    #  - In the bridge definition of an object, or inside the config of simnodes, there cannot be converters defined for
-    #  the components related to the sensor and actuator. Reason for this is that if a converter would already be defined there,
-    #  then it is not possible anymore to add another one in the agnostic side.
+    #  - In the bridge definition of an object, there cannot be converters defined for the components related to the sensor and actuator.
+    #  Reason for this is that if a converter would already be defined there, then it is not possible anymore to add another one in the agnostic graph.

@@ -75,7 +75,7 @@ class TestBridgeNode(Bridge):
         # Verify that # of ticks equals internal counter
         node_tick = t_n * self.rate
         if not isclose(self.num_ticks, node_tick):
-            rospy.logerr(f'[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={node_tick}).')
+            rospy.logerr(f'[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)}).')
 
         # Verify that all timestamps are smaller or equal to node time
         t_n = node_tick * (1 / self.rate)

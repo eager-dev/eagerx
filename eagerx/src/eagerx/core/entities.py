@@ -149,19 +149,6 @@ class Node(BaseNode):
 
         Note that all node subclasses must:
         - Implement the abstract methods
-        - Pass down all arguments (possibly inside kwargs), that are required by the node baseclass' constructor (NodeBase).
-        - Define a static property that specifies the msg_type for every input, output, state and/or target.
-
-        Example of such a static property:
-        msg_types = {'inputs': {'in_1': UInt64,
-                                'in_2': UInt64,
-                                'in_3': String,
-                                'tick': UInt64},
-                     'outputs': {'out_1': UInt64,
-                                 'out_2': UInt64},
-                     'states': {'state_1': UInt64,
-                                'state_2': UInt64}}
-
         :param kwargs: Arguments that are to be passed down to the baseclass. See NodeBase for this.
         """
         # Message counter
@@ -180,8 +167,28 @@ class Node(BaseNode):
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
 
+        # Determine all inputs with window > 0 (and skip)
+        self.skipped_cbs = 0
+        self.windowed = dict()
+        for i in self.inputs:
+            name = i['name']
+            window = i['window']
+            skip = i['skip']
+            if window > 0:
+                self.windowed[name] = skip
+
+        # If we run async *and* no msg for input with window > 0, then send None outputs.
+        self.empty_outputs = dict()
+        for i in self.outputs:
+            name = i['name']
+            self.empty_outputs[name] = None
+        for i in self.targets:
+            name = i['name']
+            self.empty_outputs[name + '/done'] = Bool(data=False)
+
     def reset_cb(self, **kwargs: Optional[Message]):
         self.num_ticks = 0
+        self.skipped_cbs = 0
         keys_to_pop = []
         for cname, msg in kwargs.items():
             if msg.info.done:
@@ -225,6 +232,17 @@ class Node(BaseNode):
                     self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
                 rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
+
+        # Skip callback if not all inputs with window > 0 have received at least one input.
+        if not self.is_reactive or not self.num_ticks > 1:  # Larger than 1 here, because we might have already ticked, but not yet received a skipped input.
+            for cname, skip in self.windowed.items():
+                if len(kwargs[cname].msgs) == 0:
+                    if skip and self.num_ticks == 0:
+                        continue
+                    else:
+                        self.skipped_cbs += 1
+                        rospy.logdebug(f'[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}')
+                        return self.empty_outputs
         output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
         return output
