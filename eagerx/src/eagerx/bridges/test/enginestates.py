@@ -6,7 +6,7 @@ import eagerx.core.register as register
 class TestEngineState(EngineState):
 
     @staticmethod
-    @register.spec('TestSimState', EngineState)
+    @register.spec('TestEngineState', EngineState)
     def spec(spec, test_arg: Optional[str] = 'test_argument'):
         # Initialize simstate
         spec.initialize(TestEngineState)

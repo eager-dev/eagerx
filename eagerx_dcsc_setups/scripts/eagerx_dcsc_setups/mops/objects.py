@@ -6,7 +6,7 @@ from sensor_msgs.msg import Image
 from eagerx.bridges.real.bridge import RealBridge
 from eagerx.bridges.ode.bridge import OdeBridge
 from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, Processor
-from eagerx.core.specs import ObjectSpec, AgnosticSpec, EngineSpecificSpec
+from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
 from eagerx.core.engine_graph import EngineGraph
 import eagerx.core.register as register
 
@@ -16,11 +16,11 @@ class Mops(Object):
     @register.sensors(mops_output=Float32MultiArray, action_applied=Float32MultiArray, image=Image)
     @register.actuators(mops_input=Float32MultiArray)
     @register.simstates(model_state=Float32MultiArray, model_parameters=Float32MultiArray)
-    @register.agnostic_params(always_render=False, mops_rate=30, render_shape=[480, 480])
+    @register.agnostic_params(always_render=False, mops_rate=30, render_shape=[480, 480], opencv_cam_index=0)
     def agnostic(spec: AgnosticSpec):
         """Agnostic definition of the Mops"""
         # Register standard converters, space_converters, and processors
-        import eagerx.converters  # pylint: disable=unused-import
+        import eagerx.converters  # noqa # pylint: disable=unused-import
 
         # Set observation properties: (space_converters, rate, etc...)
         c = Processor.make('AngleDecomposition', angle_idx=0)
@@ -54,7 +54,7 @@ class Mops(Object):
     @staticmethod
     @register.spec('Mops', Object)
     def spec(spec: ObjectSpec, name: str, sensors=['mops_output', 'action_applied', 'image'], states=['model_state'],
-             mops_rate=30, always_render=False, render_shape=[480, 480]):
+             mops_rate=30, always_render=False, render_shape=[480, 480], camera_index=2):
         """Object spec of Mops"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(Mops)
@@ -65,7 +65,7 @@ class Mops(Object):
         spec.set_parameters(default)
 
         # Add custom params
-        params = dict(mops_rate=mops_rate, always_render=always_render, render_shape=render_shape)
+        params = dict(mops_rate=mops_rate, always_render=always_render, render_shape=render_shape, opencv_cam_index=camera_index)
         spec.set_parameters(params)
 
         # Add bridge implementation
@@ -74,10 +74,10 @@ class Mops(Object):
 
     @classmethod
     @register.bridge(OdeBridge)   # This decorator pre-initializes bridge implementation with default object_params
-    def ode_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
+    def ode_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (OdeBridge) of the object."""
         # Import any object specific entities for this bridge
-        import eagerx_dcsc_setups.mops.ode  # pylint: disable=unused-import
+        import eagerx_dcsc_setups.mops.ode  # noqa # pylint: disable=unused-import
 
         # Set object arguments (nothing to set here in this case)
         object_params = dict(ode='eagerx_dcsc_setups.mops.ode.mops_ode/mops_ode')
@@ -111,10 +111,10 @@ class Mops(Object):
 
     @classmethod
     @register.bridge(RealBridge)   # This decorator pre-initializes bridge implementation with default object_params
-    def real_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
+    def real_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (RealBridge) of the object."""
         # Import any object specific entities for this bridge
-        import eagerx_dcsc_setups.mops.real  # pylint: disable=unused-import
+        import eagerx_dcsc_setups.mops.real  # noqa # pylint: disable=unused-import
 
         # Set object arguments (nothing to set here in this case)
         object_params = dict(driver_launch_file='$(find eagerx_dcsc_setups)/launch/mops.launch')
@@ -127,7 +127,7 @@ class Mops(Object):
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
         obs = EngineNode.make('MopsOutput', 'obs', rate=None, process=0)
         applied = EngineNode.make('ActionApplied', 'applied', rate=None, process=0)
-        image = EngineNode.make('CameraRender', 'image', camera_idx=2, shape='$(default render_shape)', rate=None, process=0)
+        image = EngineNode.make('CameraRender', 'image', camera_idx='$(default opencv_cam_index)', shape='$(default render_shape)', rate=None, process=0)
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)

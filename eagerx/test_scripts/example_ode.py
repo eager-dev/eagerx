@@ -10,10 +10,10 @@ from eagerx.core.rxgraph import RxGraph
 from eagerx.wrappers.flatten import Flatten
 
 # Implementation specific
-import eagerx.nodes             # pylint: disable=unused-import --> Registers butterworth_filter
-import eagerx.bridges.ode       # pylint: disable=unused-import --> Registers OdeBridge
-import eagerx.bridges.real      # pylint: disable=unused-import --> Registers RealBridge
-import eagerx_dcsc_setups.mops  # pylint: disable=unused-import --> Registers Mops
+import eagerx.nodes             # Registers butterworth_filter # noqa # pylint: disable=unused-import
+import eagerx.bridges.ode       # Registers OdeBridge # noqa # pylint: disable=unused-import
+import eagerx.bridges.real      # Registers RealBridge # noqa # pylint: disable=unused-import
+import eagerx_dcsc_setups.mops  # Registers Mops # noqa # pylint: disable=unused-import
 
 # Other
 import numpy as np

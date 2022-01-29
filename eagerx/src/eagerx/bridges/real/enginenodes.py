@@ -17,7 +17,7 @@ from eagerx.core.constants import process
 class CameraRender(EngineNode):
     @staticmethod
     @register.spec('CameraRender', EngineNode)
-    def spec(spec, name: str, rate: float, process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'green', shape=[480, 480], camera_idx: int = 0):
+    def spec(spec, name: str, rate: float, process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'cyan', shape=[480, 480], camera_idx: int = 0):
         """CameraRender spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(CameraRender)

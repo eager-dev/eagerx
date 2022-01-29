@@ -137,7 +137,7 @@ class ActionsNode(Node):
 class RenderNode(Node):
     @staticmethod
     @register.spec('Render', Node)
-    def spec(spec: NodeSpec, rate, display=True, log_level=DEBUG, color='red'):
+    def spec(spec: NodeSpec, rate, display=True, log_level=DEBUG, color='yellow'):
         """RenderNode spec"""
         # Initialize spec
         spec.initialize(RenderNode)

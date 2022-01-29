@@ -49,7 +49,13 @@ def spec(entity_id, entity_cls):
             if not entity_id == 'Identity':
                 rospy.logdebug('[make]: entity_id=%s, entity=%s, entry=%s' % (entity_id, entity_cls.__name__, entity_type))
             spec = entity_cls.pre_make(entity_id, entity_type)
-            func(spec, *args, **kwargs)
+            try:
+                func(spec, *args, **kwargs)
+            except TypeError as e:
+                signature = entity_cls.get_spec(entity_id, verbose=False)
+                err = f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
+                err += f'The signature for this spec looks like: \n\n{signature}'
+                raise TypeError(err) from e
             return spec
         if entity_cls not in REGISTRY:
             """Add entity if this is the first registration of entity kind"""
@@ -69,9 +75,10 @@ def make(entity, id, *args, **kwargs):
     return REGISTRY[entity][id](*args, **kwargs)
 
 
-def get_spec(entity, id):
+def get_spec(entity, id, verbose=True):
     """Get information on the entity's spec function"""
-    help(REGISTRY[entity][id])
+    if verbose:
+        help(REGISTRY[entity][id])
     return inspect.signature(REGISTRY[entity][id])
 
 

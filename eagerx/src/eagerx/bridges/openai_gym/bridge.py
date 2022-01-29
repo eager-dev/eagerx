@@ -37,14 +37,14 @@ class GymBridge(Bridge):
                       color='magenta')
         spec.set_parameters(params)
 
-    @register.bridge_params()
+    @register.bridge_params(env_id=None)
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
         rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
 
         # Extract relevant object_params
         obj_name = agnostic_params['name']
-        id = agnostic_params['gym_env_id']
+        id = bridge_params['env_id']
 
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(env=gym.make(id), buffer_obs=[], buffer_reward=None, buffer_done=None, next_action=None)

@@ -20,7 +20,7 @@ class ObservationSensor(EngineNode):
     @register.spec('ObservationSensor', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick'], outputs: Optional[List[str]] = ['observation'],
-             color: Optional[str] = 'green'):
+             color: Optional[str] = 'cyan'):
         """ObservationSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(ObservationSensor)
@@ -32,7 +32,7 @@ class ObservationSensor(EngineNode):
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert self.process == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
-        self.id = self.agnostic_params['gym_env_id']
+        self.id = self.bridge_params['env_id']
         self.obj_name = self.agnostic_params['name']
         self.last_obs = None
 
@@ -59,7 +59,7 @@ class RewardSensor(EngineNode):
     @register.spec('RewardSensor', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick'], outputs: Optional[List[str]] = ['reward'],
-             color: Optional[str] = 'green'):
+             color: Optional[str] = 'cyan'):
         """RewardSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(RewardSensor)
@@ -71,7 +71,7 @@ class RewardSensor(EngineNode):
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert self.process == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
-        self.id = self.agnostic_params['gym_env_id']
+        self.id = self.bridge_params['env_id']
         self.obj_name = self.agnostic_params['name']
         self.last_reward = None
 
@@ -98,7 +98,7 @@ class DoneSensor(EngineNode):
     @register.spec('DoneSensor', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick'], outputs: Optional[List[str]] = ['done'],
-             color: Optional[str] = 'green'):
+             color: Optional[str] = 'cyan'):
         """DoneSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(DoneSensor)
@@ -110,7 +110,7 @@ class DoneSensor(EngineNode):
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert self.process == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
-        self.id = self.agnostic_params['gym_env_id']
+        self.id = self.bridge_params['env_id']
         self.obj_name = self.agnostic_params['name']
         self.last_done = None
 
@@ -194,7 +194,7 @@ class GymImage(EngineNode):
     @register.spec('GymImage', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick'], outputs: Optional[List[str]] = ['image'],
-             color: Optional[str] = 'green', shape=[200, 200]):
+             color: Optional[str] = 'cyan', shape=[200, 200], always_render=False):
         """GymImage spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymImage)
@@ -205,14 +205,15 @@ class GymImage(EngineNode):
 
         # Modify custom node params
         spec.set_parameter('shape', shape)
+        spec.set_parameter('always_render', always_render)
 
-    def initialize(self, shape):
+    def initialize(self, shape, always_render):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert self.process == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.shape = tuple(shape)
-        self.always_render = self.agnostic_params['always_render']
+        self.always_render = always_render
         self.render_toggle = False
-        self.id = self.agnostic_params['gym_env_id']
+        self.id = self.bridge_params['env_id']
         self.obj_name = self.agnostic_params['name']
         self.render_toggle_pub = rospy.Subscriber('%s/env/render/toggle' % self.ns, Bool, self._set_render_toggle)
 

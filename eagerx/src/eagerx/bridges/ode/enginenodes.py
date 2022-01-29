@@ -14,7 +14,7 @@ import eagerx.core.register as register
 class OdeOutput(EngineNode):
     @staticmethod
     @register.spec('OdeOutput', EngineNode)
-    def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE, color: Optional[str] = 'green'):
+    def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE, color: Optional[str] = 'cyan'):
         """OdeOutput spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(OdeOutput)
@@ -44,7 +44,7 @@ class OdeOutput(EngineNode):
 class ActionApplied(EngineNode):
     @staticmethod
     @register.spec('ActionApplied', EngineNode)
-    def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE, color: Optional[str] = 'green'):
+    def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE, color: Optional[str] = 'cyan'):
         """ActionApplied spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(ActionApplied)

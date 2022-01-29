@@ -358,7 +358,7 @@ class ObjectSpec(EntitySpec):
 
     def _initialize_engine_spec(self, bridge_params):
         # Create param mapping
-        spec = EngineSpecificSpec(bridge_params)
+        spec = SpecificSpec(bridge_params)
         graph = self._initialize_object_graph()
 
         # Add all states to engine-specific params
@@ -630,7 +630,7 @@ class AgnosticSpec(EntitySpec):
             self._set({component: {cname: {parameter: value}}})
 
 
-class EngineSpecificSpec(EntitySpec):
+class SpecificSpec(EntitySpec):
     @exists
     def set_parameter(self, parameter: str, value: Any):
         if isinstance(value, dict):

@@ -229,15 +229,15 @@ class KalmanNode(TestNode):
         return spec
 
 
-class SimActuator(TestNode):
+class TestActuator(TestNode):
     @staticmethod
-    @register.spec('SimActuator', EngineNode)
+    @register.spec('TestActuator', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick', 'in_1', 'in_2', 'in_3'], outputs: Optional[List[str]] = ['out_1'],
              color: Optional[str] = 'green', test_arg: Optional[str] = 'test_argument'):
-        """SimActuator spec"""
+        """TestActuator spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(SimActuator)
+        spec.initialize(TestActuator)
 
         # Modify default node params
         params = dict(name=name,
@@ -258,16 +258,16 @@ class SimActuator(TestNode):
         return spec
 
 
-class SimSensor(TestNode):
+class TestSensor(TestNode):
     @staticmethod
-    @register.spec('SimSensor', EngineNode)
+    @register.spec('TestSensor', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE,
              inputs: Optional[List[str]] = ['tick_1', 'in_1'], outputs: Optional[List[str]] = ['out_1'],
              states: Optional[List[str]] = ['state_1'], color: Optional[str] = 'cyan',
              test_arg: Optional[str] = 'test_argument'):
-        """SimSensor spec"""
+        """TestSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(SimSensor)
+        spec.initialize(TestSensor)
 
         # Modify default node params
         params = dict(name=name,

@@ -15,8 +15,9 @@ class ButterworthFilter(Node):
     @staticmethod
     @register.spec('ButterworthFilter', Node)
     def spec(spec, name: str, rate: float, index: int = 0, N: int = 2, Wn: float = 1, btype: str = 'lowpass',
-             process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'magenta'):
+             process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'grey'):
         """
+        Butterworth filter implementation based on scipy.signal/butter, scipy.signal/sosfilt.
 
         :param spec: Not provided by user.
         :param name: Node name
@@ -40,7 +41,7 @@ class ButterworthFilter(Node):
         spec.set_parameters({'N': N, 'Wn': Wn, 'btype': btype})
 
         # Register standard converters, space_converters, and processors
-        import eagerx.converters  # pylint: disable=unused-import
+        import eagerx.converters  # noqa # pylint: disable=unused-import
 
         # Add converter & space_converter
         c = Processor.make('GetIndex_Float32MultiArray', index=index)

@@ -32,9 +32,9 @@ class Entity(object):
         return spec
 
     @classmethod
-    def get_spec(cls, id):
+    def get_spec(cls, id, verbose=True):
         from eagerx.core import register
-        return register.get_spec(cls, id)
+        return register.get_spec(cls, id, verbose=verbose)
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):

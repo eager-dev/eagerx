@@ -9,7 +9,7 @@ from eagerx.core.rxgraph import RxGraph
 from eagerx.wrappers.flatten import Flatten
 
 # Implementation specific
-import eagerx.bridges.test  # pylint: disable=unused-import
+import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 
 if __name__ == '__main__':
     # Process configuration (optional)
@@ -24,6 +24,7 @@ if __name__ == '__main__':
     #  Suppress extra I/O of env/actions & env/observations
     #  Make gui for EngineGraph
     #  Modify converter dialog box to only show registered converters (which are compatible with static msg_type properties).
+    #  Fill converter dialog box with arguments according to "signature = Converter/SpaceConverter/Processor/BaseConverter.get_spec(id)".
     #  Show address if there is an external_rate defined in EngineGUI
 
     # Define nodes
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     # TEST Test with KF having skipped all inputs at t=0
     graph.remove_component('KF', 'inputs', 'in_1')
 
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')

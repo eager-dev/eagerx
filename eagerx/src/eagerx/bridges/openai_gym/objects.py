@@ -8,7 +8,7 @@ from sensor_msgs.msg import Image
 # EAGERx IMPORTS
 from eagerx.bridges.openai_gym.bridge import GymBridge
 from eagerx.core.entities import Object, EngineNode, SpaceConverter
-from eagerx.core.specs import ObjectSpec, AgnosticSpec, EngineSpecificSpec
+from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
 from eagerx.core.engine_graph import EngineGraph
 import eagerx.core.register as register
 
@@ -18,11 +18,11 @@ class GymObject(Object):
     @register.sensors(observation=Float32MultiArray, reward=Float32, done=Bool, image=Image)
     @register.actuators(action=Float32MultiArray)
     @register.simstates()
-    @register.agnostic_params(always_render=False, default_action=None, gym_rate=20, gym_env_id='Pendulum-v1', render_shape=[200, 200])
+    @register.agnostic_params(gym_always_render=False, default_action=None, gym_rate=20, gym_env_id='Pendulum-v1', render_shape=[200, 200])
     def agnostic(spec: AgnosticSpec):
         """Agnostic definition of the GymObject"""
         # Register standard converters, space_converters, and processors
-        import eagerx.converters  # pylint: disable=unused-import
+        import eagerx.converters  # noqa # pylint: disable=unused-import
 
         # Set observation properties: (space_converters, rate, etc...)
         sc = SpaceConverter.make('GymSpace_Float32MultiArray', gym_id='$(default gym_env_id)', space='observation')
@@ -49,7 +49,7 @@ class GymObject(Object):
     @staticmethod
     @register.spec('GymObject', Object)
     def spec(spec: ObjectSpec, name: str, sensors: Optional[List[str]] = ['observation', 'reward', 'done'],
-             gym_env_id='Pendulum-v1', gym_rate=20, always_render=False, default_action=None, render_shape=[200, 200]):
+             gym_env_id='Pendulum-v1', gym_rate=20, gym_always_render=False, default_action=None, render_shape=[200, 200]):
         """Object spec of GymObject"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymObject)
@@ -60,7 +60,7 @@ class GymObject(Object):
         spec.set_parameters(default)
 
         # Add custom params
-        params = dict(gym_env_id=gym_env_id, gym_rate=gym_rate, always_render=always_render, default_action=default_action,
+        params = dict(gym_env_id=gym_env_id, gym_rate=gym_rate, gym_always_render=gym_always_render, default_action=default_action,
                       render_shape=render_shape)
         spec.set_parameters(params)
 
@@ -69,11 +69,11 @@ class GymObject(Object):
 
     @classmethod
     @register.bridge(GymBridge)   # This decorator pre-initializes bridge implementation with default object_params
-    def openai_gym(cls, spec: EngineSpecificSpec, graph: EngineGraph):
+    def openai_gym(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (GymBridge) of the object."""
-        # Set object arguments (nothing to set here in this case)
-        # object_params = dict()
-        # spec.set_parameters(object_params)
+        # Set bridge arguments (nothing to set here in this case)
+        bridge_params = dict(env_id='$(default gym_env_id)')
+        spec.set_parameters(bridge_params)
 
         # Create simstates (no agnostic states defined in this case)
         # spec.set_state('some_state', SimState.make('SomeState', args='something'))
@@ -83,7 +83,7 @@ class GymObject(Object):
         obs = EngineNode.make('ObservationSensor', 'obs', rate=None, process=2)
         rwd = EngineNode.make('RewardSensor', 'rwd', rate=None, process=2)
         done = EngineNode.make('DoneSensor', 'done', rate=None, process=2)
-        image = EngineNode.make('GymImage', 'image', shape='$(default render_shape)', rate=None, process=2)
+        image = EngineNode.make('GymImage', 'image', shape='$(default render_shape)', always_render='$(default gym_always_render)', rate=None, process=2)
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)

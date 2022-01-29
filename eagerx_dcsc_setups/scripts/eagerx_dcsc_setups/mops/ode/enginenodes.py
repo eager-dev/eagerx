@@ -17,7 +17,7 @@ class MopsImage(EngineNode):
     @staticmethod
     @register.spec('MopsImage', EngineNode)
     def spec(spec, name: str, rate: float, process: Optional[int] = process.NEW_PROCESS,
-             color: Optional[str] = 'green', shape=[480, 480]):
+             color: Optional[str] = 'cyan', shape=[480, 480]):
         """MopsImage spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(MopsImage)
@@ -30,7 +30,7 @@ class MopsImage(EngineNode):
         spec.set_parameter('shape', shape)
 
         # Set component parameter
-        spec.set_component_parameter('inputs', 'theta', 'window', 0)
+        spec.set_component_parameter('inputs', 'theta', 'window', 1)
 
     def initialize(self, shape):
         self.cv_bridge = CvBridge()

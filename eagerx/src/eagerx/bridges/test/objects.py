@@ -7,7 +7,7 @@ from std_msgs.msg import UInt64, String
 # EAGERx IMPORTS
 from eagerx.bridges.test.bridge import TestBridgeNode
 from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState
-from eagerx.core.specs import ObjectSpec, AgnosticSpec, EngineSpecificSpec
+from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
 from eagerx.core.engine_graph import EngineGraph
 import eagerx.core.register as register
 
@@ -92,7 +92,7 @@ class Viper(Arm):
 
     @classmethod
     @register.bridge(TestBridgeNode)  # This decorator pre-initializes bridge implementation with default object_params
-    def test_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
+    def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation of the Viper with the test bridge."""
         # Set object arguments
         object_params = dict(req_arg='TEST ARGUMENT',
@@ -100,16 +100,16 @@ class Viper(Arm):
         spec.set_parameters(object_params)
 
         # Create simstates
-        spec.set_state('N9', EngineState.make('TestSimState', test_arg='arg_N9'))
-        # spec.set_state('N10', SimState.make('TestSimState', test_arg='arg_N10'))
+        spec.set_state('N9', EngineState.make('TestEngineState', test_arg='arg_N9'))
+        # spec.set_state('N10', SimState.make('TestEngineState', test_arg='arg_N10'))
 
         # Create sensor engine nodes
-        N6 = EngineNode.make('SimSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default req_arg)')
-        N7 = EngineNode.make('SimSensor', 'N7', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
+        N6 = EngineNode.make('TestSensor', 'N6', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=['state_1'], test_arg='$(default req_arg)')
+        N7 = EngineNode.make('TestSensor', 'N7', rate=1, process=2, inputs=['tick', 'in_1'], outputs=['out_1'], states=[], test_arg='$(default test_string)')
 
         # Create actuator engine nodes
-        N8 = EngineNode.make('SimActuator', 'N8', rate=1, process=2, inputs=['tick', 'in_2', 'in_3'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
-        ref_vel = EngineNode.make('SimActuator', 'ref_vel', rate=1, process=2, inputs=['tick', 'in_1', 'in_2'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+        N8 = EngineNode.make('TestActuator', 'N8', rate=1, process=2, inputs=['tick', 'in_2', 'in_3'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
+        ref_vel = EngineNode.make('TestActuator', 'ref_vel', rate=1, process=2, inputs=['tick', 'in_1', 'in_2'], outputs=['out_1'], test_arg='$(default test_string)', color='green')
 
         # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])

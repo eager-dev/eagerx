@@ -17,7 +17,7 @@ from dcsc_fpga.srv import MopsWrite, MopsWriteRequest, MopsReadRequest, MopsRead
 class MopsOutput(EngineNode):
     @staticmethod
     @register.spec('MopsOutput', EngineNode)
-    def spec(spec, name: str, rate: float, process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'green'):
+    def spec(spec, name: str, rate: float, process: Optional[int] = process.NEW_PROCESS, color: Optional[str] = 'cyan'):
         """MopsOutput spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(MopsOutput)
@@ -55,7 +55,7 @@ class MopsInput(EngineNode):
         spec.set_parameters(params)
 
         # Set component parameter
-        spec.set_component_parameter('inputs', 'mops_input', 'window', 0)
+        spec.set_component_parameter('inputs', 'mops_input', 'window', 1)
 
     def initialize(self):
         self.service = rospy.ServiceProxy('/mops/write', MopsWrite)
