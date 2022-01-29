@@ -1,25 +1,27 @@
-# OTHER IMPORTS
-from typing import Optional, List
-
 # ROS IMPORTS
-from std_msgs.msg import UInt64, Float32MultiArray, Bool, Float32
+from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import Image
 
 # EAGERx IMPORTS
-from eagerx_core.bridges.real.bridge import RealBridge
-from eagerx_core.bridges.ode.bridge import OdeBridge
-from eagerx_core.core.entities import Object, EngineNode, SpaceConverter, SimState, Processor
-import eagerx_core.core.registration as register
+from eagerx.bridges.real.bridge import RealBridge
+from eagerx.bridges.ode.bridge import OdeBridge
+from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, Processor
+from eagerx.core.specs import ObjectSpec, AgnosticSpec, EngineSpecificSpec
+from eagerx.core.engine_graph import EngineGraph
+import eagerx.core.register as register
 
 
-class MopsPendulum(Object):
+class Mops(Object):
     @staticmethod
     @register.sensors(mops_output=Float32MultiArray, action_applied=Float32MultiArray, image=Image)
     @register.actuators(mops_input=Float32MultiArray)
     @register.simstates(model_state=Float32MultiArray, model_parameters=Float32MultiArray)
     @register.agnostic_params(always_render=False, mops_rate=30, render_shape=[480, 480])
-    def agnostic(spec):
-        """Agnostic definition of the MopsPendulum"""
+    def agnostic(spec: AgnosticSpec):
+        """Agnostic definition of the Mops"""
+        # Register standard converters, space_converters, and processors
+        import eagerx.converters
+
         # Set observation properties: (space_converters, rate, etc...)
         c = Processor.make('AngleDecomposition', angle_idx=0)
         sc = SpaceConverter.make('Space_Float32MultiArray', low=[-1, -1, -9], high=[1, 1, 9], dtype='float32')
@@ -50,16 +52,16 @@ class MopsPendulum(Object):
         spec.set_space_converter('states', 'model_parameters', sc)
 
     @staticmethod
-    @register.spec('MopsPendulum', Object)
-    def spec(spec, name: str, sensors=['mops_output', 'action_applied', 'image'], actuators=['mops_input'],
-             states=['model_state'], mops_rate=30, always_render=False, render_shape=[480, 480]):
+    @register.spec('Mops', Object)
+    def spec(spec: ObjectSpec, name: str, sensors=['mops_output', 'action_applied', 'image'], states=['model_state'],
+             mops_rate=30, always_render=False, render_shape=[480, 480]):
         """Object spec of Mops"""
         # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(MopsPendulum)
+        spec.initialize(Mops)
 
         # Modify default node params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        default = dict(name=name, sensors=sensors, actuators=actuators, states=states)
+        default = dict(name=name, sensors=sensors, actuators=['mops_input'], states=states)
         spec.set_parameters(default)
 
         # Add custom params
@@ -67,26 +69,29 @@ class MopsPendulum(Object):
         spec.set_parameters(params)
 
         # Add bridge implementation
-        MopsPendulum.ode_bridge(spec)
-        MopsPendulum.real_bridge(spec)
+        Mops.ode_bridge(spec)
+        Mops.real_bridge(spec)
 
     @classmethod
     @register.bridge(OdeBridge)   # This decorator pre-initializes bridge implementation with default object_params
-    def ode_bridge(cls, spec, graph):
+    def ode_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (OdeBridge) of the object."""
+        # Import any object specific entities for this bridge
+        import eagerx_dcsc_setups.mops.ode
+
         # Set object arguments (nothing to set here in this case)
-        object_params = dict(ode='eagerx_dcsc_setups.mops.ode/mops_ode')
+        object_params = dict(ode='eagerx_dcsc_setups.mops.ode.mops_ode/mops_ode')
         spec.set_parameters(object_params)
 
         # Create simstates (no agnostic states defined in this case)
-        spec.set_state('model_state', SimState.make('OdeSimState'))
-        spec.set_state('model_parameters', SimState.make('OdeSimState'))
+        spec.set_state('model_state', EngineState.make('OdeSimState'))
+        spec.set_state('model_parameters', EngineState.make('OdeSimState'))
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
         obs = EngineNode.make('OdeOutput', 'obs', rate=None, process=2)
         applied = EngineNode.make('ActionApplied', 'applied', rate=None, process=2)
-        image = EngineNode.make('MopsRender', 'image', shape='$(default render_shape)', rate=None, process=0)
+        image = EngineNode.make('MopsImage', 'image', shape='$(default render_shape)', rate=None, process=0)
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
@@ -106,20 +111,23 @@ class MopsPendulum(Object):
 
     @classmethod
     @register.bridge(RealBridge)   # This decorator pre-initializes bridge implementation with default object_params
-    def real_bridge(cls, spec, graph):
+    def real_bridge(cls, spec: EngineSpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (RealBridge) of the object."""
+        # Import any object specific entities for this bridge
+        import eagerx_dcsc_setups.mops.real
+
         # Set object arguments (nothing to set here in this case)
-        # object_params = dict(ode='eagerx_dcsc_setups.mops.ode/mops_ode')
-        # spec.set_parameters(object_params)
+        object_params = dict(driver_launch_file='$(find eagerx_dcsc_setups)/launch/mops.launch')
+        spec.set_parameters(object_params)
 
         # Create simstates (no agnostic states defined in this case)
-        spec.set_state('model_state', SimState.make('RandomActionAndSleep', sleep_time=1.0, repeat=1))
+        spec.set_state('model_state', EngineState.make('RandomActionAndSleep', sleep_time=1.0, repeat=1))
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
-        obs = EngineNode.make('OdeOutput', 'obs', rate=None, process=0)
+        obs = EngineNode.make('MopsOutput', 'obs', rate=None, process=0)
         applied = EngineNode.make('ActionApplied', 'applied', rate=None, process=0)
-        image = EngineNode.make('RealRender', 'image', camera_idx=2, shape='$(default render_shape)', rate=None, process=0)
+        image = EngineNode.make('CameraRender', 'image', camera_idx=2, shape='$(default render_shape)', rate=None, process=0)
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
@@ -127,7 +135,7 @@ class MopsPendulum(Object):
 
         # Connect all engine nodes
         graph.add([obs, applied, image, action])
-        graph.connect(source=('obs', 'outputs', 'observation'), sensor='mops_output')
+        graph.connect(source=('obs', 'outputs', 'mops_output'), sensor='mops_output')
         graph.connect(source=('action', 'outputs', 'action_applied'), target=('applied', 'inputs', 'action_applied'), skip=True)
         graph.connect(source=('applied', 'outputs', 'action_applied'), sensor='action_applied')
         graph.connect(source=('image', 'outputs', 'image'), sensor='image')

@@ -1,3 +1,1 @@
 import eagerx_dcsc_setups.mops
-import eagerx_dcsc_setups.converters
-import eagerx_dcsc_setups.nodes
