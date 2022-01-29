@@ -62,7 +62,8 @@ class RxEnv(gym.Env):
         self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
         # Register render node
-        if self.render_node: self.register_nodes(self.render_node)
+        if self.render_node:
+            nodes = [self.render_node] + nodes
 
         # Register nodes
         self.register_nodes(nodes)

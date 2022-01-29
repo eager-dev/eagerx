@@ -15,6 +15,7 @@ import eagerx.core.register as register
 
 class RealResetNode(ResetNode):
     def initialize(self, test_arg, test_kwarg='test'):
+
         pass
 
     @staticmethod

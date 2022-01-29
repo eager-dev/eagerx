@@ -442,9 +442,11 @@ def init_bridge(ns, rate_node, node, inputs_init, outputs, state_inputs, node_na
 
     # Latch on '/rx/start_reset' event
     # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will cause a deadlock in that case.
-    rx_objects = SR.pipe(ops.with_latest_from(REG_cum),
+    rx_objects = SR.pipe(ops.combine_latest(REG_cum),
+                         ops.filter(lambda x: x[0].data == x[1]),  # cum_registered == REG_cum
                          ops.combine_latest(rx_objects),
-                         ops.filter(lambda x: x[0][1] == x[1][1]),
+                         spy('SR', node, log_level=DEBUG, mapper=lambda x: (x[0][0], x[0][1], x[1][1])),
+                         ops.filter(lambda x: x[0][1] == x[1][1]),  # cum_registered == REG_cum && REG_cum == rx_objects[1]
                          ops.map(lambda i: i[1][0]),  # rx_objects
                          ops.share())
     inputs = rx_objects.pipe(ops.pluck('inputs'))
@@ -597,7 +599,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # Start reset #############################################################
     ###########################################################################
-    SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline.
+    SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
     start_reset = dict(address=ns + '/start_reset', msg=Subject(), msg_type=UInt64)
     SR.subscribe(start_reset['msg'], scheduler=tp_scheduler)
 
@@ -626,7 +628,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     node_reset = dict(name=node.ns_name, address=node.ns_name + '/end_reset', msg_type=Bool, msg=Subject())
 
     # Reset pipeline
-    SR.pipe(spy('RESET', node, log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)
+    SC = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send _get_step_counter_msg()).
+    SC.pipe(spy('RESET', node, log_level=DEBUG), ops.zip(R), ops.map(lambda x: x[0])).subscribe(step['reset'], scheduler=tp_scheduler)
     R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'], scheduler=tp_scheduler)
 
     ###########################################################################
@@ -661,6 +664,6 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     outputs = [step]
 
     # Create return objects
-    env_subjects = dict(step=S, register_object=REG_OBJECT, register_node=REG_NODE, start_reset=SR)
+    env_subjects = dict(step=S, register_object=REG_OBJECT, register_node=REG_NODE, start_reset=SR, step_counter=SC)
     rx_objects = dict(node_inputs=node_inputs, node_outputs=node_outputs, outputs=outputs, state_outputs=state_outputs + tuple(done_outputs))
     return rx_objects, env_subjects

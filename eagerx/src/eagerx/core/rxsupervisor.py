@@ -37,6 +37,7 @@ class SupervisorNode(BaseNode):
         self.render_toggle_pub = rospy.Publisher('%s/env/render/toggle' % ns, Bool, queue_size=0, latch=True)
 
         # Initialize nodes
+        self.cum_registered = 0
         self.is_initialized = dict()
         self.launch_nodes = dict()
         self.sp_nodes = dict()
@@ -76,12 +77,18 @@ class SupervisorNode(BaseNode):
         return self.get_last_image_service().image
 
     def register_node(self, node: NodeSpec):
+        # Increase cumulative registered counter. Is send as '/start_reset' message.
+        self.cum_registered += 1
+
+        # Initialize node
         node_name = node.get_parameter('name')
         initialize_nodes(node, process.ENVIRONMENT, self.ns, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
         self.subjects['register_node'].on_next(String(self.ns + '/' + node_name))
 
     def register_object(self, object: ObjectSpec, bridge_name: str):
-        # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
+        # Increase cumulative registered counter. Is send as '/start_reset' message.
+        self.cum_registered += 1
+
         # Check if object name is unique
         obj_name = object.get_parameter('name')
         assert rospy.get_param(self.ns + '/' + obj_name + '/nodes', None) is None, f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
@@ -124,7 +131,8 @@ class SupervisorNode(BaseNode):
 
     def reset(self):
         self._reset_event.clear()
-        self.subjects['start_reset'].on_next(self._get_step_counter_msg())
+        self.subjects['start_reset'].on_next(UInt64(data=self.cum_registered))
+        self.subjects['step_counter'].on_next(self._get_step_counter_msg())
         self._step_counter = 0
         self._reset_event.wait()
         rospy.logdebug('RESET END')
