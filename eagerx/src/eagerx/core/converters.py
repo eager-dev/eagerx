@@ -11,7 +11,7 @@ class Identity(BaseConverter):
 
     @staticmethod
     @register.spec('Identity', BaseConverter)
-    def spec(spec: ConverterSpec):
+    def spec(spec):
         pass
 
     @staticmethod

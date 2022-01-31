@@ -1,9 +1,9 @@
-# ROS packages required
+# EAGERx imports
 from eagerx.core import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx.core import initialize, log, process
 initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
 
-# Environment
+# Environment imports
 from eagerx.core.rxenv import EAGERxEnv
 from eagerx.core.rxgraph import RxGraph
 from eagerx.wrappers.flatten import Flatten
@@ -17,15 +17,16 @@ if __name__ == '__main__':
     bridge_p = process.NEW_PROCESS
     rate = 7
 
-    # todo: GUI
-    #  Grab assertions at Node/object creation (i.e. when making the spec)
-    #  First show dialog box when creating a node with the spec arguments
-    #  Do not allow node name changes of env/actions/observations/render
-    #  Suppress extra I/O of env/actions & env/observations
-    #  Make gui for EngineGraph
-    #  Modify converter dialog box to only show registered converters (which are compatible with static msg_type properties).
-    #  Fill converter dialog box with arguments according to "signature = Converter/SpaceConverter/Processor/BaseConverter.get_spec(id)".
-    #  Show address if there is an external_rate defined in EngineGUI
+    # todo: TODAY
+    #  - Skip None --> implement for bridge as well?
+    #  - Select all I/O per default
+    #  - Async rate
+    #  - make action node reactive?
+    #  - Pass spec params through to bridge_specific implementations?
+    #  - Installation procedure
+    #  - Test mops setup.
+    #  - Parallel training?
+    #  - Pause environment
 
     # Define nodes
     N1 = Node.make('Process', 'N1',         rate=1.0,  process=node_p)

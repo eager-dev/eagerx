@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# ROS packages required
+# EAGERx imports
 from eagerx.core import Object, Bridge, initialize, log, process
 initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
 
-# Environment
+# Environment imports
 from eagerx.core.rxgraph import RxGraph
 
 # Implementation specific
@@ -30,11 +30,11 @@ if __name__ == '__main__':
     graph.connect(action='action', target=(name, 'actuators', 'action'), window=1)
 
     # Add rendering
-    graph.add_component(name, 'sensors', 'image')
-    graph.render(source=(name, 'sensors', 'image'), rate=10, display=True)
+    # graph.add_component(name, 'sensors', 'image')
+    # graph.render(source=(name, 'sensors', 'image'), rate=10, display=True)
 
     # Open gui
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')
@@ -50,8 +50,8 @@ if __name__ == '__main__':
     env.render(mode='human')
 
     # Use stable-baselines
-    model = sb.PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=int(2000*rate*200/20))
+    # model = sb.PPO("MlpPolicy", env, verbose=1)
+    # model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset
     done = False

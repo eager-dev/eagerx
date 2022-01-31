@@ -26,7 +26,7 @@ class TestBridgeNode(Bridge):
 
     @staticmethod
     @register.spec('TestBridge', Bridge)
-    def spec(spec: BridgeSpec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = True,
+    def spec(spec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = True,
              real_time_factor: Optional[float] = 0, simulate_delays: Optional[bool] = True,
              log_level: Optional[int] = ERROR, states: Optional[List[str]] = ['param_1']):
         """TestBridge spec"""
