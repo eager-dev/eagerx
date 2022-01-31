@@ -2,7 +2,7 @@
 
 # ROS packages required
 from eagerx.core import Object, Bridge, Node, initialize, log, process
-initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
+initialize('eagerx_core', anonymous=True, log_level=log.INFO)
 
 # Environment
 from eagerx.core.rxenv import EAGERxEnv
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         # Determine done flag
         done = steps > 500
         # Set info:
-        info = dict()
+        info = {'TimeLimit.truncated': done}
         return obs, -cost, done, info
 
     # Initialize Environment

@@ -1,6 +1,5 @@
 import yaml
 import inspect
-import importlib
 from functools import wraps, partial
 from copy import deepcopy
 
@@ -9,7 +8,7 @@ from pyqtgraph.Qt import QtGui
 
 from eagerx.core import constants
 from eagerx.utils.utils import get_attribute_from_module
-from eagerx.core.entities import BaseConverter
+from eagerx.core.register import REVERSE_REGISTRY
 
 
 def exception_handler(function_to_decorate):
@@ -39,6 +38,7 @@ class ParamWindow(QtGui.QDialog):
         super().__init__(node.graph.widget().cwWin)
         self.node = node
         self.node_type = node.node_type
+        self.library = node.graph.library
         self.is_term = term is not None
         self.entity = term if self.is_term else node
         self.entity_type = 'term' if self.is_term else 'node'
@@ -155,7 +155,8 @@ class ParamWindow(QtGui.QDialog):
 
     def open_converter_dialog(self, button, is_space_converter=False):
         key = 'space_converter' if is_space_converter else 'converter'
-        converter_dialog = ConverterDialog(converter=self.entity.params()[key], parent=self.parent())
+        converter_dialog = ConverterDialog(converter=self.entity.params()[key], parent=self.parent(),
+                                           library=self.library)
         converter = converter_dialog.open()
         converter_dialog.close()
         self.params_changed[key] = converter
@@ -163,10 +164,11 @@ class ParamWindow(QtGui.QDialog):
         button.setText('Edit {}'.format(button_string))
 
 class ConverterDialog(QtGui.QDialog):
-    def __init__(self, converter, parent):
+    def __init__(self, converter, parent, library, input_term, output_term=None):
         super().__init__(parent)
         self.parent = parent
         self.converter = converter
+        self.library = library
 
         self.setWindowTitle('Converter Parameters')
         self.layout = QtGui.QGridLayout()
@@ -175,11 +177,8 @@ class ConverterDialog(QtGui.QDialog):
 
         module_name, class_name, available_converters, required_args, optional_args = self.get_parameters()
 
-        self.add_widget(key='Converter Module', value=module_name, row=0)
-        self.add_widget(key='Converter Class', value=class_name, row=1, items=available_converters)
-
+        self.add_widget(key='Converter Class', value=class_name, row=0, items=available_converters)
         self.add_argument_widgets(required_args, optional_args)
-
         self.setLayout(self.layout)
 
     def open(self):
@@ -203,7 +202,7 @@ class ConverterDialog(QtGui.QDialog):
         return self.converter
 
     def add_argument_widgets(self, required_args, optional_args):
-        row = 2
+        row = 1
         required_args_label = QtGui.QLabel('Required Converter Arguments')
         self.layout.addWidget(required_args_label, row, 0)
         self.labels.append(required_args_label)
@@ -224,32 +223,23 @@ class ConverterDialog(QtGui.QDialog):
 
     def get_parameters(self):
         converter = deepcopy(self.converter)
-        converter_type = converter['converter_type'] if 'converter_type' in converter else ''
-        module_name = converter_type.split('/')[0]
-        class_name = converter_type.split('/')[1] if len(converter_type.split('/')) == 2 else None
+        converter_type = converter['converter_type']
+        converter_class = get_attribute_from_module(converter_type.split('/')[-1], converter_type.split('/')[0])
+        converter_id = REVERSE_REGISTRY[converter_class.spec]
 
-        available_converters = []
+        available_converters = {}
         required_args = {}
         optional_args = {}
-        module = None
+        converter_id = None
 
-        module_exists = importlib.util.find_spec(module_name) is not None
-        if module_exists:
-            module = importlib.import_module(module_name)
-            for name, member in inspect.getmembers(module):
-                if inspect.isclass(member):
-                    if BaseConverter in member.__mro__:
-                        available_converters.append(name)
+        for cnvrtr_type in ['Processor', 'Converter', 'BaseConverter', 'SpaceConverter']:
+            for cnvrtr in self.library[cnvrtr_type]:
+                available_converters[cnvrtr['id']] = {'spec': cnvrtr['spec'], 'entity_cls': cnvrtr['entity_cls']}
+                # if converter_type == cnvrtr['spec']().params['converter_type']:
+                #     converter_id = cnvrtr['id']
 
-        if class_name in available_converters:
-            class_name = class_name
-        elif len(available_converters) > 0:
-            class_name = available_converters[0]
-        else:
-            class_name = None
-
-        if class_name is not None:
-            argspec = inspect.getfullargspec(getattr(module, class_name).__init__)
+        if converter_id is not None:
+            argspec = inspect.getfullargspec(self.library.initialize)
             default_values = [] if argspec.defaults is None else argspec.defaults
             required_keys = argspec.args if len(default_values) == 0 else argspec.args[:-len(default_values)]
             if 'self' in required_keys:
@@ -281,20 +271,18 @@ class ConverterDialog(QtGui.QDialog):
             widget.activated.connect(partial(self.class_changed, items=items))
         else:
             widget = QtGui.QLineEdit(value)
-            if key == 'Converter Module':
-                widget.textChanged.connect(self.module_changed)
-            else:
-                widget.textChanged.connect(partial(self.argument_changed, key=key))
+            widget.textChanged.connect(partial(self.argument_changed, key=key))
 
         self.layout.addWidget(label, row, 0)
         self.layout.addWidget(widget, row, 1)
         self.labels.append(label)
         self.widgets.append(widget)
 
-    def module_changed(self, text):
-        old_converter = self.converter['converter_type']
-        converter_class = old_converter.split('/')[1] if len(old_converter.split('/')) == 2 else ''
-        self.converter['converter_type'] = text + '/' + converter_class
+    def class_changed(self, int, items):
+        converter_class = items[int]
+        converter_module = self.converter['converter_type'].split('/')[0]
+        converter_type = '/'.join([converter_module, converter_class])
+        self.converter['converter_type'] = converter_type
 
         for label in self.labels[1:]:
             self.layout.removeWidget(label)
@@ -304,31 +292,8 @@ class ConverterDialog(QtGui.QDialog):
             self.layout.removeWidget(widget)
             widget.close()
 
-        self.labels = [self.labels[1]]
-        self.widgets = [self.widgets[1]]
-
-        module_name, class_name, available_converters, required_args, optional_args = self.get_parameters()
-
-        self.add_widget(key='Converter Class', value=class_name, row=1, items=available_converters)
-
-        self.add_argument_widgets(required_args, optional_args)
-
-    def class_changed(self, int, items):
-        converter_class = items[int]
-        converter_module = self.converter['converter_type'].split('/')[0]
-        converter_type = '/'.join([converter_module, converter_class])
-        self.converter['converter_type'] = converter_type
-
-        for label in self.labels[2:]:
-            self.layout.removeWidget(label)
-            label.close()
-
-        for widget in self.widgets[2:]:
-            self.layout.removeWidget(widget)
-            widget.close()
-
-        self.labels = self.labels[:3]
-        self.widgets = self.widgets[:3]
+        self.labels = self.labels[:2]
+        self.widgets = self.widgets[:2]
 
         _, _, _, required_args, optional_args = self.get_parameters()
 
@@ -341,6 +306,7 @@ class ConnectionDialog(QtGui.QDialog):
     def __init__(self, input_term, **kwargs):
         super().__init__(input_term.node.graph.widget().cwWin)
         self.setWindowTitle('Connection Parameters')
+        self.library = input_term.node.graph.library
         self.layout = QtGui.QGridLayout()
         self.params = {}
         self.labels = []
@@ -392,7 +358,8 @@ class ConnectionDialog(QtGui.QDialog):
         self.widgets.append(widget)
 
     def open_converter_dialog(self, button):
-        converter_dialog = ConverterDialog(converter=self.params['converter'], parent=self.parent())
+        converter_dialog = ConverterDialog(converter=self.params['converter'], parent=self.parent(),
+                                           library=self.library)
         converter = converter_dialog.open()
         self.params['converter'] = converter
         converter_dialog.close()

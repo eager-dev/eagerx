@@ -33,8 +33,8 @@ class RxGuiNode(QtCore.QObject):
         self.graph = graph
         self.exception = None
 
-        if 'config_name' in self.params() and self.params()['config_name'] in ['actions', 'observations', 'render']:
-            self.node_type = self.params()['config_name']
+        if self.params()['entity_id'] in ['Actions', 'Observations', 'Render']:
+            self.node_type = self.params()['entity_id'].lower()
             self.allow_add_terminal = not self.node_type == 'render'
             self.allow_remove = False
             self.is_object = False
