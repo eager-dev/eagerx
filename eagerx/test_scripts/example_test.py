@@ -133,7 +133,7 @@ if __name__ == '__main__':
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = Bridge.make('TestBridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
+    bridge = Bridge.make('TestBridge', rate=20, is_reactive=False, real_time_factor=8, process=bridge_p)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     env.render(mode='human')
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(200):
+        for i in range(20):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')

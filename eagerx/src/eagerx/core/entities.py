@@ -584,7 +584,6 @@ class Bridge(BaseNode):
                 rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         _ = self.callback(t_n, **kwargs)
-
         # Fill output msg with number of node ticks
         self.num_ticks += 1
         return dict(tick=UInt64(data=node_tick + 1))

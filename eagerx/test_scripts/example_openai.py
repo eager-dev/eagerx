@@ -34,14 +34,14 @@ if __name__ == '__main__':
     # graph.render(source=(name, 'sensors', 'image'), rate=10, display=True)
 
     # Open gui
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = Bridge.make('GymBridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = Bridge.make('GymBridge', rate=rate, is_reactive=False, real_time_factor=1, process=process.NEW_PROCESS)
 
     # Initialize Environment
     env = eagerx_gym.EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge)
@@ -60,7 +60,9 @@ if __name__ == '__main__':
     action = env.action_space.sample()
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        while not done:
+        iter = 0
+        while not done:# and iter < 10:
+            iter += 1
             obs, reward, done, info = env.step(action)
         obs = env.reset()
         done = False

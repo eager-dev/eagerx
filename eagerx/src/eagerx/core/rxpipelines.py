@@ -24,7 +24,7 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
 
     # Throttle the callback trigger
-    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node)
+    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, event_scheduler, node)
 
     # Create input channels
     zipped_inputs, zipped_input_flags = init_channels(ns, Nct, rate_node, inputs, is_reactive, real_time_factor, simulate_delays, E, node=node, scheduler=event_scheduler)
@@ -244,15 +244,6 @@ def init_node(ns, rate_node, node, inputs, outputs, feedthrough=tuple(), state_i
     # Send node reset message
     reset_msg.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset['msg'])
 
-    # Send initial messages, latched on first bridge tick
-    # for i in outputs:
-    #     if i['start_with_msg']:
-    #         reset_msg.pipe(ops.pluck(i['name']),
-    #                        ops.zip(T.pipe(ops.filter(lambda x: x.data == 0))),
-    #                        ops.map(lambda x: x[0]),
-    #                        spy('init_msg', node),
-    #                        ).subscribe(i['msg'])
-
     rx_objects = dict(inputs=inputs, outputs=outputs, feedthrough=feedthrough, state_inputs=state_inputs, state_outputs=state_outputs, targets=targets, node_inputs=node_inputs, node_outputs=node_outputs)
     return rx_objects
 
@@ -265,7 +256,7 @@ def init_bridge_pipeline(ns, rate_node, node, zipped_channels, outputs, Nct_ho, 
     Ns = BehaviorSubject(0)     # Number of started callbacks (i.e. number of planned Topics).
 
     # Throttle the callback trigger
-    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, node)
+    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, event_scheduler, node)
     Nct_ho.on_next(Nct)
 
     # Create a tuple with None, to be consistent with feedthrough pipeline of init_node_pipeline
@@ -441,7 +432,6 @@ def init_bridge(ns, rate_node, node, inputs_init, outputs, state_inputs, node_na
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
-    # todo: risk: that REG_cum == 1, while rx_objects is already REG_cum == 2. Will cause a deadlock in that case.
     rx_objects = SR.pipe(ops.combine_latest(REG_cum),
                          ops.filter(lambda x: x[0].data == x[1]),  # cum_registered == REG_cum
                          ops.combine_latest(rx_objects),
