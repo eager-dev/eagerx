@@ -13,10 +13,15 @@ from genpy import Message
 from std_msgs.msg import Bool, UInt64
 from tabulate import tabulate
 
+
 from eagerx.core.constants import TERMCOLOR, ERROR, SILENT, process
 from eagerx.core.rxmessage_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from eagerx.core.specs import BridgeSpec, NodeSpec, EngineNodeSpec, ConverterSpec, EngineStateSpec, ResetNodeSpec, ObjectSpec, AgnosticSpec
 
 
 class Entity(object):
@@ -253,6 +258,11 @@ class Node(BaseNode):
             if i['name'] == cname:
                 i['delay'] = delay
 
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: 'NodeSpec', *args, **kwargs):
+        pass
+
     @abc.abstractmethod
     def reset(self, **kwargs: Optional[Message]):
         """
@@ -299,6 +309,11 @@ class Node(BaseNode):
 
 class ResetNode(Node):
     """Reset node baseclass from which all nodes that perform a real reset routine inherit"""
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: 'ResetNodeSpec', *args, **kwargs):
+        pass
+
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
@@ -366,6 +381,11 @@ class EngineNode(Node):
 
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
+
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: 'EngineNodeSpec', *args, **kwargs):
+        pass
 
     @abc.abstractmethod
     def reset(self, **kwargs: Optional[Message]) -> Optional[Dict[str, Message]]:
@@ -583,8 +603,13 @@ class Bridge(BaseNode):
     def check_spec(cls, spec):
         super().check_spec(spec)
 
+    @staticmethod
     @abc.abstractmethod
-    def add_object(self, node_params: List[Dict], state_params: List[Dict], *args, **kwargs) -> None:
+    def spec(spec: 'BridgeSpec', *args, **kwargs):
+        pass
+
+    @abc.abstractmethod
+    def add_object(self, agnostic_params: Dict, bridge_params: Dict, node_params: List[Dict], state_params: List[Dict], *args, **kwargs) -> None:
         """
         Adds an object to the bridge's simulator object.
 
@@ -592,9 +617,9 @@ class Bridge(BaseNode):
 
         This method is called in .register_object(...).
 
-        :param object_params: A dictionary containing the following: First, all the parameters defined under "default"
-        in the package/config/<object>.yaml. Secondly, it contains all object parameters that are specific for this bridge
-        implementation under the keyword 'bridge". These are the parameters defined under "<bridge>" in the object_package/config/<object>.yaml.
+        :param agnostic_params: A dict with all agnostic object params.
+        :param bridge_params: A dict with all engine specific params, defined in the engine agnostic definition of the object.
+
         :param node_params: A list containing the parameters of all the nodes that represent the object's simulated
         sensors & actuators.
         :param state_params: A list containing the parameters of all the simulated object states.
@@ -658,6 +683,16 @@ class Bridge(BaseNode):
 
 
 class Object(Entity):
+    @staticmethod
+    @abc.abstractmethod
+    def agnostic(spec: 'AgnosticSpec'):
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: 'ObjectSpec', *args, **kwargs):
+        pass
+
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
@@ -703,6 +738,11 @@ class BaseConverter(Entity):
 
     @abc.abstractmethod
     def convert(self, msg):
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: 'ConverterSpec', *args, **kwargs):
         pass
 
     @staticmethod
@@ -851,6 +891,11 @@ class EngineState(Entity):
         self.color = color
         self.print_mode = print_mode
         self.initialize(*args, **kwargs)
+
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: 'EngineNodeSpec', *args, **kwargs):
+        pass
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):

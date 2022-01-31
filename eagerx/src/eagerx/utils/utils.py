@@ -30,6 +30,7 @@ def dict_null(items):
         result[key] = value
     return result
 
+
 def dict_None(items):
     result = {}
     for key, value in items:
@@ -370,8 +371,10 @@ def get_nodes_and_objects_library():
     library = dict()
     for entity_cls, entities in REGISTRY.items():
         library[entity_cls.__name__] = []
-        for id, spec in entities.items():
-            library[entity_cls.__name__].append({'id': id, 'spec': spec, 'entity_cls': entity_cls})
+        for id, entry in entities.items():
+            spec = entry['spec']
+            cls = get_attribute_from_module(entry['cls'])
+            library[entity_cls.__name__].append({'id': id, 'spec': spec, 'entity_cls': entity_cls, 'cls': cls})
     #
     #
     # library = {'reset_node': {}, 'node': {}, 'object': {}, 'converter'}

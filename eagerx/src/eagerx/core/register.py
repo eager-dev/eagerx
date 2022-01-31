@@ -4,6 +4,7 @@ import rospy
 import copy
 from eagerx.utils.utils import deepcopy
 
+
 # Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
 REGISTRY = dict()
 # Global registry with registered I/O types of (.callback, .reset/.pre_reset, .initialize, .add_object)
@@ -16,8 +17,8 @@ class ReverseRegisterLookup:
 
     def __getitem__(self, spec_lookup):
         for entity_cls, entity_id in self._dict.items():
-            for entity_id, spec in entity_id.items():
-                if spec == spec_lookup:
+            for entity_id, entry in entity_id.items():
+                if entry['spec'] == spec_lookup:
                     return entity_id
 
 
@@ -36,6 +37,7 @@ class LookupType:
 # Global (reversed) registry of REGISTER:
 REVERSE_REGISTRY = ReverseRegisterLookup(REGISTRY)
 LOOKUP_TYPES = LookupType(TYPE_REGISTER)
+
 
 def spec(entity_id, entity_cls):
     """Register a spec function to make an entity"""
@@ -62,8 +64,9 @@ def spec(entity_id, entity_cls):
             REGISTRY[entity_cls] = dict()
         if entity_id in REGISTRY[entity_cls]:
             """Check if spec of duplicate entity_id corresponds to same spec function"""
-            assert _spec == REGISTRY[entity_cls][entity_id], f'There is already a {entity_cls.__name__} with entity_id "{entity_id}" registered.'
-        REGISTRY[entity_cls][entity_id] = _spec
+            assert _spec == REGISTRY[entity_cls][entity_id]['spec'], f'There is already a {entity_cls.__name__} with entity_id "{entity_id}" registered.'
+        cls = f'{func.__module__}/{func.__qualname__[:-5]}'
+        REGISTRY[entity_cls][entity_id] = {'spec': _spec, 'cls': cls}
         return _spec
     return _register
 
@@ -72,14 +75,14 @@ def make(entity, id, *args, **kwargs):
     """Make an entity with the registered spec function"""
     assert entity in REGISTRY, f'No entities of type "{entity.__name__}" registered.'
     assert id in REGISTRY[entity], f'No entities of type "{entity.__name__}" registered under id "{id}". Available entities "{[s for s in list(REGISTRY[entity].keys())]}".'
-    return REGISTRY[entity][id](*args, **kwargs)
+    return REGISTRY[entity][id]['spec'](*args, **kwargs)
 
 
 def get_spec(entity, id, verbose=True):
     """Get information on the entity's spec function"""
     if verbose:
-        help(REGISTRY[entity][id])
-    return inspect.signature(REGISTRY[entity][id])
+        help(REGISTRY[entity][id]['spec'])
+    return inspect.signature(REGISTRY[entity][id]['spec'])
 
 
 ############# TYPES ###############
