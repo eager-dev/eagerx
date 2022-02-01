@@ -911,25 +911,35 @@ def filter_dict_on_key(key):
 
 
 def throttle_with_time(dt, node):
+    node_name = node.ns_name
+    color = node.color
+    print_mode = node.print_mode
+    mapper = lambda x: x
+    id = 'throttle'
+    effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
     def _throttle_with_time(source):
         def subscribe(observer, scheduler=None):
-            next_tick = [None]
-            end = [None]
+            # toc = [None]
+            tic = [None]
             cum_delay = [0]
             cum_sleep = [0]
+            rate = rospy.Rate(1/dt)
 
             def on_next(value):
-                end[0] = time.time()
-                if next_tick[0] is None:
-                    next_tick[0] = end[0] + dt
-                overdue = end[0] - next_tick[0]
-                if overdue < 0:  # sleep if overdue is negative
-                    time.sleep(-overdue)
-                    cum_sleep[0] += overdue
-                    next_tick[0] = end[0] + dt
+                rate.sleep()
+                if tic[0] is None:
+                    tic[0] = time.perf_counter()
+                toc = time.perf_counter()
+                sleep_time = dt - (toc - tic[0])
+                val_str = f'sleep_time={sleep_time:.2f}, {tic[0]:.2f}, {toc:.2f}'
+                if node.log_level >= effective_log_level and DEBUG >= effective_log_level:
+                    print_info(node_name, color, id, trace_type='', value=str(mapper(val_str)), print_mode=print_mode, log_level=DEBUG)
+                if sleep_time > 0:  # sleep if overdue is negative
+                    # time.sleep(sleep_time)
+                    cum_sleep[0] += sleep_time
                 else:  # If we are overdue, then next tick is shifted by overdue
-                    cum_delay[0] += overdue
-                    next_tick[0] = end[0] + dt + overdue
+                    cum_delay[0] += -sleep_time
+                tic[0] += toc + sleep_time
                 observer.on_next(value)
                 # observer.on_next((value, cum_delay, cum_sleep))
             return source.subscribe(
@@ -947,14 +957,13 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, n
     else:
         assert real_time_factor > 0, "The real_time_factor must be larger than zero when *not* running reactive (i.e. asychronous)."
         wc_dt = 1 / (rate_node * real_time_factor)
-        # Nct = Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0),
-        #               throttle_with_time(wc_dt, node),
-        #               ops.start_with(0),
-                      # ops.share())
-        wc_dt = max(0.001, wc_dt - 0.0015)
-        Nct = rx.interval(wc_dt).pipe(throttled_Nc(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0)),
-                                                   is_reactive, rate_node, node),
-                                      ops.share())
+        Nct = Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0),
+                      throttle_with_time(wc_dt, node),
+                      ops.share())
+        # wc_dt = max(0.001, wc_dt - 0.0015)
+        # Nct = rx.interval(wc_dt).pipe(throttled_Nc(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0)),
+        #                                            is_reactive, rate_node, node),
+        #                               ops.share())
     return Nct
 
 
