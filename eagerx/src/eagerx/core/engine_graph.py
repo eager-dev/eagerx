@@ -24,6 +24,8 @@ class EngineGraph:
             nodes = [nodes]
 
         from eagerx.core.entities import EngineNode
+        from eagerx.core.converters import Identity
+        identity_conv = Identity().get_yaml_definition()
 
         # Create actuator node
         outputs = []
@@ -31,7 +33,10 @@ class EngineGraph:
         spec.set_parameter('name', 'actuators')
         nodes.append(spec)
         for cname, params in actuators.items():
-            spec.add_output(cname, msg_type=params['msg_type'], converter=ConverterSpec(params['converter']), space_converter=ConverterSpec(params['space_converter']))
+            # We use identity converter instead of params['converter'], because this output converter is a "placeholder".
+            # When building the actuator node (being the connected engine node), this output converter is not even initialized.
+            spec.add_output(cname, msg_type=params['msg_type'], converter=ConverterSpec(identity_conv), space_converter=ConverterSpec(params['space_converter']))
+            spec.add_input(cname, msg_type=params['msg_type'], skip=params['skip'], converter=ConverterSpec(identity_conv), space_converter=ConverterSpec(params['space_converter']))
             outputs.append(cname)
         spec.set_parameter('outputs', outputs)
 
@@ -41,7 +46,9 @@ class EngineGraph:
         spec.set_parameter('name', 'sensors')
         nodes.append(spec)
         for cname, params in sensors.items():
-            spec.add_input(cname, msg_type=params['msg_type'], converter=ConverterSpec(params['converter']), space_converter=ConverterSpec(params['space_converter']))
+            # We use identity converter instead of params['converter'], because this input converter is a "placeholder".
+            # When building the sensor node (being the connected engine node), this input converter is not even initialized.
+            spec.add_input(cname, msg_type=params['msg_type'], converter=ConverterSpec(identity_conv), space_converter=ConverterSpec(params['space_converter']))
             inputs.append(cname)
         spec.set_parameter('inputs', inputs)
 
@@ -919,7 +926,12 @@ class EngineGraph:
                     feedthrough = False
 
                 # Determine edges that do not break DAG property (i.e. edges that are skipped)
-                skip = state['nodes'][target_name]['params'][target_comp][target_cname]['skip']
+                if source_name == 'actuators':
+                    skip = state['nodes'][source_name]['params']['inputs'][source_cname]['skip']
+                else:
+                    skip = state['nodes'][target_name]['params'][target_comp][target_cname]['skip']
+
+                # Determine color
                 color = 'green' if skip else 'black'
                 style = 'dotted' if skip else 'solid'
 
