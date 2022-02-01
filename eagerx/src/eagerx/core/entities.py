@@ -468,6 +468,7 @@ class Bridge(BaseNode):
         assert is_reactive or (not is_reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
 
         # Initialized nodes
+        self.num_resets = 0
         self.is_initialized = dict()
 
         # Message counter
@@ -547,6 +548,7 @@ class Bridge(BaseNode):
             else:
                 kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
+        self.num_resets += 1
         return self.reset(**kwargs)
 
     def callback_cb(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
@@ -583,7 +585,10 @@ class Bridge(BaseNode):
                     self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
                 rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
-        _ = self.callback(t_n, **kwargs)
+        # Only apply the callback after all pipelines have been initialized
+        # Only then, the initial state has been set.
+        if self.num_resets > 1:
+            _ = self.callback(t_n, **kwargs)
         # Fill output msg with number of node ticks
         self.num_ticks += 1
         return dict(tick=UInt64(data=node_tick + 1))
@@ -593,7 +598,7 @@ class Bridge(BaseNode):
         spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
         default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
-                       launch_file='$(find eagerx)/launch/rxbridge.launch', outputs=['tick'])
+                       launch_file='$(find eagerx)/launch/rxbridge.launch')
         spec._set({'default': default})
         from eagerx.core.specs import BridgeSpec
         return BridgeSpec(spec.params)

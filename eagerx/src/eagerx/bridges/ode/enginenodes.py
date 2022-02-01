@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 import numpy as np
 
 # IMPORT ROS
@@ -77,7 +77,7 @@ class ActionApplied(EngineNode):
 class OdeInput(EngineNode):
     @staticmethod
     @register.spec('OdeInput', EngineNode)
-    def spec(spec, name: str, rate: float, process: Optional[int] = process.BRIDGE, color: Optional[str] = 'green'):
+    def spec(spec, name: str, rate: float, default_action: List, process: Optional[int] = process.BRIDGE, color: Optional[str] = 'green'):
         """OdeInput spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(OdeInput)
@@ -86,14 +86,18 @@ class OdeInput(EngineNode):
         params = dict(name=name, rate=rate, process=process, color=color, inputs=['tick', 'action'], outputs=['action_applied'])
         spec.set_parameters(params)
 
-    def initialize(self):
+        # Set custom node params
+        spec.set_parameter('default_action', default_action)
+
+    def initialize(self, default_action):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert self.process == process.BRIDGE, 'Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process'
         self.obj_name = self.agnostic_params['name']
+        self.default_action = np.array(default_action)
 
     @register.states()
     def reset(self):
-        pass
+        self.simulator[self.obj_name]['input'] = np.squeeze(np.array(self.default_action))
 
     @register.inputs(tick=UInt64, action=Float32MultiArray)
     @register.outputs(action_applied=Float32MultiArray)

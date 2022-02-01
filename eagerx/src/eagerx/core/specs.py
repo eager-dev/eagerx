@@ -116,20 +116,23 @@ class BaseNodeSpec(EntitySpec):
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
                 if component == 'outputs':
+                    self._params['default']['outputs'].append(cname)
                     mapping = dict(msg_type=msg_type, rate='$(default rate)', converter=self.identity.params, space_converter=None)
                     # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
                     if add_ft:
                         mapping_ft = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=None,
                                           converter=self.identity.params, space_converter=None, address=None)
                         self._set({'feedthroughs': {cname: mapping_ft}})
-
                 elif component == 'inputs':
+                    self._params['default']['inputs'].append(cname)
                     address = 'bridge/outputs/tick' if cname == 'tick' else None
                     mapping = dict(msg_type=msg_type, delay=0.0, window=1, skip=False, external_rate=None,
                                    converter=self.identity.params, space_converter=None, address=address)
                 elif component == 'targets':
+                    self._params['default']['targets'].append(cname)
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None, address=None)
                 else:
+                    self._params['default']['states'].append(cname)
                     component = 'states'
                     mapping = dict(msg_type=msg_type, converter=self.identity.params, space_converter=None)
                 self._set({component: {cname: mapping}})
@@ -627,6 +630,14 @@ class AgnosticSpec(EntitySpec):
     def set_parameters(self, component: str, cname: str, mapping: Dict):
         for parameter, value in mapping.items():
             self._set({component: {cname: {parameter: value}}})
+
+    @exists
+    def get_component_parameter(self, component: str, cname: str, parameter: str):
+        return self.params[component][cname].get(parameter)
+
+    @exists
+    def get_component_parameters(self, component: str, cname: str):
+        return self.params[component][cname]
 
 
 class SpecificSpec(EntitySpec):

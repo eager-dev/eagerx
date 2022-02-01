@@ -869,7 +869,9 @@ class EngineGraph:
             cycle_strs.append(n)
             connect.pop(-1)
         assert is_dag, ''.join(cycle_strs)
-        assert len(not_active) == 0, 'Stale episode graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
+
+        not_active_excl_sensors = [n for n in not_active if not n.split('/')[0] == 'sensors']
+        assert len(not_active_excl_sensors) == 0, 'Stale episode graph detected. Nodes "%s" will be stale, while they must be active (i.e. connected) in order for the graph to resolve (i.e. not deadlock).' % not_active
         return True
 
     @staticmethod

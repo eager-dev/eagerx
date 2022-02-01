@@ -18,14 +18,12 @@ if __name__ == '__main__':
     rate = 7
 
     # todo: TODAY
-    #  - Skip None --> implement for bridge as well?
-    #  - Select all I/O per default
-    #  - Async rate
-    #  - make action node reactive?
-    #  - Pass spec params through to bridge_specific implementations?
+    #  - skip=True not shown in EngineGraph validity plots
+    #  - rename set_bridge_parameters/set_component_parameters SpecificSpec, select_component
+    #  - Effect of skipping first action on environment synchronization.
     #  - Installation procedure
     #  - Test mops setup.
-    #  - Parallel training?
+    #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
     #  - Pause environment
 
     # Define nodes

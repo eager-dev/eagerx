@@ -533,6 +533,11 @@ def generate_msgs(source_Nc: Observable, rate_node: float, name: str, rate_in: f
 
 
 def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simulate_delays, E, scheduler, is_feedthrough, node):
+
+    if node.name == 'env/actions' and inpt['name'] == 'step':
+        is_reactive = True
+        print('wait')
+
     if is_feedthrough:
         name = inpt['feedthrough_to']
     else:
