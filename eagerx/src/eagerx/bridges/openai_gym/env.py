@@ -8,7 +8,7 @@ import gym
 
 def step_fn(prev_obs, obs, action, steps):
     info = dict()
-    return obs, obs['reward'][0], obs['done'][0], info
+    return obs, obs.pop('reward', 0.), obs.pop('done', False), info
 
 
 class EAGERxGym(EAGERxEnv):
@@ -52,10 +52,6 @@ class EAGERxGym(EAGERxEnv):
 
         # Apply action
         obs, reward, is_done, info = super(EAGERxGym, self).step(action)
-
-        # Remove 'reward' and 'done' from observation
-        obs.pop('reward', None)
-        obs.pop('done', None)
 
         # Flatten observation
         obs = self.flatten_observation(obs)

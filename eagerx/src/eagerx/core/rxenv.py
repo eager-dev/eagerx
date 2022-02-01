@@ -195,7 +195,9 @@ class RxEnv(gym.Env):
     def observation_space(self) -> gym.spaces.Dict:
         observation_space = dict()
         for name, buffer in self.obs_node.observation_buffer.items():
-            observation_space[name] = buffer['converter'].get_space()
+            space = buffer['converter'].get_space()
+            if not buffer['window'] > 0: continue
+            observation_space[name] = space
         return gym.spaces.Dict(spaces=observation_space)
 
     @property

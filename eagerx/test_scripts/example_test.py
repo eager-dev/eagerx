@@ -18,7 +18,7 @@ if __name__ == '__main__':
     rate = 7
 
     # todo: TODAY
-    #  - skip=True not shown in EngineGraph validity plots
+    #  - Cannot have the same input as two separate observations... Why? Make a check.
     #  - rename set_bridge_parameters/set_component_parameters SpecificSpec, select_component
     #  - Effect of skipping first action on environment synchronization.
     #  - Installation procedure
@@ -162,6 +162,7 @@ if __name__ == '__main__':
     #  - SimState
 
     # todo: THINGS TO KEEP IN MIND:
+    #  - We repeat the observation_space for the set window length. If window = 0, it is not included in the observation_space.
     #  - If output converters are used on simnodes, you risk breaking the object's simulation graph (as some simnodes might expect an non-converted message).
     #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
     #  - The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces

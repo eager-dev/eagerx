@@ -2,7 +2,7 @@
 
 # ROS packages required
 from eagerx.core import Object, Bridge, Node, initialize, log, process
-initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
+initialize('eagerx_core', anonymous=True, log_level=log.INFO)
 
 # Environment
 from eagerx.core.rxenv import EAGERxEnv
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     graph = RxGraph.create()
 
     # Create mops
-    mops = Object.make('Mops', 'mops', render_shape=[480, 480])
+    mops = Object.make('Mops', 'mops', render_shape=[480, 480], sensors=['mops_output', 'action_applied'])
     graph.add(mops)
 
     # Create Butterworth filter
@@ -40,21 +40,23 @@ if __name__ == '__main__':
     graph.connect(source=('bf', 'outputs', 'filtered'), target=('mops', 'actuators', 'mops_input'))
     graph.connect(source=('mops', 'sensors', 'mops_output'), observation='observation', window=1)
     graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
+
+    # Add rendering
+    graph.add_component('mops', 'sensors', 'image')
     graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
 
     # Show in the gui
     graph.gui()
 
     # Define bridges
-    bridge_ode = Bridge.make('OdeBridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
-    bridge_real = Bridge.make('RealBridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
+    bridge_ode = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=0, process=process.NEW_PROCESS)
+    bridge_real = Bridge.make('RealBridge', rate=rate, is_reactive=False, process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):
         # Calculate reward
-        data = np.squeeze(obs['observation'])
-        if len(data) == 3:
-            sin_th, cos_th, thdot = np.squeeze(obs['observation'])
+        if len(obs['observation']) == 3:
+            sin_th, cos_th, thdot = obs['observation']
         else:
             sin_th, cos_th, thdot = 0, -1, 0
         th = np.arctan2(sin_th, cos_th)

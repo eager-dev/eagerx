@@ -17,7 +17,7 @@ class GymSpace_Float32MultiArray(SpaceConverter):
 
     @staticmethod
     @register.spec('GymSpace_Float32MultiArray', SpaceConverter)
-    def spec(spec, gym_id: str = None, space: str = None, low=None, high=None, shape=None, dtype='uint64'):
+    def spec(spec, gym_id: str = None, space: str = None, low=None, high=None, shape=None, dtype='float32'):
         params = dict(gym_id=gym_id, space=space, low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
 

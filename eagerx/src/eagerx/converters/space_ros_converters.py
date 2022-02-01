@@ -18,7 +18,7 @@ class Space_Float32MultiArray(SpaceConverter):
 
     @staticmethod
     @register.spec('Space_Float32MultiArray', SpaceConverter)
-    def spec(spec: ConverterSpec, low=None, high=None, dtype='uint64'):
+    def spec(spec: ConverterSpec, low=None, high=None, dtype='float32'):
         params = dict(low=low, high=high, dtype=dtype)
         spec.set_parameters(params)
 

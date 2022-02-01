@@ -55,8 +55,16 @@ class ObservationsNode(Node):
             elif 'converter' in i and not isinstance(i['converter'], dict):
                 converter = i['converter']
             else:
-                converter = None
-            self.observation_buffer[i['name']] = {'msgs': None, 'converter': converter, 'window': i['window']}
+                raise ValueError(f'Converter type {i["converter"]} of {i["name"]} not supported.')
+
+            name = i['name']
+            window = i['window']
+            self.observation_buffer[name] = {'msgs': None, 'converter': converter, 'window': window}
+
+            # If window > 1
+            for j in range(1, window):
+                space_name = f'{name}_t-{j}'
+                self.observation_buffer[space_name] = {'msgs': None, 'converter': converter, 'window': window}
 
     def reset(self):
         # Set all messages to None
@@ -66,9 +74,24 @@ class ObservationsNode(Node):
     @register.inputs(actions_set=UInt64)
     @register.outputs(set=UInt64)
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
-        # Set all observations to messages in inputs
-        for name, buffer in self.observation_buffer.items():
-            buffer['msgs'] = kwargs[name].msgs
+        for name, i in kwargs.items():
+            if name == 'actions_set': continue
+            buffer = self.observation_buffer[name]
+            window = buffer['window']
+
+            # Set most recent msg
+            if window == 0:
+                buffer['msgs'] = i.msgs
+            elif window == 1:
+                buffer['msgs'] = i.msgs[-1]
+            else:  # If window > 1
+                buffer['msgs'] = i.msgs[-1]
+
+                extra = window - len(i.msgs)
+                msgs = extra * [i.msgs[0]] + i.msgs
+                for idx, msg in enumerate(reversed(msgs[:-1])):
+                    obs_name = f'{name}_t-{idx+1}'
+                    self.observation_buffer[obs_name]['msgs'] = msg
 
         # Send output_msg
         output_msgs = dict(set=UInt64())

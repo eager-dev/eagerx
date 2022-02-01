@@ -536,7 +536,6 @@ def create_channel(ns, Nc, rate_node, inpt, is_reactive, real_time_factor, simul
 
     if node.name == 'env/actions' and inpt['name'] == 'step':
         is_reactive = True
-        print('wait')
 
     if is_feedthrough:
         name = inpt['feedthrough_to']
