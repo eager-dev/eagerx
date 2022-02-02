@@ -54,7 +54,7 @@ if __name__ == '__main__':
         # Calculate reward
         data = np.squeeze(obs['observation'])
         if len(data) == 3:
-            sin_th, cos_th, thdot = np.squeeze(obs['observation'])
+            sin_th, cos_th, thdot = data
         else:
             sin_th, cos_th, thdot = 0, -1, 0
         th = np.arctan2(sin_th, cos_th)
