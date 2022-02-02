@@ -60,7 +60,7 @@ class OdeBridge(Bridge):
         self.odeint_args = dict(rtol=rtol, atol=atol, hmax=hmax, hmin=hmin, mxstep=mxstep)
         self.simulator = dict()
 
-    @register.bridge_params(ode=None)
+    @register.bridge_params(ode=None, ode_params=list())
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
         rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
@@ -71,7 +71,7 @@ class OdeBridge(Bridge):
         Dfun = get_attribute_from_module(bridge_params['Dfun']) if 'Dfun' in agnostic_params else None
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(ode=ode, Dfun=Dfun, state=None, input=None)
+        self.simulator[obj_name] = dict(ode=ode, Dfun=Dfun, state=None, input=None, ode_params=bridge_params['ode_params'])
 
     def pre_reset(self, **kwargs: Optional[Msg]):
         pass
@@ -87,4 +87,5 @@ class OdeBridge(Bridge):
             ode = sim['ode']
             Dfun = sim['Dfun']
             x = sim['state']
-            sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input,), Dfun=Dfun, **self.odeint_args)[-1]
+            ode_params = sim['ode_params']
+            sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input, *ode_params), Dfun=Dfun, **self.odeint_args)[-1]

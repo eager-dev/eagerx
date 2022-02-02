@@ -1,5 +1,6 @@
 from typing import Optional
 import cv2
+import skimage.transform
 import rospy
 
 # IMPORT ROS
@@ -52,6 +53,8 @@ class CameraRender(EngineNode):
                 msg = self.cv_bridge.cv2_to_imgmsg(img, 'bgr8')
             except ImportError as e:
                 rospy.logwarn_once('[%s] %s. Using numpy instead.' % (self.ns_name, e))
+                kwargs = dict(output_shape=(self.height, self.width), mode='edge', order=1, preserve_range=True)
+                img = skimage.transform.resize(img, **kwargs).astype(img.dtype)
                 data = img.tobytes('C')
                 msg = Image(data=data, height=self.height, width=self.width, encoding='bgr8')
         else:

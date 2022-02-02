@@ -45,9 +45,13 @@ class Mops(Object):
         sc = SpaceConverter.make('Space_Float32MultiArray', low=[-3.14159265359, -9], high=[3.14159265359, 9], dtype='float32')
         spec.set_space_converter('states', 'model_state', sc)
 
-        # Set model_parameters properties: (space_converters)
-        low = [1.7955e-04, 5.3580e-02, 4.1610e-02, 1.3490e-04, 4.7690e-02, 9.3385e+00, 1.4250e+00, 1.7480e-03]
-        high = [1.98450e-04, 5.92200e-02, 4.59900e-02, 1.49100e-04, 5.27100e-02, 1.03215e+01, 1.57500e+00, 1.93200e-03]
+        # Set model_parameters properties: (space_converters) # [J, m, l, b0, K, R, c, a]
+        fixed = [0.000189238, 0.0563641, 0.0437891, 0.000142205, 0.0502769, 9.83536, 1.49553, 0.00183742]
+        diff = [0, 0, 0, 0.05, 0.05, 0.05, 0.05]  # Percentual delta with respect to fixed value
+        low = [val - diff * val for val, diff in zip(fixed, diff)]
+        high = [val + diff * val for val, diff in zip(fixed, diff)]
+        # low = [1.7955e-04, 5.3580e-02, 4.1610e-02, 1.3490e-04, 4.7690e-02, 9.3385e+00, 1.4250e+00, 1.7480e-03]
+        # high = [1.98450e-04, 5.92200e-02, 4.59900e-02, 1.49100e-04, 5.27100e-02, 1.03215e+01, 1.57500e+00, 1.93200e-03]
         sc = SpaceConverter.make('Space_Float32MultiArray', low=low, high=high, dtype='float32')
         spec.set_space_converter('states', 'model_parameters', sc)
 
@@ -81,11 +85,14 @@ class Mops(Object):
 
         # Set object arguments (nothing to set here in this case)
         object_params = dict(ode='eagerx_dcsc_setups.mops.ode.mops_ode/mops_ode')
+        # Set default params of mops ode [J, m, l, b0, K, R, c, a].
+        object_params['ode_params'] = [0.000189238, 0.0563641, 0.0437891, 0.000142205, 0.0502769, 9.83536, 1.49553, 0.00183742]
+        indices = list(range(7))
         spec.set_parameters(object_params)
 
         # Create simstates (no agnostic states defined in this case)
         spec.set_state('model_state', EngineState.make('OdeSimState'))
-        spec.set_state('model_parameters', EngineState.make('OdeSimState'))
+        spec.set_state('model_parameters', EngineState.make('OdeParameters', indices))
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)

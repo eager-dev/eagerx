@@ -26,7 +26,7 @@ if __name__ == '__main__':
     graph = RxGraph.create()
 
     # Create mops
-    mops = Object.make('Mops', 'mops', render_shape=[480, 480], sensors=['mops_output', 'action_applied'])
+    mops = Object.make('Mops', 'mops', render_shape=[480, 480], sensors=['mops_output', 'action_applied'], states=['model_state', 'model_parameters'])
     graph.add(mops)
 
     # Create Butterworth filter
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     # Connect the nodes
     graph.connect(action='action', target=('bf', 'inputs', 'signal'))
     graph.connect(source=('bf', 'outputs', 'filtered'), target=('mops', 'actuators', 'mops_input'))
+    # graph.connect(action='action', target=('mops', 'actuators', 'mops_input'))
     graph.connect(source=('mops', 'sensors', 'mops_output'), observation='observation', window=1)
     graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
 

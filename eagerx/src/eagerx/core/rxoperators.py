@@ -665,9 +665,27 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node):
         return rx.never().pipe(ops.start_with(dict()))
 
 
+def call_state_reset(state):
+    def _call_state_reset(source):
+        def subscribe(observer, scheduler=None):
+            def on_next(state_msg):
+                state.reset(state=state_msg.msgs[0], done=state_msg.info.done)
+                observer.on_next(state_msg)
+            return source.subscribe(
+                on_next,
+                observer.on_error,
+                observer.on_completed,
+                scheduler)
+
+        return rx.create(subscribe)
+
+    return _call_state_reset
+
+
 def init_state_resets(ns, state_inputs, trigger, scheduler, node):
     if len(state_inputs) > 0:
         channels = []
+        import copy
         for s in state_inputs:
             d = s['done'].pipe(ops.map(lambda msg: bool(msg.data)),
                                ops.scan(lambda acc, x: x if x else acc, False))
@@ -685,8 +703,9 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
             done, reset = trigger.pipe(ops.with_latest_from(c),
                                        ops.map(lambda x: x[1]),
                                        ops.partition(lambda x: x.info.done))
-            reset = reset.pipe(ops.map(lambda x: (x, s['state'].reset(state=x.msgs[0], done=x.info.done))),
-                               ops.map(lambda x: x[0]))
+            reset = reset.pipe(call_state_reset(s['state']))
+            # reset = reset.pipe(ops.map(lambda x: (x, st.reset(state=x.msgs[0], done=x.info.done))),
+            #                    ops.map(lambda x: x[0]))
             rs = rx.merge(done.pipe(spy('done [%s]' % s['name'].split('/')[-1][:12].ljust(4), node)),
                           reset.pipe(spy('reset [%s]' % s['name'].split('/')[-1][:12].ljust(4), node)))
 

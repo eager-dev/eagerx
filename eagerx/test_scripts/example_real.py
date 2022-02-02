@@ -46,11 +46,11 @@ if __name__ == '__main__':
     graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
 
     # Show in the gui
-    graph.gui()
+    # graph.gui()
 
     # Define bridges
     bridge_ode = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=0, process=process.NEW_PROCESS)
-    bridge_real = Bridge.make('RealBridge', rate=rate, is_reactive=False, process=process.NEW_PROCESS)
+    bridge_real = Bridge.make('RealBridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):
