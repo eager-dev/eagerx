@@ -494,7 +494,7 @@ class EagerxGraphWidget(dockarea.DockArea):
                 break
             n += 1
 
-        signature = node_type['entity_cls'].get_spec(node_type['id'])
+        signature = node_type['entity_cls'].get_spec(node_type['id'], verbose=False)
         args = signature.parameters.keys()
         mapping = dict()
         if 'name' in args:

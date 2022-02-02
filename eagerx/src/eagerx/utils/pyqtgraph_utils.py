@@ -243,13 +243,13 @@ class ConverterDialog(QtGui.QDialog):
         optional_args = {}
 
         if self.is_space_converter:
-            cnvrtr_types = ['BaseConverter', 'SpaceConverter']
+            cnvrtr_types = ['SpaceConverter']
         elif None in [self.msg_type_in, self.msg_type_out]:
             cnvrtr_types = ['BaseConverter', 'Processor', 'Converter']
         elif self.msg_type_in == self.msg_type_out:
             cnvrtr_types = ['BaseConverter', 'Processor']
         else:
-            cnvrtr_types = ['BaseConverter', 'Converter']
+            cnvrtr_types = ['Converter']
 
         for cnvrtr_type in cnvrtr_types:
             if cnvrtr_type not in self.library:
@@ -268,8 +268,15 @@ class ConverterDialog(QtGui.QDialog):
                         continue
                 available_converters[cnvrtr['id']] = cnvrtr_cls
 
+        available_converters_list = list(available_converters.keys())
+
         if converter_id not in available_converters.keys():
-            converter_id = 'Identity' if 'Identity' in available_converters else None
+            if 'Identity' in available_converters:
+                converter_id = 'Identity'
+            elif len(available_converters_list) > 0:
+                converter_id = available_converters_list[0]
+            else:
+                converter_id = None
 
         if converter_id is not None:
             argspec = inspect.getfullargspec(available_converters[converter_id].initialize)
@@ -297,7 +304,7 @@ class ConverterDialog(QtGui.QDialog):
         else:
             converter = None
         self.converter = converter
-        return converter_id, list(available_converters.keys()), required_args, optional_args
+        return converter_id, available_converters_list, required_args, optional_args
 
     def add_widget(self, key, value, row, items=None):
         label = QtGui.QLabel(key)
