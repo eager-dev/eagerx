@@ -16,6 +16,9 @@ class RxGraph:
     def __init__(self, state: Dict):
         self._state = state
 
+    def __str__(self):
+        return yaml.dump(self._state)
+
     @classmethod
     def create(cls, nodes: Optional[List[BaseNodeSpec]] = None, objects: Optional[List[ObjectSpec]] = None):
         if nodes is None:

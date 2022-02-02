@@ -19,7 +19,6 @@ if __name__ == '__main__':
 
     # todo: TODAY
     #  - Cannot have the same input as two separate observations... Why? Make a check.
-    #  - rename set_bridge_parameters/set_component_parameters SpecificSpec, select_component
     #  - Effect of skipping first action on environment synchronization.
     #  - Installation procedure
     #  - Test mops setup.

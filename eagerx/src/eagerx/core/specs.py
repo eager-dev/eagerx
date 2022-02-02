@@ -315,18 +315,14 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
-    # todo: define mutation functions here
     pass
 
 
 class EngineNodeSpec(BaseNodeSpec):
-    # todo: add assertion on adding states (could make graph engine-specific)
-    # todo: define mutation functions here
     pass
 
 
 class ResetNodeSpec(BaseNodeSpec):
-    # todo: define mutation functions here
     pass
 
 

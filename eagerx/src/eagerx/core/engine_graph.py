@@ -15,6 +15,9 @@ class EngineGraph:
     def __init__(self, state: Dict):
         self._state = state
 
+    def __str__(self):
+        return yaml.dump(self._state)
+
     @classmethod
     def create(cls, actuators: Optional[List[Dict]] = None, sensors: Optional[List[Dict]] = None, nodes: Optional[List] = None):
 
