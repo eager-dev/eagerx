@@ -55,8 +55,8 @@ if __name__ == '__main__':
     # Define step function
     def step_fn(prev_obs, obs, action, steps):
         # Calculate reward
-        if len(obs['observation']) == 3:
-            sin_th, cos_th, thdot = obs['observation']
+        if len(obs['observation'][0]) == 3:
+            sin_th, cos_th, thdot = obs['observation'][0]
         else:
             sin_th, cos_th, thdot = 0, -1, 0
         th = np.arctan2(sin_th, cos_th)

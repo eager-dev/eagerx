@@ -61,11 +61,6 @@ class ObservationsNode(Node):
             window = i['window']
             self.observation_buffer[name] = {'msgs': None, 'converter': converter, 'window': window}
 
-            # If window > 1
-            for j in range(1, window):
-                space_name = f'{name}_t-{j}'
-                self.observation_buffer[space_name] = {'msgs': None, 'converter': converter, 'window': window}
-
     def reset(self):
         # Set all messages to None
         for name, buffer in self.observation_buffer.items():
@@ -79,19 +74,9 @@ class ObservationsNode(Node):
             buffer = self.observation_buffer[name]
             window = buffer['window']
 
-            # Set most recent msg
-            if window == 0:
-                buffer['msgs'] = i.msgs
-            elif window == 1:
-                buffer['msgs'] = i.msgs[-1]
-            else:  # If window > 1
-                buffer['msgs'] = i.msgs[-1]
-
-                extra = window - len(i.msgs)
-                msgs = extra * [i.msgs[0]] + i.msgs
-                for idx, msg in enumerate(reversed(msgs[:-1])):
-                    obs_name = f'{name}_t-{idx+1}'
-                    self.observation_buffer[obs_name]['msgs'] = msg
+            extra = window - len(i.msgs)
+            msgs = extra * [i.msgs[0]] + i.msgs
+            buffer['msgs'] = np.array(msgs)
 
         # Send output_msg
         output_msgs = dict(set=UInt64())

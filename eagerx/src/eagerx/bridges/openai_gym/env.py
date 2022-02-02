@@ -8,7 +8,7 @@ import gym
 
 def step_fn(prev_obs, obs, action, steps):
     info = dict()
-    return obs, obs.pop('reward', 0.), obs.pop('done', False), info
+    return obs, obs.pop('reward', 0.)[0], obs.pop('done', False)[0], info
 
 
 class EAGERxGym(EAGERxEnv):

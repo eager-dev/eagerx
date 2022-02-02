@@ -197,7 +197,10 @@ class RxEnv(gym.Env):
         for name, buffer in self.obs_node.observation_buffer.items():
             space = buffer['converter'].get_space()
             if not buffer['window'] > 0: continue
-            observation_space[name] = space
+            low = np.repeat(space.low[np.newaxis, ...], buffer['window'], axis=0)
+            high = np.repeat(space.high[np.newaxis, ...], buffer['window'], axis=0)
+            stacked_space = gym.spaces.Box(low=low, high=high, dtype=space.dtype)
+            observation_space[name] = stacked_space
         return gym.spaces.Dict(spaces=observation_space)
 
     @property
@@ -366,6 +369,7 @@ class EAGERxEnv(RxEnv):
         self.step_fn = step_fn
         self.reset_fn = reset_fn
         super(EAGERxEnv, self).__init__(name, rate, graph, bridge)
+        self.excl_obs = [name for name, buffer in self.obs_node.observation_buffer.items() if buffer['window'] == 0]
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         # Send actions and wait for observations
@@ -377,6 +381,13 @@ class EAGERxEnv(RxEnv):
 
         # Process after step
         observation, reward, is_done, info = self.step_fn(self.prev_observation, observation, action, self.steps)
+
+        # Pop all observations with window = 0 (if present)
+        for name in self.excl_obs:
+            try:
+                observation.pop(name)
+            except KeyError:
+                pass
 
         # Update previous observation with current observation (used in next step)
         self.prev_observation = prev_obs

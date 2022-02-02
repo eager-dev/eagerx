@@ -35,7 +35,7 @@ class Space_Float32MultiArray(SpaceConverter):
         return Float32MultiArray(data=msg)
 
     def B_to_A(self, msg):
-        return np.squeeze(msg.data)
+        return np.array(msg.data, dtype=self.dtype)
 
 
 class Space_Image(SpaceConverter):
