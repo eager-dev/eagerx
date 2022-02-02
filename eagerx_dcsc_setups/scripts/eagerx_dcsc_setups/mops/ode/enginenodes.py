@@ -30,7 +30,7 @@ class MopsImage(EngineNode):
         spec.set_parameter('shape', shape)
 
         # Set component parameter
-        spec.set_component_parameter('inputs', 'theta', 'window', 1)
+        spec.set_parameter('window', 1, 'inputs', 'theta')
 
     def initialize(self, shape):
         self.cv_bridge = CvBridge()

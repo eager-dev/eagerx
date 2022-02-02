@@ -51,7 +51,7 @@ class TestBridgeNode(Bridge):
 
         # Add state: "param_1"
         space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
-        spec.set_component_parameter('states', 'param_1', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'states', 'param_1')
 
     @register.bridge_params(req_arg=None, xacro='$(find some_package)/urdf/object.urdf.xacro')
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):

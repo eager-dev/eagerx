@@ -12,10 +12,12 @@ from eagerx.wrappers.flatten import Flatten
 # Implementation specific
 import eagerx.nodes             # Registers butterworth_filter # noqa # pylint: disable=unused-import
 import eagerx.bridges.ode       # Registers OdeBridge # noqa # pylint: disable=unused-import
+import eagerx.bridges.real      # Registers RealBridge # noqa # pylint: disable=unused-import
 import eagerx_dcsc_setups.mops  # Registers Mops # noqa # pylint: disable=unused-import
 
 # Other
 import numpy as np
+import rospy
 import stable_baselines3 as sb
 
 if __name__ == '__main__':
@@ -47,7 +49,8 @@ if __name__ == '__main__':
     graph.gui()
 
     # Define bridges
-    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=0, process=process.NEW_PROCESS)
+    bridge_ode = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=0, process=process.NEW_PROCESS)
+    bridge_real = Bridge.make('RealBridge', rate=rate, is_reactive=False, process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):
@@ -65,21 +68,39 @@ if __name__ == '__main__':
         return obs, -cost, done, info
 
     # Initialize Environment
-    env = Flatten(EAGERxEnv(name='rx', rate=rate, graph=graph, bridge=bridge, step_fn=step_fn))
+    real_env = Flatten(EAGERxEnv(name='real', rate=rate, graph=graph, bridge=bridge_real, step_fn=step_fn))
+    simulation_env = Flatten(EAGERxEnv(name='ode', rate=rate, graph=graph, bridge=bridge_ode, step_fn=step_fn))
 
     # Initialize learner (kudos to Antonin)
-    model = sb.SAC("MlpPolicy", env, verbose=1)
+    model = sb.SAC("MlpPolicy", simulation_env, verbose=1)
 
     # First train in simulation
-    env.render('human')
+    simulation_env.render('human')
     model.learn(total_timesteps=int(300*rate))
+    simulation_env.close()
 
     # Evaluate for 30 seconds in simulation
-    obs = env.reset()
+    obs = simulation_env.reset()
     for i in range(int(30 * rate)):
         action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, info = env.step(action)
+        obs, reward, done, info = simulation_env.step(action)
         if done:
-            obs = env.reset()
+            obs = simulation_env.reset()
 
     model.save('simulation')
+
+    # Train on real system
+    model = sb.SAC.load('simulation', env=real_env, ent_coef="auto_0.1")
+    real_env.render('human')
+    model.learn(total_timesteps=int(420*rate))
+    model.save('real')
+
+    # Evaluate on real system
+    rospy.loginfo('Start Evaluation!')
+    obs = real_env.reset()
+    while True:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, info = real_env.step(action)
+        real_env.render()
+        if done:
+            obs = real_env.reset()

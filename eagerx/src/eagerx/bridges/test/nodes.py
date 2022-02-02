@@ -44,15 +44,15 @@ class RealResetNode(ResetNode):
 
         # set input parameters
         space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
-        spec.set_component_parameters('inputs', 'in_1', dict(window=0, space_converter=space_converter))
-        spec.set_component_parameters('inputs', 'in_2', dict(window=0, space_converter=space_converter))
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_1')
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_2')
 
         # Set outputs parameters
-        spec.set_component_parameter('outputs', 'out_1', 'space_converter', space_converter)
-        spec.set_component_parameter('outputs', 'out_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'outputs', 'out_1')
+        spec.set_parameter('space_converter', space_converter, 'outputs', 'out_2')
 
         # Set states parameters
-        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_1')
         return spec
 
     @register.states(state_1=UInt64)
@@ -167,21 +167,21 @@ class ProcessNode(TestNode):
 
         # Add inputs
         space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
-        spec.set_component_parameters('inputs', 'tick', dict(window=0))
-        spec.set_component_parameters('inputs', 'in_1', dict(window=0, space_converter=space_converter))
-        spec.set_component_parameters('inputs', 'in_2', dict(window=0, space_converter=space_converter))
+        spec.set_parameters('inputs', 'tick', dict(window=0))
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_1')
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_2')
         space_converter = SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64')
-        spec.set_component_parameters('inputs', 'in_3', dict(window=0, space_converter=space_converter))
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_3')
 
         # Add outputs
         space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
-        spec.set_component_parameter('outputs', 'out_1', 'space_converter', space_converter)
-        spec.set_component_parameter('outputs', 'out_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'outputs', 'out_1')
+        spec.set_parameter('space_converter', space_converter, 'outputs', 'out_2')
 
         # Add states
         space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
-        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
-        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_1')
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_2')
         return spec
 
 
@@ -215,18 +215,18 @@ class KalmanNode(TestNode):
 
         # Set input parameters
         space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
-        spec.set_component_parameters('inputs', 'in_1', dict(window=0, space_converter=space_converter))
-        spec.set_component_parameters('inputs', 'in_2', dict(window=0, space_converter=space_converter))
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_1')
+        spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_2')
 
         # Set output parameters
         space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
-        spec.set_component_parameter('outputs', 'out_1', 'space_converter', space_converter)
-        spec.set_component_parameter('outputs', 'out_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'outputs', 'out_1')
+        spec.set_parameter('space_converter', space_converter, 'outputs', 'out_2')
 
         # Set state parameters
         space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
-        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
-        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_1')
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_2')
         return spec
 
 
@@ -254,8 +254,8 @@ class TestActuator(TestNode):
 
         # Set state parameters
         space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
-        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
-        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_1')
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_2')
         return spec
 
 
@@ -285,6 +285,6 @@ class TestSensor(TestNode):
 
         # Set state parameters
         space_converter = SpaceConverter.make('Space_RosUInt64', low=[0], high=[100], dtype='uint64')
-        spec.set_component_parameter('states', 'state_1', 'space_converter', space_converter)
-        spec.set_component_parameter('states', 'state_2', 'space_converter', space_converter)
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_1')
+        spec.set_parameter('space_converter', space_converter, 'states', 'state_2')
         return spec

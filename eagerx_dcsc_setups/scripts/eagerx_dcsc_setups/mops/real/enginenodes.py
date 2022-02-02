@@ -55,7 +55,7 @@ class MopsInput(EngineNode):
         spec.set_parameters(params)
 
         # Set component parameter
-        spec.set_component_parameter('inputs', 'mops_input', 'window', 1)
+        spec.set_parameter('window', 1, 'inputs', 'mops_input')
 
     def initialize(self):
         self.service = rospy.ServiceProxy('/mops/write', MopsWrite)

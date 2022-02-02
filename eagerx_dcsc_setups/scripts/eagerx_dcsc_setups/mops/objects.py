@@ -59,12 +59,12 @@ class Mops(Object):
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(Mops)
 
-        # Modify default node params
+        # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         default = dict(name=name, sensors=sensors, actuators=['mops_input'], states=states)
         spec.set_parameters(default)
 
-        # Add custom params
+        # Add registered agnostic params
         params = dict(mops_rate=mops_rate, always_render=always_render, render_shape=render_shape, opencv_cam_index=camera_index)
         spec.set_parameters(params)
 

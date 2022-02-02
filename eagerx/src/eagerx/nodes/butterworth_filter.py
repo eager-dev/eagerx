@@ -47,7 +47,7 @@ class ButterworthFilter(Node):
         c = Processor.make('GetIndex_Float32MultiArray', index=index)
         sc = SpaceConverter.make('Space_Float32MultiArray', [-3], [3], dtype='float32')
         mapping = dict(window='$(default N)', space_converter=sc, converter=c)
-        spec.set_component_parameters('inputs', 'signal', mapping)
+        spec.set_parameters(mapping, 'inputs', 'signal')
 
     def initialize(self, N, Wn, btype):
         for i in self.inputs:

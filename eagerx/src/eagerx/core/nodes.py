@@ -35,13 +35,13 @@ class ObservationsNode(Node):
         spec.set_parameters(params)
 
         # Pre-set address
-        spec.set_component_parameter('inputs', 'actions_set', 'address', 'env/actions/outputs/set')
+        spec.set_parameter('address', 'env/actions/outputs/set', 'inputs', 'actions_set')
 
         # Pre-set window
-        spec.set_component_parameter('inputs', 'actions_set', 'window', 0)
+        spec.set_parameter('window', 0, 'inputs', 'actions_set')
 
         # Set skip for first action_set (so that we do not block at t=0)
-        spec.set_component_parameter('inputs', 'actions_set', 'skip', True)
+        spec.set_parameter('skip', True, 'inputs', 'actions_set')
 
     def initialize(self):
         # Define observation buffers
@@ -118,12 +118,12 @@ class ActionsNode(Node):
         spec.set_parameters(params)
 
         # Pre-set addresses
-        spec.set_component_parameter('inputs', 'observations_set', 'address', 'env/observations/outputs/set')
-        spec.set_component_parameter('inputs', 'step', 'address', 'env/supervisor/outputs/step')
+        spec.set_parameter('address', 'env/observations/outputs/set', 'inputs', 'observations_set')
+        spec.set_parameter('address', 'env/supervisor/outputs/step', 'inputs', 'step')
 
         # Pre-set window
-        spec.set_component_parameter('inputs', 'observations_set', 'window', 0)
-        spec.set_component_parameter('inputs', 'step', 'window', 0)
+        spec.set_parameter('window', 0, 'inputs', 'observations_set')
+        spec.set_parameter('window', 0, 'inputs', 'step')
 
     def initialize(self):
         # Define action/observation buffers
@@ -180,7 +180,7 @@ class RenderNode(Node):
         spec.set_parameter('display', display)
 
         # Pre-set window
-        spec.set_component_parameter('inputs', 'image', 'window', 0)
+        spec.set_parameter('window', 0, 'inputs', 'image')
 
     def initialize(self, display):
         self.cv_bridge = CvBridge()

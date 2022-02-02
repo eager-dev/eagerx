@@ -501,6 +501,10 @@ def exists(func):
         if 'level' not in check_args and 'level' in defaults:
             check_args['level'] = defaults['level']
 
+        # Remove level from check_args if level='agnostic'
+        if 'level' in check_args and check_args['level'] == 'agnostic':
+            check_args.pop('level')
+
         params = self.params
         _args = check_args
         if 'level' in _args:
@@ -508,7 +512,7 @@ def exists(func):
             assert level in params, f"Level '{level}' not found. Available keys({params})={params.keys()}."
             if 'component' not in _args and 'parameter' in _args:
                 parameter = _args['parameter']
-                assert parameter in params[_args['level']], f"Parameter '{parameter}' not found. Available keys(params[{level}])={params[level].keys()}."
+                assert parameter in params[level], f"Parameter '{parameter}' not found. Available keys(params[{level}])={params[level].keys()}."
         if 'component' in _args:
             component = _args['component']
             assert component in params, f"Component '{component}' not found. Available keys(params)={params.keys()}."
