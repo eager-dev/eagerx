@@ -7,7 +7,7 @@ from pyqtgraph import ComboBox, SpinBox
 from pyqtgraph.Qt import QtGui
 
 from eagerx.core import constants
-from eagerx.utils.utils import get_attribute_from_module
+from eagerx.utils.utils import get_attribute_from_module, get_module_type_string, get_opposite_msg_cls
 from eagerx.core.register import REVERSE_REGISTRY
 
 
@@ -35,7 +35,8 @@ def exception_handler(function_to_decorate):
 
 class ParamWindow(QtGui.QDialog):
     def __init__(self, node, term=None):
-        super().__init__(node.graph.widget().cwWin)
+        self.parent = node.graph.widget().cwWin
+        super().__init__(self.parent)
         self.node = node
         self.node_type = node.node_type
         self.library = node.graph.library
@@ -155,8 +156,17 @@ class ParamWindow(QtGui.QDialog):
 
     def open_converter_dialog(self, button, is_space_converter=False):
         key = 'space_converter' if is_space_converter else 'converter'
-        converter_dialog = ConverterDialog(converter=self.entity.params()[key], parent=self.parent(),
-                                           library=self.library)
+        library = self.node.graph.library
+        if 'converter' in self.entity.params() and self.entity.params()['converter'] is not None:
+            msg_type = get_opposite_msg_cls(self.entity.params()['msg_type'],
+                                                self.entity.params()['converter'])
+        else:
+            msg_type = get_attribute_from_module(self.entity.params()['msg_type'])
+        msg_type_in, msg_type_out = (msg_type, None) if self.entity.is_input else (None, msg_type)
+        is_space_converter = is_space_converter or self.node.node_type in ['actions', 'observations']
+        converter_dialog = ConverterDialog(converter=self.entity.params()[key], parent=self.parent, library=library,
+                                           msg_type_in=msg_type_in, msg_type_out=msg_type_out,
+                                           is_space_converter=is_space_converter)
         converter = converter_dialog.open()
         converter_dialog.close()
         self.params_changed[key] = converter
@@ -164,20 +174,24 @@ class ParamWindow(QtGui.QDialog):
         button.setText('Edit {}'.format(button_string))
 
 class ConverterDialog(QtGui.QDialog):
-    def __init__(self, converter, parent, library, input_term, output_term=None):
+    def __init__(self, converter, parent, library, msg_type_in, msg_type_out=None, is_space_converter=False):
         super().__init__(parent)
         self.parent = parent
+        self.msg_type_in = msg_type_in
+        self.msg_type_out = msg_type_out
+        self.is_space_converter = is_space_converter
         self.converter = converter
         self.library = library
-
         self.setWindowTitle('Converter Parameters')
         self.layout = QtGui.QGridLayout()
         self.labels = []
         self.widgets = []
 
-        module_name, class_name, available_converters, required_args, optional_args = self.get_parameters()
+        converter_class = get_attribute_from_module(self.converter['converter_type'])
+        converter_id = REVERSE_REGISTRY[converter_class.spec]
+        converter_id, available_converters, required_args, optional_args = self.get_parameters(converter_id)
 
-        self.add_widget(key='Converter Class', value=class_name, row=0, items=available_converters)
+        self.add_widget(key='Converter Class', value=converter_id, row=0, items=available_converters)
         self.add_argument_widgets(required_args, optional_args)
         self.setLayout(self.layout)
 
@@ -221,25 +235,44 @@ class ConverterDialog(QtGui.QDialog):
             self.add_widget(key=key, value=str(value), row=row)
             row += 1
 
-    def get_parameters(self):
+    def get_parameters(self, converter_id):
         converter = deepcopy(self.converter)
-        converter_type = converter['converter_type']
-        converter_class = get_attribute_from_module(converter_type.split('/')[-1], converter_type.split('/')[0])
-        converter_id = REVERSE_REGISTRY[converter_class.spec]
 
         available_converters = {}
         required_args = {}
         optional_args = {}
-        converter_id = None
 
-        for cnvrtr_type in ['Processor', 'Converter', 'BaseConverter', 'SpaceConverter']:
+        if self.is_space_converter:
+            cnvrtr_types = ['BaseConverter', 'SpaceConverter']
+        elif None in [self.msg_type_in, self.msg_type_out]:
+            cnvrtr_types = ['BaseConverter', 'Processor', 'Converter']
+        elif self.msg_type_in == self.msg_type_out:
+            cnvrtr_types = ['BaseConverter', 'Processor']
+        else:
+            cnvrtr_types = ['BaseConverter', 'Converter']
+
+        for cnvrtr_type in cnvrtr_types:
+            if cnvrtr_type not in self.library:
+                continue
             for cnvrtr in self.library[cnvrtr_type]:
-                available_converters[cnvrtr['id']] = {'spec': cnvrtr['spec'], 'entity_cls': cnvrtr['entity_cls']}
-                # if converter_type == cnvrtr['spec']().params['converter_type']:
-                #     converter_id = cnvrtr['id']
+                cnvrtr_cls = cnvrtr['cls']
+                if cnvrtr_type == 'Processor':
+                    if not cnvrtr_cls.MSG_TYPE in [self.msg_type_in, self.msg_type_out]:
+                        continue
+                elif cnvrtr_type in ['Converter', 'SpaceConverter']:
+                    if self.msg_type_in is not None and not self.msg_type_in in [cnvrtr_cls.MSG_TYPE_A,
+                                                                                 cnvrtr_cls.MSG_TYPE_B]:
+                        continue
+                    elif self.msg_type_out is not None and not self.msg_type_out in [cnvrtr_cls.MSG_TYPE_A,
+                                                                                 cnvrtr_cls.MSG_TYPE_B]:
+                        continue
+                available_converters[cnvrtr['id']] = cnvrtr_cls
+
+        if converter_id not in available_converters.keys():
+            converter_id = 'Identity' if 'Identity' in available_converters else None
 
         if converter_id is not None:
-            argspec = inspect.getfullargspec(self.library.initialize)
+            argspec = inspect.getfullargspec(available_converters[converter_id].initialize)
             default_values = [] if argspec.defaults is None else argspec.defaults
             required_keys = argspec.args if len(default_values) == 0 else argspec.args[:-len(default_values)]
             if 'self' in required_keys:
@@ -259,10 +292,12 @@ class ConverterDialog(QtGui.QDialog):
         for key in invalid_arguments:
             converter.pop(key)
 
-        converter['converter_type'] = '/'.join([module_name, class_name]) if class_name is not None else \
-            module_name
+        if converter_id is not None:
+            converter['converter_type'] = get_module_type_string(available_converters[converter_id])
+        else:
+            converter = None
         self.converter = converter
-        return module_name, class_name, available_converters, required_args, optional_args
+        return converter_id, list(available_converters.keys()), required_args, optional_args
 
     def add_widget(self, key, value, row, items=None):
         label = QtGui.QLabel(key)
@@ -279,10 +314,7 @@ class ConverterDialog(QtGui.QDialog):
         self.widgets.append(widget)
 
     def class_changed(self, int, items):
-        converter_class = items[int]
-        converter_module = self.converter['converter_type'].split('/')[0]
-        converter_type = '/'.join([converter_module, converter_class])
-        self.converter['converter_type'] = converter_type
+        converter_id = items[int]
 
         for label in self.labels[1:]:
             self.layout.removeWidget(label)
@@ -295,7 +327,7 @@ class ConverterDialog(QtGui.QDialog):
         self.labels = self.labels[:2]
         self.widgets = self.widgets[:2]
 
-        _, _, _, required_args, optional_args = self.get_parameters()
+        _, _, required_args, optional_args = self.get_parameters(converter_id)
 
         self.add_argument_widgets(required_args, optional_args)
 
@@ -303,10 +335,13 @@ class ConverterDialog(QtGui.QDialog):
         self.converter[key] = text
 
 class ConnectionDialog(QtGui.QDialog):
-    def __init__(self, input_term, **kwargs):
-        super().__init__(input_term.node.graph.widget().cwWin)
+    def __init__(self, input_term, output_term, **kwargs):
+        self.parent = input_term.node.graph.widget().cwWin
+        super().__init__(self.parent)
         self.setWindowTitle('Connection Parameters')
         self.library = input_term.node.graph.library
+        self.input_term = input_term
+        self.output_term = output_term
         self.layout = QtGui.QGridLayout()
         self.params = {}
         self.labels = []
@@ -358,8 +393,35 @@ class ConnectionDialog(QtGui.QDialog):
         self.widgets.append(widget)
 
     def open_converter_dialog(self, button):
-        converter_dialog = ConverterDialog(converter=self.params['converter'], parent=self.parent(),
-                                           library=self.library)
+        is_space_converter = self.input_term.node.node_type == 'observations'
+        library = self.input_term.node.graph.library
+        if self.input_term.node.node_type == 'observations':
+            msg_type_in = None
+            if 'converter' in self.output_term.params() and self.output_term.params()['converter'] is not None:
+                msg_type_out = get_opposite_msg_cls(self.output_term.params()['msg_type'], self.output_term.params()['converter'])
+            else:
+                msg_type_out = get_attribute_from_module(self.input_term.params()['msg_type'])
+        elif self.output_term.node.node_type == 'actions' and 'msg_type' not in self.output_term.params():
+            if 'converter' in self.input_term.params() and self.input_term.params()['converter'] is not None:
+                msg_type_in = get_opposite_msg_cls(self.input_term.params()['msg_type'],
+                                                    self.input_term.params()['converter'])
+            else:
+                msg_type_in = get_attribute_from_module(self.input_term.params()['msg_type'])
+            msg_type_out = msg_type_in
+        else:
+            if 'converter' in self.input_term.params() and self.input_term.params()['converter'] is not None:
+                msg_type_in = get_opposite_msg_cls(self.input_term.params()['msg_type'],
+                                                   self.input_term.params()['converter'])
+            else:
+                msg_type_in = get_attribute_from_module(self.input_term.params()['msg_type'])
+            if 'converter' in self.output_term.params() and self.output_term.params()['converter'] is not None:
+                msg_type_out = get_opposite_msg_cls(self.output_term.params()['msg_type'],
+                                                    self.output_term.params()['converter'])
+            else:
+                msg_type_out = get_attribute_from_module(self.input_term.params()['msg_type'])
+        converter_dialog = ConverterDialog(converter=self.params['converter'], parent=self.parent, library=library,
+                                           msg_type_in=msg_type_in, msg_type_out=msg_type_out,
+                                           is_space_converter=is_space_converter)
         converter = converter_dialog.open()
         self.params['converter'] = converter
         converter_dialog.close()
