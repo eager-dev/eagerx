@@ -54,10 +54,11 @@ class RealBridge(Bridge):
         # Extract relevant agnostic_params
         obj_name = agnostic_params['name']
 
-        if 'driver_launch_file' in bridge_params:
-            launch_file = bridge_params['driver_launch_file']
-            launch_args = bridge_params['launch_args'] if 'launch_args' in bridge_params else []
-            launch_node(launch_file, launch_args)
+        # todo: WHY IS THIS NOT LAUNCHING?
+        # if 'driver_launch_file' in bridge_params:
+        #     launch_file = bridge_params['driver_launch_file']
+        #     launch_args = bridge_params['launch_args'] if 'launch_args' in bridge_params else []
+        #     launch_node(launch_file, launch_args)
 
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(state=None, input=None)

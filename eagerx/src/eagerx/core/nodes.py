@@ -189,7 +189,8 @@ class RenderNode(Node):
         return ImageUInt8Response(image=self.last_image)
 
     def reset(self):
-        self.last_image = Image()
+        pass
+        # self.last_image = Image()
 
     @register.inputs(image=Image)
     @register.outputs(done=UInt64)
