@@ -33,6 +33,115 @@ def exception_handler(function_to_decorate):
     return exception_handler_wrapper
 
 
+class NodeCreationDialog(QtGui.QDialog):
+    def __init__(self, name, node_type, parent):
+        super().__init__(parent)
+        self.setWindowTitle('Create {}'.format(name))
+        self.mapping = {}
+        self.node_type = node_type
+
+        signature = node_type['entity_cls'].get_spec(node_type['id'], verbose=False)
+        parameters = signature.parameters
+
+        self.layout = QtGui.QGridLayout()
+        self.labels = []
+        self.widgets = []
+        row = 0
+
+        required_args = {}
+        optional_args = {}
+
+        for key in parameters.keys():
+            if parameters[key].default is inspect._empty:
+                required_args[key] = parameters[key]
+            else:
+                optional_args[key] = parameters[key]
+
+        required_args_label = QtGui.QLabel('Required Arguments')
+        self.layout.addWidget(required_args_label, row, 0)
+        self.labels.append(required_args_label)
+        row += 1
+
+        for key, parameter in required_args.items():
+            if key == 'name':
+                value = name
+            elif key == 'rate':
+                value = 1.0
+            else:
+                value = None
+            self.add_widget(key, value, parameter, row)
+            row += 1
+
+        optional_args_label = QtGui.QLabel('Optional Arguments')
+        self.layout.addWidget(optional_args_label, row, 0)
+        self.labels.append(optional_args_label)
+        row += 1
+
+        for key, parameter in optional_args.items():
+            value = parameter.default
+            self.add_widget(key, value, parameter, row)
+            row += 1
+
+        self.setLayout(self.layout)
+
+    def open(self):
+        self.exec_()
+        return self.mapping
+
+    def add_widget(self, key, value, parameter, row):
+        self.mapping[key] = value
+
+        label = QtGui.QLabel(str(parameter).split('=')[0].strip())
+        if parameter.annotation is bool:
+            items = ['True', 'False']
+            widget = ComboBox(items=items, default=str(value))
+            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
+        elif parameter.annotation is int:
+            widget = SpinBox(value=value, int=True, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        elif parameter.annotation is float:
+            widget = SpinBox(value=value, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        elif parameter.annotation is str:
+            widget = QtGui.QLineEdit(str(value))
+            widget.textChanged.connect(partial(self.text_changed, key=key))
+        elif isinstance(value, bool):
+            items = ['True', 'False']
+            widget = ComboBox(items=items, default=str(value))
+            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
+        elif isinstance(value, int):
+            widget = SpinBox(value=value, int=True, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        elif isinstance(value, float):
+            widget = SpinBox(value=value, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        else:
+            widget = QtGui.QLineEdit(str(value))
+            widget.textChanged.connect(partial(self.text_changed, key=key))
+        for grid_object in [label, widget]:
+            font = grid_object.font()
+            font.setPointSize(12)
+            grid_object.setFont(font)
+        for grid_object in [label, widget]:
+            font = grid_object.font()
+            font.setPointSize(12)
+            grid_object.setFont(font)
+        self.layout.addWidget(label, row, 0)
+        self.layout.addWidget(widget, row, 1)
+        self.labels.append(label)
+        self.widgets.append(widget)
+
+    def combo_box_value_changed(self, int, items, key, item_converter=None):
+        value = items[int]
+        self.mapping[key] = value
+
+    def value_changed(self, widget, key):
+        self.mapping[key] = widget.value()
+
+    def text_changed(self, text, key):
+        self.mapping[key] = text
+
+
 class ParamWindow(QtGui.QDialog):
     def __init__(self, node, term=None):
         self.parent = node.graph.widget().cwWin

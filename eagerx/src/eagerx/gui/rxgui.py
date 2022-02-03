@@ -7,6 +7,7 @@ import os
 import numpy as np
 import importlib
 from copy import deepcopy
+from functools import partial
 
 # Import pyqtgraph modules
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
@@ -22,7 +23,7 @@ from eagerx.gui import rxgui_view
 from eagerx.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
 from eagerx.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx.utils.utils import get_nodes_and_objects_library
-from eagerx.utils.pyqtgraph_utils import exception_handler
+from eagerx.utils.pyqtgraph_utils import exception_handler, NodeCreationDialog
 from eagerx.core.entities import Node
 
 
@@ -460,7 +461,7 @@ class EagerxGraphWidget(dockarea.DockArea):
             if node_type in constants.GUI_ENTITIES_TO_IGNORE: continue
             menu = QtGui.QMenu('Add {}'.format(node_type.replace('_', ' ')))
             build_sub_menu(library, menu, self.submenus, pos=pos)
-            menu.triggered.connect(self.node_menu_triggered)
+            menu.triggered.connect(partial(self.node_menu_triggered))
             self.nodeMenu.append(menu)
         return self.nodeMenu
 
@@ -475,6 +476,10 @@ class EagerxGraphWidget(dockarea.DockArea):
         return self._viewBox  # the viewBox that items should be added to
 
     def node_menu_triggered(self, action):
+        self._node_menu_triggered(action, graph_backup=self.chart)
+
+    @exception_handler
+    def _node_menu_triggered(self, action):
         node_type = action.nodeType
         if action.pos is not None:
             pos = action.pos
@@ -494,13 +499,10 @@ class EagerxGraphWidget(dockarea.DockArea):
                 break
             n += 1
 
-        signature = node_type['entity_cls'].get_spec(node_type['id'], verbose=False)
-        args = signature.parameters.keys()
-        mapping = dict()
-        if 'name' in args:
-            mapping['name'] = name
-        if 'rate' in args:
-            mapping['rate'] = 1.0
+        node_creation_dialog = NodeCreationDialog(name, node_type, self.chart.widget().cwWin)
+        mapping = node_creation_dialog.open()
+        if 'name' in mapping:
+            name = mapping['name']
         rx_entity = node_type['spec'](**mapping)
         self.chart.add(rx_entity)
         self.chart._state['nodes'][name]['pos'] = pos

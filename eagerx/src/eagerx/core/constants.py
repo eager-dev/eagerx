@@ -86,7 +86,7 @@ GUI_COLORS = {
 }
 
 # Config files to ignore in GUI
-GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'EngineNode', 'Bridge', 'SimState'}
+GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'EngineNode', 'Bridge', 'EngineState'}
 GUI_NODE_IDS_TO_IGNORE = {'Observations', 'Actions', 'Render', 'Supervisor'}
 
 # PROCESS
