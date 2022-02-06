@@ -1,7 +1,6 @@
 import numpy as np
 from eagerx.core.entities import EngineState
 import eagerx.core.register as register
-from functools import partial
 
 
 class OdeEngineState(EngineState):

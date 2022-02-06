@@ -590,7 +590,9 @@ def init_channels(ns, Nc, rate_node, inputs, is_reactive, real_time_factor, simu
             name = i['address']
         else:
             name = i['name']
-        flag = flag.pipe(spy('flag [%s]' % name.split('/')[-1][:12].ljust(4), node), ops.take(1), ops.merge(rx.never()))
+        flag_name = 'flag [%s]' % name.split('/')[-1][:12].ljust(4)
+        # flag.pipe(spy(f'sub_{flag_name}', node)).subscribe(print)
+        flag = flag.pipe(spy(flag_name, node))  #, ops.take(1), ops.merge(rx.never()))
         flags.append(flag)
     zipped_flags = rx.zip(*flags).pipe(ops.map(lambda x: merge_dicts({}, x)))
     zipped_channels = rx.zip(*channels).pipe(ops.combine_latest(E.pipe(ops.observe_on(scheduler))),  # Latch output on '/end_reset' --> Can only receive 1 each episode.
@@ -933,33 +935,76 @@ def filter_dict_on_key(key):
     return _filter_dict_on_key
 
 
-def throttle_with_time(dt, node):
-    # node_name = node.ns_name
-    # color = node.color
-    # print_mode = node.print_mode
-    # mapper = lambda x: x
-    # id = 'throttle'
-    # effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
+    time_fn = time.perf_counter
+    node_name = node.ns_name
+    color = node.color
+    print_mode = node.print_mode
+    effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+    log_time = 2  # [s]
+
     def _throttle_with_time(source):
         def subscribe(observer, scheduler=None):
-            # toc = [None]
+            # Timing
             tic = [None]
+            cum_cbs = [0]
             cum_delay = [0]
             cum_sleep = [0]
 
-            def on_next(value):
+            # Logging
+            last_cum_cbs = [0]
+            last_cum_delay = [0]
+            last_cum_sleep = [0]
+            last_Nc = [0]
+            last_time = [None]
+
+            def on_next(Nc):
                 if tic[0] is None:
-                    tic[0] = time.perf_counter()
-                toc = time.perf_counter()
+                    tic[0] = time_fn()
+                    last_time[0] = time_fn()
+                toc = time_fn()
                 sleep_time = dt - (toc - tic[0])
                 if sleep_time > 0:  # sleep if overdue is negative
                     time.sleep(sleep_time)
                     cum_sleep[0] += sleep_time
                 else:  # If we are overdue, then next tick is shifted by overdue
                     cum_delay[0] += -sleep_time
-                tic[0] = toc + sleep_time
-                observer.on_next(value)
-                # observer.on_next((value, cum_delay, cum_sleep))
+                    cum_cbs[0] += 1
+                tic[0] = toc + max(sleep_time, 0)
+
+                # Logging
+                curr = time_fn()
+                if (curr - last_time[0]) > log_time:
+                    # Calculate statistics since last logged instance
+                    log_window = curr - last_time[0]
+                    log_cbs = cum_cbs[0] - last_cum_cbs[0]
+                    log_delay = cum_delay[0] - last_cum_delay[0]
+                    log_sleep = cum_sleep[0] - last_cum_sleep[0]
+                    log_Nc = Nc - last_Nc[0]
+
+                    # Log statistics if not keeping rate
+                    Nc_expected = log_window / dt  # [ticks]
+                    rate_ratio = log_Nc / Nc_expected
+                    cbs_ratio = log_cbs / log_Nc
+                    sleep_ratio = log_sleep / log_window
+                    delay_ratio = log_delay / log_window
+                    if rate_ratio < rate_tol and node.log_level >= effective_log_level and WARN >= effective_log_level:
+                        print_str = f'Running at {rate_ratio*100:.2f}% of rate ({1/dt} Hz) | {sleep_ratio*100:.2f}% sleep | {100 - sleep_ratio*100:.2f}% computation | {cbs_ratio*100: .2f}% callbacks delayed |'
+                        print_info(node_name, 'red', f'last {log_window:.2f} s', trace_type='', value=print_str, print_mode=print_mode, log_level=WARN)
+                    elif node.log_level >= effective_log_level and log_level >= effective_log_level:
+                        print_str = f'Running at {rate_ratio*100:.2f}% of rate ({1/dt} Hz) | {sleep_ratio*100:.2f}% sleep | {100 - sleep_ratio*100:.2f}% computation | {cbs_ratio*100: .2f}% callbacks delayed |'
+                        print_info(node_name, color, f'last {log_window:.2f} s', trace_type='', value=print_str, print_mode=print_mode, log_level=log_level)
+
+                    # Set baseline statistics
+                    last_time[0] = curr
+                    last_cum_cbs[0] = cum_cbs[0]
+                    last_cum_delay[0] = cum_delay[0]
+                    last_cum_sleep[0] = cum_sleep[0]
+                    last_Nc[0] = Nc
+
+                # Send tick for next callback
+                observer.on_next(Nc)
+
             return source.subscribe(
                 on_next,
                 observer.on_error,
@@ -980,10 +1025,6 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, s
                       ops.observe_on(scheduler),
                       throttle_with_time(wc_dt, node),
                       ops.share())
-        # wc_dt = max(0.001, wc_dt - 0.0015)
-        # Nct = rx.interval(wc_dt).pipe(throttled_Nc(Nc.pipe(ops.scan(lambda acc, x: acc + 1, 0), ops.start_with(0)),
-        #                                            is_reactive, rate_node, node),
-        #                               ops.share())
     return Nct
 
 

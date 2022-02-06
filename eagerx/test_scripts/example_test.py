@@ -21,7 +21,6 @@ if __name__ == '__main__':
     #  - Cannot have the same input as two separate observations... Why? Make a check.
     #  - Effect of skipping first action on environment synchronization.
     #  - Installation procedure
-    #  - Test mops setup.
     #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
     #  - Pause environment
 
@@ -130,7 +129,7 @@ if __name__ == '__main__':
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = Bridge.make('TestBridge', rate=20, is_reactive=False, real_time_factor=8, process=bridge_p)
+    bridge = Bridge.make('TestBridge', rate=20, is_reactive=False, real_time_factor=12, process=bridge_p)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',

@@ -41,14 +41,14 @@ if __name__ == '__main__':
     graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
 
     # Add rendering
-    graph.add_component('mops', 'sensors', 'image')
-    graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
+    # graph.add_component('mops', 'sensors', 'image')
+    # graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
 
     # Show in the gui
-    graph.gui()
+    # graph.gui()
 
     # Define bridges
-    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=2, process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):
@@ -73,14 +73,19 @@ if __name__ == '__main__':
 
     # First train in simulation
     env.render('human')
-    model.learn(total_timesteps=int(300*rate))
+    # model.learn(total_timesteps=int(300*rate))
 
     # Evaluate for 30 seconds in simulation
     obs = env.reset()
-    for i in range(int(30 * rate)):
-        action, _states = model.predict(obs, deterministic=True)
+    eps = 0
+    action = env.action_space.sample()
+    print(f'Episode {eps}')
+    for i in range(int(50000 * rate)):
+        # action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
-        if done:
-            obs = env.reset()
+        # if i % 500 == 0:
+        #     eps += 1
+        #     obs = env.reset()
+            print(f'Episode {eps}')
 
     model.save('simulation')

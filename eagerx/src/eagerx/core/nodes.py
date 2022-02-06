@@ -8,7 +8,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 
 import eagerx.core.register as register
-from eagerx.core.constants import process, DEBUG
+from eagerx.core.constants import process, INFO, WARN
 from eagerx.core.entities import Node
 from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import initialize_converter, Msg
@@ -18,7 +18,7 @@ from eagerx.srv import ImageUInt8, ImageUInt8Response
 class ObservationsNode(Node):
     @staticmethod
     @register.spec('Observations', Node)
-    def spec(spec: NodeSpec, rate=1, log_level=DEBUG, color='yellow'):
+    def spec(spec: NodeSpec, rate=1, log_level=WARN, color='yellow'):
         """ObservationsNode spec"""
         # Initialize spec
         spec.initialize(ObservationsNode)
@@ -86,7 +86,7 @@ class ObservationsNode(Node):
 class ActionsNode(Node):
     @staticmethod
     @register.spec('Actions', Node)
-    def spec(spec: NodeSpec, rate=1, log_level=DEBUG, color='red'):
+    def spec(spec: NodeSpec, rate=1, log_level=WARN, color='yellow'):
         """ActionsNode spec"""
         # Initialize spec
         spec.initialize(ActionsNode)
@@ -145,7 +145,7 @@ class ActionsNode(Node):
 class RenderNode(Node):
     @staticmethod
     @register.spec('Render', Node)
-    def spec(spec: NodeSpec, rate, display=True, log_level=DEBUG, color='yellow'):
+    def spec(spec: NodeSpec, rate, display=True, log_level=WARN, color='yellow'):
         """RenderNode spec"""
         # Initialize spec
         spec.initialize(RenderNode)

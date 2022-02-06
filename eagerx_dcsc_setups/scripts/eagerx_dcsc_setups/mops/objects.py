@@ -96,24 +96,24 @@ class Mops(Object):
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
-        obs = EngineNode.make('OdeOutput', 'obs', rate=None, process=2)
+        obs = EngineNode.make('OdeOutput', 'mops_output', rate=None, process=2)
         image = EngineNode.make('MopsImage', 'image', shape='$(default render_shape)', rate=None, process=0)
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
-        action = EngineNode.make('OdeInput', 'action', rate=None, process=2, default_action=[0])
+        action = EngineNode.make('OdeInput', 'mops_actuator', rate=None, process=2, default_action=[0])
 
         # Connect all engine nodes
         graph.add([obs, image, action])
-        graph.connect(source=('obs', 'outputs', 'observation'), sensor='mops_output')
-        graph.connect(source=('obs', 'outputs', 'observation'), target=('image', 'inputs', 'theta'))
+        graph.connect(source=('mops_output', 'outputs', 'observation'), sensor='mops_output')
+        graph.connect(source=('mops_output', 'outputs', 'observation'), target=('image', 'inputs', 'theta'))
         graph.connect(source=('image', 'outputs', 'image'), sensor='image')
-        graph.connect(actuator='mops_input', target=('action', 'inputs', 'action'))
+        graph.connect(actuator='mops_input', target=('mops_actuator', 'inputs', 'action'))
 
         # Add action applied
         applied = EngineNode.make('ActionApplied', 'applied', rate=None, process=0)
         graph.add(applied)
-        graph.connect(source=('action', 'outputs', 'action_applied'), target=('applied', 'inputs', 'action_applied'), skip=True)
+        graph.connect(source=('mops_actuator', 'outputs', 'action_applied'), target=('applied', 'inputs', 'action_applied'), skip=True)
         graph.connect(source=('applied', 'outputs', 'action_applied'), sensor='action_applied')
 
         # Check graph validity (commented out)
@@ -135,21 +135,21 @@ class Mops(Object):
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
-        obs = EngineNode.make('MopsOutput', 'obs', rate=None, process=0)
+        obs = EngineNode.make('MopsOutput', 'mops_output', rate=None, process=0)
         applied = EngineNode.make('ActionApplied', 'applied', rate=None, process=0)
         image = EngineNode.make('CameraRender', 'image', camera_idx='$(default opencv_cam_index)', shape='$(default render_shape)', rate=None, process=0)
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
-        action = EngineNode.make('MopsInput', 'action', rate=None, process=0)
+        action = EngineNode.make('MopsInput', 'mops_input', rate=None, process=0)
 
         # Connect all engine nodes
         graph.add([obs, applied, image, action])
-        graph.connect(source=('obs', 'outputs', 'mops_output'), sensor='mops_output')
-        graph.connect(source=('action', 'outputs', 'action_applied'), target=('applied', 'inputs', 'action_applied'), skip=True)
+        graph.connect(source=('mops_output', 'outputs', 'mops_output'), sensor='mops_output')
+        graph.connect(source=('mops_input', 'outputs', 'action_applied'), target=('applied', 'inputs', 'action_applied'), skip=True)
         graph.connect(source=('applied', 'outputs', 'action_applied'), sensor='action_applied')
         graph.connect(source=('image', 'outputs', 'image'), sensor='image')
-        graph.connect(actuator='mops_input', target=('action', 'inputs', 'mops_input'))
+        graph.connect(actuator='mops_input', target=('mops_input', 'inputs', 'mops_input'))
 
         # Check graph validity (commented out)
         # graph.is_valid(plot=True)
