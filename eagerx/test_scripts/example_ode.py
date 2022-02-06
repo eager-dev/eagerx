@@ -86,6 +86,6 @@ if __name__ == '__main__':
         # if i % 500 == 0:
         #     eps += 1
         #     obs = env.reset()
-            print(f'Episode {eps}')
+        #     print(f'Episode {eps}')
 
     model.save('simulation')
