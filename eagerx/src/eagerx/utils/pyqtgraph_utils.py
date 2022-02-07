@@ -66,7 +66,7 @@ class NodeCreationDialog(QtGui.QDialog):
             if key == 'name':
                 value = name
             elif key == 'rate':
-                value = 1.0
+                value = 1.
             else:
                 value = None
             self.add_widget(key, value, parameter, row)
@@ -89,10 +89,9 @@ class NodeCreationDialog(QtGui.QDialog):
         return self.mapping
 
     def add_widget(self, key, value, parameter, row):
-        self.mapping[key] = value
-
         label = QtGui.QLabel(str(parameter).split('=')[0].strip())
         if parameter.annotation is bool:
+            value = value if value is not None else True
             items = ['True', 'False']
             widget = ComboBox(items=items, default=str(value))
             widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
@@ -100,6 +99,7 @@ class NodeCreationDialog(QtGui.QDialog):
             widget = SpinBox(value=value, int=True, dec=True)
             widget.sigValueChanged.connect(partial(self.value_changed, key=key))
         elif parameter.annotation is float:
+            value = value if value is not None else 0.0
             widget = SpinBox(value=value, dec=True)
             widget.sigValueChanged.connect(partial(self.value_changed, key=key))
         elif parameter.annotation is str:
@@ -118,6 +118,7 @@ class NodeCreationDialog(QtGui.QDialog):
         else:
             widget = QtGui.QLineEdit(str(value))
             widget.textChanged.connect(partial(self.text_changed, key=key))
+        self.mapping[key] = value
         for grid_object in [label, widget]:
             font = grid_object.font()
             font.setPointSize(12)
@@ -300,7 +301,7 @@ class ConverterDialog(QtGui.QDialog):
         converter_id = REVERSE_REGISTRY[converter_class.spec]
         converter_id, available_converters, required_args, optional_args = self.get_parameters(converter_id)
 
-        self.add_widget(key='Converter Class', value=converter_id, row=0, items=available_converters)
+        self.add_widget(key='Converter Class', value=converter_id, parameter=None, row=0, items=available_converters)
         self.add_argument_widgets(required_args, optional_args)
         self.setLayout(self.layout)
 
@@ -331,17 +332,25 @@ class ConverterDialog(QtGui.QDialog):
         self.labels.append(required_args_label)
         row += 1
 
-        for key, value in required_args.items():
-            self.add_widget(key=key, value=str(value), row=row)
+        for key, parameter in required_args.items():
+            if key in self.converter:
+                value = self.converter[key]
+            else:
+                value = None
+            self.add_widget(key, value, parameter, row)
             row += 1
 
         optional_args_label = QtGui.QLabel('Optional Converter Arguments')
         self.layout.addWidget(optional_args_label, row, 0)
         self.labels.append(optional_args_label)
-
         row += 1
-        for key, value in optional_args.items():
-            self.add_widget(key=key, value=str(value), row=row)
+
+        for key, parameter in optional_args.items():
+            if key in self.converter:
+                value = self.converter[key]
+            else:
+                value = parameter.default
+            self.add_widget(key, value, parameter, row)
             row += 1
 
     def get_parameters(self, converter_id):
@@ -375,7 +384,8 @@ class ConverterDialog(QtGui.QDialog):
                     elif self.msg_type_out is not None and not self.msg_type_out in [cnvrtr_cls.MSG_TYPE_A,
                                                                                  cnvrtr_cls.MSG_TYPE_B]:
                         continue
-                available_converters[cnvrtr['id']] = cnvrtr_cls
+                available_converters[cnvrtr['id']] = {'spec': cnvrtr['entity_cls'].get_spec(cnvrtr['id'], verbose=False),
+                                                      'cls': cnvrtr_cls}
 
         available_converters_list = list(available_converters.keys())
 
@@ -388,40 +398,55 @@ class ConverterDialog(QtGui.QDialog):
                 converter_id = None
 
         if converter_id is not None:
-            argspec = inspect.getfullargspec(available_converters[converter_id].initialize)
-            default_values = [] if argspec.defaults is None else argspec.defaults
-            required_keys = argspec.args if len(default_values) == 0 else argspec.args[:-len(default_values)]
-            if 'self' in required_keys:
-                required_keys.remove('self')
-            optional_keys = argspec.args[-len(default_values):]
-            optional_args = dict(zip(optional_keys, default_values))
-            required_args = dict(zip(required_keys, [''] * len(required_keys)))
-
-        invalid_arguments = []
-        for key, value in converter.items():
-            if key in required_args:
-                required_args[key] = value
-            elif key in optional_args:
-                optional_args[key] = value
-            else:
-                invalid_arguments.append(key)
-        for key in invalid_arguments:
-            converter.pop(key)
+            parameters = available_converters[converter_id]['spec'].parameters
+            for key in parameters.keys():
+                if parameters[key].default is inspect._empty:
+                    required_args[key] = parameters[key]
+                else:
+                    optional_args[key] = parameters[key]
+            invalid_arguments = []
+            for key in converter.keys():
+                if key not in parameters.keys():
+                    invalid_arguments.append(key)
+            for key in invalid_arguments:
+                converter.pop(key)
 
         if converter_id is not None:
-            converter['converter_type'] = get_module_type_string(available_converters[converter_id])
+            converter['converter_type'] = get_module_type_string(available_converters[converter_id]['cls'])
         else:
             converter = None
         self.converter = converter
         return converter_id, available_converters_list, required_args, optional_args
 
-    def add_widget(self, key, value, row, items=None):
-        label = QtGui.QLabel(key)
-        if items is not None:
+    def add_widget(self, key, value, parameter, row, items=None):
+        if parameter is not None:
+            label = QtGui.QLabel(str(parameter).split('=')[0].strip())
+        else:
+            label = QtGui.QLabel(str(key))
+        if parameter is None:
             widget = ComboBox(items=items, default=value)
             widget.activated.connect(partial(self.class_changed, items=items))
+        elif parameter.annotation is bool:
+            value = value if value is not None else True
+            items = ['True', 'False']
+            self.converter[key] = value
+            widget = ComboBox(items=items, default=str(value))
+            widget.activated.connect(partial(self.combo_box_value_changed, key=key, items=items))
+        elif parameter.annotation is int:
+            value = value if value is not None else 0
+            self.converter[key] = value
+            widget = SpinBox(value=value, int=True, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        elif parameter.annotation is float:
+            value = value if value is not None else 0.
+            self.converter[key] = value
+            widget = SpinBox(value=value, dec=True)
+            widget.sigValueChanged.connect(partial(self.value_changed, key=key))
+        elif parameter.annotation is str:
+            widget = QtGui.QLineEdit(str(value))
+            widget.textChanged.connect(partial(self.text_changed, key=key))
         else:
-            widget = QtGui.QLineEdit(value)
+            widget = QtGui.QLineEdit(str(value))
             widget.textChanged.connect(partial(self.argument_changed, key=key))
 
         self.layout.addWidget(label, row, 0)
