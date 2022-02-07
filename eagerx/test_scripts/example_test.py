@@ -13,7 +13,7 @@ import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 
 if __name__ == '__main__':
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
     bridge_p = process.NEW_PROCESS
     rate = 7
 

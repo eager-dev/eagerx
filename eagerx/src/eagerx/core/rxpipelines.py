@@ -74,11 +74,10 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
                        ops.zip(Nc_empty),
                        ops.map(lambda x: x[0] - x[1]),
                        ops.combine_latest(Ns, Rr, Nc_empty),
-                       spy('pre-filter', node),
                        ops.filter(lambda value: value[0] == value[1] - value[3]),
                        ops.take(1),
                        ops.merge(rx.never()),
-                       spy('post-filter', node),
+                       # spy('post-filter', node),
                        ).subscribe(Rn)
 
     # Create reset flags for the set_states
@@ -582,17 +581,6 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         s['address'] += '/set'
 
     ###########################################################################
-    # Step ####################################################################
-    ###########################################################################
-    S = Subject()  # ---> Not a node output, but used in node.step() to kickstart step pipeline.
-    step = outputs[0]
-    step['msg'] = Subject()
-    step['reset'] = Subject()
-
-    # Step pipeline
-    S.subscribe(step['msg'], scheduler=tp_scheduler)
-
-    ###########################################################################
     # Start reset #############################################################
     ###########################################################################
     SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
@@ -645,18 +633,10 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     tick = dict(address=ns + '/bridge/outputs/tick', msg=Subject(), msg_type=UInt64)
     end_reset = dict(address=ns + '/end_reset', msg=Subject(), msg_type=UInt64)
-    end_reset['msg'].pipe(spy('RESET END', node, log_level=DEBUG),
-                          ops.map(node._clear_obs_event),
-                          ops.map(node._set_reset_event)).subscribe(tick['msg'])
-
-    ###########################################################################
-    # Observations set ########################################################
-    ###########################################################################
-    obs_set = dict(address=ns + '/env/observations/outputs/set', msg=Subject(), msg_type=UInt64)
-    obs_set['msg'].subscribe(on_next=node._set_obs_event)
+    end_reset['msg'].pipe(spy('RESET END', node, log_level=DEBUG)).subscribe(tick['msg'])
 
     # Create node inputs & outputs
-    node_inputs = [reset, end_reset, obs_set]
+    node_inputs = [reset, end_reset]
     node_outputs = [register_object, register_node, start_reset, tick, node_reset]
     outputs = [step]
 

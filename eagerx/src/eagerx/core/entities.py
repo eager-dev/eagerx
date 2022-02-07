@@ -587,7 +587,7 @@ class Bridge(BaseNode):
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
-        if self.num_resets > 1:
+        if self.num_resets >= 1:
             _ = self.callback(t_n, **kwargs)
         # Fill output msg with number of node ticks
         self.num_ticks += 1

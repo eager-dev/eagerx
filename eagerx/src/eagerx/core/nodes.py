@@ -87,12 +87,16 @@ class EnvNode(Node):
             window = buffer['window']
 
             extra = window - len(i.msgs)
-            msgs = extra * [i.msgs[0]] + i.msgs
+            if extra > 0:
+                msgs = extra * [i.msgs[0]] + i.msgs
+            else:
+                msgs = i.msgs
             buffer['msgs'] = np.array(msgs)
 
-        self.action_event.clear()   # Clear action event, so that we can block after setting obs
-        self.obs_event.set()        # Signal environment that observations have been set.
-        self.action_event.wait()    # Wait for actions to be set.
+        if not self.must_reset:
+            self.action_event.clear()   # Clear action event, so that we can block after setting obs
+            self.obs_event.set()        # Signal environment that observations have been set.
+            self.action_event.wait()  # Wait for actions to be set.
 
         if self.must_reset:
             return None
@@ -101,7 +105,7 @@ class EnvNode(Node):
             output_msgs = dict()
             for name, buffer in self.action_buffer.items():
                 output_msgs[name] = buffer['msg']
-        return output_msgs
+            return output_msgs
 
 
 class ObservationsNode(Node):
@@ -234,7 +238,7 @@ class ActionsNode(Node):
 class RenderNode(Node):
     @staticmethod
     @register.spec('Render', Node)
-    def spec(spec: NodeSpec, rate, display=True, log_level=WARN, color='yellow'):
+    def spec(spec: NodeSpec, rate, display=True, log_level=WARN, color='grey'):
         """RenderNode spec"""
         # Initialize spec
         spec.initialize(RenderNode)

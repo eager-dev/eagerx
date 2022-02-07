@@ -61,9 +61,6 @@ class RxEnv(gym.Env):
         # Create environment node
         self.env_node, _ = self._init_environment(actions, observations, self.supervisor_node, self.mb)
 
-        # Initialize action & observation node
-        # self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
-
         # Register render node
         if self.render_node:
             nodes = [self.render_node] + nodes
@@ -166,33 +163,6 @@ class RxEnv(gym.Env):
 
         initialize_nodes(bridge, process.ENVIRONMENT, self.ns, self.name, self.mb, self.supervisor_node.is_initialized, self.supervisor_node.sp_nodes, self.supervisor_node.launch_nodes, rxnode_cls=RxBridge)
         wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
-
-    def _init_actions_and_observations(self, actions: NodeSpec, observations: NodeSpec, message_broker):
-        # Check that env has at least one input & output.
-        assert len(observations.params['default']['inputs']) > 0, f'Environment "{self.name}" must have at least one input (i.e. input).'
-        assert len(actions.params['default']['outputs']) > 0, f'Environment "{self.name}" must have at least one action (i.e. output).'
-
-        # Check that all observation addresses are unique
-        addresses_obs = [observations.params['inputs'][cname]['address'] for cname in observations.params['default']['inputs']]
-        len(set(addresses_obs)) == len(addresses_obs), 'Duplicate observations found: %s. Make sure to only have unique observations' % (set([x for x in addresses_obs if addresses_obs.count(x) > 1]))
-
-        # Create observation node
-        name = observations.get_parameter('name')
-        observations.set_parameter('rate', self.rate)
-        obs_params = observations.build(ns=self.ns)
-        rosparam.upload_params(self.ns, obs_params)
-        rx_obs = RxNode(name='%s/%s' % (self.ns, name), message_broker=message_broker)
-        rx_obs.node_initialized()
-
-        # Create action node
-        name = actions.get_parameter('name')
-        actions.set_parameter('rate', self.rate)
-        act_params = actions.build(ns=self.ns)
-        rosparam.upload_params(self.ns, act_params)
-        rx_act = RxNode(name='%s/%s' % (self.ns, name), message_broker=message_broker)
-        rx_act.node_initialized()
-
-        return rx_act.node, rx_obs.node, rx_act, rx_obs
 
     def _init_environment(self, actions: NodeSpec, observations: NodeSpec, supervisor_node, message_broker):
         # Check that env has at least one input & output.

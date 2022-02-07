@@ -90,7 +90,7 @@ class RealResetNode(ResetNode):
         for i in self.targets:
             name = i['name']
             msg = Bool()
-            if self.num_ticks > 2:
+            if self.num_ticks > 5:
                 msg.data = True
             else:
                 msg.data = False
@@ -119,7 +119,7 @@ class TestNode(EngineNode):
 
         # Verify that # of ticks equals internal counter
         node_tick = t_n * self.rate
-        if not isclose(self.num_ticks, node_tick):
+        if self.is_reactive and not isclose(self.num_ticks, node_tick):
             rospy.logerr(f'[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)}).')
             pass
 

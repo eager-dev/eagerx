@@ -53,8 +53,6 @@ class SupervisorNode(BaseNode):
             self.state_buffer[i['name']] = {'msg': None, 'converter': converter}
 
         # Required for reset
-        self._reset_event = Event()
-        self._obs_event = Event()
         self._step_counter = 0
         super().__init__(ns=ns, states=states, **kwargs)
 
@@ -117,43 +115,20 @@ class SupervisorNode(BaseNode):
                 buffer['msg'] = None  # After sending state, set msg to None
         return msgs
 
-    def _clear_obs_event(self, msg):
-        self._obs_event.clear()
-        return msg
-
-    def _set_obs_event(self, msg):
-        self._obs_event.set()
-        return msg
-
-    def _set_reset_event(self, msg):
-        self._reset_event.set()
-        return msg
-
-    def _get_step_counter_msg(self):
-        return UInt64(data=self._step_counter)
-
     def reset(self):
         self.env_node.obs_event.clear()
         self.env_node.must_reset = True
         self.env_node.action_event.set()
-        # self._reset_event.clear()
         self.subjects['start_reset'].on_next(UInt64(data=self.cum_registered))
-        # self.subjects['step_counter'].on_next(self._get_step_counter_msg())
         self._step_counter = 0
         self.env_node.obs_event.wait()
-        # self._reset_event.wait()
-        # rospy.logdebug('RESET END')
-        # self._obs_event.wait()
         rospy.logdebug('FIRST OBS RECEIVED!')
 
     def step(self):
         self.env_node.obs_event.clear()
         self.env_node.action_event.set()
-        # self._obs_event.clear()
-        # self.subjects['step'].on_next(self._get_step_counter_msg())
         self._step_counter += 1
         self.env_node.obs_event.wait()
-        # self._obs_event.wait()
         rospy.logdebug('STEP END')
 
 
