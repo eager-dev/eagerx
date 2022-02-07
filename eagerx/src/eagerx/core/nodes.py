@@ -13,7 +13,6 @@ from eagerx.core.constants import process, INFO, WARN
 from eagerx.core.entities import Node
 from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import initialize_converter, Msg
-from eagerx.srv import ImageUInt8, ImageUInt8Response
 
 
 class EnvNode(Node):
@@ -267,8 +266,9 @@ class RenderNode(Node):
         self.last_image = Image(data=[])
         self.render_toggle = False
         self.window_closed = True
-        rospy.Service('%s/%s/get_last_image' % (self.ns, self.name), ImageUInt8, self._get_last_image)
         rospy.Subscriber('%s/%s/toggle' % (self.ns, self.name), Bool, self._set_render_toggle)
+        rospy.Subscriber('%s/%s/get_last_image' % (self.ns, self.name), Bool, self._get_last_image)
+        self.pub_set_last_image = rospy.Publisher('%s/%s/set_last_image' % (self.ns, self.name), Image, queue_size=0, latch=True)
 
     def _set_render_toggle(self, msg):
         if msg.data:
@@ -278,8 +278,8 @@ class RenderNode(Node):
             rospy.loginfo('STOP RENDERING!')
         self.render_toggle = msg.data
 
-    def _get_last_image(self, req):
-        return ImageUInt8Response(image=self.last_image)
+    def _get_last_image(self, msg):
+        self.pub_set_last_image.publish(self.last_image)
 
     def reset(self):
         pass

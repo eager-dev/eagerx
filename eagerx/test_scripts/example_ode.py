@@ -41,14 +41,14 @@ if __name__ == '__main__':
     graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
 
     # Add rendering
-    # graph.add_component('mops', 'sensors', 'image')
-    # graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
+    graph.add_component('mops', 'sensors', 'image')
+    graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
 
     # Show in the gui
     # graph.gui()
 
     # Define bridges
-    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=False,  real_time_factor=5, process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):

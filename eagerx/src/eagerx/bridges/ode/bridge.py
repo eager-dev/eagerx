@@ -88,4 +88,5 @@ class OdeBridge(Bridge):
             Dfun = sim['Dfun']
             x = sim['state']
             ode_params = sim['ode_params']
-            sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input, *ode_params), Dfun=Dfun, **self.odeint_args)[-1]
+            if x is not None and input is not None:
+                sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input, *ode_params), Dfun=Dfun, **self.odeint_args)[-1]

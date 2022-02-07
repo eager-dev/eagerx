@@ -6,6 +6,7 @@ from __future__ import print_function
 import rospy
 import rosparam
 from std_msgs.msg import UInt64, String, Bool
+from sensor_msgs.msg import Image
 
 # Rx imports
 from eagerx.core.constants import process
@@ -17,7 +18,6 @@ from eagerx.core.entities import BaseNode
 from eagerx.core.specs import NodeSpec, ObjectSpec
 from eagerx.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx.utils.node_utils import initialize_nodes
-from eagerx.srv import ImageUInt8
 from eagerx.core.nodes import EnvNode
 import eagerx
 
@@ -31,9 +31,11 @@ class SupervisorNode(BaseNode):
         self.env_node: EnvNode = None
 
         # Render
-        self._render_service_ready = False
+        self.last_image = None
+        self._image_event = Event()
         self.render_toggle = False
-        self.get_last_image_service = rospy.ServiceProxy('%s/env/render/get_last_image' % ns, ImageUInt8)
+        self.pub_get_last_image = rospy.Publisher('%s/env/render/get_last_image' % ns, Bool, queue_size=0, latch=True)
+        self.sub_set_last_image = rospy.Subscriber('%s/env/render/set_last_image' % ns, Image, self._last_image_callback)
         self.render_toggle_pub = rospy.Publisher('%s/env/render/toggle' % ns, Bool, queue_size=0, latch=True)
 
         # Initialize nodes
@@ -73,9 +75,14 @@ class SupervisorNode(BaseNode):
             self.render_toggle_pub.publish(Bool(data=self.render_toggle))
 
     def get_last_image(self):
-        if not self._render_service_ready:
-            rospy.wait_for_service('%s/env/render/get_last_image' % self.ns)
-        return self.get_last_image_service().image
+        self._image_event.clear()
+        self.pub_get_last_image.publish(Bool())
+        self._image_event.wait()
+        return self.last_image
+
+    def _last_image_callback(self, msg):
+        self.last_image = msg
+        self._image_event.set()
 
     def register_node(self, node: NodeSpec):
         # Increase cumulative registered counter. Is send as '/start_reset' message.
