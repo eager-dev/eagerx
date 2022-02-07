@@ -476,7 +476,10 @@ class EagerxGraphWidget(dockarea.DockArea):
         return self._viewBox  # the viewBox that items should be added to
 
     def node_menu_triggered(self, action):
-        self._node_menu_triggered(action, graph_backup=self.chart)
+        try:
+            self._node_menu_triggered(action, graph_backup=self.chart)
+        except Exception:
+            pass
 
     @exception_handler
     def _node_menu_triggered(self, action):

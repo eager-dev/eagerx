@@ -1,5 +1,6 @@
 import yaml
 import inspect
+import ast
 from functools import wraps, partial
 from copy import deepcopy
 
@@ -9,6 +10,19 @@ from pyqtgraph.Qt import QtGui
 from eagerx.core import constants
 from eagerx.utils.utils import get_attribute_from_module, get_module_type_string, get_opposite_msg_cls
 from eagerx.core.register import REVERSE_REGISTRY
+
+
+def tryeval(val):
+  try:
+    val = ast.literal_eval(val)
+  except Exception as e:
+    if isinstance(e, ValueError):
+        pass
+    elif isinstance(e, SyntaxError):
+        pass
+    else:
+        raise
+  return val
 
 
 def exception_handler(function_to_decorate):
@@ -132,7 +146,7 @@ class NodeCreationDialog(QtGui.QDialog):
         self.labels.append(label)
         self.widgets.append(widget)
 
-    def combo_box_value_changed(self, int, items, key, item_converter=None):
+    def combo_box_value_changed(self, int, items, key):
         value = items[int]
         self.mapping[key] = value
 
@@ -140,7 +154,7 @@ class NodeCreationDialog(QtGui.QDialog):
         self.mapping[key] = widget.value()
 
     def text_changed(self, text, key):
-        self.mapping[key] = text
+        self.mapping[key] = tryeval(text)
 
 
 class ParamWindow(QtGui.QDialog):
