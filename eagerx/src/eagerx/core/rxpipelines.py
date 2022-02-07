@@ -55,7 +55,8 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
 
     # Publish output msg as ROS topic and to subjects if single process
     for o in outputs:
-        d = output_stream.pipe(ops.pluck(o['name']),
+        d = output_stream.pipe(ops.filter(lambda x: x is not None),
+                               ops.pluck(o['name']),
                                ops.filter(lambda x: x is not None),
                                ops.map(o['converter'].convert),
                                ops.share(),
@@ -65,14 +66,19 @@ def init_node_pipeline(ns, rate_node, node, inputs, outputs, F, SS_ho, SS_CL_ho,
 
     # Publish output msg as ROS topic and to subjects if single process
     Nc_obs = output_stream.pipe(ops.scan(lambda acc, x: acc + 1, 0))
+    Nc_empty = output_stream.pipe(ops.scan(lambda acc, x: acc + 1 if x is None else acc, 0), ops.start_with(0))
 
     # Increase ticks
     d_Nc = Nc_obs.subscribe(Nc, scheduler=event_scheduler)
     d_Rn = Nc_obs.pipe(ops.start_with(0),  # added to simulated first zero from BS(0) of Nc
-                       ops.combine_latest(Ns, Rr),
-                       ops.filter(lambda value: value[0] == value[1]),
+                       ops.zip(Nc_empty),
+                       ops.map(lambda x: x[0] - x[1]),
+                       ops.combine_latest(Ns, Rr, Nc_empty),
+                       spy('pre-filter', node),
+                       ops.filter(lambda value: value[0] == value[1] - value[3]),
                        ops.take(1),
                        ops.merge(rx.never()),
+                       spy('post-filter', node),
                        ).subscribe(Rn)
 
     # Create reset flags for the set_states
@@ -639,7 +645,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     tick = dict(address=ns + '/bridge/outputs/tick', msg=Subject(), msg_type=UInt64)
     end_reset = dict(address=ns + '/end_reset', msg=Subject(), msg_type=UInt64)
-    end_reset['msg'].pipe(ops.map(node._clear_obs_event),
+    end_reset['msg'].pipe(spy('RESET END', node, log_level=DEBUG),
+                          ops.map(node._clear_obs_event),
                           ops.map(node._set_reset_event)).subscribe(tick['msg'])
 
     ###########################################################################

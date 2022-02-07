@@ -129,7 +129,7 @@ if __name__ == '__main__':
     graph.load('./test.graph')
 
     # Define bridge
-    bridge = Bridge.make('TestBridge', rate=20, is_reactive=False, real_time_factor=12, process=bridge_p)
+    bridge = Bridge.make('TestBridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
     env = EAGERxEnv(name='rx',

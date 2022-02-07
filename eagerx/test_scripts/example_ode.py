@@ -2,7 +2,7 @@
 
 # ROS packages required
 from eagerx.core import Object, Bridge, Node, initialize, log, process
-initialize('eagerx_core', anonymous=True, log_level=log.INFO)
+initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
 
 # Environment
 from eagerx.core.rxenv import EAGERxEnv
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     # graph.gui()
 
     # Define bridges
-    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=True,  real_time_factor=2, process=process.NEW_PROCESS)
+    bridge = Bridge.make('OdeBridge',   rate=rate, is_reactive=False,  real_time_factor=5, process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     env = Flatten(EAGERxEnv(name='rx', rate=rate, graph=graph, bridge=bridge, step_fn=step_fn))
 
     # Initialize learner (kudos to Antonin)
-    model = sb.SAC("MlpPolicy", env, verbose=1)
+    # model = sb.SAC("MlpPolicy", env, verbose=1)
 
     # First train in simulation
     env.render('human')
@@ -83,9 +83,9 @@ if __name__ == '__main__':
     for i in range(int(50000 * rate)):
         # action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
-        # if i % 500 == 0:
-        #     eps += 1
-        #     obs = env.reset()
-        #     print(f'Episode {eps}')
+        if i % 10 == 0:
+            eps += 1
+            obs = env.reset()
+            print(f'Episode {eps}')
 
-    model.save('simulation')
+    # model.save('simulation')

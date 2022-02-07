@@ -95,7 +95,13 @@ class BaseNodeSpec(EntitySpec):
         self.identity = BaseConverter.make('Identity')
 
     def initialize(self, spec_cls):
-        params = register.LOOKUP_TYPES[spec_cls.callback]
+        try:
+            params = register.LOOKUP_TYPES[spec_cls.callback]
+        except KeyError as e:
+            if spec_cls.__name__ == 'EnvNode':
+                params = dict()
+            else:
+                raise
 
         # Set default params
         defaults = get_default_params(spec_cls.initialize)

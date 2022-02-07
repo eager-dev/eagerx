@@ -18,6 +18,7 @@ from eagerx.core.specs import NodeSpec, ObjectSpec
 from eagerx.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
 from eagerx.utils.node_utils import initialize_nodes
 from eagerx.srv import ImageUInt8
+from eagerx.core.nodes import EnvNode
 import eagerx
 
 # OTHER
@@ -27,6 +28,7 @@ from threading import Event
 class SupervisorNode(BaseNode):
     def __init__(self, ns, states, **kwargs):
         self.subjects = None
+        self.env_node: EnvNode = None
 
         # Render
         self._render_service_ready = False
@@ -55,6 +57,9 @@ class SupervisorNode(BaseNode):
         self._obs_event = Event()
         self._step_counter = 0
         super().__init__(ns=ns, states=states, **kwargs)
+
+    def set_environment(self, env_node: EnvNode):
+        self.env_node = env_node
 
     def _set_subjects(self, subjects):
         self.subjects = subjects
@@ -128,20 +133,27 @@ class SupervisorNode(BaseNode):
         return UInt64(data=self._step_counter)
 
     def reset(self):
-        self._reset_event.clear()
+        self.env_node.obs_event.clear()
+        self.env_node.must_reset = True
+        self.env_node.action_event.set()
+        # self._reset_event.clear()
         self.subjects['start_reset'].on_next(UInt64(data=self.cum_registered))
-        self.subjects['step_counter'].on_next(self._get_step_counter_msg())
+        # self.subjects['step_counter'].on_next(self._get_step_counter_msg())
         self._step_counter = 0
-        self._reset_event.wait()
-        rospy.logdebug('RESET END')
-        self._obs_event.wait()
+        self.env_node.obs_event.wait()
+        # self._reset_event.wait()
+        # rospy.logdebug('RESET END')
+        # self._obs_event.wait()
         rospy.logdebug('FIRST OBS RECEIVED!')
 
     def step(self):
-        self._obs_event.clear()
-        self.subjects['step'].on_next(self._get_step_counter_msg())
+        self.env_node.obs_event.clear()
+        self.env_node.action_event.set()
+        # self._obs_event.clear()
+        # self.subjects['step'].on_next(self._get_step_counter_msg())
         self._step_counter += 1
-        self._obs_event.wait()
+        self.env_node.obs_event.wait()
+        # self._obs_event.wait()
         rospy.logdebug('STEP END')
 
 

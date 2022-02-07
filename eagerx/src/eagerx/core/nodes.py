@@ -1,4 +1,5 @@
 from typing import Optional
+from threading import Event
 
 import numpy as np
 import rospy
@@ -13,6 +14,94 @@ from eagerx.core.entities import Node
 from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import initialize_converter, Msg
 from eagerx.srv import ImageUInt8, ImageUInt8Response
+
+
+class EnvNode(Node):
+    @staticmethod
+    @register.spec('EnvNode', Node)
+    def spec(spec: NodeSpec, rate=1, log_level=WARN, color='yellow'):
+        """EnvNode Spec"""
+        spec.initialize(EnvNode)
+
+        # Modify default node params
+        params = dict(name='environment',
+                      rate=rate,
+                      process=process.ENVIRONMENT,
+                      color=color,
+                      log_level=log_level,
+                      inputs=[],
+                      outputs=[],
+                      states=[])
+        spec.set_parameters(params)
+
+    def initialize(self):
+        # Define observation buffers
+        self.observation_buffer = dict()
+        for i in self.inputs:
+            if i['name'] == 'actions_set':
+                continue
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['converter'] = initialize_converter(i['converter'])
+                converter = i['converter']
+            elif 'converter' in i and not isinstance(i['converter'], dict):
+                converter = i['converter']
+            else:
+                raise ValueError(f'Converter type {i["converter"]} of {i["name"]} not supported.')
+
+            name = i['name']
+            window = i['window']
+            self.observation_buffer[name] = {'msgs': None, 'converter': converter, 'window': window}
+
+        self.obs_event = Event()
+        self.action_event = Event()
+        self.must_reset = False
+
+        # Define action buffers
+        self.action_buffer = dict()
+        for i in self.outputs:
+            if i['name'] == 'set':
+                continue
+            if 'converter' in i and isinstance(i['converter'], dict):
+                i['converter'] = initialize_converter(i['converter'])
+                converter = i['converter']
+            elif 'converter' in i and not isinstance(i['converter'], dict):
+                converter = i['converter']
+            else:
+                converter = None
+            self.action_buffer[i['name']] = {'msg': None, 'converter': converter}
+
+    def reset(self):
+        self.must_reset = False
+
+        # Set all observation messages to None
+        for name, buffer in self.observation_buffer.items():
+            buffer['msgs'] = None
+
+        # Set all action messages to None
+        for name, buffer in self.action_buffer.items():
+            buffer['msg'] = None
+
+    def callback(self, t_n: float, **kwargs: Optional[Msg]):
+        for name, i in kwargs.items():
+            buffer = self.observation_buffer[name]
+            window = buffer['window']
+
+            extra = window - len(i.msgs)
+            msgs = extra * [i.msgs[0]] + i.msgs
+            buffer['msgs'] = np.array(msgs)
+
+        self.action_event.clear()   # Clear action event, so that we can block after setting obs
+        self.obs_event.set()        # Signal environment that observations have been set.
+        self.action_event.wait()    # Wait for actions to be set.
+
+        if self.must_reset:
+            return None
+        else:
+            # Fill output_msg with buffered actions
+            output_msgs = dict()
+            for name, buffer in self.action_buffer.items():
+                output_msgs[name] = buffer['msg']
+        return output_msgs
 
 
 class ObservationsNode(Node):

@@ -167,7 +167,7 @@ class ProcessNode(TestNode):
 
         # Add inputs
         space_converter = SpaceConverter.make('Space_RosUInt64', [0], [100], dtype='uint64')
-        spec.set_parameters('inputs', 'tick', dict(window=0))
+        spec.set_parameters(dict(window=0), 'inputs', 'tick')
         spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_1')
         spec.set_parameters(dict(window=0, space_converter=space_converter), 'inputs', 'in_2')
         space_converter = SpaceConverter.make('Space_RosString', [0], [100], dtype='uint64')

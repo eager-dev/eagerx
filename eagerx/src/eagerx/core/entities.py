@@ -304,7 +304,7 @@ class Node(BaseNode):
         name = spec.get_parameter('name')
 
         # Check that there is atleast a single input & output defined.
-        assert len(spec._params['default']['inputs']) > 0, f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
+        assert len(spec._params['default']['inputs']) > 0 or name == 'environment', f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
 
 
 class ResetNode(Node):

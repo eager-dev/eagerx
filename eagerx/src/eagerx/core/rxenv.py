@@ -58,8 +58,11 @@ class RxEnv(gym.Env):
         # Initialize bridge
         self._init_bridge(bridge, nodes)
 
+        # Create environment node
+        self.env_node, _ = self._init_environment(actions, observations, self.supervisor_node, self.mb)
+
         # Initialize action & observation node
-        self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
+        # self.act_node, self.obs_node, _, _ = self._init_actions_and_observations(actions, observations, self.mb)
 
         # Register render node
         if self.render_node:
@@ -131,7 +134,7 @@ class RxEnv(gym.Env):
         real_time_factor = bridge.get_parameter('real_time_factor')
         simulate_delays = bridge.get_parameter('simulate_delays')
 
-        # Create env node
+        # Create supervisor node
         name = supervisor.get_parameter('name')
         supervisor.set_parameter('rate', self.rate)
         supervisor_params = supervisor.build(ns=self.ns)
@@ -150,7 +153,7 @@ class RxEnv(gym.Env):
         assert not bridge.params['default']['process'] == process.BRIDGE, 'Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}.'
 
         # Extract node_names
-        node_names = ['env/actions', 'env/observations', 'env/supervisor']
+        node_names = ['environment', 'env/supervisor']
         target_addresses = []
         for i in nodes:
             # node_names.append(i.params['default']['name'])
@@ -191,10 +194,42 @@ class RxEnv(gym.Env):
 
         return rx_act.node, rx_obs.node, rx_act, rx_obs
 
+    def _init_environment(self, actions: NodeSpec, observations: NodeSpec, supervisor_node, message_broker):
+        # Check that env has at least one input & output.
+        assert len(observations.params['default']['inputs']) > 0, f'Environment "{self.name}" must have at least one input (i.e. input).'
+        assert len(actions.params['default']['outputs']) > 0, f'Environment "{self.name}" must have at least one action (i.e. output).'
+
+        # Check that all observation addresses are unique
+        addresses_obs = [observations.params['inputs'][cname]['address'] for cname in observations.params['default']['inputs']]
+        len(set(addresses_obs)) == len(addresses_obs), 'Duplicate observations found: %s. Make sure to only have unique observations' % (set([x for x in addresses_obs if addresses_obs.count(x) > 1]))
+
+        # Create env node
+        env_spec = Node.make('EnvNode', rate=self.rate)
+        name = env_spec.get_parameter('name')
+        inputs = observations.get_parameter('inputs')
+        outputs = actions.get_parameter('outputs')
+        for i in inputs:
+            if i == 'actions_set': continue
+            env_spec._params['inputs'][i] = observations.get_parameters('inputs', i)
+            env_spec._params['default']['inputs'].append(i)
+        for i in outputs:
+            if i == 'set': continue
+            env_spec._params['outputs'][i] = actions.get_parameters('outputs', i)
+            env_spec._params['default']['outputs'].append(i)
+        env_params = env_spec.build(ns=self.ns)
+        rosparam.upload_params(self.ns, env_params)
+        rx_env = RxNode(name='%s/%s' % (self.ns, name), message_broker=message_broker)
+        rx_env.node_initialized()
+
+        # Set env_node in supervisor
+        supervisor_node.set_environment(rx_env.node)
+
+        return rx_env.node, rx_env
+
     @property
     def observation_space(self) -> gym.spaces.Dict:
         observation_space = dict()
-        for name, buffer in self.obs_node.observation_buffer.items():
+        for name, buffer in self.env_node.observation_buffer.items():
             space = buffer['converter'].get_space()
             if not buffer['window'] > 0: continue
             low = np.repeat(space.low[np.newaxis, ...], buffer['window'], axis=0)
@@ -206,7 +241,7 @@ class RxEnv(gym.Env):
     @property
     def action_space(self) -> gym.spaces.Dict:
         action_space = dict()
-        for name, buffer in self.act_node.action_buffer.items():
+        for name, buffer in self.env_node.action_buffer.items():
             action_space[name] = buffer['converter'].get_space()
         return gym.spaces.Dict(spaces=action_space)
 
@@ -219,7 +254,7 @@ class RxEnv(gym.Env):
 
     def _set_action(self, action) -> None:
         # Set actions in buffer
-        for name, buffer in self.act_node.action_buffer.items():
+        for name, buffer in self.env_node.action_buffer.items():
             assert not self.supervisor_node.is_reactive or name in action, 'Action "%s" not specified. Must specify all actions in action_space if running reactive.' % name
             if name in action:
                 buffer['msg'] = action[name]
@@ -233,7 +268,7 @@ class RxEnv(gym.Env):
     def _get_observation(self) -> Dict:
         # Get observations from buffer
         observation = dict()
-        for name, buffer in self.obs_node.observation_buffer.items():
+        for name, buffer in self.env_node.observation_buffer.items():
             observation[name] = buffer['msgs']
         return observation
 
@@ -269,20 +304,20 @@ class RxEnv(gym.Env):
         obs = self._get_observation()
 
         # Check all observations with window > 0 not empty (can only occur when running async)
-        if not self.supervisor_node.is_reactive:
-            while True:
-                all_set = True
-                for name, buffer in obs.items():
-                    window = self.obs_node.observation_buffer[name]['window']
-                    if window > 0 and len(buffer) == 0:
-                        all_set = False
-                        break
-                if all_set:
-                    break
-                else:
-                    rospy.loginfo('NOT ALL REQUIRED OBSERVATIONS SET. STEP WITH "None" ACTIONS.')
-                    # rospy.logdebug('NOT ALL REQUIRED OBSERVATIONS SET. STEP WITH "None" ACTIONS.')
-                    obs = self._step(action=dict())
+        # if not self.supervisor_node.is_reactive:
+        #     while True:
+        #         all_set = True
+        #         for name, buffer in obs.items():
+        #             window = self.env_node.observation_buffer[name]['window']
+        #             if window > 0 and len(buffer) == 0:
+        #
+        #                 all_set = False
+        #                 break
+        #         if all_set:
+        #             break
+        #         else:
+        #             rospy.loginfo('NOT ALL REQUIRED OBSERVATIONS SET. STEP WITH "None" ACTIONS.')
+        #             obs = self._step(action=dict())
         return obs
 
     def _step(self, action: Dict) -> Dict:
@@ -369,7 +404,7 @@ class EAGERxEnv(RxEnv):
         self.step_fn = step_fn
         self.reset_fn = reset_fn
         super(EAGERxEnv, self).__init__(name, rate, graph, bridge)
-        self.excl_obs = [name for name, buffer in self.obs_node.observation_buffer.items() if buffer['window'] == 0]
+        self.excl_obs = [name for name, buffer in self.env_node.observation_buffer.items() if buffer['window'] == 0]
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         # Send actions and wait for observations
