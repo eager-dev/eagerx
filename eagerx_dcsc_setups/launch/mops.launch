@@ -1,4 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <node name="mops" pkg="eagerx_dcsc_setups" type="mops" output="screen"/>
-</launch>
