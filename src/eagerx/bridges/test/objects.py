@@ -8,7 +8,7 @@ from std_msgs.msg import UInt64, String
 from eagerx.bridges.test.bridge import TestBridgeNode
 from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState
 from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
-from eagerx.core.engine_graph import EngineGraph
+from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
 
 

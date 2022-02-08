@@ -17,7 +17,7 @@ from pyqtgraph.debug import printExc
 
 # Import eagerx modules
 from eagerx.core import constants
-from eagerx.core.rxgraph import RxGraph
+from eagerx.core.graph import Graph
 from eagerx.gui import rxgui_view
 from eagerx.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
 from eagerx.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
@@ -30,7 +30,7 @@ from eagerx.core.entities import Node
 rx_ui_template = importlib.import_module('eagerx.gui.templates.ui_{}'.format(QT_LIB.lower()))
 
 
-class RxGui(RxGraph, QtCore.QObject):
+class Gui(Graph, QtCore.QObject):
     library = get_nodes_and_objects_library()
     sigFileLoaded = QtCore.Signal(object)
     sigFileSaved = QtCore.Signal(object)
@@ -39,7 +39,7 @@ class RxGui(RxGraph, QtCore.QObject):
     sigChartChanged = QtCore.Signal(object, object, object)  # called when nodes are added, removed, or renamed.
 
     def __init__(self, state):
-        RxGraph.__init__(self, state=state)
+        Graph.__init__(self, state=state)
         QtCore.QObject.__init__(self)
         self.nodes = {}
         self.next_z_val = 10

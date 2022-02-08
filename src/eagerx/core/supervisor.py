@@ -10,10 +10,10 @@ from sensor_msgs.msg import Image
 
 # Rx imports
 from eagerx.core.constants import process
-from eagerx.core.rxnode import RxNode
-import eagerx.core.rxmessage_broker
-import eagerx.core.rxoperators
-import eagerx.core.rxpipelines
+from eagerx.core.executable_node import RxNode
+import eagerx.core.rx_message_broker
+import eagerx.core.rx_operators
+import eagerx.core.rx_pipelines
 from eagerx.core.entities import BaseNode
 from eagerx.core.specs import NodeSpec, ObjectSpec
 from eagerx.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking
@@ -139,7 +139,7 @@ class SupervisorNode(BaseNode):
         rospy.logdebug('STEP END')
 
 
-class RxSupervisor(object):
+class Supervisor(object):
     def __init__(self, name, message_broker, is_reactive, real_time_factor, simulate_delays):
         self.name = name
         self.ns = '/'.join(name.split('/')[:2])
@@ -151,7 +151,7 @@ class RxSupervisor(object):
         outputs, states, self.node = self._prepare_io_topics(self.name, is_reactive, real_time_factor, simulate_delays)
 
         # Initialize reactive pipeline
-        rx_objects, env_subjects = eagerx.core.rxpipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
+        rx_objects, env_subjects = eagerx.core.rx_pipelines.init_supervisor(self.ns, self.node, outputs=outputs, state_outputs=states)
         self.node._set_subjects(env_subjects)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
@@ -191,9 +191,9 @@ if __name__ == '__main__':
 
     rospy.init_node('env', log_level=rospy.INFO)
 
-    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=rospy.get_name())
 
-    pnode = RxSupervisor(name=rospy.get_name(), message_broker=message_broker)
+    pnode = Supervisor(name=rospy.get_name(), message_broker=message_broker)
 
     message_broker.connect_io()
 

@@ -9,7 +9,7 @@ from sensor_msgs.msg import Image
 from eagerx.bridges.openai_gym.bridge import GymBridge
 from eagerx.core.entities import Object, EngineNode, SpaceConverter
 from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
-from eagerx.core.engine_graph import EngineGraph
+from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
 
 

@@ -1,6 +1,6 @@
 import sys
 from pyqtgraph.Qt import QtGui, QtCore
-from eagerx.gui.rxgui import RxGui
+from eagerx.gui.rxgui import Gui
 
 
 def launch_gui(state):
@@ -14,7 +14,7 @@ def launch_gui(state):
     layout = QtGui.QGridLayout()
     cw.setLayout(layout)
 
-    rx_gui = RxGui(state)
+    rx_gui = Gui(state)
     w = rx_gui.widget()
 
     # Add flowchart control panel to the main window

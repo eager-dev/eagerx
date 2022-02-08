@@ -5,7 +5,7 @@ from eagerx import Object, Bridge, initialize, log, process
 initialize('eagerx_core', anonymous=True, log_level=log.INFO)
 
 # Environment imports
-from eagerx.core.rxgraph import RxGraph
+from eagerx.core.graph import Graph
 
 # Implementation specific
 import eagerx.bridges.openai_gym as eagerx_gym
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     obj = Object.make('GymObject', name, gym_env_id=gym_id, gym_rate=rate, default_action=[0.0], render_shape=[300, 300])
 
     # Define graph
-    graph = RxGraph.create(objects=[obj])
+    graph = Graph.create(objects=[obj])
     graph.connect(source=(name, 'sensors', 'observation'), observation='observation', window=1)
     graph.connect(source=(name, 'sensors', 'reward'), observation='reward', window=1)
     graph.connect(source=(name, 'sensors', 'done'), observation='done', window=1)
@@ -44,13 +44,14 @@ if __name__ == '__main__':
     bridge = Bridge.make('GymBridge', rate=rate, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
 
     # Initialize Environment
-    env = eagerx_gym.EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerGym(name='rx', rate=rate, graph=graph, bridge=bridge)
 
     # Turn on rendering
     env.render(mode='human')
 
     # Use stable-baselines
-    model = sb.PPO("MlpPolicy", env, verbose=1)
+    # model = sb.PPO("MlpPolicy", env, verbose=1)
+    model = sb.SAC("MlpPolicy", env, verbose=1, ent_coef=0.1)
     model.learn(total_timesteps=int(2000*rate*200/20))
 
     # First reset

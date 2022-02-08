@@ -5,7 +5,7 @@ from eagerx import Object, Bridge, initialize, log, process
 initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
 
 # Environment
-from eagerx.core.rxgraph import RxGraph
+from eagerx.core.graph import Graph
 
 # Implementation specific
 import eagerx.bridges.openai_gym as eagerx_gym
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     obj = Object.make('GymObject', name, gym_env_id=gym_id, gym_rate=rate, default_action=[0.0], render_shape=[300, 300])
 
     # Define graph
-    graph = RxGraph.create(objects=[obj])
+    graph = Graph.create(objects=[obj])
     graph.connect(source=(name, 'sensors', 'observation'), observation='observation', window=1)
     graph.connect(source=(name, 'sensors', 'reward'), observation='reward', window=1)
     graph.connect(source=(name, 'sensors', 'done'), observation='done', window=1)
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         return obs, obs['reward'][0], steps >= 200, dict()
 
     # Initialize Environment
-    env = eagerx_gym.EAGERxGym(name='rx', rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
+    env = eagerx_gym.EagerGym(name='rx', rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
 
     # Turn on rendering
     env.render(mode='human')

@@ -8,12 +8,12 @@ from sensor_msgs.msg import Image
 # EAGERX
 from eagerx.core.specs import NodeSpec, ObjectSpec, BridgeSpec
 from eagerx.core.entities import Node
-from eagerx.core.rxgraph import RxGraph
+from eagerx.core.graph import Graph
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization, substitute_args
-from eagerx.core.rxnode import RxNode
-from eagerx.core.rxbridge import RxBridge
-from eagerx.core.rxsupervisor import RxSupervisor, SupervisorNode
-from eagerx.core.rxmessage_broker import RxMessageBroker
+from eagerx.core.executable_node import RxNode
+from eagerx.core.executable_bridge import RxBridge
+from eagerx.core.supervisor import Supervisor, SupervisorNode
+from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.core.constants import process
 
 # OTHER IMPORTS
@@ -25,7 +25,7 @@ import gym
 import logging
 
 
-class RxEnv(gym.Env):
+class Env(gym.Env):
     @staticmethod
     def create_supervisor():
         entity_type = f'{SupervisorNode.__module__}/{SupervisorNode.__name__}'
@@ -38,7 +38,7 @@ class RxEnv(gym.Env):
         return supervisor
 
     def __init__(self, name: str, rate: float,
-                 graph: RxGraph,
+                 graph: Graph,
                  bridge: BridgeSpec) -> None:
         assert '/' not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
@@ -136,7 +136,7 @@ class RxEnv(gym.Env):
         supervisor.set_parameter('rate', self.rate)
         supervisor_params = supervisor.build(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
-        rx_supervisor = RxSupervisor('%s/%s' % (self.ns, name), mb, is_reactive, real_time_factor, simulate_delays)
+        rx_supervisor = Supervisor('%s/%s' % (self.ns, name), mb, is_reactive, real_time_factor, simulate_delays)
         rx_supervisor.node_initialized()
 
         # Connect io
@@ -272,22 +272,6 @@ class RxEnv(gym.Env):
         # Perform reset
         self.supervisor_node.reset()
         obs = self._get_observation()
-
-        # Check all observations with window > 0 not empty (can only occur when running async)
-        # if not self.supervisor_node.is_reactive:
-        #     while True:
-        #         all_set = True
-        #         for name, buffer in obs.items():
-        #             window = self.env_node.observation_buffer[name]['window']
-        #             if window > 0 and len(buffer) == 0:
-        #
-        #                 all_set = False
-        #                 break
-        #         if all_set:
-        #             break
-        #         else:
-        #             rospy.loginfo('NOT ALL REQUIRED OBSERVATIONS SET. STEP WITH "None" ACTIONS.')
-        #             obs = self._step(action=dict())
         return obs
 
     def _step(self, action: Dict) -> Dict:
@@ -363,9 +347,9 @@ class RxEnv(gym.Env):
         self._shutdown()
 
 
-class EAGERxEnv(RxEnv):
+class EagerEnv(Env):
     def __init__(self, name: str, rate: float,
-                 graph: RxGraph,
+                 graph: Graph,
                  bridge: BridgeSpec,
                  step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
                  reset_fn: Callable = lambda env: env.state_space.sample()) -> None:
@@ -373,7 +357,7 @@ class EAGERxEnv(RxEnv):
         self.prev_observation = None
         self.step_fn = step_fn
         self.reset_fn = reset_fn
-        super(EAGERxEnv, self).__init__(name, rate, graph, bridge)
+        super(EagerEnv, self).__init__(name, rate, graph, bridge)
         self.excl_obs = [name for name, buffer in self.env_node.observation_buffer.items() if buffer['window'] == 0]
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:

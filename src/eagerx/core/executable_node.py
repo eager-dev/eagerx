@@ -6,8 +6,8 @@ from std_msgs.msg import UInt64
 
 # Rx imports
 from eagerx.core.constants import log_levels_ROS
-import eagerx.core.rxmessage_broker
-import eagerx.core.rxpipelines
+import eagerx.core.rx_message_broker
+import eagerx.core.rx_pipelines
 from eagerx.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, get_opposite_msg_cls
 
 # Other imports
@@ -25,8 +25,8 @@ class RxNode(object):
         rate, inputs, outputs, feedthroughs, states, targets, self.node = self._prepare_io_topics(self.name, **kwargs)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx.core.rxpipelines.init_node(self.ns, rate, self.node, inputs, outputs, feedthrough=feedthroughs,
-                                                       state_inputs=states, targets=targets)
+        rx_objects = eagerx.core.rx_pipelines.init_node(self.ns, rate, self.node, inputs, outputs, feedthrough=feedthroughs,
+                                                        state_inputs=states, targets=targets)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
     def node_initialized(self):
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     rospy.init_node(f'{name}'.replace('/', '_'), log_level=log_levels_ROS[log_level], anonymous=True)
 
-    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=f'{ns}/{name}')
+    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f'{ns}/{name}')
 
     pnode = RxNode(name=f'{ns}/{name}', message_broker=message_broker)
 

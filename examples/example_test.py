@@ -4,8 +4,8 @@ from eagerx import initialize, log, process
 initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
 
 # Environment imports
-from eagerx.core.rxenv import EAGERxEnv
-from eagerx.core.rxgraph import RxGraph
+from eagerx.core.env import EagerEnv
+from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
 # Implementation specific
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     RosImage_RosUInt64 = Converter.make('RosImage_RosUInt64', test_arg='test')
 
     # Define graph
-    graph = RxGraph.create(nodes=[N3, KF], objects=[viper])
+    graph = Graph.create(nodes=[N3, KF], objects=[viper])
     graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
     graph.render (source=('obj', 'sensors', 'N6'),     rate=1, converter=RosImage_RosUInt64, display=False)
     graph.connect(source=('obj', 'sensors', 'N6'),     observation='obs_1', delay=0.0)
@@ -132,13 +132,13 @@ if __name__ == '__main__':
     bridge = Bridge.make('TestBridge', rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
-    env = EAGERxEnv(name='rx',
-                    rate=rate,
-                    graph=graph,
-                    bridge=bridge,
-                    reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
+    env = EagerEnv(name='rx',
+                   rate=rate,
+                   graph=graph,
+                   bridge=bridge,
+                   reset_fn=lambda env: {'obj/N9': env.state_space.sample()['obj/N9'],
                                           'bridge/param_1': env.state_space.sample()['bridge/param_1']}
-                    )
+                   )
     env = Flatten(env)
 
     # First reset

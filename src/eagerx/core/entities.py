@@ -15,7 +15,7 @@ from tabulate import tabulate
 
 
 from eagerx.core.constants import TERMCOLOR, ERROR, SILENT, process
-from eagerx.core.rxmessage_broker import RxMessageBroker
+from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 
@@ -293,7 +293,7 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        spec.set_parameter('executable', 'python:=eagerx.core.rxnode')
+        spec.set_parameter('executable', 'python:=eagerx.core.executable_node')
         from eagerx.core.specs import NodeSpec
         return NodeSpec(spec.params)
 
@@ -598,7 +598,7 @@ class Bridge(BaseNode):
         spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
         default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
-                       executable='python:=eagerx.core.rxbridge')
+                       executable='python:=eagerx.core.executable_bridge')
         spec._set({'default': default})
         from eagerx.core.specs import BridgeSpec
         return BridgeSpec(spec.params)

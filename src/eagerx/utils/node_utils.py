@@ -67,7 +67,7 @@ def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
                      node_args: Dict = None,
                      ):
     if rxnode_cls is None:
-        from eagerx.core.rxnode import RxNode
+        from eagerx.core.executable_node import RxNode
         rxnode_cls = RxNode
 
     from eagerx.core.specs import BaseNodeSpec

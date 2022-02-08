@@ -424,7 +424,7 @@ class ObjectSpec(EntitySpec):
             except AssertionError as e:
                 continue
 
-        from eagerx.core.engine_graph import EngineGraph
+        from eagerx.core.graph_engine import EngineGraph
         graph = EngineGraph.create(**mapping)
         return graph
 

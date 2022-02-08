@@ -13,7 +13,7 @@ from eagerx.core.entities import Node, BaseConverter, SpaceConverter
 from eagerx.core.specs import BaseNodeSpec, ObjectSpec, ConverterSpec, EntitySpec, merge, NodeSpec
 
 
-class RxGraph:
+class Graph:
     def __init__(self, state: Dict):
         self._state = state
 
@@ -302,7 +302,7 @@ class RxGraph:
 
         # Add connection
         connect = [source, target]
-        RxGraph.check_msg_type(source, target, self._state)
+        Graph.check_msg_type(source, target, self._state)
         self._state['connects'].append(connect)
 
     def _connect_action(self, action, target, converter=None):
@@ -819,7 +819,7 @@ class RxGraph:
     @staticmethod
     def _is_selected(state: Dict, name: str, component: str, cname: str):
         """Check if provided entry was selected in params."""
-        RxGraph._exist(state, name, component, cname)
+        Graph._exist(state, name, component, cname)
         params = state['nodes'][name]['params']
         component = 'outputs' if component == 'feedthroughs' else component
         assert cname in params['default'][component], '"%s" not selected in "%s" under "default" in %s. ' % (cname, name, component)
@@ -855,10 +855,10 @@ class RxGraph:
     @staticmethod
     def _is_valid(state, plot=True):
         state = deepcopy(state)
-        RxGraph.check_msg_types_are_consistent(state)
-        RxGraph.check_inputs_have_address(state)
-        RxGraph.check_graph_is_acyclic(state, plot=plot)
-        RxGraph.check_exists_compatible_bridge(state)
+        Graph.check_msg_types_are_consistent(state)
+        Graph.check_inputs_have_address(state)
+        Graph.check_graph_is_acyclic(state, plot=plot)
+        Graph.check_exists_compatible_bridge(state)
         return True
 
     @staticmethod
@@ -888,7 +888,7 @@ class RxGraph:
     @staticmethod
     def check_msg_types_are_consistent(state):
         for source, target in state['connects']:
-            RxGraph.check_msg_type(source, target, state)
+            Graph.check_msg_type(source, target, state)
         return True
 
     @staticmethod

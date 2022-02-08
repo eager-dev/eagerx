@@ -4,9 +4,9 @@ import rospy
 from std_msgs.msg import UInt64
 
 # Rx imports
-import eagerx.core.rxmessage_broker
-import eagerx.core.rxoperators
-import eagerx.core.rxpipelines
+import eagerx.core.rx_message_broker
+import eagerx.core.rx_operators
+import eagerx.core.rx_pipelines
 from eagerx.utils.utils import get_attribute_from_module, initialize_converter, get_param_with_blocking, get_opposite_msg_cls
 from eagerx.utils.node_utils import wait_for_node_initialization
 from eagerx.core.constants import log_levels_ROS
@@ -27,7 +27,7 @@ class RxBridge(object):
         rate, inputs, outputs, states, node_names, target_addresses, self.bridge = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx.core.rxpipelines.init_bridge(self.ns, rate, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
+        rx_objects = eagerx.core.rx_pipelines.init_bridge(self.ns, rate, self.bridge, inputs, outputs, states, node_names, target_addresses, self.mb)
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
         self.mb.add_rx_objects(node_name=name + '/dynamically_registered', node=self)
         self.mb.connect_io()
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     rospy.init_node(f'{name}'.replace('/', '_'), log_level=log_levels_ROS[log_level], anonymous=True)
 
-    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=f'{ns}/{name}')
+    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f'{ns}/{name}')
 
     pnode = RxBridge(name=f'{ns}/{name}', message_broker=message_broker)
 
