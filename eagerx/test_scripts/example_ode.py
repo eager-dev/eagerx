@@ -2,7 +2,7 @@
 
 # ROS packages required
 from eagerx.core import Object, Bridge, Node, initialize, log, process
-initialize('eagerx_core', anonymous=True, log_level=log.DEBUG)
+initialize('eagerx_core', anonymous=True, log_level=log.INFO)
 
 # Environment
 from eagerx.core.rxenv import EAGERxEnv
@@ -41,8 +41,8 @@ if __name__ == '__main__':
     graph.connect(source=('mops', 'sensors', 'action_applied'), observation='action_applied', window=1)
 
     # Add rendering
-    graph.add_component('mops', 'sensors', 'image')
-    graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
+    # graph.add_component('mops', 'sensors', 'image')
+    # graph.render(source=('mops', 'sensors', 'image'), rate=10, display=True)
 
     # Show in the gui
     # graph.gui()
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     for i in range(int(50000 * rate)):
         # action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
-        if i % 10 == 0:
+        if i % 500 == 0:
             eps += 1
             obs = env.reset()
             print(f'Episode {eps}')

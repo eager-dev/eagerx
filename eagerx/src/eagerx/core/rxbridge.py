@@ -13,6 +13,7 @@ from eagerx.core.constants import log_levels_ROS
 
 # Other imports
 from threading import Condition
+import sys
 
 
 class RxBridge(object):
@@ -88,14 +89,15 @@ class RxBridge(object):
 
 
 if __name__ == '__main__':
+    executable, ns, name = sys.argv
 
-    log_level = get_ROS_log_level(rospy.get_name())
+    log_level = get_param_with_blocking(ns + '/log_level')
 
-    rospy.init_node('rxbridge', log_level=log_levels_ROS[log_level])
+    rospy.init_node(f'{name}'.replace('/', '_'), log_level=log_levels_ROS[log_level], anonymous=True)
 
-    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=f'{ns}/{name}')
 
-    pnode = RxBridge(name=rospy.get_name(), message_broker=message_broker)
+    pnode = RxBridge(name=f'{ns}/{name}', message_broker=message_broker)
 
     message_broker.connect_io()
 

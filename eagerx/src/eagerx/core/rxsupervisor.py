@@ -90,7 +90,7 @@ class SupervisorNode(BaseNode):
 
         # Initialize node
         node_name = node.get_parameter('name')
-        initialize_nodes(node, process.ENVIRONMENT, self.ns, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
+        initialize_nodes(node, process.ENVIRONMENT, self.ns, self.message_broker, self.is_initialized, self.sp_nodes, self.launch_nodes, rxnode_cls=RxNode)
         self.subjects['register_node'].on_next(String(self.ns + '/' + node_name))
 
     def register_object(self, object: ObjectSpec, bridge_name: str):
@@ -106,7 +106,7 @@ class SupervisorNode(BaseNode):
         rosparam.upload_params(self.ns, params)
 
         # Upload node parameters to ROS param server
-        initialize_nodes(nodes, process.ENVIRONMENT, self.ns, self.ns, message_broker=self.message_broker,
+        initialize_nodes(nodes, process.ENVIRONMENT, self.ns, message_broker=self.message_broker,
                          is_initialized=self.is_initialized, sp_nodes=self.sp_nodes, launch_nodes=self.launch_nodes)
         self.subjects['register_object'].on_next(String(self.ns + '/' + obj_name))
 

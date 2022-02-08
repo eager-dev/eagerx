@@ -10,6 +10,9 @@ import eagerx.core.rxmessage_broker
 import eagerx.core.rxpipelines
 from eagerx.utils.utils import get_attribute_from_module, initialize_converter, get_ROS_log_level, get_param_with_blocking, get_opposite_msg_cls
 
+# Other imports
+import sys
+
 
 class RxNode(object):
     def __init__(self, name, message_broker, **kwargs):
@@ -94,24 +97,18 @@ class RxNode(object):
 
 
 if __name__ == '__main__':
+    executable, ns, name = sys.argv
 
-    log_level = get_ROS_log_level(rospy.get_name())
+    log_level = get_param_with_blocking(ns + '/log_level')
 
-    rospy.init_node('rxnode', log_level=log_levels_ROS[log_level])
+    rospy.init_node(f'{name}'.replace('/', '_'), log_level=log_levels_ROS[log_level], anonymous=True)
 
-    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=rospy.get_name())
+    message_broker = eagerx.core.rxmessage_broker.RxMessageBroker(owner=f'{ns}/{name}')
 
-    pnode = RxNode(name=rospy.get_name(), message_broker=message_broker)
+    pnode = RxNode(name=f'{ns}/{name}', message_broker=message_broker)
 
     message_broker.connect_io()
 
     pnode.node_initialized()
 
     rospy.spin()
-
-
-###########################################################################
-# Specific implementations ################################################
-###########################################################################
-
-

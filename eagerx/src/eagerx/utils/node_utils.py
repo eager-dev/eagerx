@@ -1,8 +1,6 @@
 # ROS SPECIFIC
-import roslaunch
 import rospy
 import rosparam
-from roslaunch.core import RLException
 from std_msgs.msg import UInt64
 
 # RxEAGER
@@ -10,6 +8,8 @@ from eagerx.utils.utils import substitute_args
 from eagerx.core.constants import process, log, log_levels_ROS
 
 # OTHER
+import importlib
+import subprocess
 from time import sleep
 from typing import List, Dict, Union, Any
 from functools import partial, wraps
@@ -23,19 +23,21 @@ def initialize(*args, log_level=log.INFO, **kwargs):
 
 
 def launch_roscore():
+    import roslaunch
     uuid = roslaunch.rlutil.get_or_generate_uuid(options_runid=None, options_wait_for_master=False)
     roslaunch.configure_logging(uuid)
     roscore = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_files=[], is_core=True)
 
     try:
         roscore.start()
-    except RLException as e:
+    except roslaunch.core.RLException as e:
         rospy.logwarn('Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore.')
         pass
     return roscore
 
 
 def launch_node(launch_file, args):
+    import roslaunch
     cli_args = [substitute_args(launch_file)] + args
     roslaunch_args = cli_args[1:]
     roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
@@ -45,10 +47,18 @@ def launch_node(launch_file, args):
     return launch
 
 
+def launch_node_as_subprocess(executable, ns, name):
+    node_type, file = executable.split(':=')
+    if 'python' in node_type:
+        if '.py' not in file:
+            file = importlib.import_module(file).__file__
+    p = subprocess.Popen([file] + [ns, name])
+    return p
+
+
 def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
                      process_id: int,
                      ns: str,
-                     owner: str,
                      message_broker: Any,
                      is_initialized: Dict,
                      sp_nodes: Dict,
@@ -100,13 +110,8 @@ def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
             sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, **node_args)
             sp_nodes[node_address].node_initialized()
         elif params['process'] == process.NEW_PROCESS and process_id == process.ENVIRONMENT:  # Only environment can launch new processes (as it is the main_thread)
-            assert 'launch_file' in params, 'No launch_file defined. Node "%s" can only be launched as a separate process if a launch_file is specified.' % name
-            owner_with_node_ns = '/'.join(owner.split('/') + name.split('/')[:-1])
-            name_without_node_ns = name.split('/')[-1]
-            launch_nodes[ns + '/' + name] = launch_node(params['launch_file'],
-                                                        args=['node_name:=' + name_without_node_ns,
-                                                              'owner:=' + owner_with_node_ns])
-            launch_nodes[ns + '/' + name].start()
+            assert 'executable' in params, 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.' % name
+            launch_node_as_subprocess(params['executable'], ns, name)
         elif params['process'] == process.EXTERNAL:
             rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
         # else: node is launched in another (already launched) node's process (e.g. bridge process).

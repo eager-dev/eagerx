@@ -161,7 +161,7 @@ class RxEnv(gym.Env):
         bridge._set({'default': {'node_names': node_names}})
         bridge._set({'default': {'target_addresses': target_addresses}})
 
-        initialize_nodes(bridge, process.ENVIRONMENT, self.ns, self.name, self.mb, self.supervisor_node.is_initialized, self.supervisor_node.sp_nodes, self.supervisor_node.launch_nodes, rxnode_cls=RxBridge)
+        initialize_nodes(bridge, process.ENVIRONMENT, self.ns, self.mb, self.supervisor_node.is_initialized, self.supervisor_node.sp_nodes, self.supervisor_node.launch_nodes, rxnode_cls=RxBridge)
         wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
 
     def _init_environment(self, actions: NodeSpec, observations: NodeSpec, supervisor_node, message_broker):

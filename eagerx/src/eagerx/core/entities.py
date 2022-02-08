@@ -54,7 +54,7 @@ class Entity(object):
 class BaseNode(Entity):
     def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, entity_id: str, node_type: str, rate: float, process: int,
                  inputs: List[Dict], outputs: List[Dict], states: List[Dict], feedthroughs: List[Dict], targets: List[Dict],
-                 is_reactive: bool, real_time_factor: float, simulate_delays: bool, *args, launch_file=None,
+                 is_reactive: bool, real_time_factor: float, simulate_delays: bool, *args, executable=None,
                  color: str = 'grey', print_mode: int = TERMCOLOR, log_level: int = ERROR, log_level_memory: int = SILENT, **kwargs):
         """
         The base class from which all (simulation) nodes and bridges inherit.
@@ -78,7 +78,7 @@ class BaseNode(Entity):
         :param is_reactive: Boolean flag. Specifies whether we run reactive or asynchronous.
         :param real_time_factor: Sets an upper bound of real_time factor. Wall-clock rate=real_time_factor*rate. If real_time_factor < 1 the simulation is slower than real time.
         :param simulate_delays: Simulate delays. You probably want to set this to False if running in the real-world.
-        :param launch_file:
+        :param executable:
         :param color: A color specifying the color of logged messages & node color in the GUI.
         :param print_mode: Specifies the different methods for printing. See :func:`~eagerx_core.constants` for all print modes.
         :param log_level: Overall log level of this node. See :func:`~eagerx_core.constants` for all log levels.
@@ -92,7 +92,7 @@ class BaseNode(Entity):
         self.node_type = node_type
         self.rate = rate
         self.process = process
-        self.launch_file = launch_file
+        self.executable = executable
         self.inputs = inputs
         self.outputs = outputs
         self.states = states
@@ -118,7 +118,7 @@ class BaseNode(Entity):
         params = spec.params
         params['node_type'] = params.pop('entity_type')
         params['default'] = dict(name=None, rate=None, process=0, inputs=[], outputs=[], states=[], color='grey',
-                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT, launch_file=None,
+                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT, executable=None,
                                  entity_id=params.pop('entity_id'))
         params.update(dict(inputs=dict(), outputs=dict(), states=dict()))
         from eagerx.core.specs import BaseNodeSpec
@@ -293,7 +293,7 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        spec.set_parameter('launch_file', '$(find eagerx)/launch/rxnode.launch')
+        spec.set_parameter('executable', 'python:=eagerx.core.rxnode')
         from eagerx.core.specs import NodeSpec
         return NodeSpec(spec.params)
 
@@ -491,7 +491,7 @@ class Bridge(BaseNode):
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
+        initialize_nodes(node_params, process.BRIDGE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
         for name, node in sp_nodes.items():
             # Set simulator
             if hasattr(node.node, 'set_simulator'):
@@ -522,7 +522,7 @@ class Bridge(BaseNode):
         sp_nodes = dict()
         launch_nodes = dict()
         node_args = dict(agnostic_params=object_params, bridge_params=bridge_params, simulator=self.simulator)
-        initialize_nodes(node_params, process.BRIDGE, self.ns, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args)
+        initialize_nodes(node_params, process.BRIDGE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args)
         for name, node in sp_nodes.items():
             # Initialize
             node.node_initialized()
@@ -598,7 +598,7 @@ class Bridge(BaseNode):
         spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
         default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
-                       launch_file='$(find eagerx)/launch/rxbridge.launch')
+                       executable='python:=eagerx.core.rxbridge')
         spec._set({'default': default})
         from eagerx.core.specs import BridgeSpec
         return BridgeSpec(spec.params)
