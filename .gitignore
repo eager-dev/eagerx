@@ -4,3 +4,4 @@ calibrate.launch
 test.graph
 *.zip
 log/
+*.egg-info
