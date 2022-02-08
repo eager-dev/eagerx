@@ -144,10 +144,10 @@ if __name__ == '__main__':
     # First reset
     obs = env.reset()
     env.render(mode='human')
+    action = env.action_space.sample()
     for j in range(20000):
         print('\n[Episode %s]' % j)
-        for i in range(20):
-            action = env.action_space.sample()
+        for i in range(5):
             obs, reward, done, info = env.step(action)
             # rgb = env.render(mode='rgb_array')
         obs = env.reset()

@@ -53,7 +53,6 @@ def initialize_nodes(nodes: Union[Union[Any, Dict], List[Union[Any, Dict]]],
                      is_initialized: Dict,
                      sp_nodes: Dict,
                      launch_nodes: Dict,
-                     in_object: bool = False,
                      rxnode_cls: Any = None,
                      node_args: Dict = None,
                      ):

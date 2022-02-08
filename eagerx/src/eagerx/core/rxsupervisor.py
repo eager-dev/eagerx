@@ -106,7 +106,7 @@ class SupervisorNode(BaseNode):
         rosparam.upload_params(self.ns, params)
 
         # Upload node parameters to ROS param server
-        initialize_nodes(nodes, process.ENVIRONMENT, self.ns, self.ns, message_broker=self.message_broker, in_object=True,
+        initialize_nodes(nodes, process.ENVIRONMENT, self.ns, self.ns, message_broker=self.message_broker,
                          is_initialized=self.is_initialized, sp_nodes=self.sp_nodes, launch_nodes=self.launch_nodes)
         self.subjects['register_object'].on_next(String(self.ns + '/' + obj_name))
 
