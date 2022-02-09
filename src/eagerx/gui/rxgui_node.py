@@ -33,8 +33,8 @@ class RxGuiNode(QtCore.QObject):
         self.graph = graph
         self.exception = None
 
-        if 'config_name' in self.params() and self.params()['config_name'] in ['actions', 'observations', 'render']:
-            self.node_type = self.params()['config_name']
+        if self.params()['entity_id'] in ['Actions', 'Observations', 'Render']:
+            self.node_type = self.params()['entity_id'].lower()
             self.allow_add_terminal = not self.node_type == 'render'
             self.allow_remove = False
             self.is_object = False
@@ -88,9 +88,9 @@ class RxGuiNode(QtCore.QObject):
             self.graphics_item().set_color()
 
     def remove_terminal(self, term):
-        """Remove the specified terminal from this Node. May specify either the 
+        """Remove the specified terminal from this Node. May specify either the
         terminal's name or the terminal itself.
-        
+
         Causes sigTerminalRemoved to be emitted."""
         if isinstance(term, GuiTerminal):
             name = term.name
@@ -109,8 +109,8 @@ class RxGuiNode(QtCore.QObject):
         self.sigTerminalRemoved.emit(self, term)
 
     def terminal_renamed(self, term, old_name):
-        """Called after a terminal has been renamed        
-        
+        """Called after a terminal has been renamed
+
         Causes sigTerminalRenamed to be emitted."""
         new_name = term.name
         for d in [self.terminals, self.inputs, self.outputs]:
@@ -134,7 +134,7 @@ class RxGuiNode(QtCore.QObject):
 
     def add_terminal(self, name):
         """Add a new terminal to this Node with the given name.
-                
+
         Causes sigTerminalAdded to be emitted."""
         name = self.__next_terminal_name(name)
 
