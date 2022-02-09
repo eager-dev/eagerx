@@ -276,7 +276,7 @@ class ParamWindow(QtGui.QDialog):
         self.params_changed[key] = widget.value()
 
     def text_changed(self, text, key):
-        self.params_changed[key] = text
+        self.params_changed[key] = tryeval(text)
 
     def open_converter_dialog(self, button, is_space_converter=False):
         key = 'space_converter' if is_space_converter else 'converter'
