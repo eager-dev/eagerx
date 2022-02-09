@@ -1,6 +1,6 @@
 import sys
 from pyqtgraph.Qt import QtGui, QtCore
-from eagerx.gui.rxgui import Gui
+from eagerx.gui.gui import Gui
 
 
 def launch_gui(state):

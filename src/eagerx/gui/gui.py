@@ -19,9 +19,9 @@ from pyqtgraph.debug import printExc
 # Import eagerx modules
 from eagerx.core import constants
 from eagerx.core.graph import Graph
-from eagerx.gui import rxgui_view
-from eagerx.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
-from eagerx.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
+from eagerx.gui import gui_view
+from eagerx.gui.gui_node import RxGuiNode, NodeGraphicsItem
+from eagerx.gui.gui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx.utils.utils import get_nodes_and_objects_library
 from eagerx.utils.pyqtgraph_utils import exception_handler, NodeCreationDialog
 from eagerx.core.entities import Node
@@ -416,7 +416,7 @@ class EagerxGraphWidget(dockarea.DockArea):
         self.hoverItem = None
 
         # build user interface (it was easier to do it here than via developer)
-        self.view = rxgui_view.RxView(self)
+        self.view = gui_view.RxView(self)
         self.viewDock = dockarea.Dock('view', size=(1000, 600))
         self.viewDock.addWidget(self.view)
         self.viewDock.hideTitleBar()
