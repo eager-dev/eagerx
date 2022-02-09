@@ -957,6 +957,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
             def on_next(Nc):
                 if tic[0] is None:
                     tic[0] = time_fn()
+                elif last_time[0] is None:
                     last_time[0] = time_fn()
                 toc = time_fn()
                 sleep_time = dt - (toc - tic[0])
@@ -970,7 +971,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
 
                 # Logging
                 curr = time_fn()
-                if (curr - last_time[0]) > log_time:
+                if last_time[0] and (curr - last_time[0]) > log_time:
                     # Calculate statistics since last logged instance
                     log_window = curr - last_time[0]
                     log_cbs = cum_cbs[0] - last_cum_cbs[0]

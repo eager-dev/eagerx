@@ -170,8 +170,10 @@ def bridge(bridge_cls):
         def bridge_fn(cls, object_spec):
             """First, initialize spec with object_info, then call the bridge function"""
             engine_spec, graph = object_spec._initialize_engine_spec(copy.deepcopy(bridge_params))
-            func(cls, engine_spec, graph)
-            object_spec._add_engine_spec(bridge_id, engine_spec, graph)
-            # return object_spec
+            try:
+                func(cls, engine_spec, graph)
+                object_spec._add_engine_spec(bridge_id, engine_spec, graph)
+            except ModuleNotFoundError as e:
+                rospy.logwarn(f'Bridge implementation "{bridge_id} not added: {e}')
         return bridge_fn
     return _bridge
