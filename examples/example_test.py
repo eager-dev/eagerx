@@ -23,6 +23,7 @@ if __name__ == '__main__':
     #  - Installation procedure
     #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
     #  - Pause environment
+    #  - Try except block around adding bridges --> Catch import error pass and issue warning.
 
     # Define nodes
     N1 = Node.make('Process', 'N1',         rate=1.0,  process=node_p)

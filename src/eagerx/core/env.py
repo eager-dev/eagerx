@@ -174,7 +174,7 @@ class Env(gym.Env):
         len(set(addresses_obs)) == len(addresses_obs), 'Duplicate observations found: %s. Make sure to only have unique observations' % (set([x for x in addresses_obs if addresses_obs.count(x) > 1]))
 
         # Create env node
-        env_spec = Node.make('EnvNode', rate=self.rate)
+        env_spec = Node.make('Environment', rate=self.rate)
         name = env_spec.get_parameter('name')
         inputs = observations.get_parameter('inputs')
         outputs = actions.get_parameter('outputs')

@@ -17,7 +17,7 @@ from eagerx.utils.utils import initialize_converter, Msg
 
 class EnvNode(Node):
     @staticmethod
-    @register.spec('EnvNode', Node)
+    @register.spec('Environment', Node)
     def spec(spec: NodeSpec, rate=1, log_level=WARN, color='yellow'):
         """EnvNode Spec"""
         spec.initialize(EnvNode)
@@ -136,43 +136,18 @@ class ObservationsNode(Node):
         spec.set_parameter('skip', True, 'inputs', 'actions_set')
 
     def initialize(self):
-        # Define observation buffers
-        self.observation_buffer = dict()
-        for i in self.inputs:
-            if i['name'] == 'actions_set':
-                continue
-            if 'converter' in i and isinstance(i['converter'], dict):
-                i['converter'] = initialize_converter(i['converter'])
-                converter = i['converter']
-            elif 'converter' in i and not isinstance(i['converter'], dict):
-                converter = i['converter']
-            else:
-                raise ValueError(f'Converter type {i["converter"]} of {i["name"]} not supported.')
-
-            name = i['name']
-            window = i['window']
-            self.observation_buffer[name] = {'msgs': None, 'converter': converter, 'window': window}
+        raise NotImplementedError(
+            'This is a dummy class. Functionality is actually implemented in the Environment node.')
 
     def reset(self):
-        # Set all messages to None
-        for name, buffer in self.observation_buffer.items():
-            buffer['msgs'] = None
+        raise NotImplementedError(
+            'This is a dummy class. Functionality is actually implemented in the Environment node.')
 
     @register.inputs(actions_set=UInt64)
     @register.outputs(set=UInt64)
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
-        for name, i in kwargs.items():
-            if name == 'actions_set': continue
-            buffer = self.observation_buffer[name]
-            window = buffer['window']
-
-            extra = window - len(i.msgs)
-            msgs = extra * [i.msgs[0]] + i.msgs
-            buffer['msgs'] = np.array(msgs)
-
-        # Send output_msg
-        output_msgs = dict(set=UInt64())
-        return output_msgs
+        raise NotImplementedError(
+            'This is a dummy class. Functionality is actually implemented in the Environment node.')
 
 
 class ActionsNode(Node):
@@ -203,35 +178,18 @@ class ActionsNode(Node):
         spec.set_parameter('window', 0, 'inputs', 'step')
 
     def initialize(self):
-        # Define action/observation buffers
-        self.action_buffer = dict()
-        for i in self.outputs:
-            if i['name'] == 'set':
-                continue
-            if 'converter' in i and isinstance(i['converter'], dict):
-                i['converter'] = initialize_converter(i['converter'])
-                converter = i['converter']
-            elif 'converter' in i and not isinstance(i['converter'], dict):
-                converter = i['converter']
-            else:
-                converter = None
-            self.action_buffer[i['name']] = {'msg': None, 'converter': converter}
+        raise NotImplementedError(
+            'This is a dummy class. Functionality is actually implemented in the Environment node.')
 
     def reset(self):
-        # Set all messages to None
-        for name, buffer in self.action_buffer.items():
-            buffer['msg'] = None
-        # start_with an initial action message, so that the first observation can pass.
-        return dict(set=UInt64())
+        raise NotImplementedError(
+            'This is a dummy class. Functionality is actually implemented in the Environment node.')
 
     @register.inputs(observations_set=UInt64, step=UInt64)
     @register.outputs(set=UInt64)
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
-        # Fill output_msg with buffered actions
-        output_msgs = dict(set=UInt64())
-        for name, buffer in self.action_buffer.items():
-            output_msgs[name] = buffer['msg']
-        return output_msgs
+        raise NotImplementedError(
+            'This is a dummy class. Functionality is actually implemented in the Environment node.')
 
 
 class RenderNode(Node):
