@@ -297,6 +297,7 @@ class ParamWindow(QtGui.QDialog):
         button_string = converter['converter_type'].split('/')[-1] if 'converter_type' in converter else key
         button.setText('Edit {}'.format(button_string))
 
+
 class ConverterDialog(QtGui.QDialog):
     def __init__(self, converter, parent, library, msg_type_in, msg_type_out=None, is_space_converter=False):
         super().__init__(parent)
@@ -489,6 +490,10 @@ class ConverterDialog(QtGui.QDialog):
     def argument_changed(self, text, key):
         self.converter[key] = text
 
+    def text_changed(self, text, key):
+        self.params[key] = tryeval(text)
+
+
 class ConnectionDialog(QtGui.QDialog):
     def __init__(self, input_term, output_term, **kwargs):
         self.parent = input_term.node.graph.widget().cwWin
@@ -590,7 +595,4 @@ class ConnectionDialog(QtGui.QDialog):
         self.params[key] = widget.value()
 
     def text_changed(self, text, key):
-        try:
-            self.params[key] = yaml.safe_load(str(text))
-        except Exception:
-            pass
+        self.params[key] = tryeval(text)
