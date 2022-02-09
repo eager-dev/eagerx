@@ -7,7 +7,7 @@ from functools import partial
 
 from eagerx.core import constants
 from eagerx.utils.utils import get_yaml_type
-from eagerx.gui.rxgui_terminal import RxGuiTerminal
+from eagerx.gui.rxgui_terminal import GuiTerminal
 from eagerx.utils.pyqtgraph_utils import exception_handler, ParamWindow
 
 from pyqtgraph.Qt import QtCore, QtGui
@@ -92,7 +92,7 @@ class RxGuiNode(QtCore.QObject):
         terminal's name or the terminal itself.
         
         Causes sigTerminalRemoved to be emitted."""
-        if isinstance(term, RxGuiTerminal):
+        if isinstance(term, GuiTerminal):
             name = term.name
         else:
             name = term
@@ -138,7 +138,7 @@ class RxGuiNode(QtCore.QObject):
         Causes sigTerminalAdded to be emitted."""
         name = self.__next_terminal_name(name)
 
-        term = RxGuiTerminal(self, name)
+        term = GuiTerminal(self, name)
         self.terminals[name] = term
 
         if term.is_input:

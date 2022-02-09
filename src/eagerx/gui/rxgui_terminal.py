@@ -8,11 +8,12 @@ from pyqtgraph import functions as fn
 from pyqtgraph.Point import Point
 
 from eagerx.core import constants
-from eagerx.utils.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow
+from eagerx.utils.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow, ConverterDialog
+from eagerx.utils.utils import get_module_type_string, get_opposite_msg_cls, get_attribute_from_module
 from eagerx.core.converters import Identity
 
 
-class RxGuiTerminal(object):
+class GuiTerminal(object):
     def __init__(self, node, name, pos=None):
         self.node = node
         self.name = name
@@ -115,21 +116,43 @@ class RxGuiTerminal(object):
         source = output_term.connection_tuple()
         target = input_term.connection_tuple()
 
+        space_converter = None
+
         observation = target[2] if target[0] == 'env/observations' else None
         action = source[2] if source[0] == 'env/actions' else None
         target_params = input_term.params()
         source_params = output_term.params()
+        identity_converter = {'converter_type': get_module_type_string(Identity)}
         if len(target_params) == 0:
-            converter = source_params['space_converter'] if 'space_converter' in source_params else Identity
+            # If the target is an observation, we need to get the space_converter from the source
+            converter = source_params['space_converter'] if 'space_converter' in source_params else identity_converter
+            converter = converter if converter is not None else identity_converter
             delay, window = 0., 0
         else:
+            if len(source_params) == 0:
+                # If action has no converter, we first open a dialog in which the user can modify the space converter
+                parent = self.node.graph.widget().cwWin
+                library = self.node.graph.library
+                msg_type_out = None
+                if 'converter' in target_params and target_params['converter'] is not None:
+                    msg_type_in = get_opposite_msg_cls(target_params['msg_type'], target_params['converter'])
+                else:
+                    msg_type_in = get_attribute_from_module(target_params['msg_type'])
+                space_converter = target_params['space_converter'] if 'space_converter' in target_params else identity_converter
+                space_converter_dialog = ConverterDialog(space_converter, parent, library, msg_type_in, msg_type_out, is_space_converter=True)
+                space_converter_dialog.setWindowTitle('Space Converter {}'.format(output_term.terminal_name))
+                space_converter = space_converter_dialog.open()
             delay = target_params['delay'] if 'delay' in target_params else None
             window = target_params['window'] if 'window' in target_params else None
-            converter = target_params['converter'] if 'converter' in target_params else Identity
+            converter = target_params['converter'] if 'converter' in target_params else identity_converter
+            converter = converter if converter is not None else identity_converter
         connect_params = connection_item.open_connection_dialog(converter=converter, delay=delay, window=window)
         target = None if observation else target
         source = None if action else source
         self.node.graph.connect(source=source, target=target, action=action, observation=observation, **connect_params)
+
+        if space_converter is not None:
+            output_term.set_param('converter', space_converter)
 
         self.connections[term] = connection_item
         term.connections[self] = connection_item
@@ -414,8 +437,8 @@ class ConnectionItem(GraphicsObject):
         self.update_line()
 
     def open_connection_dialog(self, **kwargs):
-        input_term = self.source.term if self.source.term.is_input else self.target.term
-        self.connection_window = ConnectionDialog(input_term=input_term, **kwargs)
+        input_term, output_term = (self.source.term, self.target.term) if self.source.term.is_input else (self.target.term, self.source.term)
+        self.connection_window = ConnectionDialog(input_term=input_term, output_term=output_term, **kwargs)
         return self.connection_window.open()
 
     def close(self):

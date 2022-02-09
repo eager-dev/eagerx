@@ -7,6 +7,7 @@ import os
 import numpy as np
 import importlib
 from copy import deepcopy
+from functools import partial
 
 # Import pyqtgraph modules
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject
@@ -22,7 +23,7 @@ from eagerx.gui import rxgui_view
 from eagerx.gui.rxgui_node import RxGuiNode, NodeGraphicsItem
 from eagerx.gui.rxgui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx.utils.utils import get_nodes_and_objects_library
-from eagerx.utils.pyqtgraph_utils import exception_handler
+from eagerx.utils.pyqtgraph_utils import exception_handler, NodeCreationDialog
 from eagerx.core.entities import Node
 
 
@@ -77,7 +78,7 @@ class Gui(Graph, QtCore.QObject):
 
     def add_node(self, node, name, pos=None):
         """Add an existing Node to this flowchart.
-        
+
         See also: createnode
         """
         if pos is None:
@@ -130,19 +131,19 @@ class Gui(Graph, QtCore.QObject):
     def chart_graphics_item(self):
         """Return the graphicsItem that displays the internal nodes and
         connections of this flowchart.
-        
+
         Note that the similar method `graphicsItem()` is inherited from Node
         and returns the *external* graphical representation of this flowchart."""
         return self.viewBox
 
     def widget(self):
         """Return the control widget for this flowchart.
-        
+
         This widget provides GUI access to the parameters for each node and a
         graphical representation of the flowchart.
         """
         if self._widget is None:
-            self._widget = RxCtrlWidget(self)
+            self._widget = CtrlWidget(self)
             self.scene = self._widget.scene
             self.viewBox = self._widget.viewBox()
         return self._widget
@@ -206,7 +207,7 @@ class Gui(Graph, QtCore.QObject):
             if start_dir is None:
                 start_dir = self.file_path
             if start_dir is None:
-                start_dir = ''
+                start_dir = '.'
             self.fileDialog = FileDialog(None, "Load Graph..", start_dir, "Graph (*.graph)")
             self.fileDialog.show()
             self.fileDialog.fileSelected.connect(self.load_file)
@@ -224,7 +225,7 @@ class Gui(Graph, QtCore.QObject):
             if start_dir is None:
                 start_dir = self.file_path
             if start_dir is None:
-                start_dir = ''
+                start_dir = '.'
             self.fileDialog = FileDialog(None, "Save Graph..", start_dir, "Graph (*.graph)")
             self.fileDialog.setDefaultSuffix("graph")
             self.fileDialog.setAcceptMode(QtGui.QFileDialog.AcceptSave)
@@ -245,7 +246,7 @@ class Gui(Graph, QtCore.QObject):
         self.widget().clear()
 
 
-class RxGraphicsItem(GraphicsObject):
+class GraphicsItem(GraphicsObject):
 
     def __init__(self, chart):
         GraphicsObject.__init__(self)
@@ -262,7 +263,7 @@ class RxGraphicsItem(GraphicsObject):
         pass
 
 
-class RxCtrlWidget(QtGui.QWidget):
+class CtrlWidget(QtGui.QWidget):
     """The widget that contains the list of all the nodes in a flowchart and their controls, as well as buttons for
     loading/saving flowcharts."""
 
@@ -460,7 +461,7 @@ class EagerxGraphWidget(dockarea.DockArea):
             if node_type in constants.GUI_ENTITIES_TO_IGNORE: continue
             menu = QtGui.QMenu('Add {}'.format(node_type.replace('_', ' ')))
             build_sub_menu(library, menu, self.submenus, pos=pos)
-            menu.triggered.connect(self.node_menu_triggered)
+            menu.triggered.connect(partial(self.node_menu_triggered))
             self.nodeMenu.append(menu)
         return self.nodeMenu
 
@@ -475,6 +476,10 @@ class EagerxGraphWidget(dockarea.DockArea):
         return self._viewBox  # the viewBox that items should be added to
 
     def node_menu_triggered(self, action):
+        self._node_menu_triggered(action, graph_backup=self.chart)
+
+    @exception_handler
+    def _node_menu_triggered(self, action):
         node_type = action.nodeType
         if action.pos is not None:
             pos = action.pos
@@ -494,13 +499,10 @@ class EagerxGraphWidget(dockarea.DockArea):
                 break
             n += 1
 
-        signature = node_type['entity_cls'].get_spec(node_type['id'])
-        args = signature.parameters.keys()
-        mapping = dict()
-        if 'name' in args:
-            mapping['name'] = name
-        if 'rate' in args:
-            mapping['rate'] = 1.0
+        node_creation_dialog = NodeCreationDialog(name, node_type, self.chart.widget().cwWin)
+        mapping = node_creation_dialog.open()
+        if 'name' in mapping:
+            name = mapping['name']
         rx_entity = node_type['spec'](**mapping)
         self.chart.add(rx_entity)
         self.chart._state['nodes'][name]['pos'] = pos

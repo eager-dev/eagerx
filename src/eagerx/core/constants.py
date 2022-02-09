@@ -49,7 +49,7 @@ GUI_WIDGETS = {
             'process': {'new process': 0, 'environment': 1, 'bridge': 2, 'external': 3},
         },
         'constant': {
-            'all': list(set.union(TERMS_IN, TERMS_OUT, {'name', 'package_name', 'config_name', 'launch_file'})),
+            'all': list(set.union(TERMS_IN, TERMS_OUT, {'name', 'entity_id', 'launch_file'})),
             'actions': ['process'],
             'observations': ['process'],
         }
@@ -86,7 +86,7 @@ GUI_COLORS = {
 }
 
 # Config files to ignore in GUI
-GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'EngineNode', 'Bridge', 'SimState'}
+GUI_ENTITIES_TO_IGNORE = {'BaseConverter', 'SpaceConverter', 'Converter', 'Processor', 'EngineNode', 'Bridge', 'EngineState'}
 GUI_NODE_IDS_TO_IGNORE = {'Observations', 'Actions', 'Render', 'Supervisor'}
 
 # PROCESS

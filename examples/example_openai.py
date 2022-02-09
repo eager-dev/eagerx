@@ -34,7 +34,7 @@ if __name__ == '__main__':
     # graph.render(source=(name, 'sensors', 'image'), rate=10, display=True)
 
     # Open gui
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save('./test.graph')
