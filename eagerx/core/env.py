@@ -336,12 +336,13 @@ class Env(gym.Env):
 
     def _shutdown(self):
         for name in self.supervisor_node.launch_nodes:
-            self.supervisor_node.launch_nodes[name].shutdown()
+            self.supervisor_node.launch_nodes[name].terminate()
         try:
-            rosparam.delete_param("/")
-            rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
+            rosparam.delete_param(f"/{self.name}")
+            rospy.loginfo(f'Parameters under namespace "/{self.name}" deleted.')
         except:
             pass
+        # rospy.signal_shutdown(f"[/{name}] Terminating.")
 
     def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors

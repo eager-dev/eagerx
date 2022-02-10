@@ -128,7 +128,7 @@ def initialize_nodes(
                 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.'
                 % name
             )
-            launch_node_as_subprocess(params["executable"], ns, name)
+            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name)
         elif params["process"] == process.EXTERNAL:
             rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
         # else: node is launched in another (already launched) node's process (e.g. bridge process).

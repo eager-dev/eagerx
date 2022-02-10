@@ -50,6 +50,9 @@ class RxNode(object):
         )
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
+        # Prepare closing routine
+        rospy.on_shutdown(self._close)
+
     def node_initialized(self):
         # Notify env that node is initialized
         init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
@@ -130,20 +133,25 @@ class RxNode(object):
             node,
         )
 
+    def _close(self):
+        rospy.loginfo(f"[{self.name}] Shutting down.")
 
 if __name__ == "__main__":
-    executable, ns, name = sys.argv
+    try:
+        executable, ns, name = sys.argv
 
-    log_level = get_param_with_blocking(ns + "/log_level")
+        log_level = get_param_with_blocking(ns + "/log_level")
 
-    rospy.init_node(f"{name}".replace("/", "_"), log_level=log_levels_ROS[log_level], anonymous=True)
+        rospy.init_node(f"{name}".replace("/", "_"), log_level=log_levels_ROS[log_level], anonymous=True)
 
-    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
+        message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
-    pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker)
+        pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker)
 
-    message_broker.connect_io()
+        message_broker.connect_io()
 
-    pnode.node_initialized()
+        pnode.node_initialized()
 
-    rospy.spin()
+        rospy.spin()
+    finally:
+        rospy.signal_shutdown(f"Terminating '{ns}/{name}'")

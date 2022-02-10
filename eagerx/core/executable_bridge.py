@@ -116,22 +116,29 @@ class RxBridge(object):
         )
 
     def _close(self):
-        return True
+        rospy.loginfo(f"[{self.name}] Shutting down.")
+        for address, node in self.bridge.launch_nodes:
+            rospy.loginfo(f"[{self.name}] Terminating '{address}'")
+            node.terminate(f"[{self.name}] Terminating '{address}'")
 
 
 if __name__ == "__main__":
-    executable, ns, name = sys.argv
+    try:
+        executable, ns, name = sys.argv
 
-    log_level = get_param_with_blocking(ns + "/log_level")
+        log_level = get_param_with_blocking(ns + "/log_level")
 
-    rospy.init_node(f"{name}".replace("/", "_"), log_level=log_levels_ROS[log_level], anonymous=True)
+        rospy.init_node(f"{name}".replace("/", "_"), log_level=log_levels_ROS[log_level], anonymous=True)
 
-    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
+        message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
-    pnode = RxBridge(name=f"{ns}/{name}", message_broker=message_broker)
+        pnode = RxBridge(name=f"{ns}/{name}", message_broker=message_broker)
 
-    message_broker.connect_io()
+        message_broker.connect_io()
 
-    pnode.node_initialized()
+        pnode.node_initialized()
 
-    rospy.spin()
+        rospy.spin()
+    finally:
+        rospy.loginfo(f"[{ns}/{name}] Terminating.")
+        rospy.signal_shutdown(f"[{ns}/{name}] Terminating.")

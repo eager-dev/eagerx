@@ -583,6 +583,8 @@ class Bridge(BaseNode):
         ), "Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0"
 
         # Initialized nodes
+        self.sp_nodes = dict()
+        self.launch_nodes = dict()
         self.num_resets = 0
         self.is_initialized = dict()
 
@@ -635,6 +637,8 @@ class Bridge(BaseNode):
             # Initialize
             node.node_initialized()
         wait_for_node_initialization(self.is_initialized)
+        self.sp_nodes.update(sp_nodes)
+        self.launch_nodes.update(launch_nodes)
         return node_params, sp_nodes, launch_nodes
 
     def register_object(self, object_params, node_params, state_params):
@@ -675,6 +679,8 @@ class Bridge(BaseNode):
         for name, node in sp_nodes.items():
             # Initialize
             node.node_initialized()
+        self.sp_nodes.update(sp_nodes)
+        self.launch_nodes.update(launch_nodes)
         wait_for_node_initialization(self.is_initialized)
         return state_params, sp_nodes, launch_nodes
 
