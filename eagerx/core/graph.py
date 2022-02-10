@@ -1031,10 +1031,16 @@ class Graph:
         # todo: updates the default params to the yaml as specified in the config.
         # todo: update actual params with additional default args & new I/O & name changes & new bridge implementations
         # todo: if None, update all entities
-        assert False, "Not implemented"
+        raise NotImplementedError("The update function is not yet implemented.")
 
     def gui(self):
-        from eagerx.gui import launch_gui
+        try:
+            from eagerx_gui import launch_gui
+        except ImportError as e:
+            rospy.logwarn(
+                f"{e}. You will likely have to install it. Please visit the eagerx_packages repository for installation instructions."
+            )
+            return
 
         self._state = launch_gui(deepcopy(self._state))
 

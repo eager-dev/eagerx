@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # TEST Test with KF having skipped all inputs at t=0
     graph.remove_component("KF", "inputs", "in_1")
 
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")

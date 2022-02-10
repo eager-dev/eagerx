@@ -901,9 +901,7 @@ class EngineGraph:
                 print(exc)
 
     def gui(self):
-        from eagerx.gui import launch_gui
-
-        self._state = launch_gui(deepcopy(self._state))
+        raise NotImplementedError("Gui is not yet supported for engine graphs.")
 
     @staticmethod
     def _get_address(source: Tuple[str, str, str], target: Tuple[str, str, str]):

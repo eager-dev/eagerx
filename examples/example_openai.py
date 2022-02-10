@@ -11,8 +11,6 @@ from eagerx.core.graph import Graph
 # Implementation specific
 import eagerx.bridges.openai_gym as eagerx_gym
 
-import stable_baselines3 as sb
-
 if __name__ == "__main__":
 
     # Define rate (depends on rate of gym env)
@@ -63,21 +61,16 @@ if __name__ == "__main__":
     # Turn on rendering
     env.render(mode="human")
 
-    # Use stable-baselines
-    # model = sb.PPO("MlpPolicy", env, verbose=1)
-    model = sb.SAC("MlpPolicy", env, verbose=1, ent_coef=0.1)
-    model.learn(total_timesteps=int(2000 * rate * 200 / 20))
-
     # First reset
     done = False
     obs = env.reset()
 
-    action = env.action_space.sample()
     for j in range(20000):
         print("\n[Episode %s]" % j)
         iter = 0
         while not done:  # and iter < 10:
             iter += 1
+            action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
         obs = env.reset()
         done = False
