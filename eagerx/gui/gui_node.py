@@ -8,7 +8,7 @@ from functools import partial
 from eagerx.core import constants
 from eagerx.utils.utils import get_yaml_type
 from eagerx.gui.gui_terminal import GuiTerminal
-from eagerx.utils.pyqtgraph_utils import exception_handler, ParamWindow
+from eagerx.gui.pyqtgraph_utils import exception_handler, ParamWindow
 
 from pyqtgraph.Qt import QtCore, QtGui
 from pyqtgraph.graphicsItems.GraphicsObject import GraphicsObject

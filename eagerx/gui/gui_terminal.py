@@ -8,7 +8,7 @@ from pyqtgraph import functions as fn
 from pyqtgraph.Point import Point
 
 from eagerx.core import constants
-from eagerx.utils.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow, ConverterDialog
+from eagerx.gui.pyqtgraph_utils import exception_handler, ConnectionDialog, ParamWindow, ConverterDialog
 from eagerx.utils.utils import get_module_type_string, get_opposite_msg_cls, get_attribute_from_module
 from eagerx.core.converters import Identity
 

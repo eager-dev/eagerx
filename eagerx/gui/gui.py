@@ -23,7 +23,7 @@ from eagerx.gui import gui_view
 from eagerx.gui.gui_node import RxGuiNode, NodeGraphicsItem
 from eagerx.gui.gui_terminal import TerminalGraphicsItem, ConnectionItem
 from eagerx.utils.utils import get_nodes_and_objects_library
-from eagerx.utils.pyqtgraph_utils import exception_handler, NodeCreationDialog
+from eagerx.gui.pyqtgraph_utils import exception_handler, NodeCreationDialog
 from eagerx.core.entities import Node
 
 
@@ -207,7 +207,7 @@ class Gui(Graph, QtCore.QObject):
             if start_dir is None:
                 start_dir = self.file_path
             if start_dir is None:
-                start_dir = '.'
+                start_dir = ''
             self.fileDialog = FileDialog(None, "Load Graph..", start_dir, "Graph (*.graph)")
             self.fileDialog.show()
             self.fileDialog.fileSelected.connect(self.load_file)
@@ -225,7 +225,7 @@ class Gui(Graph, QtCore.QObject):
             if start_dir is None:
                 start_dir = self.file_path
             if start_dir is None:
-                start_dir = '.'
+                start_dir = ''
             self.fileDialog = FileDialog(None, "Save Graph..", start_dir, "Graph (*.graph)")
             self.fileDialog.setDefaultSuffix("graph")
             self.fileDialog.setAcceptMode(QtGui.QFileDialog.AcceptSave)
