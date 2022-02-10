@@ -8,12 +8,18 @@ import gym
 
 def step_fn(prev_obs, obs, action, steps):
     info = dict()
-    return obs, obs.pop('reward', 0.)[0], obs.pop('done', False)[0], info
+    return obs, obs.pop("reward", 0.0)[0], obs.pop("done", False)[0], info
 
 
 class EagerGym(EagerEnv):
-    def __init__(self, name: str, rate: float, graph: Graph, bridge: BridgeSpec,
-                 step_fn: Callable = step_fn) -> None:
+    def __init__(
+        self,
+        name: str,
+        rate: float,
+        graph: Graph,
+        bridge: BridgeSpec,
+        step_fn: Callable = step_fn,
+    ) -> None:
         super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
         # Flatten action spaces
         self._reduced_action_space = super(EagerGym, self).action_space
@@ -21,11 +27,11 @@ class EagerGym(EagerEnv):
 
         # Flatten & reduce observation spaces (remove 'reward' & 'done')
         obs_space = dict(super(EagerGym, self).observation_space)
-        obs_space.pop('reward', None)
-        obs_space.pop('done', None)
+        obs_space.pop("reward", None)
+        obs_space.pop("done", None)
         self._reduced_obs_space = gym.spaces.Dict(obs_space)
         self._flattened_obs_space, self._obs_all_discrete = get_flattened_space(self._reduced_obs_space)
-        assert not self._obs_all_discrete, 'Only continuous observations are currently supported.'
+        assert not self._obs_all_discrete, "Only continuous observations are currently supported."
 
     @property
     def observation_space(self):
@@ -45,7 +51,7 @@ class EagerGym(EagerEnv):
         if not self._obs_all_discrete:
             return gym.spaces.flatten(self._reduced_obs_space, obs)
         else:
-            raise ValueError('Only continuous observations are currently supported.')
+            raise ValueError("Only continuous observations are currently supported.")
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict]:
         action = self.unflatten_action(action)
@@ -69,10 +75,10 @@ def get_flattened_space(spaces):
     # Check if all discrete or mixed (with continuous)
     all_discrete = True
     for key, space in spaces.items():
-        if isinstance(space, gym.spaces.Box) and not (space.dtype == 'int64' and space.shape == (1,)):
+        if isinstance(space, gym.spaces.Box) and not (space.dtype == "int64" and space.shape == (1,)):
             all_discrete = False
         elif isinstance(space, gym.spaces.MultiDiscrete):
-            raise ValueError('MultiDiscrete space not supported.')
+            raise ValueError("MultiDiscrete space not supported.")
     # If all discrete & multiple discrete, initialize MultiDiscrete, else just discrete
     if all_discrete and len(spaces) > 1:
         multi = []
@@ -84,8 +90,11 @@ def get_flattened_space(spaces):
         flattened_space = gym.spaces.Discrete(spaces[key].high[0] + 1)
     else:
         for key, space in spaces.items():
-            if isinstance(space, gym.spaces.Box) and space.dtype == 'int64' and space.shape == (1,):
-                spaces[key] = gym.spaces.Box(low=space.low.astype('float32'),
-                                             high=space.high.astype('float32') + 0.9999, dtype='float32')
+            if isinstance(space, gym.spaces.Box) and space.dtype == "int64" and space.shape == (1,):
+                spaces[key] = gym.spaces.Box(
+                    low=space.low.astype("float32"),
+                    high=space.high.astype("float32") + 0.9999,
+                    dtype="float32",
+                )
         flattened_space = gym.spaces.flatten_space(gym.spaces.Dict(spaces))
     return flattened_space, all_discrete

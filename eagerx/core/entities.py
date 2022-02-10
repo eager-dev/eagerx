@@ -6,6 +6,7 @@ import os
 import time
 from copy import deepcopy
 
+
 import numpy as np
 import psutil
 import rospy
@@ -20,14 +21,25 @@ from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initializati
 from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from eagerx.core.specs import BridgeSpec, NodeSpec, EngineNodeSpec, ConverterSpec, EngineStateSpec, ResetNodeSpec, ObjectSpec, AgnosticSpec
+    from eagerx.core.specs import (
+        BridgeSpec,
+        NodeSpec,
+        EngineNodeSpec,
+        ConverterSpec,
+        EngineStateSpec,
+        ResetNodeSpec,
+        ObjectSpec,
+        AgnosticSpec,
+    )
 
 
 class Entity(object):
     @classmethod
     def make(cls, id, *args, **kwargs):
         from eagerx.core import register
+
         spec = register.make(cls, id, *args, **kwargs)
         try:
             cls.check_spec(spec)
@@ -39,11 +51,13 @@ class Entity(object):
     @classmethod
     def get_spec(cls, id, verbose=True):
         from eagerx.core import register
+
         return register.get_spec(cls, id, verbose=verbose)
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         from eagerx.core.specs import EntitySpec
+
         return EntitySpec(dict(entity_id=entity_id, entity_type=entity_type))
 
     @classmethod
@@ -52,10 +66,31 @@ class Entity(object):
 
 
 class BaseNode(Entity):
-    def __init__(self, ns: str, message_broker: RxMessageBroker, name: str, entity_id: str, node_type: str, rate: float, process: int,
-                 inputs: List[Dict], outputs: List[Dict], states: List[Dict], feedthroughs: List[Dict], targets: List[Dict],
-                 is_reactive: bool, real_time_factor: float, simulate_delays: bool, *args, executable=None,
-                 color: str = 'grey', print_mode: int = TERMCOLOR, log_level: int = ERROR, log_level_memory: int = SILENT, **kwargs):
+    def __init__(
+        self,
+        ns: str,
+        message_broker: RxMessageBroker,
+        name: str,
+        entity_id: str,
+        node_type: str,
+        rate: float,
+        process: int,
+        inputs: List[Dict],
+        outputs: List[Dict],
+        states: List[Dict],
+        feedthroughs: List[Dict],
+        targets: List[Dict],
+        is_reactive: bool,
+        real_time_factor: float,
+        simulate_delays: bool,
+        *args,
+        executable=None,
+        color: str = "grey",
+        print_mode: int = TERMCOLOR,
+        log_level: int = ERROR,
+        log_level_memory: int = SILENT,
+        **kwargs,
+    ):
         """
         The base class from which all (simulation) nodes and bridges inherit.
 
@@ -86,7 +121,7 @@ class BaseNode(Entity):
         """
         self.ns = ns
         self.name = name
-        self.ns_name = '%s/%s' % (ns, name)
+        self.ns_name = "%s/%s" % (ns, name)
         self.message_broker = message_broker
         self.entity_id = entity_id
         self.node_type = node_type
@@ -104,7 +139,7 @@ class BaseNode(Entity):
         self.color = color
         self.print_mode = print_mode
         self.log_level = log_level
-        effective_log_level = logging.getLogger('rosout').getEffectiveLevel()
+        effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
         self.log_memory = effective_log_level >= log_level and log_level_memory >= effective_log_level
         self.initialize(*args, **kwargs)
 
@@ -116,28 +151,44 @@ class BaseNode(Entity):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        params['node_type'] = params.pop('entity_type')
-        params['default'] = dict(name=None, rate=None, process=0, inputs=[], outputs=[], states=[], color='grey',
-                                 print_mode=TERMCOLOR, log_level=ERROR, log_level_memory=SILENT, executable=None,
-                                 entity_id=params.pop('entity_id'))
+        params["node_type"] = params.pop("entity_type")
+        params["default"] = dict(
+            name=None,
+            rate=None,
+            process=0,
+            inputs=[],
+            outputs=[],
+            states=[],
+            color="grey",
+            print_mode=TERMCOLOR,
+            log_level=ERROR,
+            log_level_memory=SILENT,
+            executable=None,
+            entity_id=params.pop("entity_id"),
+        )
         params.update(dict(inputs=dict(), outputs=dict(), states=dict()))
         from eagerx.core.specs import BaseNodeSpec
+
         return BaseNodeSpec(params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter('entity_id')
-        name = spec.get_parameter('name')
-        assert name is not None and isinstance(name, str), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
+        entity_id = spec.get_parameter("entity_id")
+        name = spec.get_parameter("name")
+        assert name is not None and isinstance(
+            name, str
+        ), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
 
         # Check that there is at least a single input & output defined. # todo: needed?
         # assert len(spec._params['default']['outputs']) > 0, f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
 
         # Check that all selected cnames have a corresponding implementation
-        for component in ['inputs', 'outputs', 'states']:
-            for cname in spec._params['default'][component]:
-                assert cname in spec._params[component], f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
+        for component in ["inputs", "outputs", "states"]:
+            for cname in spec._params["default"][component]:
+                assert (
+                    cname in spec._params[component]
+                ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
 
     @abc.abstractmethod
     def initialize(self, *args, **kwargs):
@@ -167,7 +218,20 @@ class Node(BaseNode):
         self.iter_ticks = 0
         self.print_iter = 200
         self.history = []
-        self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
+        self.headers = [
+            "pid",
+            "node",
+            "ticks",
+            "rss",
+            "diff",
+            "t0",
+            "vms",
+            "diff",
+            "t0",
+            "iter_time",
+            "diff",
+            "t0",
+        ]
 
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
@@ -176,20 +240,20 @@ class Node(BaseNode):
         self.skipped_cbs = 0
         self.windowed = dict()
         for i in self.inputs:
-            name = i['name']
-            window = i['window']
-            skip = i['skip']
+            name = i["name"]
+            window = i["window"]
+            skip = i["skip"]
             if window > 0:
                 self.windowed[name] = skip
 
         # If we run async *and* no msg for input with window > 0, then send None outputs.
         self.empty_outputs = dict()
         for i in self.outputs:
-            name = i['name']
+            name = i["name"]
             self.empty_outputs[name] = None
         for i in self.targets:
-            name = i['name']
-            self.empty_outputs[name + '/done'] = Bool(data=False)
+            name = i["name"]
+            self.empty_outputs[name + "/done"] = Bool(data=False)
 
     def reset_cb(self, **kwargs: Optional[Message]):
         self.num_ticks = 0
@@ -215,7 +279,7 @@ class Node(BaseNode):
                     iter_time = float(iter_stop - self.iter_start)
 
                 # Memory usage request
-                mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
+                mem_use = (np.array(self.py.memory_info()[0:2]) / 2.0**30) * 1000  # memory use in MB...I think
 
                 # Print info
                 self.total_ticks += self.iter_ticks
@@ -229,38 +293,67 @@ class Node(BaseNode):
                     cum_mem_rss = round(mem_use[0] - self.history[0][3], 2)
                     cum_mem_vms = round(mem_use[1] - self.history[0][6], 2)
                     cum_iter_time = round(iter_time - self.history[0][9], 5)
-                    self.history.append([self.pid, self.name, self.total_ticks,
-                                         round(mem_use[0], 1), delta_mem_rss, cum_mem_rss,
-                                         round(mem_use[1], 1), delta_mem_vms, cum_mem_vms,
-                                         iter_time, delta_iter_time, cum_iter_time])
+                    self.history.append(
+                        [
+                            self.pid,
+                            self.name,
+                            self.total_ticks,
+                            round(mem_use[0], 1),
+                            delta_mem_rss,
+                            cum_mem_rss,
+                            round(mem_use[1], 1),
+                            delta_mem_vms,
+                            cum_mem_vms,
+                            iter_time,
+                            delta_iter_time,
+                            cum_iter_time,
+                        ]
+                    )
                 else:
-                    self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
-                rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
+                    self.history.append(
+                        [
+                            self.pid,
+                            self.name,
+                            self.total_ticks,
+                            round(mem_use[0], 1),
+                            0,
+                            0,
+                            round(mem_use[1], 1),
+                            0,
+                            0,
+                            iter_time,
+                            0,
+                            0,
+                        ]
+                    )
+                rospy.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
 
         # Skip callback if not all inputs with window > 0 have received at least one input.
-        if not self.is_reactive or not self.num_ticks > 1:  # Larger than 1 here, because we might have already ticked, but not yet received a skipped input.
+        if (
+            not self.is_reactive or not self.num_ticks > 1
+        ):  # Larger than 1 here, because we might have already ticked, but not yet received a skipped input.
             for cname, skip in self.windowed.items():
                 if len(kwargs[cname].msgs) == 0:
                     if skip and self.num_ticks == 0:
                         continue
                     else:
                         self.skipped_cbs += 1
-                        rospy.logdebug(f'[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}')
+                        rospy.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
                         return self.empty_outputs
         output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
         return output
 
     def set_delay(self, delay: float, component: str, cname: str):
-        assert delay >= 0, 'Delay must be non-negative.'
+        assert delay >= 0, "Delay must be non-negative."
         for i in getattr(self, component):
-            if i['name'] == cname:
-                i['delay'] = delay
+            if i["name"] == cname:
+                i["delay"] = delay
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'NodeSpec', *args, **kwargs):
+    def spec(spec: "NodeSpec", *args, **kwargs):
         pass
 
     @abc.abstractmethod
@@ -293,49 +386,60 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        spec.set_parameter('executable', 'python:=eagerx.core.executable_node')
+        spec.set_parameter("executable", "python:=eagerx.core.executable_node")
         from eagerx.core.specs import NodeSpec
+
         return NodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter('entity_id')
-        name = spec.get_parameter('name')
+        entity_id = spec.get_parameter("entity_id")
+        name = spec.get_parameter("name")
 
         # Check that there is atleast a single input & output defined.
-        assert len(spec._params['default']['inputs']) > 0 or name == 'environment', f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
+        assert (
+            len(spec._params["default"]["inputs"]) > 0 or name == "environment"
+        ), f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
 
 
 class ResetNode(Node):
     """Reset node baseclass from which all nodes that perform a real reset routine inherit"""
+
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'ResetNodeSpec', *args, **kwargs):
+    def spec(spec: "ResetNodeSpec", *args, **kwargs):
         pass
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        spec._params['targets'] = dict()
-        spec._set({'default': dict(targets=[])})
+        spec._params["targets"] = dict()
+        spec._set({"default": dict(targets=[])})
         from eagerx.core.specs import ResetNodeSpec
+
         return ResetNodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter('entity_id')
-        name = spec.get_parameter('name')
+        entity_id = spec.get_parameter("entity_id")
+        name = spec.get_parameter("name")
 
         # Check that there is at least a single target & output was defined.
-        assert len(spec._params['default']['outputs']) > 0, f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
-        assert len(spec._params['default']['targets']) > 0, f'Node "{name}" does not have any targets selected. Please select at least one target when making the spec, or check the spec defined for "{entity_id}".'
+        assert (
+            len(spec._params["default"]["outputs"]) > 0
+        ), f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
+        assert (
+            len(spec._params["default"]["targets"]) > 0
+        ), f'Node "{name}" does not have any targets selected. Please select at least one target when making the spec, or check the spec defined for "{entity_id}".'
 
         # Check if all selected targets have an implementation (other components are checked in BaseNode.check_spec())
-        for component in ['targets']:
-            for cname in spec._params['default'][component]:
-                assert cname in spec._params[component], f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
+        for component in ["targets"]:
+            for cname in spec._params["default"][component]:
+                assert (
+                    cname in spec._params[component]
+                ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
 
 
 class EngineNode(Node):
@@ -362,7 +466,14 @@ class EngineNode(Node):
 
     For more info see baseclasses Node and NodeBase.
     """
-    def __init__(self, simulator: Any = None, agnostic_params: Dict = None, bridge_params: Dict = None, **kwargs):
+
+    def __init__(
+        self,
+        simulator: Any = None,
+        agnostic_params: Dict = None,
+        bridge_params: Dict = None,
+        **kwargs,
+    ):
         """
         Simulation node class constructor.
 
@@ -384,7 +495,7 @@ class EngineNode(Node):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'EngineNodeSpec', *args, **kwargs):
+    def spec(spec: "EngineNodeSpec", *args, **kwargs):
         pass
 
     @abc.abstractmethod
@@ -421,6 +532,7 @@ class EngineNode(Node):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         from eagerx.core.specs import EngineNodeSpec
+
         return EngineNodeSpec(spec.params)
 
     @classmethod
@@ -445,6 +557,7 @@ class Bridge(BaseNode):
                      'states': {'state_1': UInt64}}
     For more info see baseclass NodeBase.
     """
+
     def __init__(self, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
         """
         Base class constructor.
@@ -465,7 +578,9 @@ class Bridge(BaseNode):
         self.node_names = node_names
 
         # Check real_time_factor & reactive args
-        assert is_reactive or (not is_reactive and real_time_factor > 0), 'Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0'
+        assert is_reactive or (
+            not is_reactive and real_time_factor > 0
+        ), "Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0"
 
         # Initialized nodes
         self.num_resets = 0
@@ -482,7 +597,20 @@ class Bridge(BaseNode):
         self.iter_ticks = 0
         self.print_iter = 200
         self.history = []
-        self.headers = ["pid", "node", "ticks", "rss", "diff", "t0", "vms", "diff", "t0", "iter_time", "diff", "t0"]
+        self.headers = [
+            "pid",
+            "node",
+            "ticks",
+            "rss",
+            "diff",
+            "t0",
+            "vms",
+            "diff",
+            "t0",
+            "iter_time",
+            "diff",
+            "t0",
+        ]
 
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(is_reactive=is_reactive, real_time_factor=real_time_factor, **kwargs)
@@ -491,10 +619,18 @@ class Bridge(BaseNode):
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        initialize_nodes(node_params, process.BRIDGE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes)
+        initialize_nodes(
+            node_params,
+            process.BRIDGE,
+            self.ns,
+            self.message_broker,
+            self.is_initialized,
+            sp_nodes,
+            launch_nodes,
+        )
         for name, node in sp_nodes.items():
             # Set simulator
-            if hasattr(node.node, 'set_simulator'):
+            if hasattr(node.node, "set_simulator"):
                 node.node.set_simulator(self.simulator)
             # Initialize
             node.node_initialized()
@@ -504,25 +640,38 @@ class Bridge(BaseNode):
     def register_object(self, object_params, node_params, state_params):
         # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
         try:
-            bridge_params = object_params.pop('bridge')
+            bridge_params = object_params.pop("bridge")
         except KeyError:
             bridge_params = {}
         self.add_object(object_params, bridge_params, node_params, state_params)
 
         # Initialize states
         for i in state_params:
-            i['state']['name'] = i['name']
-            i['state']['simulator'] = self.simulator
-            i['state']['agnostic_params'] = object_params
-            i['state']['bridge_params'] = bridge_params
-            i['state']['ns'] = self.ns
-            i['state'] = initialize_state(i['state'])
+            i["state"]["name"] = i["name"]
+            i["state"]["simulator"] = self.simulator
+            i["state"]["agnostic_params"] = object_params
+            i["state"]["bridge_params"] = bridge_params
+            i["state"]["ns"] = self.ns
+            i["state"] = initialize_state(i["state"])
 
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
-        node_args = dict(agnostic_params=object_params, bridge_params=bridge_params, simulator=self.simulator)
-        initialize_nodes(node_params, process.BRIDGE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args)
+        node_args = dict(
+            agnostic_params=object_params,
+            bridge_params=bridge_params,
+            simulator=self.simulator,
+        )
+        initialize_nodes(
+            node_params,
+            process.BRIDGE,
+            self.ns,
+            self.message_broker,
+            self.is_initialized,
+            sp_nodes,
+            launch_nodes,
+            node_args=node_args,
+        )
         for name, node in sp_nodes.items():
             # Initialize
             node.node_initialized()
@@ -563,7 +712,7 @@ class Bridge(BaseNode):
                     iter_time = float(iter_stop - self.iter_start)
 
                 # Memory usage request
-                mem_use = (np.array(self.py.memory_info()[0:2]) / 2. ** 30) * 1000  # memory use in MB...I think
+                mem_use = (np.array(self.py.memory_info()[0:2]) / 2.0**30) * 1000  # memory use in MB...I think
 
                 # Print info
                 self.total_ticks += self.iter_ticks
@@ -577,13 +726,40 @@ class Bridge(BaseNode):
                     cum_mem_rss = round(mem_use[0] - self.history[0][3], 2)
                     cum_mem_vms = round(mem_use[1] - self.history[0][6], 2)
                     cum_iter_time = round(iter_time - self.history[0][9], 5)
-                    self.history.append([self.pid, self.name, self.total_ticks,
-                                         round(mem_use[0], 1), delta_mem_rss, cum_mem_rss,
-                                         round(mem_use[1], 1), delta_mem_vms, cum_mem_vms,
-                                         iter_time, delta_iter_time, cum_iter_time])
+                    self.history.append(
+                        [
+                            self.pid,
+                            self.name,
+                            self.total_ticks,
+                            round(mem_use[0], 1),
+                            delta_mem_rss,
+                            cum_mem_rss,
+                            round(mem_use[1], 1),
+                            delta_mem_vms,
+                            cum_mem_vms,
+                            iter_time,
+                            delta_iter_time,
+                            cum_iter_time,
+                        ]
+                    )
                 else:
-                    self.history.append([self.pid, self.name, self.total_ticks, round(mem_use[0], 1), 0, 0, round(mem_use[1], 1), 0, 0, iter_time, 0, 0])
-                rospy.loginfo('\n' + tabulate(self.history, headers=self.headers))
+                    self.history.append(
+                        [
+                            self.pid,
+                            self.name,
+                            self.total_ticks,
+                            round(mem_use[0], 1),
+                            0,
+                            0,
+                            round(mem_use[1], 1),
+                            0,
+                            0,
+                            iter_time,
+                            0,
+                            0,
+                        ]
+                    )
+                rospy.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
@@ -597,10 +773,16 @@ class Bridge(BaseNode):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
-        default = dict(name='bridge', is_reactive=True, real_time_factor=0, simulate_delays=True,
-                       executable='python:=eagerx.core.executable_bridge')
-        spec._set({'default': default})
+        default = dict(
+            name="bridge",
+            is_reactive=True,
+            real_time_factor=0,
+            simulate_delays=True,
+            executable="python:=eagerx.core.executable_bridge",
+        )
+        spec._set({"default": default})
         from eagerx.core.specs import BridgeSpec
+
         return BridgeSpec(spec.params)
 
     @classmethod
@@ -609,11 +791,19 @@ class Bridge(BaseNode):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'BridgeSpec', *args, **kwargs):
+    def spec(spec: "BridgeSpec", *args, **kwargs):
         pass
 
     @abc.abstractmethod
-    def add_object(self, agnostic_params: Dict, bridge_params: Dict, node_params: List[Dict], state_params: List[Dict], *args, **kwargs) -> None:
+    def add_object(
+        self,
+        agnostic_params: Dict,
+        bridge_params: Dict,
+        node_params: List[Dict],
+        state_params: List[Dict],
+        *args,
+        **kwargs,
+    ) -> None:
         """
         Adds an object to the bridge's simulator object.
 
@@ -689,23 +879,30 @@ class Bridge(BaseNode):
 class Object(Entity):
     @staticmethod
     @abc.abstractmethod
-    def agnostic(spec: 'AgnosticSpec'):
+    def agnostic(spec: "AgnosticSpec"):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'ObjectSpec', *args, **kwargs):
+    def spec(spec: "ObjectSpec", *args, **kwargs):
         pass
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        params['default'] = dict(name=None, sensors=[], actuators=[], states=[], entity_id=params.pop('entity_id'))
-        params['sensors'] = dict()
-        params['actuators'] = dict()
-        params['states'] = dict()
+        params["default"] = dict(
+            name=None,
+            sensors=[],
+            actuators=[],
+            states=[],
+            entity_id=params.pop("entity_id"),
+        )
+        params["sensors"] = dict()
+        params["actuators"] = dict()
+        params["states"] = dict()
         from eagerx.core.specs import ObjectSpec
+
         return ObjectSpec(params)
 
     @classmethod
@@ -718,19 +915,20 @@ class BaseConverter(Entity):
     Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
     baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
     """
+
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, *args, **kwargs):
         self.yaml_args = kwargs
         argspec = inspect.getfullargspec(self.__init__).args
-        argspec.remove('self')
+        argspec.remove("self")
         for key, value in zip(argspec, args):
             self.yaml_args[key] = value
         check_valid_rosparam_type(self.yaml_args)
         self.initialize(*args, **kwargs)
 
     def get_yaml_definition(self):
-        converter_type = self.__module__ + '/' + self.__class__.__name__
+        converter_type = self.__module__ + "/" + self.__class__.__name__
         yaml_dict = dict(converter_type=converter_type)
         yaml_dict.update(deepcopy(self.yaml_args))
         return yaml_dict
@@ -746,7 +944,7 @@ class BaseConverter(Entity):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'ConverterSpec', *args, **kwargs):
+    def spec(spec: "ConverterSpec", *args, **kwargs):
         pass
 
     @staticmethod
@@ -758,9 +956,10 @@ class BaseConverter(Entity):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        params['converter_type'] = params.pop('entity_type')
-        params.pop('entity_id')
+        params["converter_type"] = params.pop("entity_type")
+        params.pop("entity_id")
         from eagerx.core.specs import ConverterSpec
+
         return ConverterSpec(params)
 
     @classmethod
@@ -775,6 +974,7 @@ class Processor(BaseConverter):
     Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
     baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
     """
+
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, *args, **kwargs):
@@ -785,13 +985,19 @@ class Processor(BaseConverter):
         if msg_type == cls.MSG_TYPE:
             return cls.MSG_TYPE
         else:
-            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(msg_type, cls.MSG_TYPE))
+            raise ValueError(
+                'Message type "%s" not supported by this converter. Only msg_type "%s" is supported.'
+                % (msg_type, cls.MSG_TYPE)
+            )
 
     def convert(self, msg):
         if isinstance(msg, self.MSG_TYPE):
             return self._convert(msg)
         else:
-            raise ValueError('Message type "%s" not supported by this converter. Only msg_type "%s" is supported.' %(type(msg), self.MSG_TYPE))
+            raise ValueError(
+                'Message type "%s" not supported by this converter. Only msg_type "%s" is supported.'
+                % (type(msg), self.MSG_TYPE)
+            )
 
     @abc.abstractmethod
     def _convert(self, msg):
@@ -802,6 +1008,7 @@ class Processor(BaseConverter):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         from eagerx.core.specs import ConverterSpec
+
         return ConverterSpec(params)
 
     @classmethod
@@ -816,6 +1023,7 @@ class Converter(BaseConverter):
     Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
     baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
     """
+
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, *args, **kwargs):
@@ -829,8 +1037,9 @@ class Converter(BaseConverter):
             return cls.MSG_TYPE_A
         else:
             raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
-                (msg_type, cls.MSG_TYPE_A, cls.MSG_TYPE_B))
+                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.'
+                % (msg_type, cls.MSG_TYPE_A, cls.MSG_TYPE_B)
+            )
 
     def convert(self, msg):
         if isinstance(msg, self.MSG_TYPE_A):
@@ -839,8 +1048,9 @@ class Converter(BaseConverter):
             return self.B_to_A(msg)
         else:
             raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.' %
-                (type(msg), self.MSG_TYPE_A, self.MSG_TYPE_B))
+                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.'
+                % (type(msg), self.MSG_TYPE_A, self.MSG_TYPE_B)
+            )
 
     @abc.abstractmethod
     def A_to_B(self, msg):
@@ -855,6 +1065,7 @@ class Converter(BaseConverter):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         from eagerx.core.specs import ConverterSpec
+
         return ConverterSpec(params)
 
     @classmethod
@@ -867,6 +1078,7 @@ class SpaceConverter(Converter):
     Inherit your converter from this baseclass if the converter is used for actions/observations/states,
     such that the space can be inferred. See Converter for other abstract methods that must be implemented.
     """
+
     @abc.abstractmethod
     def get_space(self):
         pass
@@ -876,6 +1088,7 @@ class SpaceConverter(Converter):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         from eagerx.core.specs import ConverterSpec
+
         return ConverterSpec(params)
 
     @classmethod
@@ -884,7 +1097,18 @@ class SpaceConverter(Converter):
 
 
 class EngineState(Entity):
-    def __init__(self, ns, name, simulator, agnostic_params, bridge_params, *args, color='grey', print_mode='termcolor', **kwargs):
+    def __init__(
+        self,
+        ns,
+        name,
+        simulator,
+        agnostic_params,
+        bridge_params,
+        *args,
+        color="grey",
+        print_mode="termcolor",
+        **kwargs,
+    ):
         self.ns = ns
         self.name = name
 
@@ -898,16 +1122,17 @@ class EngineState(Entity):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: 'EngineNodeSpec', *args, **kwargs):
+    def spec(spec: "EngineNodeSpec", *args, **kwargs):
         pass
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        params['state_type'] = params.pop('entity_type')
-        params.pop('entity_id')
+        params["state_type"] = params.pop("entity_type")
+        params.pop("entity_id")
         from eagerx.core.specs import EngineStateSpec
+
         return EngineStateSpec(params)
 
     @classmethod

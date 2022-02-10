@@ -4,15 +4,14 @@ import eagerx.core.register as register
 
 
 class TestEngineState(EngineState):
-
     @staticmethod
-    @register.spec('TestEngineState', EngineState)
-    def spec(spec, test_arg: Optional[str] = 'test_argument'):
+    @register.spec("TestEngineState", EngineState)
+    def spec(spec, test_arg: Optional[str] = "test_argument"):
         # Initialize simstate
         spec.initialize(TestEngineState)
 
         # Modify parameters based on arguments
-        spec.set_parameter('test_arg', test_arg)
+        spec.set_parameter("test_arg", test_arg)
         return spec
 
     def initialize(self, test_arg):

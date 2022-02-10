@@ -18,8 +18,14 @@ from eagerx.utils.node_utils import launch_node
 
 class RealBridge(Bridge):
     @staticmethod
-    @register.spec('RealBridge', Bridge)
-    def spec(spec: BridgeSpec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = False, log_level: Optional[int] = ERROR):
+    @register.spec("RealBridge", Bridge)
+    def spec(
+        spec: BridgeSpec,
+        rate,
+        process: Optional[int] = process.NEW_PROCESS,
+        is_reactive: Optional[bool] = False,
+        log_level: Optional[int] = ERROR,
+    ):
         """
         Spec of the RealBridge
 
@@ -34,13 +40,15 @@ class RealBridge(Bridge):
         spec.initialize(RealBridge)
 
         # Modify default bridge params
-        params = dict(rate=rate,
-                      process=process,
-                      is_reactive=is_reactive,
-                      real_time_factor=1,
-                      simulate_delays=False,
-                      log_level=log_level,
-                      color='magenta')
+        params = dict(
+            rate=rate,
+            process=process,
+            is_reactive=is_reactive,
+            real_time_factor=1,
+            simulate_delays=False,
+            log_level=log_level,
+            color="magenta",
+        )
         spec.set_parameters(params)
 
     def initialize(self):
@@ -49,14 +57,16 @@ class RealBridge(Bridge):
     @register.bridge_params(driver_launch_file=None, launch_args=[])
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
+        rospy.loginfo(
+            f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.'
+        )
 
         # Extract relevant agnostic_params
-        obj_name = agnostic_params['name']
+        obj_name = agnostic_params["name"]
 
-        if 'driver_launch_file' in bridge_params:
-            launch_file = bridge_params['driver_launch_file']
-            launch_args = bridge_params['launch_args'] if 'launch_args' in bridge_params else []
+        if "driver_launch_file" in bridge_params:
+            launch_file = bridge_params["driver_launch_file"]
+            launch_args = bridge_params["launch_args"] if "launch_args" in bridge_params else []
             driver = launch_node(launch_file, launch_args)
             # driver.start()  # todo: can only be launched from main thread, unless disable_signals.
 

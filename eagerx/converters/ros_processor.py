@@ -9,13 +9,13 @@ class GetIndex_Float32MultiArray(Processor):
     MSG_TYPE = Float32MultiArray
 
     @staticmethod
-    @register.spec('GetIndex_Float32MultiArray', Processor)
+    @register.spec("GetIndex_Float32MultiArray", Processor)
     def spec(spec, index: Union[int, List[int]]):
         if isinstance(index, int):
             index = [index]
         for i in index:
             assert isinstance(i, int) and i >= 0, f'Incorrect index "{i}". Indices must be >= 0.'
-        spec.set_parameter('index', index)
+        spec.set_parameter("index", index)
 
     def initialize(self, index):
         self.index = index

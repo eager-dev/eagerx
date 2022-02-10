@@ -17,10 +17,21 @@ from eagerx.utils.utils import Msg, get_attribute_from_module
 
 class OdeBridge(Bridge):
     @staticmethod
-    @register.spec('OdeBridge', Bridge)
-    def spec(spec: BridgeSpec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = True,
-             real_time_factor: Optional[float] = 0, simulate_delays: Optional[bool] = True,
-             log_level: Optional[int] = ERROR, rtol: float = 2e-8, atol: float = 2e-8, hmax: float = 0.0, hmin: float = 0.0, mxstep: int = 0):
+    @register.spec("OdeBridge", Bridge)
+    def spec(
+        spec: BridgeSpec,
+        rate,
+        process: Optional[int] = process.NEW_PROCESS,
+        is_reactive: Optional[bool] = True,
+        real_time_factor: Optional[float] = 0,
+        simulate_delays: Optional[bool] = True,
+        log_level: Optional[int] = ERROR,
+        rtol: float = 2e-8,
+        atol: float = 2e-8,
+        hmax: float = 0.0,
+        hmin: float = 0.0,
+        mxstep: int = 0,
+    ):
         """
         Spec of the OdeBridge
 
@@ -42,13 +53,15 @@ class OdeBridge(Bridge):
         spec.initialize(OdeBridge)
 
         # Modify default bridge params
-        params = dict(rate=rate,
-                      process=process,
-                      is_reactive=is_reactive,
-                      real_time_factor=real_time_factor,
-                      simulate_delays=simulate_delays,
-                      log_level=log_level,
-                      color='magenta')
+        params = dict(
+            rate=rate,
+            process=process,
+            is_reactive=is_reactive,
+            real_time_factor=real_time_factor,
+            simulate_delays=simulate_delays,
+            log_level=log_level,
+            color="magenta",
+        )
         spec.set_parameters(params)
 
         # Add custom params
@@ -63,15 +76,23 @@ class OdeBridge(Bridge):
     @register.bridge_params(ode=None, ode_params=list())
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
+        rospy.loginfo(
+            f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.'
+        )
 
         # Extract relevant agnostic_params
-        obj_name = agnostic_params['name']
-        ode = get_attribute_from_module(bridge_params['ode'])
-        Dfun = get_attribute_from_module(bridge_params['Dfun']) if 'Dfun' in agnostic_params else None
+        obj_name = agnostic_params["name"]
+        ode = get_attribute_from_module(bridge_params["ode"])
+        Dfun = get_attribute_from_module(bridge_params["Dfun"]) if "Dfun" in agnostic_params else None
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(ode=ode, Dfun=Dfun, state=None, input=None, ode_params=bridge_params['ode_params'])
+        self.simulator[obj_name] = dict(
+            ode=ode,
+            Dfun=Dfun,
+            state=None,
+            input=None,
+            ode_params=bridge_params["ode_params"],
+        )
 
     def pre_reset(self, **kwargs: Optional[Msg]):
         pass
@@ -83,10 +104,17 @@ class OdeBridge(Bridge):
     @register.outputs(tick=UInt64)
     def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
         for obj_name, sim in self.simulator.items():
-            input = sim['input']
-            ode = sim['ode']
-            Dfun = sim['Dfun']
-            x = sim['state']
-            ode_params = sim['ode_params']
+            input = sim["input"]
+            ode = sim["ode"]
+            Dfun = sim["Dfun"]
+            x = sim["state"]
+            ode_params = sim["ode_params"]
             if x is not None and input is not None:
-                sim['state'] = odeint(ode, x, [0, 1./self.rate], args=(input, *ode_params), Dfun=Dfun, **self.odeint_args)[-1]
+                sim["state"] = odeint(
+                    ode,
+                    x,
+                    [0, 1.0 / self.rate],
+                    args=(input, *ode_params),
+                    Dfun=Dfun,
+                    **self.odeint_args,
+                )[-1]

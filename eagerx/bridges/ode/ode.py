@@ -1,6 +1,7 @@
 from numba import jit
 from math import sin, exp
 
+
 @jit(nopython=True)
 def eom_pendulum(x, t, u):
     J = 0.000189238
@@ -13,7 +14,7 @@ def eom_pendulum(x, t, u):
     c = 1.49553
     a = 0.00183742
 
-    b = b0 + a * exp(- x[1] * x[1] / (c * c))
+    b = b0 + a * exp(-x[1] * x[1] / (c * c))
 
     ddx = (m * g * l * sin(x[0]) - x[1] * (b + K * K / R) + K * u / R) / J
 

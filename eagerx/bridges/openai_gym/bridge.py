@@ -19,35 +19,51 @@ class GymBridge(Bridge):
         self.simulator = dict()
 
     @staticmethod
-    @register.spec('GymBridge', Bridge)
-    def spec(spec: BridgeSpec, rate, process: Optional[int] = process.NEW_PROCESS, is_reactive: Optional[bool] = True,
-             real_time_factor: Optional[float] = 0, simulate_delays: Optional[bool] = True,
-             log_level: Optional[int] = ERROR):
+    @register.spec("GymBridge", Bridge)
+    def spec(
+        spec: BridgeSpec,
+        rate,
+        process: Optional[int] = process.NEW_PROCESS,
+        is_reactive: Optional[bool] = True,
+        real_time_factor: Optional[float] = 0,
+        simulate_delays: Optional[bool] = True,
+        log_level: Optional[int] = ERROR,
+    ):
         """TestBridge spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymBridge)
 
         # Modify default bridge params
-        params = dict(rate=rate,
-                      process=process,
-                      is_reactive=is_reactive,
-                      real_time_factor=real_time_factor,
-                      simulate_delays=simulate_delays,
-                      log_level=log_level,
-                      color='magenta')
+        params = dict(
+            rate=rate,
+            process=process,
+            is_reactive=is_reactive,
+            real_time_factor=real_time_factor,
+            simulate_delays=simulate_delays,
+            log_level=log_level,
+            color="magenta",
+        )
         spec.set_parameters(params)
 
     @register.bridge_params(env_id=None)
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
+        rospy.loginfo(
+            f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.'
+        )
 
         # Extract relevant object_params
-        obj_name = agnostic_params['name']
-        id = bridge_params['env_id']
+        obj_name = agnostic_params["name"]
+        id = bridge_params["env_id"]
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(env=gym.make(id), buffer_obs=[], buffer_reward=None, buffer_done=None, next_action=None)
+        self.simulator[obj_name] = dict(
+            env=gym.make(id),
+            buffer_obs=[],
+            buffer_reward=None,
+            buffer_done=None,
+            next_action=None,
+        )
 
     def pre_reset(self):
         pass
@@ -55,17 +71,17 @@ class GymBridge(Bridge):
     @register.states()
     def reset(self):
         for obj_name, sim in self.simulator.items():
-            obs = sim['env'].reset()
+            obs = sim["env"].reset()
             # sim['buffer_obs'].append(obs)
-            sim['buffer_obs'] = [obs]
-            sim['buffer_reward'] = []
-            sim['buffer_done'] = []
+            sim["buffer_obs"] = [obs]
+            sim["buffer_reward"] = []
+            sim["buffer_done"] = []
 
     @register.outputs(tick=UInt64)
     def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
         for obj_name, sim in self.simulator.items():
-            next_action = sim['next_action']
-            obs, reward, is_done, _ = sim['env'].step(next_action)
-            sim['buffer_obs'].append(obs)
-            sim['buffer_reward'].append(reward)
-            sim['buffer_done'].append(is_done)
+            next_action = sim["next_action"]
+            obs, reward, is_done, _ = sim["env"].step(next_action)
+            sim["buffer_obs"].append(obs)
+            sim["buffer_reward"].append(reward)
+            sim["buffer_done"].append(is_done)

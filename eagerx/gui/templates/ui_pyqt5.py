@@ -60,5 +60,6 @@ class Ui_Form(object):
         self.showChartBtn.setText(_translate("Form", "Show Graph"))
         self.showCompatibleBridgesBtn.setText(_translate("Form", "Compatible Bridges"))
 
+
 from pyqtgraph.widgets.FeedbackButton import FeedbackButton
 from pyqtgraph.widgets.TreeWidget import TreeWidget

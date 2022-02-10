@@ -28,7 +28,7 @@ from eagerx.core.entities import Node
 
 
 # pyside and pyqt use incompatible ui files.
-rx_ui_template = importlib.import_module('eagerx.gui.templates.ui_{}'.format(QT_LIB.lower()))
+rx_ui_template = importlib.import_module("eagerx.gui.templates.ui_{}".format(QT_LIB.lower()))
 
 
 class Gui(Graph, QtCore.QObject):
@@ -53,25 +53,28 @@ class Gui(Graph, QtCore.QObject):
 
     @staticmethod
     def add_pos_to_state(state):
-        for n in state['nodes'].values():
-            if 'pos' not in n:
-                if n['params']['default']['name'] in ['env/observations', 'env/actions', 'env/render']:
-                    if n['params']['default']['name'] == 'env/actions':
+        for n in state["nodes"].values():
+            if "pos" not in n:
+                if n["params"]["default"]["name"] in [
+                    "env/observations",
+                    "env/actions",
+                    "env/render",
+                ]:
+                    if n["params"]["default"]["name"] == "env/actions":
                         pos = [0, 0]
-                    elif n['params']['default']['name'] == 'env/observations':
+                    elif n["params"]["default"]["name"] == "env/observations":
                         pos = [600, 0]
-                    elif n['params']['default']['name'] == 'env/render':
+                    elif n["params"]["default"]["name"] == "env/render":
                         pos = [600, 150]
                     else:
                         pos = np.array([150, 0]) + np.random.randint((300, 150))
                 else:
                     pos = np.array([150, 0]) + np.random.randint((300, 150))
-                n['pos'] = pos
+                n["pos"] = pos
         return state
 
     def create_node(self, name, pos):
-        """Create a new Node and add it to this flowchart.
-        """
+        """Create a new Node and add it to this flowchart."""
         node = RxGuiNode(name, graph=self)
         self.add_node(node, name, pos)
         return node
@@ -94,28 +97,27 @@ class Gui(Graph, QtCore.QObject):
         self.widget().add_node(node)
         node.sigClosed.connect(self.node_closed)
         node.sigRenamed.connect(self.node_renamed)
-        self.sigChartChanged.emit(self, 'add', node)
+        self.sigChartChanged.emit(self, "add", node)
 
     def remove_node(self, node):
-        """Remove a Node from this flowchart.
-        """
+        """Remove a Node from this flowchart."""
         node.close()
 
     def node_closed(self, node):
         del self.nodes[node.name]
         self.widget().remove_node(node)
-        for signal in ['sigClosed', 'sigRenamed']:
+        for signal in ["sigClosed", "sigRenamed"]:
             try:
                 getattr(node, signal).disconnect(self.node_closed)
             except (TypeError, RuntimeError):
                 pass
-        self.sigChartChanged.emit(self, 'remove', node)
+        self.sigChartChanged.emit(self, "remove", node)
 
     def node_renamed(self, node, old_name):
         del self.nodes[old_name]
         self.nodes[node.name] = node
         self.widget().node_renamed(node, old_name)
-        self.sigChartChanged.emit(self, 'rename', node)
+        self.sigChartChanged.emit(self, "rename", node)
 
     def connect_terminals(self, term1, term2):
         """Connect two terminals together within this flowchart."""
@@ -153,27 +155,34 @@ class Gui(Graph, QtCore.QObject):
         try:
             if clear:
                 self.clear()
-            if 'env/render' not in self._state['nodes']:
-                render = Node.make('Render', rate=1.)
+            if "env/render" not in self._state["nodes"]:
+                render = Node.make("Render", rate=1.0)
                 self.add(render)
             self.add_pos_to_state(self._state)
-            nodes = self._state['nodes']
+            nodes = self._state["nodes"]
             nodes = [dict(**node, name=name) for name, node in nodes.items()]
-            nodes.sort(key=lambda a: a['pos'][0])
+            nodes.sort(key=lambda a: a["pos"][0])
             for n in nodes:
-                if n['name'] in self.nodes:
-                    self.nodes[n['name']].load_state(n)
+                if n["name"] in self.nodes:
+                    self.nodes[n["name"]].load_state(n)
                     continue
                 try:
-                    name = n['name']
-                    pos = n['pos']
+                    name = n["name"]
+                    pos = n["pos"]
                     node = self.create_node(name, pos)
                     node.load_state(n)
                 except Exception:
-                    printExc("Error creating node %s: (continuing anyway)" % n['name'])
+                    printExc("Error creating node %s: (continuing anyway)" % n["name"])
 
-            connects = [(connection[0][0], '/'.join(connection[0][1:3]),
-                         connection[1][0], '/'.join(connection[1][1:3])) for connection in self._state['connects']]
+            connects = [
+                (
+                    connection[0][0],
+                    "/".join(connection[0][1:3]),
+                    connection[1][0],
+                    "/".join(connection[1][1:3]),
+                )
+                for connection in self._state["connects"]
+            ]
             for n1, t1, n2, t2 in connects:
                 try:
                     self.connect_terminals(self.nodes[n1].terminals[t1], self.nodes[n2].terminals[t2])
@@ -190,24 +199,23 @@ class Gui(Graph, QtCore.QObject):
 
     def state(self):
         state = deepcopy(self._state)
-        target = ['env/render', 'inputs', 'image']
+        target = ["env/render", "inputs", "image"]
         render_connected = False
-        for idx, c in enumerate(self._state['connects']):
+        for idx, c in enumerate(self._state["connects"]):
             if target == c[1]:
                 render_connected = True
                 break
         if not render_connected:
-            state['nodes'].pop('env/render')
+            state["nodes"].pop("env/render")
         return state
 
     def load_file(self, file_name=None, start_dir=None):
-        """Load a flowchart (``*.graph``) file.
-        """
+        """Load a flowchart (``*.graph``) file."""
         if file_name is None:
             if start_dir is None:
                 start_dir = self.file_path
             if start_dir is None:
-                start_dir = ''
+                start_dir = ""
             self.fileDialog = FileDialog(None, "Load Graph..", start_dir, "Graph (*.graph)")
             self.fileDialog.show()
             self.fileDialog.fileSelected.connect(self.load_file)
@@ -219,13 +227,12 @@ class Gui(Graph, QtCore.QObject):
         self.sigFileLoaded.emit(file_name)
 
     def save_file(self, file_name=None, start_dir=None):
-        """Save this flowchart to a .graph file
-        """
+        """Save this flowchart to a .graph file"""
         if file_name is None:
             if start_dir is None:
                 start_dir = self.file_path
             if start_dir is None:
-                start_dir = ''
+                start_dir = ""
             self.fileDialog = FileDialog(None, "Save Graph..", start_dir, "Graph (*.graph)")
             self.fileDialog.setDefaultSuffix("graph")
             self.fileDialog.setAcceptMode(QtGui.QFileDialog.AcceptSave)
@@ -239,15 +246,13 @@ class Gui(Graph, QtCore.QObject):
         self.load_state(clear=True)
 
     def clear(self):
-        """Remove all nodes from this flowchart except the original input/output nodes.
-        """
+        """Remove all nodes from this flowchart except the original input/output nodes."""
         for n in list(self.nodes.values()):
             n.close()  # calls self.nodeClosed(n) by signal
         self.widget().clear()
 
 
 class GraphicsItem(GraphicsObject):
-
     def __init__(self, chart):
         GraphicsObject.__init__(self)
         self.chart = chart  # chart is an instance of Flowchart()
@@ -282,12 +287,12 @@ class CtrlWidget(QtGui.QWidget):
         self.chartWidget = EagerxGraphWidget(chart, self)
         self.scene = self.chartWidget.scene
         self.cwWin = QtGui.QMainWindow()
-        self.cwWin.setWindowTitle('EAGERx Graph')
+        self.cwWin.setWindowTitle("EAGERx Graph")
         self.cwWin.setCentralWidget(self.chartWidget)
         self.cwWin.resize(1000, 800)
 
         h = self.ui.ctrlList.header()
-        if QT_LIB in ['PyQt4', 'PySide']:
+        if QT_LIB in ["PyQt4", "PySide"]:
             h.setResizeMode(0, h.Stretch)
         else:
             h.setSectionResizeMode(0, h.Stretch)
@@ -338,7 +343,7 @@ class CtrlWidget(QtGui.QWidget):
 
     def check_validity_toggled(self):
         try:
-            self._check_validity(graph_backup=self.chart, dialog_title='Invalid Graph')
+            self._check_validity(graph_backup=self.chart, dialog_title="Invalid Graph")
             self.ui.checkValidityBtn.success("Valid")
         except Exception:
             self.ui.checkValidityBtn.failure("Invalid")
@@ -349,11 +354,11 @@ class CtrlWidget(QtGui.QWidget):
 
     def show_compatible_bridges_toggled(self):
         try:
-            label_string = self.chart.check_exists_compatible_bridge(self.chart.state(), tablefmt='html')
+            label_string = self.chart.check_exists_compatible_bridge(self.chart.state(), tablefmt="html")
         except Exception as e:
             label_string = str(e)
         bridges_window = QtGui.QDialog(self.chart.widget().cwWin)
-        bridges_window.setWindowTitle('Compatible Bridges')
+        bridges_window.setWindowTitle("Compatible Bridges")
         layout = QtGui.QGridLayout()
         label = QtGui.QLabel(label_string)
         label.setWordWrap(True)
@@ -380,7 +385,7 @@ class CtrlWidget(QtGui.QWidget):
 
     def add_node(self, node):
         ctrl = node.ctrl_widget()
-        item = QtGui.QTreeWidgetItem([node.name, '', ''])
+        item = QtGui.QTreeWidgetItem([node.name, "", ""])
         self.ui.ctrlList.addTopLevelItem(item)
 
         if ctrl is not None:
@@ -417,16 +422,16 @@ class EagerxGraphWidget(dockarea.DockArea):
 
         # build user interface (it was easier to do it here than via developer)
         self.view = gui_view.RxView(self)
-        self.viewDock = dockarea.Dock('view', size=(1000, 600))
+        self.viewDock = dockarea.Dock("view", size=(1000, 600))
         self.viewDock.addWidget(self.view)
         self.viewDock.hideTitleBar()
         self.addDock(self.viewDock)
 
         self.hoverText = QtGui.QTextEdit()
         self.hoverText.setReadOnly(True)
-        self.hoverDock = dockarea.Dock('Hover Info', size=(1000, 20))
+        self.hoverDock = dockarea.Dock("Hover Info", size=(1000, 20))
         self.hoverDock.addWidget(self.hoverText)
-        self.addDock(self.hoverDock, 'bottom')
+        self.addDock(self.hoverDock, "bottom")
 
         self.selInfo = QtGui.QWidget()
         self.selInfoLayout = QtGui.QGridLayout()
@@ -449,8 +454,9 @@ class EagerxGraphWidget(dockarea.DockArea):
     def buildMenu(self, pos=None):
         def build_sub_menu(library, root_menu, submenus, pos=None):
             for node in library:
-                id = node['id']
-                if id in constants.GUI_NODE_IDS_TO_IGNORE: continue
+                id = node["id"]
+                if id in constants.GUI_NODE_IDS_TO_IGNORE:
+                    continue
                 act = root_menu.addAction(id)
                 act.nodeType = node
                 act.pos = pos
@@ -458,8 +464,9 @@ class EagerxGraphWidget(dockarea.DockArea):
         self.submenus = []
         self.nodeMenu = []
         for node_type, library in self.chart.library.items():
-            if node_type in constants.GUI_ENTITIES_TO_IGNORE: continue
-            menu = QtGui.QMenu('Add {}'.format(node_type.replace('_', ' ')))
+            if node_type in constants.GUI_ENTITIES_TO_IGNORE:
+                continue
+            menu = QtGui.QMenu("Add {}".format(node_type.replace("_", " ")))
             build_sub_menu(library, menu, self.submenus, pos=pos)
             menu.triggered.connect(partial(self.node_menu_triggered))
             self.nodeMenu.append(menu)
@@ -495,20 +502,20 @@ class EagerxGraphWidget(dockarea.DockArea):
 
         n = 0
         while True:
-            name = '{}'.format(node_type['id'])
+            name = "{}".format(node_type["id"])
             if n > 0:
-                name += '_{}'.format(n + 1)
+                name += "_{}".format(n + 1)
             if name not in self.chart.nodes:
                 break
             n += 1
 
         node_creation_dialog = NodeCreationDialog(name, node_type, self.chart.widget().cwWin)
         mapping = node_creation_dialog.open()
-        if 'name' in mapping:
-            name = mapping['name']
-        rx_entity = node_type['spec'](**mapping)
+        if "name" in mapping:
+            name = mapping["name"]
+        rx_entity = node_type["spec"](**mapping)
         self.chart.add(rx_entity)
-        self.chart._state['nodes'][name]['pos'] = pos
+        self.chart._state["nodes"][name]["pos"] = pos
         self.chart.create_node(name, pos)
 
     def selection_changed(self):
@@ -517,7 +524,7 @@ class EagerxGraphWidget(dockarea.DockArea):
             data = None
         else:
             item = items[0]
-            if hasattr(item, 'node') and isinstance(item.node, RxGuiNode):
+            if hasattr(item, "node") and isinstance(item.node, RxGuiNode):
                 n = item.node
                 if n in self.ctrl.items:
                     self.ctrl.select(n)
@@ -525,12 +532,12 @@ class EagerxGraphWidget(dockarea.DockArea):
                     self.ctrl.clearSelection()
                 data = {}
                 self.selNameLabel.setText(n.name)
-                if hasattr(n, 'name'):
+                if hasattr(n, "name"):
                     self.selDescLabel.setText("<b>%s</b>: %s" % (n.name, n.__class__.__doc__))
                 else:
                     self.selDescLabel.setText("")
                 if n.exception is not None:
-                    data['exception'] = n.exception
+                    data["exception"] = n.exception
             else:
                 data = None
         self.selectedTree.setData(data, hideRoot=True)
@@ -538,35 +545,41 @@ class EagerxGraphWidget(dockarea.DockArea):
     def hover_over(self, items):
         for item in items:
             self.hoverItem = item
-            if hasattr(item, 'term') and isinstance(item, TerminalGraphicsItem):
-                text = 'name: ' + item.term.terminal_name
+            if hasattr(item, "term") and isinstance(item, TerminalGraphicsItem):
+                text = "name: " + item.term.terminal_name
                 for key, value in item.term.params().items():
-                    if key in constants.GUI_WIDGETS['term']['hide']['all']:
+                    if key in constants.GUI_WIDGETS["term"]["hide"]["all"]:
                         continue
-                    elif item.term.node_type in constants.GUI_WIDGETS['term']['hide'] and \
-                            key in constants.GUI_WIDGETS['term']['hide'][item.term.node_type]:
+                    elif (
+                        item.term.node_type in constants.GUI_WIDGETS["term"]["hide"]
+                        and key in constants.GUI_WIDGETS["term"]["hide"][item.term.node_type]
+                    ):
                         continue
-                    elif item.term.terminal_type in constants.GUI_WIDGETS['term']['hide'] and \
-                            key in constants.GUI_WIDGETS['term']['hide'][item.term.terminal_type]:
+                    elif (
+                        item.term.terminal_type in constants.GUI_WIDGETS["term"]["hide"]
+                        and key in constants.GUI_WIDGETS["term"]["hide"][item.term.terminal_type]
+                    ):
                         continue
-                    text += '\n' + '{}: {}'.format(key, value)
+                    text += "\n" + "{}: {}".format(key, value)
                 self.hoverText.setPlainText(text)
                 return
-            elif hasattr(item, 'node') and isinstance(item, NodeGraphicsItem):
-                text = ''
+            elif hasattr(item, "node") and isinstance(item, NodeGraphicsItem):
+                text = ""
                 for key, value in item.node.params().items():
-                    if key in constants.GUI_WIDGETS['node']['hide']['all']:
+                    if key in constants.GUI_WIDGETS["node"]["hide"]["all"]:
                         continue
-                    elif item.node.node_type in constants.GUI_WIDGETS['node']['hide'] and \
-                            key in constants.GUI_WIDGETS['node']['hide'][item.node.node_type]:
+                    elif (
+                        item.node.node_type in constants.GUI_WIDGETS["node"]["hide"]
+                        and key in constants.GUI_WIDGETS["node"]["hide"][item.node.node_type]
+                    ):
                         continue
-                    text += '{}: {}\n'.format(key, value)
+                    text += "{}: {}\n".format(key, value)
                 self.hoverText.setPlainText(text)
                 return
         self.hoverText.setPlainText("")
 
     def clear(self):
         self.selectedTree.setData(None)
-        self.hoverText.setPlainText('')
-        self.selNameLabel.setText('')
-        self.selDescLabel.setText('')
+        self.hoverText.setPlainText("")
+        self.selNameLabel.setText("")
+        self.selDescLabel.setText("")

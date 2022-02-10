@@ -8,7 +8,7 @@ def launch_gui(state):
 
     # Create main window with grid layout
     win = QtGui.QMainWindow()
-    win.setWindowTitle('EAGERx Graph Creator')
+    win.setWindowTitle("EAGERx Graph Creator")
     cw = QtGui.QWidget()
     win.setCentralWidget(cw)
     layout = QtGui.QGridLayout()
@@ -21,7 +21,7 @@ def launch_gui(state):
     layout.addWidget(w, 0, 0, 2, 1)
     win.show()
 
-    if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+    if (sys.flags.interactive != 1) or not hasattr(QtCore, "PYQT_VERSION"):
         QtGui.QApplication.instance().exec_()
     new_state = rx_gui.state()
 

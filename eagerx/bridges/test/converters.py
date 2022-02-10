@@ -1,5 +1,6 @@
 from eagerx.core.entities import SpaceConverter, Converter
 import eagerx.core.register as register
+
 # Converter specific
 from std_msgs.msg import UInt64, String
 from sensor_msgs.msg import Image
@@ -11,15 +12,15 @@ class Space_RosUInt64(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = UInt64
 
-    def initialize(self, low, high, shape=None, dtype='uint64'):
+    def initialize(self, low, high, shape=None, dtype="uint64"):
         self.low = np.array(low)
         self.high = np.array(high)
         self.shape = shape
         self.dtype = dtype
 
     @staticmethod
-    @register.spec('Space_RosUInt64', SpaceConverter)
-    def spec(spec, low, high, shape=None, dtype='uint64'):
+    @register.spec("Space_RosUInt64", SpaceConverter)
+    def spec(spec, low, high, shape=None, dtype="uint64"):
         params = dict(low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
         return spec
@@ -38,7 +39,7 @@ class Space_RosString(SpaceConverter):
     MSG_TYPE_A = np.ndarray
     MSG_TYPE_B = String
 
-    def initialize(self, low, high, shape=None, dtype='uint64'):
+    def initialize(self, low, high, shape=None, dtype="uint64"):
         self.low = low
         self.high = high
         if isinstance(low, list):
@@ -46,18 +47,20 @@ class Space_RosString(SpaceConverter):
         if isinstance(high, list):
             self.high = np.array(self.high)
         if shape is not None:
-            assert isinstance(low, (int,
-                                    float)) or self.low.shape == shape, 'If a shape is defined, low must be of a list or type (int, float).'
-            assert isinstance(high, (
-            int, float)) or self.high.shape == shape, 'If a shape is defined, high must be a list of type (int, float).'
+            assert (
+                isinstance(low, (int, float)) or self.low.shape == shape
+            ), "If a shape is defined, low must be of a list or type (int, float)."
+            assert (
+                isinstance(high, (int, float)) or self.high.shape == shape
+            ), "If a shape is defined, high must be a list of type (int, float)."
             self.low = low
             self.high = high
         self.shape = shape
         self.dtype = dtype
 
     @staticmethod
-    @register.spec('Space_RosString', SpaceConverter)
-    def spec(spec, low, high, shape=None, dtype='uint64'):
+    @register.spec("Space_RosString", SpaceConverter)
+    def spec(spec, low, high, shape=None, dtype="uint64"):
         params = dict(low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
         return spec
@@ -66,7 +69,7 @@ class Space_RosString(SpaceConverter):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
 
     def A_to_B(self, msg):
-        return String(data='string: %s ' % msg[0])
+        return String(data="string: %s " % msg[0])
 
     def B_to_A(self, msg):
         return np.array([int(msg.data[8:])], dtype=self.dtype)
@@ -80,9 +83,9 @@ class RosImage_RosUInt64(Converter):
         self.test_arg = test_arg
 
     @staticmethod
-    @register.spec('RosImage_RosUInt64', Converter)
+    @register.spec("RosImage_RosUInt64", Converter)
     def spec(spec, test_arg):
-        spec.set_parameter('test_arg', test_arg)
+        spec.set_parameter("test_arg", test_arg)
         return spec
 
     def A_to_B(self, msg):
@@ -100,13 +103,13 @@ class RosString_RosUInt64(Converter):
         self.test_arg = test_arg
 
     @staticmethod
-    @register.spec('RosString_RosUInt64', Converter)
+    @register.spec("RosString_RosUInt64", Converter)
     def spec(spec, test_arg):
-        spec.set_parameter('test_arg', test_arg)
+        spec.set_parameter("test_arg", test_arg)
         return spec
 
     def A_to_B(self, msg):
         return UInt64(data=int(msg.data[8:]))
 
     def B_to_A(self, msg):
-        return String(data='string: %s' % msg.data)
+        return String(data="string: %s" % msg.data)

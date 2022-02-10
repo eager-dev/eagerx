@@ -16,20 +16,28 @@ class GymSpace_Float32MultiArray(SpaceConverter):
     MSG_TYPE_B = Float32MultiArray
 
     @staticmethod
-    @register.spec('GymSpace_Float32MultiArray', SpaceConverter)
-    def spec(spec, gym_id: str = None, space: str = None, low=None, high=None, shape=None, dtype='float32'):
+    @register.spec("GymSpace_Float32MultiArray", SpaceConverter)
+    def spec(
+        spec,
+        gym_id: str = None,
+        space: str = None,
+        low=None,
+        high=None,
+        shape=None,
+        dtype="float32",
+    ):
         params = dict(gym_id=gym_id, space=space, low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
 
-    def initialize(self, gym_id=None, space=None, low=None, high=None, shape=None, dtype='float32'):
-        if gym_id is not None and space in ['observation', 'action']:
+    def initialize(self, gym_id=None, space=None, low=None, high=None, shape=None, dtype="float32"):
+        if gym_id is not None and space in ["observation", "action"]:
             self.env = gym.make(gym_id)
-            if space == 'observation':
+            if space == "observation":
                 self.space = self.env.observation_space
             else:  # space == 'action
                 self.space = self.env.action_space
             if isinstance(self.space, gym.spaces.Discrete):
-                self.space = gym.spaces.Box(low=0, high=self.space.n-1, shape=(1,), dtype='int64')
+                self.space = gym.spaces.Box(low=0, high=self.space.n - 1, shape=(1,), dtype="int64")
         else:
             self.space = None
             self.low = np.array(low)

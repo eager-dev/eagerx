@@ -5,6 +5,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from pyqtgraph.widgets.FeedbackButton import FeedbackButton
 from pyqtgraph.widgets.TreeWidget import TreeWidget
 
+
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
