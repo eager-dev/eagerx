@@ -16,13 +16,13 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ "ubuntu-latest"]
-#        python-version: [ "3.6.2", "3.7", "3.8", "3.9" ]
-        python-version: ["3.8"]
+        os: [ "ubuntu-latest" ]
+        #        python-version: [ "3.6.2", "3.7", "3.8", "3.9" ]
+        python-version: [ "3.8" ]
     runs-on: ${{ matrix.os }}
     steps:
       #----------------------------------------------
-        #       check-out repo and set-up python
+      #       check-out repo and set-up python
       #----------------------------------------------
       - name: Check out repository
         uses: actions/checkout@v2
@@ -62,11 +62,11 @@ jobs:
       #----------------------------------------------
       #  -----  install & configure ROS  -----
       #----------------------------------------------
-       - name: install ROS
-       run: |
-         sudo apt install ros-noetic-ros-base
-         echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
-         source .venv/bin/activate
+      - name: install ROS
+        run: |
+          sudo apt install ros-noetic-ros-base
+          echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
+          source .venv/bin/activate
       #----------------------------------------------
       #    add matrix specifics and run test suite
       #----------------------------------------------
