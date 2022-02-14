@@ -1,5 +1,5 @@
-converage.xml
-.converage
+coverage.xml
+.coverage
 *.pyc
 *.idea
 calibrate.launch
