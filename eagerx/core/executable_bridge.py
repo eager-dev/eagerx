@@ -52,7 +52,6 @@ class RxBridge(object):
             self.mb,
         )
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
-        self.mb.add_rx_objects(node_name=name + "/dynamically_registered", node=self)
         self.mb.connect_io()
         self.cond_reg = Condition()
 

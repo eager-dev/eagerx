@@ -217,7 +217,7 @@ class RxMessageBroker(object):
             try:
                 cname_address = f"{i['name']}:{address}"
             except KeyError:
-                cname_address = address
+                cname_address = f"done_flag:{address}"
             if "msg" in i:  # Only true if sim state node (i.e. **not** for bridge done flags)
                 assert (
                     cname_address + "/set" not in self.node_io[node_name]["state_inputs"]

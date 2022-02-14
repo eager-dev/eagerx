@@ -600,7 +600,7 @@ def init_bridge(
             lambda i: (
                 i,
                 message_broker.add_rx_objects(
-                    node.ns_name + "/dynamically_registered",
+                    node.ns_name,
                     inputs=i["inputs"],
                     reactive_proxy=i["reactive_proxy"],
                     state_inputs=i["state_inputs"],
