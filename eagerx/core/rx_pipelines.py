@@ -709,7 +709,7 @@ def init_bridge(
     ###########################################################################
     # Prepare reset output
     R = Subject()
-    reset_output = dict(name='reset', address=ns + "/reset", msg=R, msg_type=UInt64)
+    reset_output = dict(name="reset", address=ns + "/reset", msg=R, msg_type=UInt64)
     node_outputs.append(reset_output)
 
     # Send reset message
@@ -901,9 +901,19 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # Register ################################################################
     ###########################################################################
     REG_OBJECT = Subject()  # ---> Not a node output, but used in node.register_object() to kickstart register pipeline.
-    register_object = dict(name="register_object", address=ns + "/register_object", msg=Subject(), msg_type=String)
+    register_object = dict(
+        name="register_object",
+        address=ns + "/register_object",
+        msg=Subject(),
+        msg_type=String,
+    )
     REG_NODE = Subject()  # ---> Not a node output, but used in node.register_node() to kickstart register pipeline.
-    register_node = dict(name="register_node", address=ns + "/register_node", msg=Subject(), msg_type=String)
+    register_node = dict(
+        name="register_node",
+        address=ns + "/register_node",
+        msg=Subject(),
+        msg_type=String,
+    )
 
     # Register pipeline
     REG_OBJECT.subscribe(register_object["msg"], scheduler=tp_scheduler)

@@ -75,3 +75,5 @@ if __name__ == "__main__":
         obs = env.reset()
         done = False
     print("\n[Finished]")
+    env.shutdown()
+    print("\n[shutdown]")

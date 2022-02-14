@@ -136,13 +136,18 @@ class RxNode(object):
     def _close(self):
         rospy.loginfo(f"[{self.name}] Shutting down.")
 
+
 if __name__ == "__main__":
     try:
         executable, ns, name = sys.argv
 
         log_level = get_param_with_blocking(ns + "/log_level")
 
-        rospy.init_node(f"{name}".replace("/", "_"), log_level=log_levels_ROS[log_level], anonymous=True)
+        rospy.init_node(
+            f"{name}".replace("/", "_"),
+            log_level=log_levels_ROS[log_level],
+            anonymous=True,
+        )
 
         message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 

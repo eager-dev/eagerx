@@ -23,10 +23,10 @@ if __name__ == "__main__":
     #  - .flake8 test
     #  - test coverage
     #  - documentation
+    #  - Installation procedure
     #  - upload gui & dcsc setups to pip
     #  - Why is ode bridge so slow in async mode?
     #  - Effect of skipping first action on environment synchronization.
-    #  - Installation procedure
     #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
     #  - Pause environment
 

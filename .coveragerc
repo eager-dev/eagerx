@@ -1,0 +1,11 @@
+[run]
+source = eagerx
+branch = False
+omit =
+    tests/*
+    examples/*
+    scripts/*
+
+[report]
+exclude_lines =
+    pragma: no cover

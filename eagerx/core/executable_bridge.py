@@ -127,7 +127,11 @@ if __name__ == "__main__":
 
         log_level = get_param_with_blocking(ns + "/log_level")
 
-        rospy.init_node(f"{name}".replace("/", "_"), log_level=log_levels_ROS[log_level], anonymous=True)
+        rospy.init_node(
+            f"{name}".replace("/", "_"),
+            log_level=log_levels_ROS[log_level],
+            anonymous=True,
+        )
 
         message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
