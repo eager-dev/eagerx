@@ -70,6 +70,7 @@ jobs:
           sudo apt update
           sudo apt install ros-noetic-ros-base
           echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
+          sudo apt-get install ros-noetic-cv-bridge
           source .venv/bin/activate
       #----------------------------------------------
       #    add matrix specifics and run test suite
