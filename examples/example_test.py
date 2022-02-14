@@ -13,6 +13,12 @@ from eagerx.wrappers import Flatten
 import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 
 if __name__ == "__main__":
+
+    # try:
+    initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
+    # except:
+    #     pass
+
     # Process configuration (optional)
     node_p = process.NEW_PROCESS
     bridge_p = process.NEW_PROCESS

@@ -18,7 +18,10 @@ from functools import partial, wraps
 @wraps(rospy.init_node)
 def initialize(*args, log_level=log.INFO, **kwargs):
     roscore = launch_roscore()  # First launch roscore (if not already running)
-    rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
+    try:
+        rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
+    except Exception as e:
+        rospy.logwarn(e)
     return roscore
 
 
@@ -35,7 +38,7 @@ def launch_roscore():
         rospy.logwarn(
             "Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore."
         )
-        pass
+        roscore = None
     return roscore
 
 
