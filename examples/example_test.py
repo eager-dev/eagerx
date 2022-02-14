@@ -19,10 +19,12 @@ if __name__ == "__main__":
     rate = 7
 
     # todo: TODAY
-    #  - Move GUI to package directory
-    #  - Why is ode bridge so slow?
-    #  - Create CI?
-    #  - Cannot have the same input as two separate observations... Why? Make a check.
+    #  - CI with test
+    #  - .flake8 test
+    #  - test coverage
+    #  - documentation
+    #  - upload gui & dcsc setups to pip
+    #  - Why is ode bridge so slow in async mode?
     #  - Effect of skipping first action on environment synchronization.
     #  - Installation procedure
     #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
@@ -56,7 +58,6 @@ if __name__ == "__main__":
         sensors=["N6"],
         states=["N9"],
     )
-    # viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8', 'ref_vel'], sensors=['N6'], states=['N9'])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
@@ -78,6 +79,7 @@ if __name__ == "__main__":
     )
     graph.connect(source=("obj", "sensors", "N6"), observation="obs_1", delay=0.0)
     graph.connect(source=("KF", "outputs", "out_1"), observation="obs_3", delay=0.0)
+    graph.connect(source=("KF", "outputs", "out_1"), observation="obs_4", delay=0.0)
     graph.connect(source=("obj", "sensors", "N6"), target=("KF", "inputs", "in_1"), delay=0.0)
     graph.connect(action="act_2", target=("KF", "inputs", "in_2"), skip=True)
     graph.connect(action="act_2", target=("N3", "feedthroughs", "out_1"), delay=0.0)
@@ -89,7 +91,6 @@ if __name__ == "__main__":
         delay=0.0,
         converter=RosString_RosUInt64,
     )
-    # graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'ref_vel'), delay=0.0)
 
     # Set & get parameters
     _ = graph.get_parameter("converter", action="act_2")
@@ -115,8 +116,6 @@ if __name__ == "__main__":
     graph.connect(source=("obj", "sensors", "N6"), target=("N3", "inputs", "in_1"))  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
-    # graph.remove_component(observation='obs_1')
-    # graph.remove_component('KF', 'outputs', 'out_1')
     graph.remove_component("N3", "inputs", "in_2")
 
     # Rename entity (object/node) and all associated connections
@@ -154,9 +153,11 @@ if __name__ == "__main__":
     graph.connect(source=("obj", "sensors", "N6"), target=("KF", "inputs", "in_1"))
 
     # Works with other sources as well, but then specify "source" instead of "action" as optional arg to connect(..) and disconnect(..).
+    graph.connect(source=("obj", "sensors", "N6"), observation="obs_5", delay=0.0)  # todo: remove
     graph.disconnect(
         source=("obj", "sensors", "N6"), observation="obs_1", remove=False
     )  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
+
 
     # GUI routine for making connections
     source = ("obj", "sensors", "N6")

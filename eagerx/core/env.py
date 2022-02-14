@@ -22,6 +22,7 @@ from eagerx.core.constants import process
 
 # OTHER IMPORTS
 import abc
+import cv2
 import numpy as np
 from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
@@ -372,6 +373,11 @@ class Env(gym.Env):
                     im = np.empty(shape=(0, 0, 3), dtype=np.uint8)
                 else:
                     im = np.frombuffer(ros_im.data, dtype=np.uint8).reshape(ros_im.height, ros_im.width, -1)
+                    if "bgr" in ros_im.encoding:
+                        try:
+                            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+                        except:
+                            pass
                 return im
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)
