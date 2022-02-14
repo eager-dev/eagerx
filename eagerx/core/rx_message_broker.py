@@ -354,9 +354,9 @@ class RxMessageBroker(object):
                         if cname_address in self.connected_ros[node_name][key]:
                             assert color is None, f"Duplicate connection status for address ({cname_address})."
                             color = "blue"
-                        assert color is not None, (
-                            f"Address (cname_address) not found in self.(disconnected, connected_rx, connected_ros)."
-                        )
+                        assert (
+                            color is not None
+                        ), f"Address (cname_address) not found in self.(disconnected, connected_rx, connected_ros)."
                     status = self.node_io[node_name][key][cname_address]["status"]
 
                     # Print status
@@ -460,7 +460,7 @@ class RxMessageBroker(object):
             print_status and print("".center(140, " "))
 
     def _split_cname_address(self, cname_address):
-        res = cname_address.split(':')
+        res = cname_address.split(":")
         if len(res) == 2:
             cname, address = res
         else:
@@ -468,7 +468,7 @@ class RxMessageBroker(object):
         return cname, address
 
     def _assert_already_registered(self, name, d, component):
-        assert (name not in d[component]), f'Cannot re-register the same address ({name}) twice as "{component}".'
+        assert name not in d[component], f'Cannot re-register the same address ({name}) twice as "{component}".'
 
 
 def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
