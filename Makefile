@@ -1,7 +1,6 @@
 SHELL=/bin/bash
 LINT_PATHS=eagerx/
 
-
 pytest:
 	bash ./scripts/run_tests.sh
 
