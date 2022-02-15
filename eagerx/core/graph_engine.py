@@ -17,6 +17,7 @@ from eagerx.utils.network_utils import (
     is_stale,
 )
 from eagerx.core.specs import EngineNodeSpec, ConverterSpec
+
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 
 

@@ -162,7 +162,6 @@ if __name__ == "__main__":
         source=("obj", "sensors", "N6"), observation="obs_1", remove=False
     )  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
 
-
     # GUI routine for making connections
     source = ("obj", "sensors", "N6")
     target = ("env/observations", "inputs", "obs_1")

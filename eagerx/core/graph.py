@@ -31,6 +31,7 @@ from eagerx.core.specs import (
     merge,
     NodeSpec,
 )
+
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 
 
