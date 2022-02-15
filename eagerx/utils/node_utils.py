@@ -20,7 +20,7 @@ def initialize(*args, log_level=log.INFO, **kwargs):
     roscore = launch_roscore()  # First launch roscore (if not already running)
     try:
         rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
-    except Exception as e:
+    except rospy.exceptions.ROSException as e:
         rospy.logwarn(e)
     return roscore
 

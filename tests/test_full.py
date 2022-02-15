@@ -19,10 +19,7 @@ def test_test(test_var):
 @pytest.mark.parametrize('is_reactive', [True, False])
 @pytest.mark.parametrize('p', [process.NEW_PROCESS, process.ENVIRONMENT])
 def test_full_run(eps_steps, is_reactive, p):
-    try:
-        roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
-    except:
-        roscore = None
+    roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
     eps, steps, name = eps_steps
     name = f'{name}_{is_reactive}_{p}'
     if not is_reactive:
