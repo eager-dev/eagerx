@@ -418,8 +418,8 @@ class RxMessageBroker(object):
                         rate_str = f"|{str(entry['rate']).center(3, ' ')}"
                         node_str = f'| {self.rx_connectable[address]["node_name"].ljust(40, " ")}'
                         msg_type_str = f'| {self.rx_connectable[address]["source"]["msg_type"].__name__}'.ljust(12, " ")
-                        converter_str = (
-                            f'| {self.rx_connectable[address]["source"]["converter"].__class__.__name__}'.ljust(12, " ")
+                        converter_str = f'| {self.rx_connectable[address]["source"]["converter"].__class__.__name__}'.ljust(
+                            12, " "
                         )
                         status += node_str + msg_type_str + converter_str
                         self.connected_rx[node_name][key][cname_address] = entry

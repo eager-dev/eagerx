@@ -209,9 +209,7 @@ class Env(gym.Env):
         ), f'Environment "{self.name}" must have at least one action (i.e. output).'
 
         # Check that all observation addresses are unique
-        addresses_obs = [
-            observations.params["inputs"][cname]["address"] for cname in observations.params["default"]["inputs"]
-        ]
+        addresses_obs = [observations.params["inputs"][cname]["address"] for cname in observations.params["default"]["inputs"]]
         len(set(addresses_obs)) == len(
             addresses_obs
         ), "Duplicate observations found: %s. Make sure to only have unique observations" % (

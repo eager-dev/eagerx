@@ -51,9 +51,7 @@ def spec(entity_id, entity_cls):
             """Make an entity with the registered spec function"""
             entity_type = func.__module__ + "/" + func.__qualname__[:-5]
             if not entity_id == "Identity":
-                rospy.logdebug(
-                    "[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type)
-                )
+                rospy.logdebug("[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type))
             spec = entity_cls.pre_make(entity_id, entity_type)
             try:
                 func(spec, *args, **kwargs)

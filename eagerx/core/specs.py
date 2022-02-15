@@ -406,9 +406,7 @@ class BaseNodeSpec(EntitySpec):
             assert (
                 cname in params["states"]
             ), f'Received unknown {"state"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
-            if (
-                "address" in params["states"][cname]
-            ):  # if 'env/supervisor', the state address is pre-defined (like an input)
+            if "address" in params["states"][cname]:  # if 'env/supervisor', the state address is pre-defined (like an input)
                 n = RxState(name=cname, **params["states"][cname])
             else:
                 address = "%s/states/%s" % (name, cname)
@@ -881,9 +879,7 @@ class ObjectSpec(EntitySpec):
         obj_params = params["default"]
 
         # Gather node names
-        obj_params["node_names"] = [
-            f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies
-        ]
+        obj_params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
         obj_params["state_names"] = state_names
 
         # Add bridge

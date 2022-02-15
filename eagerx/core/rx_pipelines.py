@@ -652,9 +652,7 @@ def init_bridge(
 
     # Prepare output for reactive proxy
     RM = Subject()
-    check_reactive_proxy = reactive_proxy.pipe(
-        ops.map(lambda rx: initialize_reactive_proxy_reset(rate_node, RM, rx, node))
-    )
+    check_reactive_proxy = reactive_proxy.pipe(ops.map(lambda rx: initialize_reactive_proxy_reset(rate_node, RM, rx, node)))
 
     # Zip initial input flags
     check_F_init, F_init, F_init_ho = switch_with_check_pipeline()
@@ -751,15 +749,11 @@ def init_bridge(
 
     # Switch to latest zipped inputs pipeline
     check_z_inputs, z_inputs, z_inputs_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(
-        z_inputs_ho, scheduler=event_scheduler
-    )
+    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(z_inputs_ho, scheduler=event_scheduler)
 
     # Switch to latest zipped flags pipeline
     check_z_flags, z_flags, z_flags_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(
-        z_flags_ho, scheduler=event_scheduler
-    )
+    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(z_flags_ho, scheduler=event_scheduler)
     z_flags.subscribe(F)
 
     # Initialize rest of episode pipeline
@@ -858,9 +852,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # Start reset #############################################################
     ###########################################################################
-    SR = (
-        Subject()
-    )  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
+    SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
     start_reset = dict(name="start_reset", address=ns + "/start_reset", msg=Subject(), msg_type=UInt64)
     SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
 

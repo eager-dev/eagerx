@@ -57,9 +57,7 @@ class RealBridge(Bridge):
     @register.bridge_params(driver_launch_file=None, launch_args=[])
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(
-            f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.'
-        )
+        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
 
         # Extract relevant agnostic_params
         obj_name = agnostic_params["name"]

@@ -65,9 +65,7 @@ class TestBridgeNode(Bridge):
     @register.bridge_params(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(
-            f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.'
-        )
+        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
 
     def pre_reset(self, param_1: Optional[UInt64] = None):
         return "PRE RESET RETURN VALUE"
