@@ -1,6 +1,7 @@
 # ROS packages required
 import rospy
 import rosparam
+from rosgraph.masterapi import ROSMasterException
 from std_msgs.msg import UInt64
 from rosgraph.masterapi import Error
 from sensor_msgs.msg import Image
@@ -339,8 +340,8 @@ class Env(gym.Env):
         try:
             rosparam.delete_param(f"/{self.name}")
             rospy.loginfo(f'Parameters under namespace "/{self.name}" deleted.')
-        except:
-            pass
+        except ROSMasterException as e:
+            rospy.logwarn(e)
         # rospy.signal_shutdown(f"[/{name}] Terminating.")
 
     def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
@@ -372,10 +373,11 @@ class Env(gym.Env):
                 else:
                     im = np.frombuffer(ros_im.data, dtype=np.uint8).reshape(ros_im.height, ros_im.width, -1)
                     if "bgr" in ros_im.encoding:
-                        try:
-                            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-                        except:
-                            pass
+                        # try:
+                        # todo: find out what exception to catch here.
+                        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+                        # except :
+                        #     pass
                 return im
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)

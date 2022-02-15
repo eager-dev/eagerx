@@ -894,7 +894,6 @@ def call_state_reset(state):
 def init_state_resets(ns, state_inputs, trigger, scheduler, node):
     if len(state_inputs) > 0:
         channels = []
-        import copy
 
         for s in state_inputs:
             d = s["done"].pipe(
@@ -1166,17 +1165,17 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
 
 def initialize_reactive_proxy_reset(rate_node, RM, reactive_proxy, node):
-    for rx in reactive_proxy:
-        if "disposable" in rx:
+    for rp in reactive_proxy:
+        if "disposable" in rp:
             continue
-        rate_in = rx["external_rate"]
-        rx["disposable"] = RM.pipe(
+        rate_in = rp["external_rate"]
+        rp["disposable"] = RM.pipe(
             ops.map(lambda msg: msg.data),
             ops.map(
                 lambda idx_n: 1 + int((idx_n - 1) * rate_in // rate_node)
             ),  # We subtract -1 from msg to account for the initial tick.
             ops.map(lambda i: UInt64(data=i)),
-        ).subscribe(rx["reset"])
+        ).subscribe(rp["reset"])
     return None
 
 
@@ -1270,7 +1269,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
                     # Calculate statistics since last logged instance
                     log_window = curr - last_time[0]
                     log_cbs = cum_cbs[0] - last_cum_cbs[0]
-                    log_delay = cum_delay[0] - last_cum_delay[0]
+                    # log_delay = cum_delay[0] - last_cum_delay[0]
                     log_sleep = cum_sleep[0] - last_cum_sleep[0]
                     log_Nc = Nc - last_Nc[0]
 
@@ -1279,7 +1278,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
                     rate_ratio = log_Nc / Nc_expected
                     cbs_ratio = log_cbs / log_Nc
                     sleep_ratio = log_sleep / log_window
-                    delay_ratio = log_delay / log_window
+                    # delay_ratio = log_delay / log_window
                     if rate_ratio < rate_tol and node.log_level >= effective_log_level and WARN >= effective_log_level:
                         print_str = f"Running at {rate_ratio*100:.2f}% of rate ({1/dt} Hz) | {sleep_ratio*100:.2f}% sleep | {100 - sleep_ratio*100:.2f}% computation | {cbs_ratio*100: .2f}% callbacks delayed |"
                         print_info(

@@ -80,11 +80,11 @@ class EnvNode(Node):
         self.must_reset = False
 
         # Set all observation messages to None
-        for name, buffer in self.observation_buffer.items():
+        for _name, buffer in self.observation_buffer.items():
             buffer["msgs"] = None
 
         # Set all action messages to None
-        for name, buffer in self.action_buffer.items():
+        for _name, buffer in self.action_buffer.items():
             buffer["msg"] = None
 
     def callback(self, t_n: float, **kwargs: Optional[Msg]):

@@ -25,16 +25,22 @@ class RealResetNode(ResetNode):
         name: str,
         rate: float,
         process: Optional[int] = process.ENVIRONMENT,
-        inputs: Optional[List[str]] = ["in_1"],
-        outputs: Optional[List[str]] = ["out_1"],
-        states: Optional[List[str]] = ["state_1"],
-        targets: Optional[List[str]] = ["target_1"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
+        states: Optional[List[str]] = None,
+        targets: Optional[List[str]] = None,
         color: Optional[str] = "blue",
         test_arg: Optional[str] = "test_argument",
     ):
         """Create the default spec that is compatible with __init__(...), .callback(...), and .reset(...)"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(RealResetNode)
+
+        # Set default
+        inputs = inputs if inputs else ["in_1"]
+        outputs = outputs if outputs else ["out_1"]
+        states = states if states else ["state_1"]
+        targets = targets if targets else ["target_1"]
 
         # Modify default node params
         params = dict(
@@ -173,15 +179,20 @@ class ProcessNode(TestNode):
         name: str,
         rate: float,
         process: Optional[int] = process.ENVIRONMENT,
-        inputs: Optional[List[str]] = ["in_1"],
-        outputs: Optional[List[str]] = ["out_1"],
-        states: Optional[List[str]] = ["state_1"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
+        states: Optional[List[str]] = None,
         color: Optional[str] = "white",
         test_arg: Optional[str] = "test_argument",
     ):
         """ProcessNode spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(ProcessNode)
+
+        # Set default
+        inputs = inputs if inputs else ["in_1"]
+        outputs = outputs if outputs else ["out_1"]
+        states = states if states else ["state_1"]
 
         # Modify default node params
         params = dict(
@@ -226,15 +237,20 @@ class KalmanNode(TestNode):
         name: str,
         rate: float,
         process: Optional[int] = process.ENVIRONMENT,
-        inputs: Optional[List[str]] = ["in_1"],
-        outputs: Optional[List[str]] = ["out_1"],
-        states: Optional[List[str]] = ["state_1"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
+        states: Optional[List[str]] = None,
         color: Optional[str] = "grey",
         test_arg: Optional[str] = "test_argument",
     ):
         """KalmanNode spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(KalmanNode)
+
+        # Set default
+        inputs = inputs if inputs else ["in_1"]
+        outputs = outputs if outputs else ["out_1"]
+        states = states if states else ["state_1"]
 
         # Modify default node params
         params = dict(
@@ -280,14 +296,18 @@ class TestActuator(TestNode):
         name: str,
         rate: float,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick", "in_1", "in_2", "in_3"],
-        outputs: Optional[List[str]] = ["out_1"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         color: Optional[str] = "green",
         test_arg: Optional[str] = "test_argument",
     ):
         """TestActuator spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(TestActuator)
+
+        # Set default
+        inputs = inputs if inputs else ["tick", "in_1", "in_2", "in_3"]
+        outputs = outputs if outputs else ["out_1"]
 
         # Modify default node params
         params = dict(
@@ -318,15 +338,20 @@ class TestSensor(TestNode):
         name: str,
         rate: float,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick_1", "in_1"],
-        outputs: Optional[List[str]] = ["out_1"],
-        states: Optional[List[str]] = ["state_1"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
+        states: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
         test_arg: Optional[str] = "test_argument",
     ):
         """TestSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(TestSensor)
+
+        # Set default
+        inputs = inputs if inputs else ["tick_1", "in_1"]
+        outputs = outputs if outputs else ["out_1"]
+        states = states if states else ["state_1"]
 
         # Modify default node params
         params = dict(

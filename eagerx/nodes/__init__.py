@@ -1,1 +1,1 @@
-import eagerx.nodes.butterworth_filter
+import eagerx.nodes.butterworth_filter  # noqa: F401

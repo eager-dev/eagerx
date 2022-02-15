@@ -39,7 +39,7 @@ def episode_graph(G):
 
         # Get all simple cyclic edge paths
         out_nodes = []
-        for u, v, key, data in H_sub.out_edges(c[0], data=True, keys=True):
+        for _u, v, _key, data in H_sub.out_edges(c[0], data=True, keys=True):
             out_nodes.append((v, data))
 
         for n, data_first in out_nodes:
@@ -135,7 +135,7 @@ def color_nodes(G):
 
 
 def color_edges(G):
-    for u, v, key, data in G.edges(data=True, keys=True):
+    for _u, _v, _key, data in G.edges(data=True, keys=True):
         if data["is_stale"]:
             data["alpha"] = 0.3
         else:
@@ -152,7 +152,7 @@ def is_stale(G, exclude_skip=False):
             new_stale_nodes.append(n)
 
         # Then, set all edges to active (=not stale)
-        for u, v, key, data_e in G.edges(n, data=True, keys=True):
+        for _u, _v, _key, data_e in G.edges(n, data=True, keys=True):
             data_e["is_stale"] = False
 
     # Now, iteratively run over all new stale nodes and set out_edges and out_nodes to stale.
@@ -163,7 +163,7 @@ def is_stale(G, exclude_skip=False):
 
         # Then, loop over new stale nodes of prev. iteration and set all out-going edges to stale
         for n in stale_nodes:
-            for u, v, key, data_e in G.out_edges(n, data=True, keys=True):
+            for u, v, _key, data_e in G.out_edges(n, data=True, keys=True):
                 data_e["is_stale"] = True
                 skip = data_e["skip"] if exclude_skip else False
                 if u == "N8/out_1" and v == "N7/out_1":

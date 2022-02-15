@@ -3,9 +3,6 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
-
-yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
-
 from eagerx.utils.utils import (
     get_opposite_msg_cls,
     get_cls_from_string,
@@ -20,6 +17,8 @@ from eagerx.utils.network_utils import (
     is_stale,
 )
 from eagerx.core.specs import EngineNodeSpec, ConverterSpec
+
+yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 
 
 class EngineGraph:
@@ -263,7 +262,7 @@ class EngineGraph:
         assert (
             not target or not sensor
         ), f'You cannot specify a target if you wish to connect sensor "{sensor}", as the sensor will act as the target.'
-        assert not (actuator and sensor), f"You cannot connect an actuator directly to a sensor."
+        assert not (actuator and sensor), "You cannot connect an actuator directly to a sensor."
         if address:
             curr_address = self.get_parameter("address", *target)
             assert (
@@ -277,7 +276,7 @@ class EngineGraph:
             self.set_parameter("external_rate", external_rate, *target)
             return
         else:
-            assert external_rate is None, f"An external rate may only be provided in combination with an address."
+            assert external_rate is None, "An external rate may only be provided in combination with an address."
 
         if isinstance(converter, ConverterSpec):
             converter = converter.params
@@ -398,7 +397,7 @@ class EngineGraph:
         ), f'You cannot specify a target if you wish to disconnect sensor "{sensor}", as the sensor will act as the target.'
         assert not (
             sensor and actuator
-        ), f"You cannot disconnect an actuator from an sensor, as such a connection cannot exist."
+        ), "You cannot disconnect an actuator from an sensor, as such a connection cannot exist."
         if isinstance(source, tuple):
             source = list(source)
         if isinstance(target, tuple):
@@ -443,7 +442,7 @@ class EngineGraph:
             else:
                 # Nothing to do here (for now)
                 source_name, source_comp, source_cname = source
-                source_params = self._state["nodes"][source_name]["params"]
+                # source_params = self._state["nodes"][source_name]["params"]
 
         # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
         if sensor:
@@ -809,7 +808,7 @@ class EngineGraph:
                 dependencies["actuators"][cname].append(node_name)
             # Also add dependencies of all targets
             for target in descendants:
-                rev_descendants = nx.descendants(G_rev, target)
+                nx.descendants(G_rev, target)
                 for source in descendants:
                     node_name, source_cname = source.split("/")
                     if node_name in ["actuators", "sensors"]:
@@ -1228,7 +1227,7 @@ class EngineGraph:
                     )
 
         # Color nodes based on in/out going edges
-        not_active = is_stale(G, exclude_skip=True)
+        # not_active = is_stale(G, exclude_skip=True)
         color_nodes(G)
         color_edges(G)
         return G

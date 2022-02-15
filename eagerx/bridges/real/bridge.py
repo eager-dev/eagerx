@@ -13,7 +13,6 @@ import eagerx.core.register as register
 from eagerx.utils.utils import Msg
 from eagerx.core.entities import Bridge
 from eagerx.core.specs import BridgeSpec
-from eagerx.utils.node_utils import launch_node
 
 
 class RealBridge(Bridge):
@@ -62,11 +61,12 @@ class RealBridge(Bridge):
         # Extract relevant agnostic_params
         obj_name = agnostic_params["name"]
 
-        if "driver_launch_file" in bridge_params:
-            launch_file = bridge_params["driver_launch_file"]
-            launch_args = bridge_params["launch_args"] if "launch_args" in bridge_params else []
-            driver = launch_node(launch_file, launch_args)
-            # driver.start()  # todo: can only be launched from main thread, unless disable_signals.
+        # if "driver_launch_file" in bridge_params:
+        #     from eagerx.utils.node_utils import launch_node
+        #     launch_file = bridge_params["driver_launch_file"]
+        #     launch_args = bridge_params["launch_args"] if "launch_args" in bridge_params else []
+        #     driver = launch_node(launch_file, launch_args)
+        #     driver.start()  # todo: can only be launched from main thread, unless disable_signals.
 
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(state=None, input=None)

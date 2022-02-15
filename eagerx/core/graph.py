@@ -4,8 +4,6 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
-
-yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 import rospy
 from eagerx.utils.utils import (
     get_opposite_msg_cls,
@@ -34,6 +32,8 @@ from eagerx.core.specs import (
     NodeSpec,
 )
 
+yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
+
 
 class Graph:
     def __init__(self, state: Dict):
@@ -58,7 +58,7 @@ class Graph:
             objects = [objects]
 
         # Add action & observation node to list
-        import eagerx.core.nodes  # Required so that actions & observations node are registered.
+        import eagerx.core.nodes  # noqa  Required so that actions & observations node are registered.
 
         actions = Node.make("Actions")
         observations = Node.make("Observations")
@@ -254,7 +254,7 @@ class Graph:
         params_action = self._state["nodes"]["env/actions"]["params"]
         source = ["env/actions", "outputs", action]
         connect_exists = False
-        for idx, c in enumerate(self._state["connects"]):
+        for c in self._state["connects"]:
             if source == c[0]:
                 connect_exists = True
                 target = c[1]
@@ -273,7 +273,7 @@ class Graph:
         params_obs = self._state["nodes"]["env/observations"]["params"]
         target = ["env/observations", "inputs", observation]
         connect_exists = False
-        for idx, c in enumerate(self._state["connects"]):
+        for c in self._state["connects"]:
             if target == c[1]:
                 connect_exists = True
                 source = c[0]
@@ -282,7 +282,8 @@ class Graph:
             'Observation entry "%s" cannot be removed, because it is not disconnected. Connection with source %s still exists.'
             % (observation, source)
         )
-        # assert observation in params_obs['inputs'], 'Observation "%s" cannot be removed, because it does not exist.' % observation
+        # assert observation in params_obs['inputs'], 'Observation "%s" cannot be removed,
+        # because it does not exist.' % observation
         params_obs["inputs"].pop(observation)
 
     def connect(
@@ -350,7 +351,7 @@ class Graph:
 
         # Perform checks on target
         target_name, target_comp, target_cname = target
-        target_params = self._state["nodes"][target_name]["params"]
+        # target_params = self._state["nodes"][target_name]["params"]
         if target_comp == "feedthroughs":
             assert window is None or window > 0, "Feedthroughs must have a window > 0, else no action can be fed through."
             assert (
@@ -489,7 +490,7 @@ class Graph:
             if action:
                 connect_exists = False
                 source = ["env/actions", "outputs", action]
-                for idx, c in enumerate(self._state["connects"]):
+                for c in self._state["connects"]:
                     if source == c[0]:
                         connect_exists = True
                         break
@@ -553,7 +554,7 @@ class Graph:
         else:
             # Nothing to do here (for now)
             source_name, source_comp, source_cname = source
-            source_params = self._state["nodes"][source_name]["params"]
+            # source_params = self._state["nodes"][source_name]["params"]
 
         # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
         if observation:
@@ -601,7 +602,7 @@ class Graph:
         assert action in params_action["outputs"], 'Cannot disconnect action "%s", as it does not exist.' % action
         source = ["env/actions", "outputs", action]
         connect_exists = False
-        for idx, c in enumerate(self._state["connects"]):
+        for c in self._state["connects"]:
             if source == c[0]:
                 connect_exists = True
                 break
@@ -1427,7 +1428,7 @@ class Graph:
                 entry = [obj_name, entity_id]
 
                 # Add all (unknown) bridges to the list
-                for key, value in params.items():
+                for key, _value in params.items():
                     if key in [
                         "entity_type",
                         "default",
@@ -1457,7 +1458,7 @@ class Graph:
 
         # Fill up incompatible bridges that were added after object entries
         for entry in objects:
-            for b in bridges[len(entry) - 2 :]:
+            for _ in bridges[len(entry) - 2 :]:
                 entry.append(" ")
 
         # Get compatible bridges

@@ -101,7 +101,7 @@ class OdeBridge(Bridge):
 
     @register.outputs(tick=UInt64)
     def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
-        for obj_name, sim in self.simulator.items():
+        for _obj_name, sim in self.simulator.items():
             input = sim["input"]
             ode = sim["ode"]
             Dfun = sim["Dfun"]

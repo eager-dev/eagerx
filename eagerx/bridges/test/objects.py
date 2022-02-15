@@ -51,11 +51,11 @@ class Arm(Object):
     def spec(
         spec: ObjectSpec,
         name: str,
-        sensors: Optional[List[str]] = ["N6", "N7"],
-        actuators: Optional[List[str]] = ["ref_vel"],
-        states: Optional[List[str]] = ["N9", "N10"],
-        position: Optional[List[str]] = [0, 0, 0],
-        orientation: Optional[List[str]] = [0, 0, 0],
+        sensors: Optional[List[str]] = None,
+        actuators: Optional[List[str]] = None,
+        states: Optional[List[str]] = None,
+        position: Optional[List[str]] = None,
+        orientation: Optional[List[str]] = None,
         string: Optional[str] = "test_arg",
         test_string: Optional[str] = "$(default string)",
         test_list: Optional[str] = "$(default orientation)",
@@ -64,6 +64,13 @@ class Arm(Object):
         """Object spec of Arm"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(Arm)
+
+        # Set default
+        sensors = sensors if sensors else ["N6", "N7"]
+        actuators = actuators if actuators else ["ref_vel"]
+        states = states if states else ["N9", "N10"]
+        position = position if position else [0, 0, 0]
+        orientation = orientation if orientation else [0, 0, 0]
 
         # Modify default node params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
@@ -93,11 +100,11 @@ class Viper(Arm):
     def spec(
         spec: ObjectSpec,
         name: str,
-        sensors: Optional[List[str]] = ["N6", "N7"],
-        actuators: Optional[List[str]] = ["ref_vel"],
-        states: Optional[List[str]] = ["N9", "N10"],
-        position: Optional[List[str]] = [0, 0, 0],
-        orientation: Optional[List[str]] = [0, 0, 0],
+        sensors: Optional[List[str]] = None,
+        actuators: Optional[List[str]] = None,
+        states: Optional[List[str]] = None,
+        position: Optional[List[float]] = None,
+        orientation: Optional[List[float]] = None,
         string: Optional[str] = "test_arg",
         test_string: Optional[str] = "$(default string)",
         test_list: Optional[str] = "$(default orientation)",
@@ -106,6 +113,13 @@ class Viper(Arm):
         """Object spec of Viper"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(Viper)
+
+        # Set default
+        sensors = sensors if sensors else ["N6", "N7"]
+        actuators = actuators if actuators else ["ref_vel"]
+        states = states if states else ["N9", "N10"]
+        position = position if position else [0, 0, 0]
+        orientation = orientation if orientation else [0, 0, 0]
 
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...

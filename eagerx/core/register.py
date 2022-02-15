@@ -16,7 +16,7 @@ class ReverseRegisterLookup:
         self._dict = d
 
     def __getitem__(self, spec_lookup):
-        for entity_cls, entity_id in self._dict.items():
+        for _entity_cls, entity_id in self._dict.items():
             for entity_id, entry in entity_id.items():
                 if entry["spec"] == spec_lookup:
                     return entity_id
@@ -30,7 +30,7 @@ class LookupType:
     def __getitem__(self, func_lookup):
         name_split = func_lookup.__qualname__.split(".")
         cls_name = name_split[0]
-        fn_name = name_split[1]
+        # fn_name = name_split[1]
         return self._dict[cls_name]
 
 
@@ -56,10 +56,15 @@ def spec(entity_id, entity_cls):
             try:
                 func(spec, *args, **kwargs)
             except TypeError as e:
-                signature = entity_cls.get_spec(entity_id, verbose=False)
-                err = f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
-                err += f"The signature for this spec looks like: \n\n{signature}"
-                raise TypeError(err) from e
+                if "spec()" in e.args[0]:
+                    signature = entity_cls.get_spec(entity_id, verbose=False)
+                    err = (
+                        f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
+                    )
+                    err += f"The signature for this spec looks like: \n\n{signature}"
+                    raise TypeError(err) from e
+                else:
+                    raise
             return spec
 
         if entity_cls not in REGISTRY:
@@ -93,7 +98,7 @@ def get_spec(entity, id, verbose=True):
     return inspect.signature(REGISTRY[entity][id]["spec"])
 
 
-############# TYPES ###############
+# TYPES
 
 
 def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
@@ -179,7 +184,7 @@ def agnostic_params(**agnostic_params):
     )
 
 
-############# BRIDGES ###############
+# BRIDGES
 
 
 def bridge(bridge_cls):

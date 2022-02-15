@@ -67,16 +67,20 @@ class GymObject(Object):
     def spec(
         spec: ObjectSpec,
         name: str,
-        sensors: Optional[List[str]] = ["observation", "reward", "done"],
-        gym_env_id="Pendulum-v1",
-        gym_rate=20,
-        gym_always_render=False,
+        sensors: Optional[List[str]] = None,
+        gym_env_id: str = "Pendulum-v1",
+        gym_rate: float = 20.0,
+        gym_always_render: bool = False,
         default_action=None,
-        render_shape=[200, 200],
+        render_shape: Optional[List[int]] = None,
     ):
         """Object spec of GymObject"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymObject)
+
+        # Set default
+        sensors = sensors if sensors else ["observation", "reward", "done"]
+        render_shape = render_shape if render_shape else [200, 200]
 
         # Modify default node params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...

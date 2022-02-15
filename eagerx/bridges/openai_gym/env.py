@@ -74,7 +74,7 @@ def get_flattened_space(spaces):
         spaces = dict(spaces)
     # Check if all discrete or mixed (with continuous)
     all_discrete = True
-    for key, space in spaces.items():
+    for _key, space in spaces.items():
         if isinstance(space, gym.spaces.Box) and not (space.dtype == "int64" and space.shape == (1,)):
             all_discrete = False
         elif isinstance(space, gym.spaces.MultiDiscrete):
@@ -82,7 +82,7 @@ def get_flattened_space(spaces):
     # If all discrete & multiple discrete, initialize MultiDiscrete, else just discrete
     if all_discrete and len(spaces) > 1:
         multi = []
-        for key, space in spaces.items():
+        for _key, space in spaces.items():
             multi.append(space.high[0] + 1)
         flattened_space = gym.spaces.MultiDiscrete(multi)
     elif all_discrete and len(spaces) == 1:

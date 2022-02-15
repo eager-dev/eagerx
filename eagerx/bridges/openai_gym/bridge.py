@@ -68,7 +68,7 @@ class GymBridge(Bridge):
 
     @register.states()
     def reset(self):
-        for obj_name, sim in self.simulator.items():
+        for _obj_name, sim in self.simulator.items():
             obs = sim["env"].reset()
             # sim['buffer_obs'].append(obs)
             sim["buffer_obs"] = [obs]
@@ -77,7 +77,7 @@ class GymBridge(Bridge):
 
     @register.outputs(tick=UInt64)
     def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
-        for obj_name, sim in self.simulator.items():
+        for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]
             obs, reward, is_done, _ = sim["env"].step(next_action)
             sim["buffer_obs"].append(obs)

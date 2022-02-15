@@ -34,7 +34,7 @@ def launch_roscore():
 
     try:
         roscore.start()
-    except roslaunch.core.RLException as e:
+    except roslaunch.core.RLException:
         rospy.logwarn(
             "Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore."
         )
