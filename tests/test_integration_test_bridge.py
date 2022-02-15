@@ -15,7 +15,7 @@ import pytest
 @pytest.mark.parametrize("eps_steps", [(3, 3)])
 @pytest.mark.parametrize("is_reactive", [True, False])
 @pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
-def test_full_run(eps_steps, is_reactive, p):
+def test_integration_test_bridge(eps_steps, is_reactive, p):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
     eps, steps = eps_steps
     name = f"{eps}_{steps}_{is_reactive}_{p}"

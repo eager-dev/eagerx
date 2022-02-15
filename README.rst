@@ -66,7 +66,7 @@ You can install everything by running:
 
     pip3 install eagerx-gui
 
-ToDo: add example and screen capture of GUI
+ToDo: add example and gif of GUI
 
 Extras: training visualization
 ---------------------
@@ -74,7 +74,7 @@ Extras: training visualization
 For training visualization, either a ``desktop`` or ``desktop-full`` ROS installation is required.
 See `here <ROS_>`_ for installation instruction.
 
-ToDo: add example and screen capture of visualization.
+ToDo: add example and gif of visualization.
 
 Dependencies
 ============

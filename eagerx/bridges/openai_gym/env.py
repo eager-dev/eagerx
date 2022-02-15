@@ -26,7 +26,7 @@ class EagerGym(EagerEnv):
         self._flattened_action_space, self._actions_all_discrete = get_flattened_space(self._reduced_action_space)
 
         # Flatten & reduce observation spaces (remove 'reward' & 'done')
-        obs_space = dict(super(EagerGym, self).observation_space)
+        obs_space = super(EagerGym, self).observation_space.__dict__["spaces"]
         obs_space.pop("reward", None)
         obs_space.pop("done", None)
         self._reduced_obs_space = gym.spaces.Dict(obs_space)
@@ -70,6 +70,8 @@ class EagerGym(EagerEnv):
 
 
 def get_flattened_space(spaces):
+    if isinstance(spaces, gym.spaces.dict.Dict):
+        spaces = spaces.__dict__["spaces"]
     if not isinstance(spaces, dict):
         spaces = dict(spaces)
     # Check if all discrete or mixed (with continuous)
