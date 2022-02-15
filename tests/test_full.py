@@ -58,7 +58,7 @@ def test_full_run(eps_steps, is_reactive, p):
     viper = Object.make(
         "Viper",
         "obj",
-        position=[1, 1, 1],
+        position=[1.0, 1.0, 1.0],
         actuators=["N8"],
         sensors=["N6"],
         states=["N9"],

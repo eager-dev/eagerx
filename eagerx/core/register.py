@@ -56,10 +56,15 @@ def spec(entity_id, entity_cls):
             try:
                 func(spec, *args, **kwargs)
             except TypeError as e:
-                signature = entity_cls.get_spec(entity_id, verbose=False)
-                err = f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
-                err += f"The signature for this spec looks like: \n\n{signature}"
-                raise TypeError(err) from e
+                if "spec()" in e.args[0]:
+                    signature = entity_cls.get_spec(entity_id, verbose=False)
+                    err = (
+                        f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
+                    )
+                    err += f"The signature for this spec looks like: \n\n{signature}"
+                    raise TypeError(err) from e
+                else:
+                    raise
             return spec
 
         if entity_cls not in REGISTRY:
