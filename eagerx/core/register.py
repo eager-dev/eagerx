@@ -30,7 +30,7 @@ class LookupType:
     def __getitem__(self, func_lookup):
         name_split = func_lookup.__qualname__.split(".")
         cls_name = name_split[0]
-        fn_name = name_split[1]
+        # fn_name = name_split[1]
         return self._dict[cls_name]
 
 
@@ -93,7 +93,7 @@ def get_spec(entity, id, verbose=True):
     return inspect.signature(REGISTRY[entity][id]["spec"])
 
 
-############# TYPES ###############
+# TYPES
 
 
 def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
@@ -179,7 +179,7 @@ def agnostic_params(**agnostic_params):
     )
 
 
-############# BRIDGES ###############
+# BRIDGES
 
 
 def bridge(bridge_cls):

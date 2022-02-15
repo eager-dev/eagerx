@@ -753,7 +753,7 @@ class ObjectSpec(EntitySpec):
         params = self.params  # Creates a deepcopy
         default = self.get_parameters()  # Creates a deepcopy
         name = default["name"]
-        entity_id = default["entity_id"]
+        # entity_id = default["entity_id"]
 
         # Construct context
         context = {"ns": {"env_name": ns, "obj_name": name}, "default": default}
@@ -764,7 +764,7 @@ class ObjectSpec(EntitySpec):
         agnostic = dict()
         for key in list(params.keys()):
             if key not in ["actuators", "sensors", "states"]:
-                if not key in ["default", bridge_id]:
+                if key not in ["default", bridge_id]:
                     params.pop(key)
                 continue
             agnostic[key] = params.pop(key)
@@ -910,7 +910,7 @@ class AgnosticSpec(EntitySpec):
     @exists
     def set_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
         if isinstance(value, dict):
-            self._params["component"][cname][parameter] = None
+            self._params[component][cname][parameter] = None
         self._set({component: {cname: {parameter: value}}})
 
     @exists
@@ -918,14 +918,14 @@ class AgnosticSpec(EntitySpec):
         for parameter, value in mapping.items():
             self._set({component: {cname: {parameter: value}}})
 
-    @exists
-    def set_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
-        self._set({component: {cname: {parameter: value}}})
-
-    @exists
-    def set_parameters(self, component: str, cname: str, mapping: Dict):
-        for parameter, value in mapping.items():
-            self._set({component: {cname: {parameter: value}}})
+    # @exists
+    # def set_parameter(self, component: str, cname: str, parameter: str = None, value: Any = None):
+    #     self._set({component: {cname: {parameter: value}}})
+    #
+    # @exists
+    # def set_parameters(self, component: str, cname: str, mapping: Dict):
+    #     for parameter, value in mapping.items():
+    #         self._set({component: {cname: {parameter: value}}})
 
     @exists
     def get_parameter(self, component: str, cname: str, parameter: str):

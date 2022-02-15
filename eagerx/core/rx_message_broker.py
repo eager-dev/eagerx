@@ -423,17 +423,17 @@ class RxMessageBroker(object):
                         )
                         status += node_str + msg_type_str + converter_str
                         self.connected_rx[node_name][key][cname_address] = entry
-                        O = self.rx_connectable[address]["rx"]
+                        T = self.rx_connectable[address]["rx"]
                     else:
                         color = "blue"
                         status = f"ROS |".ljust(5, " ")
                         rate_str = "|" + "".center(3, " ")
                         msg_type = entry["msg_type"]
                         self.connected_ros[node_name][key][cname_address] = entry
-                        O = from_topic(msg_type, address, node_name=node_name)
+                        T = from_topic(msg_type, address, node_name=node_name)
 
                     # Subscribe and change status
-                    entry["disposable"] = O.subscribe(entry["rx"])
+                    entry["disposable"] = T.subscribe(entry["rx"])
                     entry["status"] = status
 
                     # Print status

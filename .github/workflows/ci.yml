@@ -60,11 +60,14 @@ jobs:
       - name: Install library
         run: poetry install --no-interaction
       #----------------------------------------------
-      # check codestyle
+      # check codestyle & lint
       #----------------------------------------------
       - name: Check codestyle
         run: |
           make check-codestyle
+      - name: Lint with flake8
+        run: |
+          make lint
       #----------------------------------------------
       #  -----  install & configure ROS  -----
       #----------------------------------------------

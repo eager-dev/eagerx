@@ -23,7 +23,7 @@ from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from eagerx.core.specs import (
+    from eagerx.core.specs import (  # noqa: F401
         BridgeSpec,
         NodeSpec,
         EngineNodeSpec,
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
         EngineStateSpec,
         ResetNodeSpec,
         ObjectSpec,
-        AgnosticSpec,
+        # AgnosticSpec,
     )
 
 
@@ -387,7 +387,7 @@ class Node(BaseNode):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         spec.set_parameter("executable", "python:=eagerx.core.executable_node")
-        from eagerx.core.specs import NodeSpec
+        from eagerx.core.specs import NodeSpec  # noqa: F811
 
         return NodeSpec(spec.params)
 
@@ -416,7 +416,7 @@ class ResetNode(Node):
         spec = super().pre_make(entity_id, entity_type)
         spec._params["targets"] = dict()
         spec._set({"default": dict(targets=[])})
-        from eagerx.core.specs import ResetNodeSpec
+        from eagerx.core.specs import ResetNodeSpec  # noqa: F811
 
         return ResetNodeSpec(spec.params)
 
@@ -531,7 +531,7 @@ class EngineNode(Node):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        from eagerx.core.specs import EngineNodeSpec
+        from eagerx.core.specs import EngineNodeSpec  # noqa: F811
 
         return EngineNodeSpec(spec.params)
 
@@ -770,7 +770,7 @@ class Bridge(BaseNode):
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
         if self.num_resets >= 1:
-            _ = self.callback(t_n, **kwargs)
+            self.callback(t_n, **kwargs)
         # Fill output msg with number of node ticks
         self.num_ticks += 1
         return dict(tick=UInt64(data=node_tick + 1))
@@ -787,7 +787,7 @@ class Bridge(BaseNode):
             executable="python:=eagerx.core.executable_bridge",
         )
         spec._set({"default": default})
-        from eagerx.core.specs import BridgeSpec
+        from eagerx.core.specs import BridgeSpec  # noqa: F811
 
         return BridgeSpec(spec.params)
 
@@ -907,7 +907,7 @@ class Object(Entity):
         params["sensors"] = dict()
         params["actuators"] = dict()
         params["states"] = dict()
-        from eagerx.core.specs import ObjectSpec
+        from eagerx.core.specs import ObjectSpec  # noqa: F811
 
         return ObjectSpec(params)
 
@@ -964,7 +964,7 @@ class BaseConverter(Entity):
         params = spec.params
         params["converter_type"] = params.pop("entity_type")
         params.pop("entity_id")
-        from eagerx.core.specs import ConverterSpec
+        from eagerx.core.specs import ConverterSpec  # noqa: F811
 
         return ConverterSpec(params)
 
@@ -1013,7 +1013,7 @@ class Processor(BaseConverter):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        from eagerx.core.specs import ConverterSpec
+        from eagerx.core.specs import ConverterSpec  # noqa: F811
 
         return ConverterSpec(params)
 
@@ -1070,7 +1070,7 @@ class Converter(BaseConverter):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        from eagerx.core.specs import ConverterSpec
+        from eagerx.core.specs import ConverterSpec  # noqa: F811
 
         return ConverterSpec(params)
 
@@ -1093,7 +1093,7 @@ class SpaceConverter(Converter):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        from eagerx.core.specs import ConverterSpec
+        from eagerx.core.specs import ConverterSpec  # noqa: F811
 
         return ConverterSpec(params)
 
@@ -1137,7 +1137,7 @@ class EngineState(Entity):
         params = spec.params
         params["state_type"] = params.pop("entity_type")
         params.pop("entity_id")
-        from eagerx.core.specs import EngineStateSpec
+        from eagerx.core.specs import EngineStateSpec  # noqa: F811
 
         return EngineStateSpec(params)
 
