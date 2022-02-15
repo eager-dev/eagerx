@@ -60,6 +60,12 @@ jobs:
       - name: Install library
         run: poetry install --no-interaction
       #----------------------------------------------
+      # check codestyle
+      #----------------------------------------------
+      - name: Check codestyle
+        run: |
+          make check-codestyle
+      #----------------------------------------------
       #  -----  install & configure ROS  -----
       #----------------------------------------------
       - name: install ROS
