@@ -6,6 +6,6 @@ pytest:
 
 check-codestyle:
 	# Reformat using black
-	black --check -l 120 ${LINT_PATHS}
+	black --check -l 127 ${LINT_PATHS}
 
 .PHONY: check-codestyle

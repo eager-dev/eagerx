@@ -11,17 +11,14 @@ import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 
 import pytest
 
-@pytest.mark.parametrize('test_var', [0, 1])
-def test_test(test_var):
-    print(test_var)
 
-@pytest.mark.parametrize('eps_steps', [(3, 3, 'rx'), (3, 3, 'rx2')])
-@pytest.mark.parametrize('is_reactive', [True, False])
-@pytest.mark.parametrize('p', [process.NEW_PROCESS, process.ENVIRONMENT])
+@pytest.mark.parametrize("eps_steps", [(3, 3)])
+@pytest.mark.parametrize("is_reactive", [True, False])
+@pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
 def test_full_run(eps_steps, is_reactive, p):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
-    eps, steps, name = eps_steps
-    name = f'{name}_{is_reactive}_{p}'
+    eps, steps = eps_steps
+    name = f"{eps}_{steps}_{is_reactive}_{p}"
     if not is_reactive:
         rtf = 5
     else:
@@ -32,6 +29,14 @@ def test_full_run(eps_steps, is_reactive, p):
     rate = 7
 
     # Define nodes
+    N1 = Node.make(
+        "Process",
+        "N1",
+        rate=rate,
+        process=node_p,
+        inputs=["in_1"],
+        outputs=["out_1"],
+    )
     KF = Node.make(
         "KalmanFilter",
         "KF",
@@ -58,7 +63,6 @@ def test_full_run(eps_steps, is_reactive, p):
         sensors=["N6"],
         states=["N9"],
     )
-    # viper = Object.make('Viper', 'obj', position=[1, 1, 1], actuators=['N8', 'ref_vel'], sensors=['N6'], states=['N9'])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
@@ -91,7 +95,6 @@ def test_full_run(eps_steps, is_reactive, p):
         delay=0.0,
         converter=RosString_RosUInt64,
     )
-    # graph.connect(source=('N3', 'outputs', 'out_1'),   target=('obj', 'actuators', 'ref_vel'), delay=0.0)
 
     # Set & get parameters
     _ = graph.get_parameter("converter", action="act_2")
@@ -156,9 +159,8 @@ def test_full_run(eps_steps, is_reactive, p):
     graph.connect(source=("obj", "sensors", "N6"), target=("KF", "inputs", "in_1"))
 
     # Works with other sources as well, but then specify "source" instead of "action" as optional arg to connect(..) and disconnect(..).
-    graph.disconnect(
-        source=("obj", "sensors", "N6"), observation="obs_1", remove=False
-    )  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
+    # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
+    graph.disconnect(source=("obj", "sensors", "N6"), observation="obs_1", remove=False)
 
     # GUI routine for making connections
     source = ("obj", "sensors", "N6")
@@ -199,14 +201,19 @@ def test_full_run(eps_steps, is_reactive, p):
         window=window,
     )
 
+    # Connect N1
+    graph.add(N1)
+    graph.connect(source=("N1", "outputs", "out_1"), observation="obs_6")
+    graph.connect(action="act_6", target=("N1", "inputs", "in_1"), skip=True)
+
     # TEST Test with KF having skipped all inputs at t=0
     graph.remove_component("KF", "inputs", "in_1")
 
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
-    # graph.save("./test.graph")
-    # graph.load("./test.graph")
+    graph.save("./test.graph")
+    graph.load("./test.graph")
 
     # Define bridge
     bridge = Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
@@ -232,8 +239,10 @@ def test_full_run(eps_steps, is_reactive, p):
         print("\n[Episode %s]" % j)
         for i in range(steps):
             obs, reward, done, info = env.step(action)
+            rgb = env.render(mode="rgb_array")
         obs = env.reset()
     print("\n[Finished]")
     env.shutdown()
-    if roscore: roscore.shutdown()
+    if roscore:
+        roscore.shutdown()
     print("\n[Shutdown]")
