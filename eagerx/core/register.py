@@ -16,7 +16,7 @@ class ReverseRegisterLookup:
         self._dict = d
 
     def __getitem__(self, spec_lookup):
-        for entity_cls, entity_id in self._dict.items():
+        for _entity_cls, entity_id in self._dict.items():
             for entity_id, entry in entity_id.items():
                 if entry["spec"] == spec_lookup:
                     return entity_id

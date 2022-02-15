@@ -33,11 +33,14 @@ class TestBridgeNode(Bridge):
         real_time_factor: Optional[float] = 0,
         simulate_delays: Optional[bool] = True,
         log_level: Optional[int] = ERROR,
-        states: Optional[List[str]] = ["param_1"],
+        states: Optional[List[str]] = None,
     ):
         """TestBridge spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(TestBridgeNode)
+
+        # Set default
+        states = states if states else ["param_1"]
 
         # Modify default bridge params
         params = dict(

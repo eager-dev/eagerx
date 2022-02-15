@@ -356,7 +356,7 @@ class RxMessageBroker(object):
                             color = "blue"
                         assert (
                             color is not None
-                        ), f"Address (cname_address) not found in self.(disconnected, connected_rx, connected_ros)."
+                        ), "Address (cname_address) not found in self.(disconnected, connected_rx, connected_ros)."
                     status = self.node_io[node_name][key][cname_address]["status"]
 
                     # Print status
@@ -391,7 +391,7 @@ class RxMessageBroker(object):
             # Skip if no disconnected addresses
             num_disconnected = 0
 
-            for key, addresses in node.items():
+            for _key, addresses in node.items():
                 num_disconnected += len(addresses)
             if num_disconnected == 0:
                 continue
@@ -426,7 +426,7 @@ class RxMessageBroker(object):
                         T = self.rx_connectable[address]["rx"]
                     else:
                         color = "blue"
-                        status = f"ROS |".ljust(5, " ")
+                        status = "ROS |".ljust(5, " ")
                         rate_str = "|" + "".center(3, " ")
                         msg_type = entry["msg_type"]
                         self.connected_ros[node_name][key][cname_address] = entry

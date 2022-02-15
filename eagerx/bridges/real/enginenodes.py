@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 import cv2
 import skimage.transform
 import rospy
@@ -24,12 +24,15 @@ class CameraRender(EngineNode):
         rate: float,
         process: Optional[int] = process.NEW_PROCESS,
         color: Optional[str] = "cyan",
-        shape=[480, 480],
+        shape: Optional[List[int]] = None,
         camera_idx: int = 0,
     ):
         """CameraRender spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(CameraRender)
+
+        # Set default shape
+        shape = shape if shape else [480, 480]
 
         # Modify default node params
         params = dict(

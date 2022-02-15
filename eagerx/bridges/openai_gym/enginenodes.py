@@ -23,13 +23,17 @@ class ObservationSensor(EngineNode):
         name: str,
         rate: float,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick"],
-        outputs: Optional[List[str]] = ["observation"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
     ):
         """ObservationSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(ObservationSensor)
+
+        # Set default
+        inputs = inputs if inputs else ["tick"]
+        outputs = outputs if outputs else ["observation"]
 
         # Modify default node params
         params = dict(
@@ -79,13 +83,17 @@ class RewardSensor(EngineNode):
         name: str,
         rate: float,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick"],
-        outputs: Optional[List[str]] = ["reward"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
     ):
         """RewardSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(RewardSensor)
+
+        # Set default
+        inputs = inputs if inputs else ["tick"]
+        outputs = outputs if outputs else ["reward"]
 
         # Modify default node params
         params = dict(
@@ -135,13 +143,17 @@ class DoneSensor(EngineNode):
         name: str,
         rate: float,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick"],
-        outputs: Optional[List[str]] = ["done"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
     ):
         """DoneSensor spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(DoneSensor)
+
+        # Set default
+        inputs = inputs if inputs else ["tick"]
+        outputs = outputs if outputs else ["done"]
 
         # Modify default node params
         params = dict(
@@ -192,13 +204,17 @@ class ActionActuator(EngineNode):
         rate: float,
         zero_action=None,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick", "action"],
-        outputs: Optional[List[str]] = ["action_applied"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         color: Optional[str] = "green",
     ):
         """ActionActuator spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(ActionActuator)
+
+        # Set default
+        inputs = inputs if inputs else ["tick", "action"]
+        outputs = outputs if outputs else ["action_applied"]
 
         # Modify default node params
         params = dict(
@@ -276,15 +292,20 @@ class GymImage(EngineNode):
         name: str,
         rate: float,
         process: Optional[int] = process.BRIDGE,
-        inputs: Optional[List[str]] = ["tick"],
-        outputs: Optional[List[str]] = ["image"],
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
-        shape=[200, 200],
+        shape: Optional[List[int]] = None,
         always_render=False,
     ):
         """GymImage spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymImage)
+
+        # Set default
+        inputs = inputs if inputs else ["tick"]
+        outputs = outputs if outputs else ["image"]
+        shape = shape if shape else [200, 200]
 
         # Modify default node params
         params = dict(

@@ -107,7 +107,7 @@ class BaseNodeSpec(EntitySpec):
     def initialize(self, spec_cls):
         try:
             params = register.LOOKUP_TYPES[spec_cls.callback]
-        except KeyError as e:
+        except KeyError:
             if spec_cls.__name__ == "EnvNode":
                 params = dict()
             else:
@@ -125,7 +125,7 @@ class BaseNodeSpec(EntitySpec):
 
             assert issubclass(
                 spec_cls, ResetNode
-            ), f"You can only have targets registered for nodes that inherit from the ResetNode baseclass."
+            ), "You can only have targets registered for nodes that inherit from the ResetNode baseclass."
             add_ft = True
         else:
             add_ft = False
@@ -533,7 +533,7 @@ class ObjectSpec(EntitySpec):
                 cnames = self._get_components(component)
             except AssertionError:
                 continue
-            for cname, params in cnames.items():
+            for cname, _params in cnames.items():
                 spec._set({component: {cname: None}})
         return spec, graph
 
@@ -545,7 +545,7 @@ class ObjectSpec(EntitySpec):
         obj_name = self.get_parameter("name")
         agnostic_params = self.get_parameters()
         engine_params = engine_spec.get_parameters()
-        for node, params in nodes.items():
+        for _node, params in nodes.items():
             default = params["default"]
             node_name = default["name"]
             for key in default.keys():
@@ -586,7 +586,7 @@ class ObjectSpec(EntitySpec):
         for component in ["sensors", "actuators"]:
             try:
                 mapping[component] = self.get_parameters(component, level="agnostic")
-            except AssertionError as e:
+            except AssertionError:
                 continue
 
         from eagerx.core.graph_engine import EngineGraph
@@ -854,7 +854,7 @@ class ObjectSpec(EntitySpec):
         # Replace enginenode outputs that have been renamed to sensor outputs
         for node_address, sensor_address in sensor_addresses.items():
             for _, node_params in nodes.items():
-                for cname, comp_params in node_params["inputs"].items():
+                for _cname, comp_params in node_params["inputs"].items():
                     if node_address == comp_params["address"]:
                         comp_params["address"] = sensor_address
 

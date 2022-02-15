@@ -31,7 +31,7 @@ if TYPE_CHECKING:
         EngineStateSpec,
         ResetNodeSpec,
         ObjectSpec,
-        # AgnosticSpec,
+        AgnosticSpec,
     )
 
 
@@ -630,7 +630,7 @@ class Bridge(BaseNode):
             sp_nodes,
             launch_nodes,
         )
-        for name, node in sp_nodes.items():
+        for _name, node in sp_nodes.items():
             # Set simulator
             if hasattr(node.node, "set_simulator"):
                 node.node.set_simulator(self.simulator)
@@ -676,7 +676,7 @@ class Bridge(BaseNode):
             launch_nodes,
             node_args=node_args,
         )
-        for name, node in sp_nodes.items():
+        for _name, node in sp_nodes.items():
             # Initialize
             node.node_initialized()
         self.sp_nodes.update(sp_nodes)

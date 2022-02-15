@@ -470,13 +470,17 @@ def msg_type_error(
     if isinstance(target, tuple):
         target = list(target)
     msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(source + target)
-    msg_type_str += ">> msg_type_source:  %s (as specified in source)\n         ||\n         \/\n" % msg_type_out
-    msg_type_str += ">> output_converter: %s \n         ||\n         \/\n" % converter_out
-    msg_type_str += ">> msg_type_ROS:     %s \n         ||\n         \/\n" % msg_type_ros
-    msg_type_str += ">> input_converter:  %s \n         ||\n         \/\n" % converter_in
+    msg_type_str += (f">> msg_type_source:  {msg_type_out} (as specified in source)\n         ||\n         ", r"\/", "\n")
+    msg_type_str += (f">> output_converter: {converter_out} \n         ||\n         ", r"\/", "\n")
+    msg_type_str += (f">> msg_type_ROS:     {msg_type_ros} \n         ||\n         ", r"\/", "\n")
+    msg_type_str += (f">> input_converter:  {converter_in} \n         ||\n         ", r"\/", "\n")
     msg_type_str += (
-        ">> msg_type_target:  %s (inferred from converters)\n         /\ \n         || (These must be equal, but they are not!!)\n         \/\n"
-        % msg_type_in
+        f">> msg_type_target:  {msg_type_in} (inferred from converters)\n         ",
+        r"/\ ",
+        "\n",
+        "         || (These must be equal, but they are not!!)\n         ",
+        r"\/",
+        "\n",
     )
     msg_type_str += ">> msg_type_target:  %s (as specified in target)\n" % msg_type_in_yaml
     return msg_type_str

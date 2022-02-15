@@ -254,7 +254,7 @@ class Graph:
         params_action = self._state["nodes"]["env/actions"]["params"]
         source = ["env/actions", "outputs", action]
         connect_exists = False
-        for idx, c in enumerate(self._state["connects"]):
+        for c in self._state["connects"]:
             if source == c[0]:
                 connect_exists = True
                 target = c[1]
@@ -273,7 +273,7 @@ class Graph:
         params_obs = self._state["nodes"]["env/observations"]["params"]
         target = ["env/observations", "inputs", observation]
         connect_exists = False
-        for idx, c in enumerate(self._state["connects"]):
+        for c in self._state["connects"]:
             if target == c[1]:
                 connect_exists = True
                 source = c[0]
@@ -490,7 +490,7 @@ class Graph:
             if action:
                 connect_exists = False
                 source = ["env/actions", "outputs", action]
-                for idx, c in enumerate(self._state["connects"]):
+                for c in self._state["connects"]:
                     if source == c[0]:
                         connect_exists = True
                         break
@@ -602,7 +602,7 @@ class Graph:
         assert action in params_action["outputs"], 'Cannot disconnect action "%s", as it does not exist.' % action
         source = ["env/actions", "outputs", action]
         connect_exists = False
-        for idx, c in enumerate(self._state["connects"]):
+        for c in self._state["connects"]:
             if source == c[0]:
                 connect_exists = True
                 break
@@ -1428,7 +1428,7 @@ class Graph:
                 entry = [obj_name, entity_id]
 
                 # Add all (unknown) bridges to the list
-                for key, value in params.items():
+                for key, _value in params.items():
                     if key in [
                         "entity_type",
                         "default",
@@ -1458,7 +1458,7 @@ class Graph:
 
         # Fill up incompatible bridges that were added after object entries
         for entry in objects:
-            for b in bridges[len(entry) - 2 :]:
+            for _ in bridges[len(entry) - 2 :]:
                 entry.append(" ")
 
         # Get compatible bridges

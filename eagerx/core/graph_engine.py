@@ -262,7 +262,7 @@ class EngineGraph:
         assert (
             not target or not sensor
         ), f'You cannot specify a target if you wish to connect sensor "{sensor}", as the sensor will act as the target.'
-        assert not (actuator and sensor), f"You cannot connect an actuator directly to a sensor."
+        assert not (actuator and sensor), "You cannot connect an actuator directly to a sensor."
         if address:
             curr_address = self.get_parameter("address", *target)
             assert (
@@ -276,7 +276,7 @@ class EngineGraph:
             self.set_parameter("external_rate", external_rate, *target)
             return
         else:
-            assert external_rate is None, f"An external rate may only be provided in combination with an address."
+            assert external_rate is None, "An external rate may only be provided in combination with an address."
 
         if isinstance(converter, ConverterSpec):
             converter = converter.params
@@ -397,7 +397,7 @@ class EngineGraph:
         ), f'You cannot specify a target if you wish to disconnect sensor "{sensor}", as the sensor will act as the target.'
         assert not (
             sensor and actuator
-        ), f"You cannot disconnect an actuator from an sensor, as such a connection cannot exist."
+        ), "You cannot disconnect an actuator from an sensor, as such a connection cannot exist."
         if isinstance(source, tuple):
             source = list(source)
         if isinstance(target, tuple):
