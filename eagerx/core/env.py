@@ -22,6 +22,7 @@ from eagerx.core.constants import process
 
 # OTHER IMPORTS
 import abc
+import cv2
 import numpy as np
 from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable
@@ -208,9 +209,7 @@ class Env(gym.Env):
         ), f'Environment "{self.name}" must have at least one action (i.e. output).'
 
         # Check that all observation addresses are unique
-        addresses_obs = [
-            observations.params["inputs"][cname]["address"] for cname in observations.params["default"]["inputs"]
-        ]
+        addresses_obs = [observations.params["inputs"][cname]["address"] for cname in observations.params["default"]["inputs"]]
         len(set(addresses_obs)) == len(
             addresses_obs
         ), "Duplicate observations found: %s. Make sure to only have unique observations" % (
@@ -336,12 +335,13 @@ class Env(gym.Env):
 
     def _shutdown(self):
         for name in self.supervisor_node.launch_nodes:
-            self.supervisor_node.launch_nodes[name].shutdown()
+            self.supervisor_node.launch_nodes[name].terminate()
         try:
-            rosparam.delete_param("/")
-            rospy.loginfo('Pre-existing parameters under namespace "/" deleted.')
+            rosparam.delete_param(f"/{self.name}")
+            rospy.loginfo(f'Parameters under namespace "/{self.name}" deleted.')
         except:
             pass
+        # rospy.signal_shutdown(f"[/{name}] Terminating.")
 
     def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
@@ -371,6 +371,11 @@ class Env(gym.Env):
                     im = np.empty(shape=(0, 0, 3), dtype=np.uint8)
                 else:
                     im = np.frombuffer(ros_im.data, dtype=np.uint8).reshape(ros_im.height, ros_im.width, -1)
+                    if "bgr" in ros_im.encoding:
+                        try:
+                            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+                        except:
+                            pass
                 return im
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)

@@ -210,11 +210,6 @@ def init_node(
     real_reset_input = dict(name="real_reset", address=ns + "/real_reset", msg_type=UInt64, msg=RR)
     node_inputs.append(real_reset_input)
 
-    # Prepare reset topic
-    T = Subject()
-    first_tick = dict(name="first_tick", address=ns + "/bridge/outputs/tick", msg_type=UInt64, msg=T)
-    node_inputs.append(first_tick)
-
     # End reset
     E = Subject()
     end_reset = dict(name="end_reset", address=ns + "/end_reset", msg_type=UInt64, msg=E)
@@ -573,7 +568,7 @@ def init_bridge(
     ###########################################################################
     # Object register (to dynamically add input reset flags to F for reset)
     NR = Subject()
-    node_registry = dict(address=ns + "/register_node", msg=NR, msg_type=String)
+    node_registry = dict(name="register_node", address=ns + "/register_node", msg=NR, msg_type=String)
     node_inputs.append(node_registry)
 
     # Node registry pipeline
@@ -588,7 +583,7 @@ def init_bridge(
 
     # Object register (to dynamically add input reset flags to F for reset)
     OR = Subject()
-    object_registry = dict(address=ns + "/register_object", msg=OR, msg_type=String)
+    object_registry = dict(name="register_object", address=ns + "/register_object", msg=OR, msg_type=String)
     node_inputs.append(object_registry)
 
     # Object registry pipeline
@@ -605,7 +600,7 @@ def init_bridge(
             lambda i: (
                 i,
                 message_broker.add_rx_objects(
-                    node.ns_name + "/dynamically_registered",
+                    node.ns_name,
                     inputs=i["inputs"],
                     reactive_proxy=i["reactive_proxy"],
                     state_inputs=i["state_inputs"],
@@ -637,7 +632,7 @@ def init_bridge(
     ###########################################################################
     # Prepare start_reset input
     SR = Subject()
-    start_reset_input = dict(address=ns + "/start_reset", msg=SR, msg_type=UInt64)
+    start_reset_input = dict(name="start_reset", address=ns + "/start_reset", msg=SR, msg_type=UInt64)
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
@@ -657,9 +652,7 @@ def init_bridge(
 
     # Prepare output for reactive proxy
     RM = Subject()
-    check_reactive_proxy = reactive_proxy.pipe(
-        ops.map(lambda rx: initialize_reactive_proxy_reset(rate_node, RM, rx, node))
-    )
+    check_reactive_proxy = reactive_proxy.pipe(ops.map(lambda rx: initialize_reactive_proxy_reset(rate_node, RM, rx, node)))
 
     # Zip initial input flags
     check_F_init, F_init, F_init_ho = switch_with_check_pipeline()
@@ -682,7 +675,7 @@ def init_bridge(
     # Real reset ##############################################################
     ###########################################################################
     # Prepare real_reset output
-    real_reset_output = dict(address=ns + "/real_reset", msg=RR, msg_type=UInt64)
+    real_reset_output = dict(name="real_reset", address=ns + "/real_reset", msg=RR, msg_type=UInt64)
     node_outputs.append(real_reset_output)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
@@ -714,7 +707,7 @@ def init_bridge(
     ###########################################################################
     # Prepare reset output
     R = Subject()
-    reset_output = dict(address=ns + "/reset", msg=R, msg_type=UInt64)
+    reset_output = dict(name="reset", address=ns + "/reset", msg=R, msg_type=UInt64)
     node_outputs.append(reset_output)
 
     # Send reset message
@@ -729,7 +722,7 @@ def init_bridge(
     # Reset: initialize episode pipeline ######################################
     ###########################################################################
     # Prepare end_reset output
-    end_reset = dict(address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
     node_outputs.append(end_reset)
 
     # Dynamically initialize new input pipeline
@@ -756,15 +749,11 @@ def init_bridge(
 
     # Switch to latest zipped inputs pipeline
     check_z_inputs, z_inputs, z_inputs_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(
-        z_inputs_ho, scheduler=event_scheduler
-    )
+    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(z_inputs_ho, scheduler=event_scheduler)
 
     # Switch to latest zipped flags pipeline
     check_z_flags, z_flags, z_flags_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(
-        z_flags_ho, scheduler=event_scheduler
-    )
+    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(z_flags_ho, scheduler=event_scheduler)
     z_flags.subscribe(F)
 
     # Initialize rest of episode pipeline
@@ -863,10 +852,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # Start reset #############################################################
     ###########################################################################
-    SR = (
-        Subject()
-    )  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
-    start_reset = dict(address=ns + "/start_reset", msg=Subject(), msg_type=UInt64)
+    SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
+    start_reset = dict(name="start_reset", address=ns + "/start_reset", msg=Subject(), msg_type=UInt64)
     SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
 
     # Publish state msgs
@@ -906,9 +893,19 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # Register ################################################################
     ###########################################################################
     REG_OBJECT = Subject()  # ---> Not a node output, but used in node.register_object() to kickstart register pipeline.
-    register_object = dict(address=ns + "/register_object", msg=Subject(), msg_type=String)
+    register_object = dict(
+        name="register_object",
+        address=ns + "/register_object",
+        msg=Subject(),
+        msg_type=String,
+    )
     REG_NODE = Subject()  # ---> Not a node output, but used in node.register_node() to kickstart register pipeline.
-    register_node = dict(address=ns + "/register_node", msg=Subject(), msg_type=String)
+    register_node = dict(
+        name="register_node",
+        address=ns + "/register_node",
+        msg=Subject(),
+        msg_type=String,
+    )
 
     # Register pipeline
     REG_OBJECT.subscribe(register_object["msg"], scheduler=tp_scheduler)
@@ -917,8 +914,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
-    tick = dict(address=ns + "/bridge/outputs/tick", msg=Subject(), msg_type=UInt64)
-    end_reset = dict(address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
+    tick = dict(name="tick", address=ns + "/bridge/outputs/tick", msg=Subject(), msg_type=UInt64)
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
     end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
 
     # Create node inputs & outputs

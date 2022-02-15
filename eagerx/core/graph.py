@@ -259,9 +259,11 @@ class Graph:
                 connect_exists = True
                 target = c[1]
                 break
-        assert not connect_exists, (
-            'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.'
-            % (action, target)
+        assert (
+            not connect_exists
+        ), 'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.' % (
+            action,
+            target,
         )
         params_action["outputs"].pop(action)
 
@@ -295,8 +297,7 @@ class Graph:
         skip: Optional[bool] = None,
     ):
         assert not source or not action, (
-            'You cannot specify a source if you wish to connect action "%s", as the action will act as the source.'
-            % action
+            'You cannot specify a source if you wish to connect action "%s", as the action will act as the source.' % action
         )
         assert not target or not observation, (
             'You cannot specify a target if you wish to connect observation "%s", as the observation will act as the target.'
@@ -351,9 +352,7 @@ class Graph:
         target_name, target_comp, target_cname = target
         target_params = self._state["nodes"][target_name]["params"]
         if target_comp == "feedthroughs":
-            assert (
-                window is None or window > 0
-            ), "Feedthroughs must have a window > 0, else no action can be fed through."
+            assert window is None or window > 0, "Feedthroughs must have a window > 0, else no action can be fed through."
             assert (
                 not skip
             ), "Feedthroughs cannot skip, as they only feedthrough outputs. When setting skip=True, no msg can be fed through."
@@ -408,9 +407,12 @@ class Graph:
         if len(params_action["outputs"][action]) > 0:  # Action already registered
             space_converter_state = params_action["outputs"][action]["converter"]
             msg_type_B_state = get_opposite_msg_cls(params_action["outputs"][action]["msg_type"], space_converter_state)
-            assert msg_type_B == msg_type_B_state, (
-                'Conflicting %s for action "%s" that is already used in another connection. Occurs with connection %s'
-                % ("msg_types", action, tuple([name, component, cname]))
+            assert (
+                msg_type_B == msg_type_B_state
+            ), 'Conflicting %s for action "%s" that is already used in another connection. Occurs with connection %s' % (
+                "msg_types",
+                action,
+                tuple([name, component, cname]),
             )
             if not space_converter == space_converter_state:
                 rospy.logwarn(
@@ -436,9 +438,7 @@ class Graph:
     def _connect_observation(self, source, observation, converter):
         """Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target)."""
         params_obs = self._state["nodes"]["env/observations"]["params"]
-        assert observation in params_obs["inputs"], (
-            'Observation "%s" must be added, before you can connect it.' % observation
-        )
+        assert observation in params_obs["inputs"], 'Observation "%s" must be added, before you can connect it.' % observation
         name, component, cname = source
         params_source = self._state["nodes"][name]["params"]
 
@@ -507,8 +507,7 @@ class Graph:
     ):
         """Disconnects a source from a target. The target is reset in self._state to its disconnected state."""
         assert not source or not action, (
-            'You cannot specify a source if you wish to disconnect action "%s", as the action will act as the source.'
-            % action
+            'You cannot specify a source if you wish to disconnect action "%s", as the action will act as the source.' % action
         )
         assert not target or not observation, (
             'You cannot specify a target if you wish to disconnect observation "%s", as the observation will act as the target.'
@@ -540,9 +539,7 @@ class Graph:
                 connect_exists = True
                 idx_connect = idx
                 break
-        assert (
-            connect_exists
-        ), "The connection with source=%s and target=%s cannot be removed, because it does not exist." % (
+        assert connect_exists, "The connection with source=%s and target=%s cannot be removed, because it does not exist." % (
             source,
             target,
         )
@@ -564,9 +561,7 @@ class Graph:
         else:
             target_name, target_comp, target_cname = target
             target_params = self._state["nodes"][target_name]["params"]
-            target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][
-                target_cname
-            ]
+            target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][target_cname]
 
     def _disconnect_component(self, name: str, component: str, cname: str, remove=False):
         """Disconnects all associated connects from self._state.
@@ -616,9 +611,7 @@ class Graph:
     def _disconnect_observation(self, observation: str):
         """Returns the observation entry back to its disconnected state (i.e. empty dict)."""
         params_obs = self._state["nodes"]["env/observations"]["params"]
-        assert observation in params_obs["inputs"], (
-            'Cannot disconnect observation "%s", as it does not exist.' % observation
-        )
+        assert observation in params_obs["inputs"], 'Cannot disconnect observation "%s", as it does not exist.' % observation
         params_obs["inputs"][observation] = dict()
 
     def rename(
@@ -842,9 +835,12 @@ class Graph:
         # Make sure the converter is a spaceconverter
         if name in ["env/actions", "env/observations"]:
             converter_cls = get_attribute_from_module(converter["converter_type"])
-            assert issubclass(converter_cls, SpaceConverter), (
-                'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".'
-                % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
+            assert issubclass(
+                converter_cls, SpaceConverter
+            ), 'Incorrect converter type for "%s". Action/observation converters should always be a subclass of "%s/%s".' % (
+                cname,
+                SpaceConverter.__module__,
+                SpaceConverter.__name__,
             )
 
         # Replace converter
@@ -1111,33 +1107,21 @@ class Graph:
         # assert only action, only observation, or only name, component, cname
         if (name is not None) and (component is not None) and (cname is not None):  # component parameter
             assert action is None, "If {name, component, cname} are specified, action argument cannot be specified."
-            assert (
-                observation is None
-            ), "If {name, component, cname} are specified, observation argument cannot be specified."
+            assert observation is None, "If {name, component, cname} are specified, observation argument cannot be specified."
         if name is not None:  # entity parameter
             assert action is None, "If {name, component, cname} are specified, action argument cannot be specified."
-            assert (
-                observation is None
-            ), "If {name, component, cname} are specified, observation argument cannot be specified."
+            assert observation is None, "If {name, component, cname} are specified, observation argument cannot be specified."
         if component is not None:  # entity parameter
-            assert (
-                name is not None
-            ), f'Either both or None of component "{component}" and name "{name}" must be specified.'
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
             assert action is None, "If {name, component, cname} are specified, action argument cannot be specified."
-            assert (
-                observation is None
-            ), "If {name, component, cname} are specified, observation argument cannot be specified."
+            assert observation is None, "If {name, component, cname} are specified, observation argument cannot be specified."
         if cname is not None:  # entity parameter
-            assert (
-                name is not None
-            ), f'Either both or None of component "{component}" and name "{name}" must be specified.'
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
             assert (
                 component is not None
             ), f'If cname "{cname}" is specified, also component "{component}" and name "{name}" must be specified.'
             assert action is None, "If {name, component, cname} are specified, action argument cannot be specified."
-            assert (
-                observation is None
-            ), "If {name, component, cname} are specified, observation argument cannot be specified."
+            assert observation is None, "If {name, component, cname} are specified, observation argument cannot be specified."
         if action:
             assert observation is None, "If action is specified, observation must be None."
             assert (

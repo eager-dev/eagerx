@@ -452,9 +452,7 @@ class EngineGraph:
         else:
             target_name, target_comp, target_cname = target
             target_params = self._state["nodes"][target_name]["params"]
-            target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][
-                target_cname
-            ]
+            target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][target_cname]
 
     def _disconnect_component(self, name: str, component: str, cname: str):
         """
@@ -997,15 +995,11 @@ class EngineGraph:
             assert actuator is None, "If {name, component, cname} are specified, actuator argument cannot be specified."
             assert sensor is None, "If {name, component, cname} are specified, sensor argument cannot be specified."
         if component is not None:  # entity parameter
-            assert (
-                name is not None
-            ), f'Either both or None of component "{component}" and name "{name}" must be specified.'
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
             assert actuator is None, "If {name, component, cname} are specified, actuator argument cannot be specified."
             assert sensor is None, "If {name, component, cname} are specified, sensor argument cannot be specified."
         if cname is not None:  # entity parameter
-            assert (
-                name is not None
-            ), f'Either both or None of component "{component}" and name "{name}" must be specified.'
+            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
             assert (
                 component is not None
             ), f'If cname "{cname}" is specified, also component "{component}" and name "{name}" must be specified.'

@@ -18,7 +18,10 @@ from functools import partial, wraps
 @wraps(rospy.init_node)
 def initialize(*args, log_level=log.INFO, **kwargs):
     roscore = launch_roscore()  # First launch roscore (if not already running)
-    rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
+    try:
+        rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
+    except rospy.exceptions.ROSException as e:
+        rospy.logwarn(e)
     return roscore
 
 
@@ -35,7 +38,7 @@ def launch_roscore():
         rospy.logwarn(
             "Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore."
         )
-        pass
+        roscore = None
     return roscore
 
 
@@ -128,7 +131,7 @@ def initialize_nodes(
                 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.'
                 % name
             )
-            launch_node_as_subprocess(params["executable"], ns, name)
+            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name)
         elif params["process"] == process.EXTERNAL:
             rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
         # else: node is launched in another (already launched) node's process (e.g. bridge process).

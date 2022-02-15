@@ -640,9 +640,7 @@ def generate_msgs(
                 source_msg_delayed = source_msg.pipe(ops.delay(params["delay"] / real_time_factor))
             else:
                 source_msg_delayed = source_msg
-            sad.disposable = source_msg_delayed.subscribe(
-                on_next_msg, observer.on_error, observer.on_completed, scheduler
-            )
+            sad.disposable = source_msg_delayed.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
             subscriptions.append(sad)
 
             return CompositeDisposable(subscriptions)
@@ -1431,9 +1429,7 @@ def throttled_Nc(
                 next(x)
 
             sad = SingleAssignmentDisposable()
-            sad.disposable = source_interval.subscribe(
-                on_next_interval, observer.on_error, observer.on_completed, scheduler
-            )
+            sad.disposable = source_interval.subscribe(on_next_interval, observer.on_error, observer.on_completed, scheduler)
             subscriptions.append(sad)
 
             return CompositeDisposable(subscriptions)

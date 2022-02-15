@@ -145,21 +145,15 @@ class ObservationsNode(Node):
         spec.set_parameter("skip", True, "inputs", "actions_set")
 
     def initialize(self):
-        raise NotImplementedError(
-            "This is a dummy class. Functionality is actually implemented in the Environment node."
-        )
+        raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     def reset(self):
-        raise NotImplementedError(
-            "This is a dummy class. Functionality is actually implemented in the Environment node."
-        )
+        raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     @register.inputs(actions_set=UInt64)
     @register.outputs(set=UInt64)
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
-        raise NotImplementedError(
-            "This is a dummy class. Functionality is actually implemented in the Environment node."
-        )
+        raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
 class ActionsNode(Node):
@@ -192,21 +186,15 @@ class ActionsNode(Node):
         spec.set_parameter("window", 0, "inputs", "step")
 
     def initialize(self):
-        raise NotImplementedError(
-            "This is a dummy class. Functionality is actually implemented in the Environment node."
-        )
+        raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     def reset(self):
-        raise NotImplementedError(
-            "This is a dummy class. Functionality is actually implemented in the Environment node."
-        )
+        raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     @register.inputs(observations_set=UInt64, step=UInt64)
     @register.outputs(set=UInt64)
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
-        raise NotImplementedError(
-            "This is a dummy class. Functionality is actually implemented in the Environment node."
-        )
+        raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
 class RenderNode(Node):

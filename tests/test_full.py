@@ -1,8 +1,5 @@
-# EAGERx imports
 from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
-
-initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
 # Environment imports
 from eagerx.core.env import EagerEnv
@@ -12,30 +9,34 @@ from eagerx.wrappers import Flatten
 # Implementation specific
 import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 
-if __name__ == "__main__":
-    initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
+import pytest
 
-    # Process configuration (optional)
-    node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+
+@pytest.mark.parametrize("eps_steps", [(3, 3)])
+@pytest.mark.parametrize("is_reactive", [True, False])
+@pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
+def test_full_run(eps_steps, is_reactive, p):
+    roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
+    eps, steps = eps_steps
+    name = f"{eps}_{steps}_{is_reactive}_{p}"
+    if not is_reactive:
+        rtf = 5
+    else:
+        rtf = 0
+
+    node_p = p
+    bridge_p = p
     rate = 7
 
-    # todo: TODAY
-    #  - clean shutdown without errors
-    #  - Include ode bridge example, openai gym example,long run, plotting
-    #  - CI with test
-    #  - .flake8 test
-    #  - test coverage
-    #  - documentation
-    #  - Installation procedure
-    #  - upload gui & dcsc setups to pip
-    #  - Why is ode bridge so slow in async mode?
-    #  - Effect of skipping first action on environment synchronization.
-    #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
-    #  - Pause environment
-
     # Define nodes
-    N1 = Node.make("Process", "N1", rate=1.0, process=node_p)
+    N1 = Node.make(
+        "Process",
+        "N1",
+        rate=rate,
+        process=node_p,
+        inputs=["in_1"],
+        outputs=["out_1"],
+    )
     KF = Node.make(
         "KalmanFilter",
         "KF",
@@ -83,7 +84,6 @@ if __name__ == "__main__":
     )
     graph.connect(source=("obj", "sensors", "N6"), observation="obs_1", delay=0.0)
     graph.connect(source=("KF", "outputs", "out_1"), observation="obs_3", delay=0.0)
-    graph.connect(source=("KF", "outputs", "out_1"), observation="obs_4", delay=0.0)
     graph.connect(source=("obj", "sensors", "N6"), target=("KF", "inputs", "in_1"), delay=0.0)
     graph.connect(action="act_2", target=("KF", "inputs", "in_2"), skip=True)
     graph.connect(action="act_2", target=("N3", "feedthroughs", "out_1"), delay=0.0)
@@ -120,6 +120,8 @@ if __name__ == "__main__":
     graph.connect(source=("obj", "sensors", "N6"), target=("N3", "inputs", "in_1"))  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
+    # graph.remove_component(observation='obs_1')
+    # graph.remove_component('KF', 'outputs', 'out_1')
     graph.remove_component("N3", "inputs", "in_2")
 
     # Rename entity (object/node) and all associated connections
@@ -157,11 +159,8 @@ if __name__ == "__main__":
     graph.connect(source=("obj", "sensors", "N6"), target=("KF", "inputs", "in_1"))
 
     # Works with other sources as well, but then specify "source" instead of "action" as optional arg to connect(..) and disconnect(..).
-    graph.connect(source=("obj", "sensors", "N6"), observation="obs_5", delay=0.0)  # todo: remove
-    graph.disconnect(
-        source=("obj", "sensors", "N6"), observation="obs_1", remove=False
-    )  # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
-
+    # NOTE: with the remove=False flag, we avoid removing terminal 'obs_1'
+    graph.disconnect(source=("obj", "sensors", "N6"), observation="obs_1", remove=False)
 
     # GUI routine for making connections
     source = ("obj", "sensors", "N6")
@@ -202,6 +201,11 @@ if __name__ == "__main__":
         window=window,
     )
 
+    # Connect N1
+    graph.add(N1)
+    graph.connect(source=("N1", "outputs", "out_1"), observation="obs_6")
+    graph.connect(action="act_6", target=("N1", "inputs", "in_1"), skip=True)
+
     # TEST Test with KF having skipped all inputs at t=0
     graph.remove_component("KF", "inputs", "in_1")
 
@@ -212,11 +216,11 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
+    bridge = Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
 
     # Initialize Environment
     env = EagerEnv(
-        name="rx",
+        name=name,
         rate=rate,
         graph=graph,
         bridge=bridge,
@@ -231,33 +235,14 @@ if __name__ == "__main__":
     obs = env.reset()
     env.render(mode="human")
     action = env.action_space.sample()
-    for j in range(20000):
+    for j in range(eps):
         print("\n[Episode %s]" % j)
-        for i in range(5):
+        for i in range(steps):
             obs, reward, done, info = env.step(action)
-            # rgb = env.render(mode='rgb_array')
+            rgb = env.render(mode="rgb_array")
         obs = env.reset()
     print("\n[Finished]")
-
-    # todo: DOCUMENTATION
-    #  - RxNode.create(...), RxBridge.create(...), RxObject.create(...)
-    #  - RxEnv, EAGERxEnv
-    #  - Converter, Processor, SpaceConverter
-    #  - SimState
-
-    # todo: THINGS TO KEEP IN MIND:
-    #  - We repeat the observation_space for the set window length. If window = 0, it is not included in the observation_space.
-    #  - If output converters are used on simnodes, you risk breaking the object's simulation graph (as some simnodes might expect an non-converted message).
-    #  - The order in which you define env actions matters when including input converters. Namely, the first space_converter is chosen.
-    #  - The exact moment of switching to a real reset cannot be predicted by any node, thus this introduces
-    #  race-conditions in the timing of the switch that cannot be mitigated with a reactive scheme.
-    #  - Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
-    #  Hence, we cannot adaptively register new objects or controllers after some episodes.
-    #  - If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
-    #  - Only objects can have nonreactive inputs. In that case, the bridge is responsible for sending flag msgs (num_msgs_send).
-    #  The bridges knows which inputs are nonreactive when the object is registered.
-    #  - Nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
-    #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
-    #  not be agnostic (as they would break in the case is_reactive=True).
-    #  - In the bridge definition of an object, there cannot be converters defined for the components related to the sensor and actuator.
-    #  Reason for this is that if a converter would already be defined there, then it is not possible anymore to add another one in the agnostic graph.
+    env.shutdown()
+    if roscore:
+        roscore.shutdown()
+    print("\n[Shutdown]")

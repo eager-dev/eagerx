@@ -39,9 +39,7 @@ class SupervisorNode(BaseNode):
         self._image_event = Event()
         self.render_toggle = False
         self.pub_get_last_image = rospy.Publisher("%s/env/render/get_last_image" % ns, Bool, queue_size=0, latch=True)
-        self.sub_set_last_image = rospy.Subscriber(
-            "%s/env/render/set_last_image" % ns, Image, self._last_image_callback
-        )
+        self.sub_set_last_image = rospy.Subscriber("%s/env/render/set_last_image" % ns, Image, self._last_image_callback)
         self.render_toggle_pub = rospy.Publisher("%s/env/render/toggle" % ns, Bool, queue_size=0, latch=True)
 
         # Initialize nodes

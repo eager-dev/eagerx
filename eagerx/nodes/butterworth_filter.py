@@ -69,9 +69,7 @@ class ButterworthFilter(Node):
             if i["name"] == "signal":
                 assert (
                     int(i["window"]) >= N
-                ), "The window size of the signal {} is too small to create a filter with order {}.".format(
-                    i["window"], N
-                )
+                ), "The window size of the signal {} is too small to create a filter with order {}.".format(i["window"], N)
         self.filter = butter(N, Wn, btype, output="sos", fs=self.rate)
         self.N = N
 

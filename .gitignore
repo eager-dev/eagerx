@@ -1,3 +1,6 @@
+coverage.xml
+.coverage
+.coverage.*
 *.pyc
 *.idea
 calibrate.launch

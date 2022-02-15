@@ -114,13 +114,10 @@ class RxMessageBroker(object):
         )
         for i in inputs:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["inputs"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "inputs",
-            )
-            n["inputs"][address] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "inputs")
+            self._assert_already_registered(cname_address, n, "inputs")
+            n["inputs"][cname_address] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -129,7 +126,7 @@ class RxMessageBroker(object):
                 "window": i["window"],
                 "status": "disconnected",
             }
-            n["inputs"][address + "/reset"] = {
+            n["inputs"][cname_address + "/reset"] = {
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
@@ -138,13 +135,10 @@ class RxMessageBroker(object):
             }
         for i in outputs:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["outputs"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "outputs",
-            )
-            n["outputs"][address] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "outputs")
+            self._assert_already_registered(cname_address, n, "outputs")
+            n["outputs"][cname_address] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -153,7 +147,7 @@ class RxMessageBroker(object):
                 "converter": i["converter"],
                 "status": "",
             }
-            n["outputs"][address + "/reset"] = {
+            n["outputs"][cname_address + "/reset"] = {
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
@@ -174,13 +168,10 @@ class RxMessageBroker(object):
             )
         for i in feedthrough:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["feedthrough"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "feedthrough",
-            )
-            n["feedthrough"][address] = {
+            cname_address = f"{i['feedthrough_to']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "feedthrough")
+            self._assert_already_registered(cname_address, n, "feedthrough")
+            n["feedthrough"][cname_address] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -189,7 +180,7 @@ class RxMessageBroker(object):
                 "window": i["window"],
                 "status": "disconnected",
             }
-            n["feedthrough"][address + "/reset"] = {
+            n["feedthrough"][cname_address + "/reset"] = {
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
@@ -198,13 +189,10 @@ class RxMessageBroker(object):
             }
         for i in state_outputs:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["state_outputs"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "state_outputs",
-            )
-            n["state_outputs"][address] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "state_outputs")
+            self._assert_already_registered(cname_address, n, "state_outputs")
+            n["state_outputs"][cname_address] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -212,7 +200,7 @@ class RxMessageBroker(object):
                 "status": "",
             }
             if "converter" in i:
-                n["state_outputs"][address]["converter"] = i["converter"]
+                n["state_outputs"][cname_address]["converter"] = i["converter"]
 
             # Create publisher
             i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
@@ -222,14 +210,14 @@ class RxMessageBroker(object):
             )
         for i in state_inputs:
             address = i["address"]
+            try:
+                cname_address = f"{i['name']}:{address}"
+            except KeyError:
+                cname_address = f"done_flag:{address}"
             if "msg" in i:  # Only true if sim state node (i.e. **not** for bridge done flags)
-                assert (
-                    address + "/set" not in self.node_io[node_name]["state_inputs"]
-                ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                    address + "/set",
-                    "state_inputs",
-                )
-                n["state_inputs"][address + "/set"] = {
+                self._assert_already_registered(cname_address + "/set", self.node_io[node_name], "state_inputs")
+                self._assert_already_registered(cname_address + "/set", n, "state_inputs")
+                n["state_inputs"][cname_address + "/set"] = {
                     "rx": i["msg"],
                     "disposable": None,
                     "source": i,
@@ -237,16 +225,11 @@ class RxMessageBroker(object):
                     "converter": i["converter"],
                     "status": "disconnected",
                 }
-            if (
-                address + "/done" not in n["state_outputs"].keys()
-            ):  # Only true if **not** a real reset node (i.e., sim state & bridge done flag)
-                assert (
-                    address + "/done" not in self.node_io[node_name]["state_inputs"]
-                ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                    address + "/done",
-                    "state_inputs",
-                )
-                n["state_inputs"][address + "/done"] = {
+            # Only true if **not** a real reset node (i.e., sim state & bridge done flag)
+            if (cname_address + "/done") not in n["state_outputs"].keys():
+                self._assert_already_registered(cname_address + "/done", self.node_io[node_name], "state_inputs")
+                self._assert_already_registered(cname_address + "/done", n, "state_inputs")
+                n["state_inputs"][cname_address + "/done"] = {
                     "rx": i["done"],
                     "disposable": None,
                     "source": i,
@@ -255,13 +238,10 @@ class RxMessageBroker(object):
                 }
         for i in targets:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["targets"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "targets",
-            )
-            n["targets"][address + "/set"] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address + "/set", self.node_io[node_name], "targets")
+            self._assert_already_registered(cname_address + "/set", n, "targets")
+            n["targets"][cname_address + "/set"] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -271,13 +251,10 @@ class RxMessageBroker(object):
             }
         for i in node_inputs:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["node_inputs"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "node_inputs",
-            )
-            n["node_inputs"][address] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "node_inputs")
+            self._assert_already_registered(cname_address, n, "node_inputs")
+            n["node_inputs"][cname_address] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -286,13 +263,10 @@ class RxMessageBroker(object):
             }
         for i in node_outputs:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["node_outputs"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "node_outputs",
-            )
-            n["node_outputs"][address] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "node_outputs")
+            self._assert_already_registered(cname_address, n, "node_outputs")
+            n["node_outputs"][cname_address] = {
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
@@ -308,13 +282,10 @@ class RxMessageBroker(object):
             )
         for i in reactive_proxy:
             address = i["address"]
-            assert (
-                address not in self.node_io[node_name]["reactive_proxy"]
-            ), 'Cannot re-register the same address (%s) twice as "%s".' % (
-                address,
-                "reactive_proxy",
-            )
-            n["reactive_proxy"][address + "/reset"] = {
+            cname_address = f"{i['name']}:{address}"
+            self._assert_already_registered(cname_address, self.node_io[node_name], "reactive_proxy")
+            self._assert_already_registered(cname_address, n, "reactive_proxy")
+            n["reactive_proxy"][cname_address + "/reset"] = {
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
@@ -365,7 +336,7 @@ class RxMessageBroker(object):
             ):
                 if len(self.node_io[node_name][key]) == 0:
                     continue
-                for address in self.node_io[node_name][key].keys():
+                for cname_address in self.node_io[node_name][key].keys():
                     color = None
                     if key in (
                         "outputs",
@@ -375,23 +346,23 @@ class RxMessageBroker(object):
                     ):
                         color = "cyan"
                     else:
-                        if address in self.disconnected[node_name][key]:
+                        if cname_address in self.disconnected[node_name][key]:
                             color = "red"
-                        if address in self.connected_rx[node_name][key]:
-                            assert color is None, "Duplicate connection status for address (%s)." % address
+                        if cname_address in self.connected_rx[node_name][key]:
+                            assert color is None, f"Duplicate connection status for address ({cname_address})."
                             color = "green"
-                        if address in self.connected_ros[node_name][key]:
-                            assert color is None, "Duplicate connection status for address (%s)." % address
+                        if cname_address in self.connected_ros[node_name][key]:
+                            assert color is None, f"Duplicate connection status for address ({cname_address})."
                             color = "blue"
-                        assert color is not None, (
-                            "Address (%s) not found in self.{disconnected, connected_rx, connected_ros}." % address
-                        )
-                    status = self.node_io[node_name][key][address]["status"]
+                        assert (
+                            color is not None
+                        ), f"Address (cname_address) not found in self.(disconnected, connected_rx, connected_ros)."
+                    status = self.node_io[node_name][key][cname_address]["status"]
 
                     # Print status
-                    entry = self.node_io[node_name][key][address]
+                    entry = self.node_io[node_name][key][cname_address]
                     key_str = ("%s" % key).ljust(15, " ")
-                    address_str = ("| %s " % address).ljust(50, " ")
+                    address_str = ("| %s " % cname_address).ljust(50, " ")
                     msg_type_str = ("| %s " % entry["msg_type"].__name__).ljust(10, " ")
                     if "converter" in entry:
                         converter_str = ("| %s " % entry["converter"].__class__.__name__).ljust(23, " ")
@@ -431,43 +402,34 @@ class RxMessageBroker(object):
                 attrs=["bold", "underline"],
             )
             for key, addresses in node.items():
-                for address in list(addresses.keys()):
-                    entry = addresses[address]
+                for cname_address in list(addresses.keys()):
+                    _, address = self._split_cname_address(cname_address)
+                    entry = addresses[cname_address]
                     assert (
-                        address not in self.connected_rx[node_name][key]
-                    ), "Address (%s) of this node (%s) already connected via rx." % (
-                        address,
-                        node_name,
-                    )
+                        cname_address not in self.connected_rx[node_name][key]
+                    ), f"Address ({cname_address}) of this node ({node_name}) already connected via rx."
                     assert (
-                        address not in self.connected_ros[node_name][key]
-                    ), "Address (%s) of this node (%s) already connected via ROS." % (
-                        address,
-                        node_name,
-                    )
+                        cname_address not in self.connected_ros[node_name][key]
+                    ), f"Address ({cname_address}) of this node ({node_name}) already connected via ROS."
                     if address in self.rx_connectable.keys():
                         color = "green"
                         status = "Rx".ljust(4, " ")
                         entry["rate"] = self.rx_connectable[address]["rate"]
-                        rate_str = "|" + ("%s" % entry["rate"]).center(3, " ")
-                        node_str = ("| %s" % self.rx_connectable[address]["node_name"]).ljust(40, " ")
-                        msg_type_str = ("| %s" % self.rx_connectable[address]["source"]["msg_type"].__name__).ljust(
+                        rate_str = f"|{str(entry['rate']).center(3, ' ')}"
+                        node_str = f'| {self.rx_connectable[address]["node_name"].ljust(40, " ")}'
+                        msg_type_str = f'| {self.rx_connectable[address]["source"]["msg_type"].__name__}'.ljust(12, " ")
+                        converter_str = f'| {self.rx_connectable[address]["source"]["converter"].__class__.__name__}'.ljust(
                             12, " "
                         )
-                        converter_str = (
-                            "| %s" % self.rx_connectable[address]["source"]["converter"].__class__.__name__
-                        ).ljust(12, " ")
                         status += node_str + msg_type_str + converter_str
-                        self.connected_rx[node_name][key][address] = entry
+                        self.connected_rx[node_name][key][cname_address] = entry
                         O = self.rx_connectable[address]["rx"]
                     else:
                         color = "blue"
-                        status = "ROS |".ljust(5, " ")
+                        status = f"ROS |".ljust(5, " ")
                         rate_str = "|" + "".center(3, " ")
                         msg_type = entry["msg_type"]
-                        self.connected_ros[node_name][key][address] = entry
-                        # if key == 'inputs':
-                        #     print('%s: msg_type=%s, address=%s' % (node_name, msg_type, address))
+                        self.connected_ros[node_name][key][cname_address] = entry
                         O = from_topic(msg_type, address, node_name=node_name)
 
                     # Subscribe and change status
@@ -476,7 +438,7 @@ class RxMessageBroker(object):
 
                     # Print status
                     key_str = ("%s" % key).ljust(15, " ")
-                    address_str = ("| %s " % address).ljust(50, " ")
+                    address_str = ("| %s " % cname_address).ljust(50, " ")
                     msg_type_str = ("| %s " % entry["msg_type"].__name__).ljust(10, " ")
                     status_str = ("| Connected via %s" % status).ljust(60, " ")
 
@@ -493,9 +455,20 @@ class RxMessageBroker(object):
                     print_status and cprint(log_msg, color)
 
                     # Remove address from disconnected
-                    addresses.pop(address)
+                    addresses.pop(cname_address)
 
             print_status and print("".center(140, " "))
+
+    def _split_cname_address(self, cname_address):
+        res = cname_address.split(":")
+        if len(res) == 2:
+            cname, address = res
+        else:
+            cname, address = None, res[0]
+        return cname, address
+
+    def _assert_already_registered(self, name, d, component):
+        assert name not in d[component], f'Cannot re-register the same address ({name}) twice as "{component}".'
 
 
 def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:

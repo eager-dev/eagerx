@@ -469,9 +469,7 @@ def msg_type_error(
         source = list(source)
     if isinstance(target, tuple):
         target = list(target)
-    msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(
-        source + target
-    )
+    msg_type_str = '\n\nConversion of msg_type from source="%s/%s/%s" ---> target="%s/%s/%s":\n\n' % tuple(source + target)
     msg_type_str += ">> msg_type_source:  %s (as specified in source)\n         ||\n         \/\n" % msg_type_out
     msg_type_str += ">> output_converter: %s \n         ||\n         \/\n" % converter_out
     msg_type_str += ">> msg_type_ROS:     %s \n         ||\n         \/\n" % msg_type_ros
