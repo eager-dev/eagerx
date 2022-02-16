@@ -9,10 +9,10 @@ import eagerx.bridges.openai_gym as eagerx_gym
 
 import pytest
 
-zero_action = {"Pendulum-v0": [0.0], "Acrobot-v0": 0}
+zero_action = {"Pendulum-v0": [0.0], "Acrobot-v1": 0}
 
 
-@pytest.mark.parametrize("gym_id", ["Pendulum-v0", "Acrobot-v0"])
+@pytest.mark.parametrize("gym_id", ["Pendulum-v0", "Acrobot-v1"])
 @pytest.mark.parametrize("eps", [2])
 @pytest.mark.parametrize("is_reactive", [True, False])
 @pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
