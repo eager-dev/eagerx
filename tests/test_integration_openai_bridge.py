@@ -1,4 +1,4 @@
-from eagerx import Object, Bridge
+from eagerx import Object, Bridge, Node, Processor, SpaceConverter
 from eagerx import initialize, log, process
 
 # Environment imports
@@ -6,17 +6,21 @@ from eagerx.core.graph import Graph
 
 # Implementation specific
 import eagerx.bridges.openai_gym as eagerx_gym
+import eagerx.nodes  # noqa: F401
+import eagerx.converters  # noqa: F401
 
 import pytest
 
 zero_action = {"Pendulum-v0": [0.0], "Acrobot-v1": 0}
+NP = process.NEW_PROCESS
+ENV = process.ENVIRONMENT
 
 
-@pytest.mark.parametrize("gym_id", ["Pendulum-v0", "Acrobot-v1"])
-@pytest.mark.parametrize("eps", [2])
-@pytest.mark.parametrize("is_reactive", [True])
-@pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
-def test_integration_openai_bridge(gym_id, eps, is_reactive, p):
+@pytest.mark.parametrize(
+    "gym_id, eps, is_reactive, rtf, p",
+    [("Pendulum-v0", 2, True, 0, ENV), ("Pendulum-v0", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
+)
+def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
 
     # Define rate (depends on rate of gym env)
@@ -38,16 +42,22 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, p):
 
     # Define graph
     graph = Graph.create(objects=[obj])
+
+    # Add butterworth filter
+    get_index = Processor.make("GetIndex_Float32MultiArray", index=0)
+    bf = Node.make("ButterworthFilter", name="bf", rate=rate, N=2, Wn=4, process=process.ENVIRONMENT)
+    graph.add(bf)
+    graph.connect(source=(name, "sensors", "observation"), target=("bf", "inputs", "signal"), converter=get_index)
+    sc = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
+    graph.connect(source=("bf", "outputs", "filtered"), observation="filtered", converter=sc)
+
+    # Connect gym object
     graph.connect(source=(name, "sensors", "observation"), observation="observation", window=1)
     graph.connect(source=(name, "sensors", "reward"), observation="reward", window=1)
     graph.connect(source=(name, "sensors", "done"), observation="done", window=1)
     graph.connect(action="action", target=(name, "actuators", "action"), window=1)
 
     name = f"{name}_{eps}_{is_reactive}_{p}"
-    if not is_reactive:
-        rtf = 5
-    else:
-        rtf = 0
 
     # Define bridge
     bridge = Bridge.make(
