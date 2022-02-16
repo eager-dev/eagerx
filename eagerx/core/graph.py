@@ -125,33 +125,6 @@ class Graph:
                     self.disconnect(source, target, action, observation, remove=remove)
             self._state["nodes"].pop(name)
 
-    def _remove(self, names: Union[str, List[str]]):
-        """First removes all associated connects from self._state.
-        Then, removes node/object from self._state.
-        **DOES NOT** remove observation entries if they are disconnected.
-        **DOES NOT** remove action entries if they are disconnect and the last connection.
-        """
-        if not isinstance(names, list):
-            names = [names]
-        for name in names:
-            self._exist(self._state, name)
-            for source, target in deepcopy(self._state["connects"]):
-                if name in [source[0], target[0]]:
-                    if source[0] == "env/actions":
-                        action = source[2]
-                        source = None
-                    else:
-                        action = None
-                        source = source
-                    if target[0] == "env/observations":
-                        observation = target[2]
-                        target = None
-                    else:
-                        observation = None
-                        target = target
-                    self._disconnect(source, target, action, observation)
-            self._state["nodes"].pop(name)
-
     def add_component(
         self,
         name: Optional[str] = None,
@@ -261,10 +234,7 @@ class Graph:
                 break
         assert (
             not connect_exists
-        ), 'Action entry "%s" cannot be removed, because it is not disconnected. Connection with target %s still exists.' % (
-            action,
-            target,
-        )
+        ), f'Action entry "{action}" cannot be removed, because it is not disconnected. Connection with target {target} still exists.'
         params_action["outputs"].pop(action)
 
     def _remove_observation(self, observation: str):
@@ -524,8 +494,14 @@ class Graph:
 
         # Create source & target entries
         if action:
+            assert (
+                target is not None
+            ), f"If you want to disconnect action {action}, please also specify the corresponding target."
             source = ["env/actions", "outputs", action]
         if observation:
+            assert (
+                source is not None
+            ), f"If you want to disconnect observation {observation}, please also specify the corresponding source."
             target = ["env/observations", "inputs", observation]
 
         # Check if connection exists
@@ -905,27 +881,6 @@ class Graph:
             return deepcopy(self._state["nodes"][name]["params"][component][cname])
         else:  # default parameter
             return deepcopy(self._state["nodes"][name]["params"]["default"])
-
-    def _reset_converter(self, name: str, component: str, cname: str):
-        """Replaces the converter specified for a node's/object's I/O defined in self._state[name]['default'].
-        **DOES NOT** remove observation entries if they are disconnected.
-        **DOES NOT** remove action entries if they are disconnect and the last connection.
-        """
-        default = self._state["nodes"][name]["default"]
-        self._exist(
-            self._state,
-            name,
-            component=component,
-            cname=cname,
-            parameter="converter",
-            check_default=True,
-        )
-
-        # Grab converter from the default params
-        converter_default = default[component][cname]["converter"]
-
-        # Replace the converter with the default converter
-        self._set_converter(name, component, cname, converter_default)
 
     def register(self):
         """Set the addresses in all incoming components.

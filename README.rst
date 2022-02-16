@@ -1,6 +1,8 @@
 ******
 EAGERx
 ******
+**Streamlining the transfer of simulated robot learning to the real-world.**
+
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: codestyle
@@ -21,10 +23,10 @@ EAGERx
    :target: https://codeclimate.com/github/eager-dev/eagerx/test_coverage
    :alt: Test Coverage
 
-**Streamlining the transfer of simulated robot learning to the real-world.**
 
-.. contents::
-   :depth: 2
+
+.. contents:: Table of Contents
+    :depth: 2
 
 
 What is EAGERx
@@ -39,9 +41,10 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 `Full documentation and tutorials available here <https://eagerx.readthedocs.io/en/latest/>`_.
 
-Example
-=================
-ToDo:
+..
+    TODO: ADD code example with gifs?
+    Example
+    =================
 
 Installation
 ============
@@ -66,7 +69,8 @@ You can install everything by running:
 
     pip3 install eagerx-gui
 
-ToDo: add example and gif of GUI
+..
+  TODO: Add example and gif of GUI
 
 Extras: training visualization
 ---------------------
@@ -74,11 +78,12 @@ Extras: training visualization
 For training visualization, either a ``desktop`` or ``desktop-full`` ROS installation is required.
 See `here <ROS_>`_ for installation instructions.
 
-ToDo: add example and gif of visualization.
+..
+  TODO: add example and gif of visualization.
 
 Dependencies
 ============
-Below you find instructions for installing dependencies required for EAGERx (and the whole set of features).
+Below you find instructions for installing dependencies required for EAGERx.
 
 ROS
 ---------------------
@@ -95,7 +100,7 @@ a minimal ros installation can be installed with:
     curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
     sudo apt update
     sudo apt install ros-<DISTRO>-<PACKAGE>
-    sudo apt-get install ros-<DISTRO>>-cv-bridge
+    sudo apt-get install ros-<DISTRO>-cv-bridge
 
 Make sure to source ``/opt/ros/<DISTRO>/setup.bash`` in the environment where you intend to ``eagerx`` in.
 It can be convenient to automatically source this script every time a new shell is launched.
