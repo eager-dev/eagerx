@@ -14,15 +14,20 @@ zero_action = {"Pendulum-v0": [0.0], "Acrobot-v1": 0}
 
 @pytest.mark.parametrize("gym_id", ["Pendulum-v0", "Acrobot-v1"])
 @pytest.mark.parametrize("eps", [2])
-@pytest.mark.parametrize("is_reactive", [True, False])
+@pytest.mark.parametrize("is_reactive", [True])
 @pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
 def test_integration_openai_bridge(gym_id, eps, is_reactive, p):
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
+    roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
 
     # Define rate (depends on rate of gym env)
     rate = 20
     name = gym_id.split("-")[0]
     za = zero_action[gym_id]
+
+    # Get signature of object
+    Object.get_spec("GymObject")
+
+    # Create object
     obj = Object.make(
         "GymObject",
         name,

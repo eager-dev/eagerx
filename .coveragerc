@@ -9,3 +9,11 @@ omit =
 [report]
 exclude_lines =
     pragma: no cover
+    pass
+    if TYPE_CHECKING:
+    if self.log_memory and self.iter_ticks % self.print_iter == 0:
+    raise ValueError
+    elif print_mode == ROS:
+    filter_info_for_printing
+    remap_cb_input
+    raise

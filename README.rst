@@ -54,7 +54,7 @@ You can do a minimal installation of ``EAGERx`` with:
 
 EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
 so it does **not** impose a ROS package structure on your project.
-See `here <ROS_>`_ for installation instruction.
+See `here <ROS_>`_ for installation instructions.
 
 Extras: GUI
 ---------------------
@@ -72,7 +72,7 @@ Extras: training visualization
 ---------------------
 
 For training visualization, either a ``desktop`` or ``desktop-full`` ROS installation is required.
-See `here <ROS_>`_ for installation instruction.
+See `here <ROS_>`_ for installation instructions.
 
 ToDo: add example and gif of visualization.
 
@@ -97,7 +97,7 @@ a minimal ros installation can be installed with:
     sudo apt install ros-<DISTRO>-<PACKAGE>
     sudo apt-get install ros-<DISTRO>>-cv-bridge
 
-Make sure to source ``/opt/ros/<DISTRO>/setup.bash`` in the environment you use ``eagerx`` in.
+Make sure to source ``/opt/ros/<DISTRO>/setup.bash`` in the environment where you intend to ``eagerx`` in.
 It can be convenient to automatically source this script every time a new shell is launched.
 These commands will do that for you if you:
 

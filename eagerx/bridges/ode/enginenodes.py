@@ -6,7 +6,7 @@ from std_msgs.msg import UInt64, Float32MultiArray
 
 # IMPORT EAGERX
 from eagerx.core.constants import process
-from eagerx.utils.utils import return_typehint, Msg
+from eagerx.utils.utils import Msg
 from eagerx.core.entities import EngineNode
 import eagerx.core.register as register
 
@@ -49,7 +49,7 @@ class OdeOutput(EngineNode):
 
     @register.inputs(tick=UInt64)
     @register.outputs(observation=Float32MultiArray)
-    def callback(self, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32MultiArray):
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
         )
@@ -99,7 +99,7 @@ class ActionApplied(EngineNode):
         t_n: float,
         tick: Optional[Msg] = None,
         action_applied: Optional[Float32MultiArray] = None,
-    ) -> return_typehint(Float32MultiArray):
+    ):
         if len(action_applied.msgs) > 0:
             data = action_applied.msgs[-1].data
         else:
@@ -155,7 +155,7 @@ class OdeInput(EngineNode):
         t_n: float,
         tick: Optional[Msg] = None,
         action: Optional[Float32MultiArray] = None,
-    ) -> return_typehint(Float32MultiArray):
+    ):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this simulation node.' % self.simulator[self.obj_name]
         )

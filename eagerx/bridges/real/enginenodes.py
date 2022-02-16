@@ -10,7 +10,7 @@ from cv_bridge import CvBridge
 
 # IMPORT EAGERX
 import eagerx.core.register as register
-from eagerx.utils.utils import return_typehint, Msg
+from eagerx.utils.utils import Msg
 from eagerx.core.entities import EngineNode
 from eagerx.core.constants import process
 
@@ -64,7 +64,7 @@ class CameraRender(EngineNode):
 
     @register.inputs(tick=UInt64)
     @register.outputs(image=Image)
-    def callback(self, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Image):
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
         if self.render_toggle:
             ret, img = self.cam.read()
             try:

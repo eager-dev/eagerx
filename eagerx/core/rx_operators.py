@@ -311,63 +311,10 @@ def switch_to_reset():
     return _switch_to_reset
 
 
-def push_to_Nc(Nc, Rn):
-    def _push_to_Nc(source):
-        def subscribe(observer, scheduler=None):
-            q = [0]
-
-            def on_next(value):
-                if value[0] > q[0]:
-                    q[0] = value[0]
-                    if not Nc.is_disposed:
-                        Nc.on_next(value[0])
-
-                if value[2] and value[0] == value[1]:
-                    Rn.on_next(value)
-
-                observer.on_next(value)
-
-            return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
-
-        return rx.create(subscribe)
-
-    return _push_to_Nc
-
-
 def combine_dict(acc, x):
     for key, item in acc.items():
         item += x[key]
     return acc
-
-
-def publisher_to_topic(publisher):
-    def _publisher_to_topic(source):
-        def subscribe(observer, scheduler=None):
-            def on_next(msg):
-                publisher.publish(msg)
-                observer.on_next(msg)
-
-            return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
-
-        return rx.create(subscribe)
-
-    return _publisher_to_topic
-
-
-def publish_to_topic(topic_type: Any, topic_name: str) -> Callable[[Observable], Observable]:
-    """+
-    The to_topic operator will take each message from the stream and publish it to a specific ROS topic.
-    :param topic_type: The type of the observable data elements.
-    :param topic_name: The name of the ROS2 topic to publish the messages to.
-    :return: The observable data stream it operates on, i.e. it is an identity operator.
-    """
-
-    def _publish_to_topic(source) -> Observable:
-        publisher = rospy.Publisher(topic_name, topic_type)
-        source.subscribe(on_next=lambda msg: publisher.publish(msg))
-        return source
-
-    return _publish_to_topic
 
 
 def create_msg_tuple(name: str, node_tick: int, msg: List[Any], stamp: List[Stamp], done: bool = None):
@@ -904,13 +851,10 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.map(s["converter"].convert),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-                # ops.map(lambda val: dict(msg=val)),
                 ops.start_with((-1, None)),
-                # ops.start_with(dict(name=s['name'], msg=None)),
                 ops.combine_latest(d),
                 ops.filter(lambda x: x[0][0] >= 0 or x[1]),
                 remap_state(s["name"], node.is_reactive, node.real_time_factor),
-                # ops.map(lambda x: merge_dicts(x[0].copy(), {'done': x[1]}))
             )
 
             done, reset = trigger.pipe(
@@ -919,8 +863,6 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.partition(lambda x: x.info.done),
             )
             reset = reset.pipe(call_state_reset(s["state"]))
-            # reset = reset.pipe(ops.map(lambda x: (x, st.reset(state=x.msgs[0], done=x.info.done))),
-            #                    ops.map(lambda x: x[0]))
             rs = rx.merge(
                 done.pipe(spy("done [%s]" % s["name"].split("/")[-1][:12].ljust(4), node)),
                 reset.pipe(spy("reset [%s]" % s["name"].split("/")[-1][:12].ljust(4), node)),
@@ -1336,103 +1278,3 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, s
             ops.share(),
         )
     return Nct
-
-
-def throttled_Nc(
-    source_Nc: Observable,
-    is_reactive,
-    rate_node: float,
-    node,
-    rate_tol: float = 0.95,
-    log_level: int = WARN,
-):
-    node_name = node.ns_name
-    color = "red"  # node.color
-    print_mode = node.print_mode
-    effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
-    log_freq = 2 * int(max(1, int(rate_node)))
-
-    def _throttled_Nc(source_interval: Observable):
-        def subscribe(observer: typing.Observer, scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
-            Nc_queue = deque(maxlen=1)
-            interval_queue = deque(maxlen=log_freq)
-            lock = RLock()
-            last_interval = [0]
-            last_Nc = [0]
-
-            def next(i):
-                if len(Nc_queue) > 0:
-                    if len(interval_queue) > 0:
-                        try:
-                            Nc = Nc_queue.pop()
-                            interval = interval_queue[0]
-                            interval_queue.clear()
-                            if not is_reactive and (interval + 1) % log_freq == 0:
-                                window_interval = interval - last_interval[0]
-                                window_Nc = Nc - last_Nc[0]
-                                last_interval[0] = interval
-                                last_Nc[0] = Nc
-                                ratio = window_Nc / window_interval
-                                window_length = log_freq / rate_node
-                                if (
-                                    ratio < rate_tol
-                                    and node.log_level >= effective_log_level
-                                    and log_level >= effective_log_level
-                                ):
-                                    print_str = (
-                                        "Running at roughly %.2f%% of the set node rate (%s Hz) over the last %s (simulated) seconds. "
-                                        % (ratio * 100, rate_node, window_length)
-                                    )
-                                    print_info(
-                                        node_name,
-                                        color,
-                                        "node rate",
-                                        trace_type="",
-                                        value=print_str,
-                                        print_mode=print_mode,
-                                        log_level=log_level,
-                                    )
-                        except Exception as ex:  # pylint: disable=broad-except
-                            observer.on_error(ex)
-                            return
-                        observer.on_next(Nc)
-                elif not is_reactive and len(interval_queue) == log_freq and rate_node > 1:
-                    interval = interval_queue[0]
-                    interval_queue.clear()
-                    interval_queue.append(interval)
-                    if node.log_level >= effective_log_level and log_level >= effective_log_level:
-                        print_str = "Node has not returned from a callback in the last (simulated) second."
-                        print_info(
-                            node_name,
-                            color,
-                            "stale node",
-                            trace_type="",
-                            value=print_str,
-                            print_mode=print_mode,
-                            log_level=log_level,
-                        )
-
-            @synchronized(lock)
-            def on_next_Nc(x):
-                Nc_queue.append(x)
-                next(x)
-
-            subscriptions = []
-            sad = SingleAssignmentDisposable()
-            sad.disposable = source_Nc.subscribe(on_next_Nc, observer.on_error, observer.on_completed, scheduler)
-            subscriptions.append(sad)
-
-            @synchronized(lock)
-            def on_next_interval(x):
-                interval_queue.append(x)
-                next(x)
-
-            sad = SingleAssignmentDisposable()
-            sad.disposable = source_interval.subscribe(on_next_interval, observer.on_error, observer.on_completed, scheduler)
-            subscriptions.append(sad)
-
-            return CompositeDisposable(subscriptions)
-
-        return rx.create(subscribe)
-
-    return _throttled_Nc

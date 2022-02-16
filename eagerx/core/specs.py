@@ -1001,16 +1001,6 @@ class RxInput(Params):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
-        if not converter:
-            from eagerx.core.converters import Identity
-
-            converter = Identity().get_yaml_definition()
-            del Identity
-
-        # If space_converter undefined, remove it
-        if not space_converter:
-            del space_converter
-
         kwargs = locals().copy()
         kwargs.pop("self")
         super(RxInput, self).__init__(**kwargs)
@@ -1040,14 +1030,8 @@ class RxOutput(Params):
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
         # If space_converter undefined, remove it
-        if not converter:
-            from eagerx.core.converters import Identity
-
-            converter = Identity().get_yaml_definition()
-            del Identity
-
-        if not space_converter:
-            del space_converter
+        # if not space_converter:
+        #     raise NotImplementedError(name)
         kwargs = locals().copy()
         kwargs.pop("self")
         super(RxOutput, self).__init__(**kwargs)
@@ -1078,16 +1062,6 @@ class RxFeedthrough(Params):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
-        # If space_converter undefined, remove it
-        if not converter:
-            from eagerx.core.converters import Identity
-
-            converter = Identity().get_yaml_definition()
-            del Identity
-
-        if not space_converter:
-            del space_converter
-
         kwargs = locals().copy()
         kwargs.pop("self")
         super(RxFeedthrough, self).__init__(**kwargs)
@@ -1114,15 +1088,6 @@ class RxState(Params):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
-        # If space_converter undefined, remove it
-        if not converter:
-            from eagerx.core.converters import Identity
-
-            converter = Identity().get_yaml_definition()
-            del Identity
-
-        if not space_converter:
-            del space_converter
         kwargs = locals().copy()
         kwargs.pop("self")
         super(RxState, self).__init__(**kwargs)
@@ -1150,15 +1115,6 @@ class RxEngineState(Params):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
-        # If space_converter undefined, remove it
-        if not converter:
-            from eagerx.core.converters import Identity
-
-            converter = Identity().get_yaml_definition()
-            del Identity
-
-        if not space_converter:
-            del space_converter
         kwargs = locals().copy()
         kwargs.pop("self")
         super(RxEngineState, self).__init__(**kwargs)

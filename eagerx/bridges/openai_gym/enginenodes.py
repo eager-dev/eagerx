@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 
 # IMPORT EAGERX
 import eagerx.core.register as register
-from eagerx.utils.utils import return_typehint, Msg
+from eagerx.utils.utils import Msg
 from eagerx.core.entities import EngineNode
 from eagerx.core.constants import process
 
@@ -61,7 +61,7 @@ class ObservationSensor(EngineNode):
 
     @register.inputs(tick=UInt64)
     @register.outputs(observation=Float32MultiArray)
-    def callback(self, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32MultiArray):
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
@@ -121,7 +121,7 @@ class RewardSensor(EngineNode):
 
     @register.inputs(tick=UInt64)
     @register.outputs(reward=Float32)
-    def callback(self, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Float32):
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
@@ -181,7 +181,7 @@ class DoneSensor(EngineNode):
 
     @register.inputs(tick=UInt64)
     @register.outputs(done=Bool)
-    def callback(self, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Bool):
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
@@ -263,8 +263,8 @@ class ActionActuator(EngineNode):
         self,
         t_n: float,
         tick: Optional[Msg] = None,
-        action: Optional[Float32MultiArray] = None,
-    ) -> return_typehint(Float32MultiArray):
+        action: Optional[Msg] = None,
+    ):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
@@ -341,7 +341,7 @@ class GymImage(EngineNode):
 
     @register.inputs(tick=UInt64)
     @register.outputs(image=Image)
-    def callback(self, t_n: float, tick: Optional[Msg] = None) -> return_typehint(Image):
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
