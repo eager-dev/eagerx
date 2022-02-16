@@ -13,7 +13,7 @@ import pytest
 
 
 def test_graph():
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
+    roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
     rate = 7
 
     # Define nodes
@@ -21,7 +21,7 @@ def test_graph():
         "Process",
         "N1",
         rate=rate,
-        process=process.NEW_PROCESS,
+        process=process.ENVIRONMENT,
         inputs=["in_1"],
         outputs=["out_1"],
     )
@@ -222,7 +222,7 @@ def test_graph():
     graph.is_valid(plot=True)
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0, process=process.NEW_PROCESS)
+    bridge = Bridge.make("TestBridge", rate=20, is_reactive=False, real_time_factor=5.5, process=process.NEW_PROCESS)
 
     # Initialize Environment
     env = EagerEnv(
@@ -241,9 +241,9 @@ def test_graph():
     env.reset()
     env.render(mode="human")
     action = env.action_space.sample()
-    for j in range(3):
+    for j in range(2):
         print("\n[Episode %s]" % j)
-        for i in range(5):
+        for i in range(50):
             env.step(action)
             env.render(mode="rgb_array")
         env.reset()
