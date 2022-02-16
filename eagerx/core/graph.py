@@ -593,8 +593,8 @@ class Graph:
 
     def rename(
         self,
-        old,
-        new,
+        old: str,
+        new: str,
         name: Optional[str] = None,
         component: Optional[str] = None,
         action: Optional[str] = None,

@@ -32,14 +32,9 @@ class EngineGraph:
     def create(
         cls,
         actuators: Optional[List[Dict]] = None,
-        sensors: Optional[List[Dict]] = None,
-        nodes: Optional[List] = None,
+        sensors: Optional[List[Dict]] = None
     ):
-
-        if nodes is None:
-            nodes = []
-        if isinstance(nodes, EngineNodeSpec):
-            nodes = [nodes]
+        nodes = []
 
         from eagerx.core.entities import EngineNode
         from eagerx.core.converters import Identity
@@ -114,7 +109,7 @@ class EngineGraph:
 
             # Add node to state
             state["nodes"][name] = dict()
-            state["nodes"][name]["params"] = node._params
+            state["nodes"][name]["params"] = node.params
             state["nodes"][name]["default"] = node.params
 
     def remove(self, names: Union[str, List[str]]):
@@ -144,55 +139,7 @@ class EngineGraph:
                     self.disconnect(source, target, actuator, sensor)
             self._state["nodes"].pop(name)
 
-    def _remove(self, names: Union[str, List[str]]):
-        """
-        First removes all associated connects from self._state.
-        Then, removes node/object from self._state.
-        """
-        if not isinstance(names, list):
-            names = [names]
-        for name in names:
-            self._exist(self._state, name)
-            for source, target in deepcopy(self._state["connects"]):
-                if name in [source[0], target[0]]:
-                    if source[0] == "actuators":
-                        actuator = source[2]
-                        source = None
-                    else:
-                        actuator = None
-                        source = source
-                    if target[0] == "sensors":
-                        sensor = target[2]
-                        target = None
-                    else:
-                        sensor = None
-                        target = target
-                    self._disconnect(source, target, actuator, sensor)
-            self._state["nodes"].pop(name)
-
-    def add_component(
-        self,
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        actuator: Optional[str] = None,
-        sensor: Optional[str] = None,
-    ):
-        """
-        Adds a component entry to the selection list.
-        """
-        # assert only action, only observation, only name, component, cname
-        self._correct_signature(name, component, cname, actuator, sensor)
-        if actuator:
-            name, component, cname = ("actuators", "outputs", actuator)
-        if sensor:
-            name, component, cname = ("sensors", "inputs", sensor)
-        self._add_component(name, component, cname)
-
-        # if (name is not None) and (component is not None) and (cname is not None):  # component parameter
-        self._add_component(name, component, cname)
-
-    def _add_component(self, name: str, component: str, cname: str):
+    def add_component(self, name: str, component: str, cname: str):
         """
         Adds a component entry to the selection list.
         """
@@ -201,33 +148,10 @@ class EngineGraph:
 
         # Add cname to selection list if it is not already selected
         params = self._state["nodes"][name]["params"]
-        assert cname not in params["default"][component], '"%s" already selected in "%s" under %s.' % (
-            cname,
-            name,
-            component,
-        )
+        assert cname not in params["default"][component], f'"{cname}" already selected in "{name}" under {component}.'
         params["default"][component].append(cname)
 
-    def remove_component(
-        self,
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        actuator: Optional[str] = None,
-        sensor: Optional[str] = None,
-    ):
-        """
-        Removes a component entry from the selection list. It will first disconnect all connections in connect.
-        """
-        # assert only action, only observation, only name, component, cname
-        self._correct_signature(name, component, cname, actuator, sensor)
-        if actuator:
-            name, component, cname = ("actuators", "outputs", actuator)
-        if sensor:
-            name, component, cname = ("sensors", "inputs", sensor)
-        self._remove_component(name, component, cname)
-
-    def _remove_component(self, name: str, component: str, cname: str):
+    def remove_component(self, name: str, component: str, cname: str):
         """
         Removes a component entry from the selection list. It will first disconnect all connections in connect.
         """
@@ -325,8 +249,6 @@ class EngineGraph:
         after which an additional call to connect_actuator/sensor is required before calling this method.
         For more info, see self.connect.
         """
-        if isinstance(converter, ConverterSpec):
-            converter = converter.params
 
         if isinstance(source, tuple):
             source = list(source)
@@ -377,18 +299,6 @@ class EngineGraph:
         """
         Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         """
-        self._disconnect(source, target, actuator, sensor)
-
-    def _disconnect(
-        self,
-        source: Optional[Tuple[str, str, str]] = None,
-        target: Optional[Tuple[str, str, str]] = None,
-        actuator: str = None,
-        sensor: str = None,
-    ):
-        """
-        Disconnects a source from a target. The target is reset in self._state to its disconnected state.
-        """
         assert (
             not source or not actuator
         ), f'You cannot specify a source if you wish to disconnect actuator "{actuator}", as the actuator will act as the source.'
@@ -398,16 +308,23 @@ class EngineGraph:
         assert not (
             sensor and actuator
         ), "You cannot disconnect an actuator from an sensor, as such a connection cannot exist."
-        if isinstance(source, tuple):
-            source = list(source)
-        if isinstance(target, tuple):
-            target = list(target)
 
         # Create source & target entries
         if actuator:
             source = ["actuators", "outputs", actuator]
         if sensor:
             target = ["sensors", "inputs", sensor]
+
+        self._disconnect(source, target)
+
+    def _disconnect(self, source: Tuple[str, str, str], target: Tuple[str, str, str]):
+        """
+        Disconnects a source from a target. The target is reset in self._state to its disconnected state.
+        """
+        if isinstance(source, tuple):
+            source = list(source)
+        if isinstance(target, tuple):
+            target = list(target)
 
         # Check if connection exists
         self._is_selected(self._state, *target)
@@ -435,23 +352,10 @@ class EngineGraph:
             # Pop the connection from the state
             self._state["connects"].pop(idx_connect)
 
-            # Reset source params to disconnected state
-            if actuator:
-                pass
-                # self._disconnect_action(action)
-            else:
-                # Nothing to do here (for now)
-                source_name, source_comp, source_cname = source
-                # source_params = self._state["nodes"][source_name]["params"]
-
         # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
-        if sensor:
-            pass
-            # self._disconnect_observation(observation)
-        else:
-            target_name, target_comp, target_cname = target
-            target_params = self._state["nodes"][target_name]["params"]
-            target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][target_cname]
+        target_name, target_comp, target_cname = target
+        target_params = self._state["nodes"][target_name]["params"]
+        target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][target_cname]
 
     def _disconnect_component(self, name: str, component: str, cname: str):
         """
@@ -463,114 +367,41 @@ class EngineGraph:
             self._is_selected(self._state, *target)
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
-            if source_name == "actuators":
-                actuator = source_cname
-                source = None
-            else:
-                actuator = None
-                source = source
-            if target_name == "sensors":
-                sensor = target_cname
-                target = None
-            else:
-                sensor = None
-                target = target
             if name == source_name and component == source_comp and cname == source_cname:
-                self.disconnect(source, target, actuator, sensor)
+                self.disconnect(source, target)
+                was_connected = True
+            elif name == target_name and component == target_comp and cname == target_cname:
+                self.disconnect(source, target)
                 was_connected = True
         return was_connected
 
-    def rename(
-        self,
-        old,
-        new,
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        actuator: Optional[str] = None,
-        sensor: Optional[str] = None,
-    ):
+    def rename(self, old: str, new: str):
         """
-        Renames the node/object, or action/observation if specified.
+        Renames the entity (node) in _state['nodes'] and self._state[connects]
         """
-        self._correct_signature(name=name, component=component, sensor=sensor, actuator=actuator)
-        if actuator:
-            name = "actuators"
-            component = "outputs"
-        if sensor:
-            name = "sensors"
-            component = "inputs"
-        if (name is not None) and (component is not None):  # component renaming
-            self._rename_component(name, component, old_cname=old, new_cname=new)
-        elif (name is None) and (component is None):  # node/object renaming
-            self._rename_entity(old_name=old, new_name=new)
-        else:
-            raise ValueError("Either the arguments {name, component} are None, or they must both be specified.")
-
-    def _rename_component(self, name: str, component: str, old_cname: str, new_cname: str):
-        """
-        Renames the component name (cname) of an entity (node/object) in _state['nodes'] and self._state[connects].
-        We cannot change names for node/object components, because their python implementation could depend on it.
-        """
-        self._exist(self._state, name, component=component, cname=old_cname)
-        default = self._state["nodes"][name]["default"]
-        params = self._state["nodes"][name]["params"]
-
-        # For now, we only support changing action/observation cnames
-        assert name in [
+        self._exist(self._state, old)
+        assert old not in [
             "sensors",
             "actuators",
-        ], f'Cannot change "{old_cname}" of "{name}". Only name changes to observations and actions are supported.'
-        assert new_cname not in params[component], f'"{new_cname}" already defined in "{name}" under {component}.'
-
-        # Rename cname in params
-        for d in (params, default):
-            if component in d and old_cname in d[component]:
-                assert new_cname not in d[component], f'"{new_cname}" already defined in "{name}" under {component}.'
-                d[component][new_cname] = d[component].pop(old_cname)
-            if component in d["default"] and old_cname in d["default"][component]:
-                assert (
-                    new_cname not in d["default"][component]
-                ), f'"{new_cname}" already defined in "{name}" under {component}.'
-                d["default"][component].remove(old_cname)
-                d["default"][component].append(new_cname)
-
-        # Rename cname in all connects
-        for source, target in self._state["connects"]:
-            source_name, source_comp, source_cname = source
-            target_name, target_comp, target_cname = target
-
-            if source_comp == component and source_cname == old_cname:
-                source[2] = new_cname
-            if target_comp == component and target_cname == old_cname:
-                target[2] = new_cname
-
-    def _rename_entity(self, old_name: str, new_name: str):
-        """
-        Renames the entity (node/object) in _state['nodes'] and self._state[connects]
-        """
-        self._exist(self._state, old_name)
-        assert old_name not in [
-            "sensors",
-            "actuators",
-        ], f'Node name "{old_name}" is fixed and cannot be changed.'
+        ], f'Node name "{old}" is fixed and cannot be changed.'
         assert (
-            new_name not in self._state["nodes"]
-        ), f'There is already a node or object registered in this graph with name "{new_name}".'
+            new not in self._state["nodes"]
+        ), f'There is already a node or object registered in this graph with name "{new}".'
 
         # Rename entity in params
-        self._state["nodes"][new_name] = self._state["nodes"].pop(old_name)
-        self._state["nodes"][new_name]["default"]["default"]["name"] = new_name
-        self._state["nodes"][new_name]["params"]["default"]["name"] = new_name
+        self._state["nodes"][new] = self._state["nodes"].pop(old)
+        self._state["nodes"][new]["default"]["default"]["name"] = new
+        self._state["nodes"][new]["params"]["default"]["name"] = new
 
         # Rename in all connects
         for source, target in self._state["connects"]:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
 
-            if source_name == old_name:
-                source[0] = new_name
-            if target_name == old_name:
-                target[0] = new_name
+            if source_name == old:
+                source[0] = new
+            if target_name == old:
+                target[0] = new
 
     def set_parameter(
         self,
@@ -578,9 +409,7 @@ class EngineGraph:
         value: Any,
         name: Optional[str] = None,
         component: Optional[str] = None,
-        cname: Optional[str] = None,
-        actuator: Optional[str] = None,
-        sensor: Optional[str] = None,
+        cname: Optional[str] = None
     ):
         """
         A wrapper to set a single parameter. See set_parameters for more info.
@@ -589,9 +418,7 @@ class EngineGraph:
             {parameter: value},
             name=name,
             component=component,
-            cname=cname,
-            actuator=actuator,
-            sensor=sensor,
+            cname=cname
         )
 
     def set_parameters(
@@ -612,13 +439,9 @@ class EngineGraph:
         """
         self._correct_signature(name, component, cname, actuator, sensor)
         if actuator:
-            name = "actuators"
-            component = "outputs"
-            cname = actuator
+            raise ValueError("Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition.")
         if sensor:
-            name = "sensors"
-            component = "inputs"
-            cname = sensor
+            raise ValueError("Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition.")
         self._exist(self._state, name, component=component, cname=cname)
 
         if (component is not None) and (cname is not None):  # component parameter
@@ -745,28 +568,6 @@ class EngineGraph:
         else:  # default parameter
             return deepcopy(self._state["nodes"][name]["params"]["default"])
 
-    def _reset_converter(self, name: str, component: str, cname: str):
-        """
-        Replaces the converter specified for a node's/object's I/O defined in self._state[name]['default'].
-        **DOES NOT** remove observation entries if they are disconnected.
-        **DOES NOT** remove action entries if they are disconnect and the last connection.
-        """
-        default = self._state["nodes"][name]["default"]
-        self._exist(
-            self._state,
-            name,
-            component=component,
-            cname=cname,
-            parameter="converter",
-            check_default=True,
-        )
-
-        # Grab converter from the default params
-        converter_default = default[component][cname]["converter"]
-
-        # Replace the converter with the default converter
-        self._set_converter(name, component, cname, converter_default)
-
     def _node_depenencies(self, state):
         import networkx as nx
 
@@ -883,19 +684,6 @@ class EngineGraph:
         assert actuators, "No actuators node defined in the graph."
         assert sensors, "No sensors node defined in the graph."
         return nodes, actuators, sensors
-
-    def save(self, path: str):
-        with open(path, "w") as outfile:
-            yaml.dump(self._state, outfile, default_flow_style=False)
-        pass
-
-    def load(self, path: str):
-        with open(path, "r") as stream:
-            try:
-                self._state = yaml.safe_load(stream)
-                # self._state = yaml.load(path)
-            except yaml.YAMLError as exc:
-                print(exc)
 
     def gui(self):
         raise NotImplementedError("Gui is not yet supported for engine graphs.")
@@ -1195,12 +983,6 @@ class EngineGraph:
                     target_edge = "%s/%s" % (target_name, target_cname)
                     target_edges.append(target_edge)
 
-                # Determine stale nodes in real_reset routine via feedthrough edges
-                if target_comp == "feedthroughs":
-                    feedthrough = True
-                else:
-                    feedthrough = False
-
                 # Determine edges that do not break DAG property (i.e. edges that are skipped)
                 if source_name == "actuators":
                     skip = state["nodes"][source_name]["params"]["inputs"][source_cname]["skip"]
@@ -1217,7 +999,7 @@ class EngineGraph:
                         source_edge,
                         target_edge,
                         color=color,
-                        feedthrough=feedthrough,
+                        feedthrough=False,
                         style=style,
                         alpha=1.0,
                         is_stale=False,

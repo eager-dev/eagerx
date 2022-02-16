@@ -6,7 +6,7 @@ from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
 from eagerx.bridges.test.bridge import TestBridgeNode
-from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState
+from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, BaseConverter
 from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
 from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
@@ -89,9 +89,142 @@ class Arm(Object):
         )
         spec.set_parameters(params)
 
-        # Add bridge-specific implementation
-        # NO BRIDGE-SPECIFIC IMPLEMENTATION. SEE "Viper" SUBCLASS.
+        spec.set_parameters(params, level="default")
+
+        # Add bridge implementation
+        Arm.test_bridge(spec)
         return spec
+
+    @classmethod
+    @register.bridge(TestBridgeNode)  # This decorator pre-initializes bridge implementation with default object_params
+    def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
+        """Engine-specific implementation of the Arm with the test bridge."""
+        # Set object arguments
+        object_params = dict(req_arg="TEST", xacro="$(find some_package)/urdf/arm.urdf.xacro")
+        spec.set_parameters(object_params)
+
+        # Create simstates
+        spec.set_state("N9", EngineState.make("TestEngineState", test_arg="arg_N9"))
+        # spec.set_state('N10', SimState.make('TestEngineState', test_arg='arg_N10'))
+
+        # Create sensor engine nodes
+        N6 = EngineNode.make(
+            "TestSensor",
+            "N6",
+            rate=1,
+            process=2,
+            inputs=["tick", "in_1"],
+            outputs=["out_1"],
+            states=["state_1"],
+            test_arg="$(default req_arg)",
+        )
+        N7 = EngineNode.make(
+            "TestSensor",
+            "N7",
+            rate=1,
+            process=2,
+            inputs=["tick", "in_1"],
+            outputs=["out_1"],
+            states=[],
+            test_arg="$(default test_string)",
+        )
+
+        # Create actuator engine nodes
+        N8 = EngineNode.make(
+            "TestActuator",
+            "N8",
+            rate=1,
+            process=2,
+            inputs=["tick", "in_2", "in_3"],
+            outputs=["out_1"],
+            test_arg="$(default test_string)",
+            color="green",
+        )
+        ref_vel = EngineNode.make(
+            "TestActuator",
+            "ref_vel",
+            rate=1,
+            process=2,
+            inputs=["tick", "in_1", "in_2"],
+            outputs=["out_1"],
+            test_arg="$(default test_string)",
+            color="green",
+        )
+
+        # Add/remove sensor
+        graph.add(N6)
+        _ = graph.__str__
+        graph.add_component("N6", "outputs", "out_2")
+        graph.remove_component("N6", "outputs", "out_2")
+        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
+        graph.remove("N6")
+
+        # Add/remove actuator
+        graph.add(N8)
+        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
+        graph.remove("N8")
+
+        # Remove component
+        graph.add(N6)
+        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
+        graph.rename("N6", "N6_new")  # Test renaming
+        graph.remove_component("N6_new", "outputs", "out_1")
+        graph.add_component("N6_new", "outputs", "out_1")
+        graph.remove("N6_new")
+
+        # Remove component
+        graph.add(N8)
+        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
+        graph.remove_component("N8", "inputs", "in_3")
+        graph.add_component("N8", "inputs", "in_3")
+        graph.remove("N8")
+
+        # Test parameters
+        graph.add([N6, N8])
+        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
+        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
+        graph.get_parameter('converter', "N6", "outputs", "out_1")
+        graph.set_parameter("test_arg", "NEW_ARG", "N6")
+        graph.get_parameter('converter', actuator="N8")
+        graph.get_parameter('converter', sensor="N6")
+        graph.get_parameters(sensor="N6")
+        graph.get_parameters(actuator="N8")
+        graph.get_parameters("N6", "outputs", "out_1")
+        graph.remove(["N6", "N8"])
+
+        # Add nodes to graph and connect them to actuators/sensors
+        graph.add([N6, N7, N8, ref_vel])
+
+        # Connect sensors & actuators to engine nodes
+        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
+        graph.disconnect(source=("N6", "outputs", "out_1"), sensor="N6")
+        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
+        graph.connect(source=("N7", "outputs", "out_1"), sensor="N7")
+        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
+        graph.connect(actuator="ref_vel", target=("ref_vel", "inputs", "in_1"))
+
+        # Interconnect engine nodes
+        id = BaseConverter.make("Identity")
+        graph.connect(
+            source=("N8", "outputs", "out_1"),
+            target=("N7", "inputs", "in_1"),
+            skip=True,
+        )
+        graph.connect(source=("N6", "outputs", "out_1"), target=("N8", "inputs", "in_2"), window=1, converter=id)
+        graph.connect(source=("N6", "outputs", "out_1"), target=("ref_vel", "inputs", "in_2"), delay=0.0)
+
+        # Connect simnode with external address (cannot be actuator or sensor)
+        graph.connect(
+            address="$(ns env_name)/nonreactive_input_topic",
+            target=("N6", "inputs", "in_1"),
+            external_rate=20,
+        )
+        graph.disconnect(target=("N6", "inputs", "in_1"))
+        graph.connect(
+            address="$(ns env_name)/nonreactive_input_topic",
+            target=("N6", "inputs", "in_1"),
+            external_rate=20,
+        )
 
 
 class Viper(Arm):
