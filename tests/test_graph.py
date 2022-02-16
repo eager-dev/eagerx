@@ -237,6 +237,10 @@ def test_graph():
     )
     env = Flatten(env)
 
+    # Test message broker
+    env.env.mb.print_io_status()
+    env.env.mb.print_io_status(node_names="/graph/environment")
+
     # First reset
     env.reset()
     env.render(mode="human")
