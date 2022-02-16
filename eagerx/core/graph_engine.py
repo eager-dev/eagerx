@@ -29,11 +29,7 @@ class EngineGraph:
         return yaml.dump(self._state)
 
     @classmethod
-    def create(
-        cls,
-        actuators: Optional[List[Dict]] = None,
-        sensors: Optional[List[Dict]] = None
-    ):
+    def create(cls, actuators: Optional[List[Dict]] = None, sensors: Optional[List[Dict]] = None):
         nodes = []
 
         from eagerx.core.entities import EngineNode
@@ -409,17 +405,12 @@ class EngineGraph:
         value: Any,
         name: Optional[str] = None,
         component: Optional[str] = None,
-        cname: Optional[str] = None
+        cname: Optional[str] = None,
     ):
         """
         A wrapper to set a single parameter. See set_parameters for more info.
         """
-        return self.set_parameters(
-            {parameter: value},
-            name=name,
-            component=component,
-            cname=cname
-        )
+        return self.set_parameters({parameter: value}, name=name, component=component, cname=cname)
 
     def set_parameters(
         self,
@@ -439,9 +430,13 @@ class EngineGraph:
         """
         self._correct_signature(name, component, cname, actuator, sensor)
         if actuator:
-            raise ValueError("Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition.")
+            raise ValueError(
+                "Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition."
+            )
         if sensor:
-            raise ValueError("Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition.")
+            raise ValueError(
+                "Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition."
+            )
         self._exist(self._state, name, component=component, cname=cname)
 
         if (component is not None) and (cname is not None):  # component parameter
