@@ -1,6 +1,5 @@
-from typing import Dict
 import gym
-from gym.core import ActionWrapper, ObservationWrapper
+from gym.core import ActionWrapper
 from gym.wrappers import FlattenObservation
 
 

@@ -55,6 +55,10 @@ class RealResetNode(ResetNode):
         )
         spec.set_parameters(params)
 
+        # Test NodeSPec
+        spec.add_target("target_test", UInt64)
+        spec.remove_target("target_test")
+
         # Modify extra node params
         spec.set_parameter("test_arg", test_arg)
 
@@ -267,6 +271,23 @@ class KalmanNode(TestNode):
 
         # Modify extra node params
         spec.set_parameter("test_arg", test_arg)
+
+        # Test NodeSpec adding & removing of components
+        spec.add_input("in_test", UInt64)
+        spec.add_output("out_test", UInt64)
+        spec.add_state(
+            "state_test", UInt64, space_converter=SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        )
+        try:
+            spec.add_target("target_test", UInt64)
+        except AssertionError as e:
+            print(e)
+        spec.remove_input("in_test")
+        spec.remove_output("out_test")
+        spec.remove_state("state_test")
+
+        # Test getting parameters
+        spec.get_parameter("msg_type", "inputs", "tick")
 
         # Remove unused inputs
         spec.remove_input("tick")

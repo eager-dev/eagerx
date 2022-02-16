@@ -57,7 +57,7 @@ def test_graph():
     RosImage_RosUInt64 = Converter.make("RosImage_RosUInt64", test_arg="test")
 
     # Define graphs in different ways
-    _ = Graph.create(nodes=N3).__str__
+    _ = Graph.create(nodes=N3).__str__()
     graph = Graph.create(nodes=[N3, KF], objects=viper)
 
     # Rendering
