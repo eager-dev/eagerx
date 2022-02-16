@@ -12,7 +12,7 @@ import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 import pytest
 
 
-@pytest.mark.parametrize("eps", "steps", [(3, 50), (100, 3)])
+@pytest.mark.parametrize("eps, steps", [(3, 50), (100, 3)])
 @pytest.mark.parametrize("is_reactive", [True, False])
 @pytest.mark.parametrize("p", [process.NEW_PROCESS, process.ENVIRONMENT])
 def test_integration_test_bridge(eps, steps, is_reactive, p):
