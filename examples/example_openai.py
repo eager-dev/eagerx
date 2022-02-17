@@ -17,14 +17,14 @@ if __name__ == "__main__":
     rate = 20
 
     # Define object
-    gym_id = "Pendulum-v1"  # 'Pendulum-v1', 'Acrobot-v1', 'CartPole-v1', 'MountainCarContinuous-v0'
+    gym_id = "Acrobot-v1"  # 'Pendulum-v0', 'Acrobot-v1', 'CartPole-v1', 'MountainCarContinuous-v0'
     name = gym_id.split("-")[0]
     obj = Object.make(
         "GymObject",
         name,
         gym_env_id=gym_id,
         gym_rate=rate,
-        default_action=[0.0],
+        default_action=0,
         render_shape=[300, 300],
     )
 

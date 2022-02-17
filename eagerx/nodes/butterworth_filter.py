@@ -6,7 +6,7 @@ from std_msgs.msg import Float32MultiArray
 
 # IMPORT EAGERX
 import eagerx.core.register as register
-from eagerx.utils.utils import return_typehint
+from eagerx.utils.utils import Msg
 from eagerx.core.entities import Node, Processor, SpaceConverter
 from eagerx.core.constants import process
 
@@ -79,7 +79,7 @@ class ButterworthFilter(Node):
 
     @register.inputs(signal=Float32MultiArray)
     @register.outputs(filtered=Float32MultiArray)
-    def callback(self, t_n: float, signal: Optional[Float32MultiArray] = None) -> return_typehint(Float32MultiArray):
+    def callback(self, t_n: float, signal: Optional[Msg] = None):
         msgs = signal.msgs
         if len(msgs) >= self.N:
             unfiltered = [msgs[i].data[0] for i in range(-self.N, 0)]

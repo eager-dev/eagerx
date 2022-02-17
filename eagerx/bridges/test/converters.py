@@ -23,6 +23,8 @@ class Space_RosUInt64(SpaceConverter):
     def spec(spec, low, high, shape=None, dtype="uint64"):
         params = dict(low=low, high=high, shape=shape, dtype=dtype)
         spec.set_parameters(params)
+        _ = spec.get_parameters()  # Test function
+        spec.set_parameter("low", spec.get_parameter("low"))  # Test function
         return spec
 
     def get_space(self):

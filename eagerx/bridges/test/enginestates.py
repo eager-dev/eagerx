@@ -12,6 +12,8 @@ class TestEngineState(EngineState):
 
         # Modify parameters based on arguments
         spec.set_parameter("test_arg", test_arg)
+        _ = spec.get_parameters()  # Test function
+        spec.set_parameter("test_arg", spec.get_parameter("test_arg"))  # Test function
         return spec
 
     def initialize(self, test_arg):

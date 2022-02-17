@@ -36,12 +36,12 @@ class GymObject(Object):
             gym_id="$(default gym_env_id)",
             space="observation",
         )
-        spec.set_space_converter("sensors", "observation", sc)
-        spec.set_parameter("sensors", "observation", "rate", "$(default gym_rate)")
+        spec.set_space_converter(sc, "sensors", "observation")
+        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "observation")
 
         sc = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
-        spec.set_space_converter("sensors", "reward", sc)
-        spec.set_parameter("sensors", "reward", "rate", "$(default gym_rate)")
+        spec.set_space_converter(sc, "sensors", "reward")
+        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "reward")
 
         sc = SpaceConverter.make(
             "Space_Image",
@@ -50,17 +50,17 @@ class GymObject(Object):
             shape="(default render_shape)",
             dtype="float32",
         )
-        spec.set_space_converter("sensors", "image", sc)
-        spec.set_parameter("sensors", "image", "rate", "$(default gym_rate)")
+        spec.set_space_converter(sc, "sensors", "image")
+        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "image")
 
         sc = SpaceConverter.make("Space_Bool")
-        spec.set_space_converter("sensors", "done", sc)
-        spec.set_parameter("sensors", "done", "rate", "$(default gym_rate)")
+        spec.set_space_converter(sc, "sensors", "done")
+        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "done")
 
         # Set actuator properties: (space_converters, rate, etc...)
         sc = SpaceConverter.make("GymSpace_Float32MultiArray", gym_id="$(default gym_env_id)", space="action")
-        spec.set_space_converter("actuators", "action", sc)
-        spec.set_parameter("actuators", "action", "rate", "$(default gym_rate)")
+        spec.set_space_converter(sc, "actuators", "action")
+        spec.set_parameter("rate", "$(default gym_rate)", "actuators", "action")
 
     @staticmethod
     @register.spec("GymObject", Object)

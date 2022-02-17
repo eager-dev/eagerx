@@ -1,25 +1,19 @@
 # ROS SPECIFIC
-import rosparam
-import rospkg
 import rospy
 from rosgraph.masterapi import Error
 from roslaunch import substitution_args as sub
 from roslaunch.substitution_args import _collect_args
-from std_msgs.msg import Bool
 
 # OTHER
 from typing import List, NamedTuple, Any, Optional, Dict, Union, Tuple
 import time
 import importlib
 import inspect
-from functools import reduce, wraps
+from functools import wraps
 from time import sleep
-from six import raise_from
 import copy
 import ast
 import json
-from yaml import dump
-import os
 
 
 def dict_null(items):
@@ -47,10 +41,6 @@ def replace_None(d, to_null=True):
     else:
         object_pairs_hook = dict_None
     return json.loads(dict_str, object_pairs_hook=object_pairs_hook)
-
-
-def pretty_print(params):
-    print(dump(params))
 
 
 def get_attribute_from_module(attribute, module=None):
@@ -89,72 +79,6 @@ def get_module_type_string(cls):
 
 def get_cls_from_string(cls_string):
     return get_attribute_from_module(cls_string)
-
-
-def merge_dicts(a, b):
-    if isinstance(b, list):
-        b.insert(0, a)
-        return reduce(merge, b)
-    else:
-        return merge(a, b)
-
-
-def merge(a, b, path=None):
-    "merges b into a"
-    if path is None:
-        path = []
-    for key in b:
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            else:
-                a[key] = b[key]
-            # else:
-            #     raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
-        else:
-            a[key] = b[key]
-    return a
-
-
-def get_list_of_files(dirName):
-    # create a list of file and sub directories
-    # names in the given directory
-    list_of_file = os.listdir(dirName)
-    all_files = list()
-    # Iterate over all the entries
-    for entry in list_of_file:
-        # Create full path
-        fullPath = os.path.join(dirName, entry)
-        # If entry is a directory then get the list of files in this directory
-        if os.path.isdir(fullPath):
-            all_files = all_files + get_list_of_files(fullPath)
-        else:
-            all_files.append(fullPath)
-
-    return all_files
-
-
-def load_yaml(package_name, object_name):
-    try:
-        pp = rospkg.RosPack().get_path(package_name)
-        all_files = get_list_of_files(pp + "/config")
-        all_filenames = dict()
-        for path in all_files:
-            filename = path.split("/")[-1]
-            assert (
-                filename not in all_filenames or object_name + ".yaml" != filename
-            ), 'Config file "%s" exists multiple times in "%s" and its subdirectories. ' % (filename, pp + "/config")
-            all_filenames[filename] = path
-        config_filename = all_filenames[object_name + ".yaml"]
-        params = rosparam.load_file(config_filename)[0][0]
-    except Exception as ex:
-        raise_from(
-            RuntimeError(("Unable to load %s from package %s/config" % (object_name, package_name))),
-            ex,
-        )
-    return params
 
 
 def get_param_with_blocking(name, timeout=5):
@@ -363,35 +287,6 @@ def _ns(resolved, a, args, context):
             raise
 
 
-def get_ROS_log_level(name):
-    ns = "/".join(name.split("/")[:2])
-    return get_param_with_blocking(ns + "/log_level")
-
-
-def get_yaml_type(yaml):
-    if "node_type" in yaml:
-        if "targets" in yaml:
-            type = "reset_node"
-        else:
-            type = "node"
-    else:
-        type = "object"
-    return type
-
-
-def get_nodes_and_objects_library():
-    from eagerx.core.register import REGISTRY
-
-    library = dict()
-    for entity_cls, entities in REGISTRY.items():
-        library[entity_cls.__name__] = []
-        for id, entry in entities.items():
-            spec = entry["spec"]
-            cls = get_attribute_from_module(entry["cls"])
-            library[entity_cls.__name__].append({"id": id, "spec": spec, "entity_cls": entity_cls, "cls": cls})
-    return library
-
-
 Stamp = NamedTuple("Stamp", [("seq", int), ("sim_stamp", float), ("wc_stamp", float)])
 Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
 Info = NamedTuple(
@@ -407,33 +302,6 @@ Info = NamedTuple(
 )
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
 Msg = NamedTuple("Msg", [("info", Info), ("msgs", List[Any])])
-
-
-def arg_typehint(msg_type):
-    return Optional[NamedTuple("Msg", [("info", Info), ("msgs", List[msg_type])])]
-
-
-def return_typehint(msg_type, done=True):
-    if done:
-        return Optional[Dict[str, Union[msg_type, Bool]]]
-    else:
-        return Optional[Dict[str, msg_type]]
-
-
-def check_msg_type(name, component, cname, node_cls, msg_type):
-    msg_type_yaml = get_cls_from_string(msg_type)
-    try:
-        msg_type_py = node_cls.get_msg_type(node_cls, component, cname)
-        node_str = get_module_type_string(node_cls)
-        assert msg_type_py == msg_type_yaml, (
-            'Inconsistent msg types (.py="%s" vs (converted) .yaml="%s") specified for node "%s". \n Hint: compare the msg_types within python class "%s" with the msg_types specified in the .yaml under [%s][%s].'
-            % (msg_type_py, msg_type_yaml, name, node_str, component, cname)
-        )
-    except Exception as e:
-        if name in ["env/supervisor", "env/observations", "env/actions"]:
-            return
-        else:
-            raise (e)
 
 
 def check_valid_rosparam_type(param):
@@ -588,20 +456,6 @@ def exists(func):
                     assert (
                         parameter in params[component][cname]
                     ), f"Parameter '{parameter}' not found. Available keys(params[{component}][{cname}])={params[component][cname].keys()}."
-        if "bridge_id" in _args:
-            bridge_id = _args["bridge_id"]
-            assert bridge_id in params, f"Bridge (id) '{bridge_id}' not found. Available keys(params)={params.keys()}."
-            if "component" in _args:
-                component = _args["component"]
-                assert (
-                    component in params[bridge_id]
-                ), f"Component '{component}' not found. Available keys(params[{bridge_id}])={params[bridge_id].keys()}."
-                if "cname" in _args:
-                    cname = _args["cname"]
-                    assert (
-                        cname in params[bridge_id][component]
-                    ), f"Cname '{cname}' not found. Available keys(params[{bridge_id}][{component}])={params[bridge_id][component].keys()}."
-
         return func(self, *args, **kwargs)
 
     return _exists

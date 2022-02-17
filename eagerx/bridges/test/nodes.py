@@ -8,7 +8,7 @@ from std_msgs.msg import UInt64, String, Bool
 
 # EAGERx IMPORTS
 from eagerx.core.constants import process
-from eagerx.utils.utils import return_typehint, Msg
+from eagerx.utils.utils import Msg
 from eagerx.core.entities import Node, ResetNode, EngineNode, SpaceConverter
 import eagerx.core.register as register
 
@@ -55,6 +55,10 @@ class RealResetNode(ResetNode):
         )
         spec.set_parameters(params)
 
+        # Test NodeSPec
+        spec.add_target("target_test", UInt64)
+        spec.remove_target("target_test")
+
         # Modify extra node params
         spec.set_parameter("test_arg", test_arg)
 
@@ -73,7 +77,8 @@ class RealResetNode(ResetNode):
 
     @register.states(state_1=UInt64)
     def reset(self, state_1: Optional[UInt64] = None) -> None:
-        return
+        if "in_1" in [i["name"] for i in self.inputs]:
+            self.set_delay(0.0, "inputs", "in_1")
 
     @register.inputs(in_1=UInt64, in_2=UInt64)
     @register.outputs(out_1=UInt64, out_2=UInt64)
@@ -84,7 +89,7 @@ class RealResetNode(ResetNode):
         in_1: Optional[Msg] = None,
         in_2: Optional[Msg] = None,
         target_1: Optional[Msg] = None,
-    ) -> return_typehint(UInt64, done=True):
+    ):
         # output type is always Dict[str, Union[UInt64, output_msg_types]] because done flags are also inside the output_msgs
         inputs = {"in_1": in_1, "in_2": in_2}
         pop_keys = []
@@ -137,7 +142,7 @@ class TestNode(EngineNode):
         in_2: Optional[Msg] = None,
         in_3: Optional[Msg] = None,
         tick: Optional[Msg] = None,
-    ) -> return_typehint(UInt64):
+    ):
         inputs = {"in_1": in_1, "in_2": in_2, "tick": tick}
         pop_keys = []
         for key, value in inputs.items():
@@ -266,6 +271,23 @@ class KalmanNode(TestNode):
 
         # Modify extra node params
         spec.set_parameter("test_arg", test_arg)
+
+        # Test NodeSpec adding & removing of components
+        spec.add_input("in_test", UInt64)
+        spec.add_output("out_test", UInt64)
+        spec.add_state(
+            "state_test", UInt64, space_converter=SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        )
+        try:
+            spec.add_target("target_test", UInt64)
+        except AssertionError as e:
+            print(e)
+        spec.remove_input("in_test")
+        spec.remove_output("out_test")
+        spec.remove_state("state_test")
+
+        # Test getting parameters
+        spec.get_parameter("msg_type", "inputs", "tick")
 
         # Remove unused inputs
         spec.remove_input("tick")
