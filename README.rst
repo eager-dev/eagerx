@@ -3,6 +3,10 @@ EAGERx
 ******
 **Streamlining the transfer of simulated robot learning to the real-world.**
 
+.. image:: https://img.shields.io/badge/License-Apache_2.0-blue.svg
+   :target: https://opensource.org/licenses/Apache-2.0
+   :alt: license
+
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: codestyle
@@ -31,7 +35,7 @@ EAGERx
 
 What is EAGERx
 ==============
-EAGERx enables users to easily define new tasks, switch from one sensor to another,
+EAGERx (Engine Agnostic Gym Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
 EAGERx explicitly addresses the differences in learning between simulation and reality,
 with essential features for roboticists such as a safety layer, signal delay simulation, and controller switching for resets.

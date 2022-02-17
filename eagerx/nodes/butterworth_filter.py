@@ -31,7 +31,7 @@ class ButterworthFilter(Node):
         :param spec: Not provided by user.
         :param name: Node name
         :param rate: Rate at which callback is called.
-        :param index: Index of the
+        :param index: Index (related to Float32MultiArray.data[index])
         :param N: The order of the filter
         :param Wn: The critical frequency or frequencies
         :param btype: {'lowpass', 'highpass', 'bandpass', 'bandstop'}

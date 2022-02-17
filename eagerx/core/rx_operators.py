@@ -625,16 +625,11 @@ def create_channel(
     )
 
     # Get rate from rosparam server
-    try:
-        if inpt["external_rate"] and inpt["external_rate"] > 0:
-            rate = inpt["external_rate"]
-        else:
-            rate_str = "%s/rate/%s" % (ns, inpt["address"][len(ns) + 1 :])
-            rate = get_param_with_blocking(rate_str)
-    except Exception as e:
-        print('Probably cannot find key "%s" on ros param server.' % inpt["name"] + "/rate")
-        print(e)
-        raise
+    if inpt["external_rate"] and inpt["external_rate"] > 0:
+        rate = inpt["external_rate"]
+    else:
+        rate_str = "%s/rate/%s" % (ns, inpt["address"][len(ns) + 1 :])
+        rate = get_param_with_blocking(rate_str)
 
     # Create input channel
     if real_time_factor == 0:

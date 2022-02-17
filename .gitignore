@@ -8,3 +8,4 @@ test.graph
 *.zip
 log/
 *.egg-info
+dist/

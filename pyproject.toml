@@ -7,7 +7,6 @@ license = "Apache2.0"
 homepage = "https://github.com/eager-dev/eagerx"
 repository = "https://github.com/eager-dev/eagerx"
 documentation = "https://eagerx.readthedocs.io/en/latest/"
-readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = "^3.6.2"
@@ -23,6 +22,7 @@ Rx = "^3.2.0"
 termcolor = "^1.1.0"
 defusedxml = "^0.7.1"
 netifaces = "^0.11.0"
+pyglet = "^1.5.21"
 
 [tool.poetry.dev-dependencies]
 black = "^22.1.0"
