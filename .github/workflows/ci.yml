@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [ master, ft_test, ft_newname]
+    branches: [ master, ft_test ]
   pull_request:
     branches: [ master ]
 
