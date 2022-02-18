@@ -9,3 +9,4 @@ test.graph
 log/
 *.egg-info
 dist/
+docs/_build

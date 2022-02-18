@@ -28,7 +28,7 @@ You can install everything by running:
 Extras: training visualization
 ------------------------------
 In robotics it is crucial to monitor the robot's behavior during the learning process.
-Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored (e.g. with ``rqt_plot``) on-demand.
+Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
 
 .. note::
     ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. See `here <ROS_>`_ for installation instructions.
