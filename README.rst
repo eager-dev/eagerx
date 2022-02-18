@@ -1,6 +1,4 @@
-******
-EAGERx
-******
+.. image:: docs/_static/img/banner.png
 **Streamlining the transfer of simulated robot learning to the real-world.**
 
 .. image:: https://img.shields.io/badge/License-Apache_2.0-blue.svg
