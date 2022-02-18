@@ -21,14 +21,9 @@ if __name__ == "__main__":
     rate = 7
 
     # todo: TODAY
-    #  - clean shutdown without errors
-    #  - Include ode bridge example, openai gym example,long run, plotting
-    #  - CI with test
-    #  - .flake8 test
-    #  - test coverage
-    #  - documentation
+    #  - Clean shutdown without errors
+    #  - Documentation
     #  - Installation procedure
-    #  - upload gui & dcsc setups to pip
     #  - Why is ode bridge so slow in async mode?
     #  - Effect of skipping first action on environment synchronization.
     #  - Parallel training (i.e. simultaneous experience selection with real & simulated robot)
