@@ -62,17 +62,17 @@ jobs:
       #----------------------------------------------
       # check codestyle & lint
       #----------------------------------------------
+      - name: Build the doc
+        run: |
+          sudo apt-get install python3-sphinx
+          source .venv/bin/activate
+          make doc
       - name: Check codestyle
         run: |
           make check-codestyle
       - name: Lint with flake8
         run: |
           make lint
-      - name: Build the doc
-        run: |
-          apt-get install python3-sphinx
-          source .venv/bin/activate
-          make doc
       #----------------------------------------------
       #  -----  install & configure ROS  -----
       #----------------------------------------------
