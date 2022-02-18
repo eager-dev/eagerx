@@ -53,6 +53,7 @@ author = "EAGERx Contributors"
 
 # The short X.Y version
 from eagerx import __version__
+
 version = "master (" + __version__ + " )"
 # The full version, including alpha/beta/rc tags
 release = __version__
