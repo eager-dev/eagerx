@@ -62,11 +62,6 @@ jobs:
       #----------------------------------------------
       # check codestyle & lint
       #----------------------------------------------
-      - name: Build the doc
-        run: |
-          sudo apt-get install python3-sphinx
-          source .venv/bin/activate
-          make doc
       - name: Check codestyle
         run: |
           make check-codestyle
@@ -88,6 +83,11 @@ jobs:
       #----------------------------------------------
       #    add matrix specifics and run test suite
       #----------------------------------------------
+      - name: Build the doc
+        run: |
+          sudo apt-get install python3-sphinx
+          source .venv/bin/activate
+          make doc
       - name: Run tests
         run: |
           source .venv/bin/activate
@@ -99,4 +99,4 @@ jobs:
         uses: paambaati/codeclimate-action@v2.7.5
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
-
+      
