@@ -1,5 +1,8 @@
 .. image:: docs/_static/img/banner.png
-**Streamlining the transfer of simulated robot learning to the real-world.**
+
+****
+Streamlining the transfer of simulated robot learning to the real-world.
+****
 
 .. image:: https://img.shields.io/badge/License-Apache_2.0-blue.svg
    :target: https://opensource.org/licenses/Apache-2.0
@@ -24,8 +27,6 @@
 .. image:: https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/test_coverage
    :target: https://codeclimate.com/github/eager-dev/eagerx/test_coverage
    :alt: Test Coverage
-
-
 
 .. contents:: Table of Contents
     :depth: 2
@@ -57,9 +58,10 @@ You can do a minimal installation of ``EAGERx`` with:
 
     pip3 install eagerx
 
-EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
-so it does **not** impose a ROS package structure on your project.
-See `here <ROS_>`_ for installation instructions.
+.. note::
+    EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
+    so it does **not** impose a ROS package structure on your project.
+    See `here <ROS_>`_ for installation instructions.
 
 Extras: GUI
 ---------------------
@@ -75,10 +77,13 @@ You can install everything by running:
   TODO: Add example and gif of GUI
 
 Extras: training visualization
----------------------
+------------------------------
 
-For training visualization, either a ``desktop`` or ``desktop-full`` ROS installation is required.
-See `here <ROS_>`_ for installation instructions.
+In robotics it is crucial to monitor the robot's behavior during the learning process.
+Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
+
+.. note::
+    ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. See `here <ROS_>`_ for installation instructions.
 
 ..
   TODO: add example and gif of visualization.
