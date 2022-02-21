@@ -3,6 +3,7 @@ import inspect
 from yaml import dump
 
 import eagerx.core.register as register
+from eagerx.core.attr_dict import AttrDict
 from eagerx.utils.utils import (
     replace_None,
     deepcopy,
@@ -12,6 +13,37 @@ from eagerx.utils.utils import (
     get_default_params,
     substitute_args,
 )
+
+
+def keys_exists(element, *keys):
+    '''
+    Check if *keys (nested) exists in `element` (dict).
+    '''
+    if not isinstance(element, dict):
+        raise AttributeError('keys_exists() expects dict as first argument.')
+    if len(keys) == 0:
+        raise AttributeError('keys_exists() expects at least two arguments, one given.')
+
+    _element = element
+    for key in keys:
+        try:
+            _element = _element[key]
+        except KeyError:
+            return False
+    return True
+
+
+def get_dict(params, depth):
+    for k in depth:
+        params = params[k]
+    return params
+
+
+def tree_dict(l, d=None):
+    d = {} if d is None else d
+    for key in reversed(l):
+        d = {key: d}
+    return d
 
 
 def merge(a, b, path=None):
@@ -38,7 +70,13 @@ def merge(a, b, path=None):
 
 class EntitySpec(object):
     def __init__(self, params):
-        self._params = params
+        super(EntitySpec, self).__setattr__('_params', params)
+
+    def __setattr__(self, name, value):
+        if hasattr(self, name) or name in ['_params', 'identity']:
+          super(EntitySpec, self).__setattr__(name, value)
+        else:
+            raise AttributeError("You can only (re)set the attributes '_params', 'identity'")
 
     def __str__(self):
         return dump(self._params)
@@ -48,6 +86,65 @@ class EntitySpec(object):
     def params(self):
         return self._params
 
+
+class Lookup(object):
+    def __init__(self, spec, depth, name=None):
+        super(Lookup, self).__setattr__('_spec', spec)
+        super(Lookup, self).__setattr__('_depth', depth)
+        super(Lookup, self).__setattr__('_name', name)
+
+    def __setattr__(self, name, value):
+        self.update({name: value})
+
+    def __getattr__(self, name):
+        if name in ["_spec", "_depth", "_name"]:
+            return super(Lookup, self).__getattribute__(name)
+        elif keys_exists(self._spec._params, *self._depth, name):
+            new_depth = self._depth.copy() + [name]
+            d = get_dict(self._spec._params, new_depth)
+            if isinstance(d, dict):
+                return Lookup(self._spec, new_depth, self._name)
+            else:
+                return d
+        else:
+            d = get_dict(self._spec._params, self._depth)
+            return getattr(d, name)
+
+    def __getitem__(self, name):
+        try:
+            return self.__getattr__(name)
+        except AttributeError:
+            raise KeyError(name)
+
+    def __setitem__(self, name, value):
+        if name.startswith('__'):
+            raise AttributeError("Cannot set magic attribute '{}'".format(name))
+        self.__setattr__(name, value)
+
+    def __str__(self):
+        d = get_dict(self._spec._params, self._depth)
+        return dump(d)
+
+    def __repr__(self):
+        # todo: add spec_type, name, depth, etc...
+        d = get_dict(self._spec._params, self._depth)
+        return dump(d)
+
+    def __contains__(self, item):
+        d = get_dict(self._spec._params, self._depth)
+        return item in d
+
+    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
+    def update(self, mapping):
+        d = get_dict(self._spec._params, self._depth)
+        d.update(mapping)
+        return self
+
+    def entry(self):
+        if self._name:
+            return tuple([self._name] + self._depth)
+        else:
+            return tuple(self._depth)
 
 class ConverterSpec(EntitySpec):
     def set_parameter(self, parameter: str, value: Any):
@@ -92,8 +189,7 @@ class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
-
-        self.identity = BaseConverter.make("Identity")
+        super(EntitySpec, self).__setattr__('identity', BaseConverter.make("Identity"))
 
     def initialize(self, spec_cls):
         try:
@@ -471,8 +567,26 @@ class ObjectSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
+        super(EntitySpec, self).__setattr__('identity', BaseConverter.make("Identity"))
 
-        self.identity = BaseConverter.make("Identity")
+    def _lookup(self, depth):
+        return Lookup(self, depth=[depth], name=self.get_parameter("name"))
+
+    @property
+    def sensors(self):
+        return self._lookup("sensors")
+
+    @property
+    def actuators(self):
+        return self._lookup("actuators")
+
+    @property
+    def states(self):
+        return self._lookup("states")
+
+    @property
+    def default(self):
+        return self._lookup("default")
 
     def initialize(self, spec_cls):
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
@@ -941,7 +1055,7 @@ class SpecificSpec(EntitySpec):
 # REQUIRED FOR BUILDING SPECS
 
 
-class Params(object):
+class Component(object):
     def __init__(self, **kwargs):
         # Iterates over provided arguments and sets the provided arguments as class properties
         for key, value in kwargs.items():
@@ -950,7 +1064,7 @@ class Params(object):
             setattr(self, key, value)
 
 
-class RxInput(Params):
+class RxInput(Component):
     def __init__(
         self,
         name: str,
@@ -981,7 +1095,7 @@ class RxInput(Params):
         return params
 
 
-class RxOutput(Params):
+class RxOutput(Component):
     def __init__(
         self,
         name: str,
@@ -1011,7 +1125,7 @@ class RxOutput(Params):
         return params
 
 
-class RxFeedthrough(Params):
+class RxFeedthrough(Component):
     def __init__(
         self,
         address: str,
@@ -1041,7 +1155,7 @@ class RxFeedthrough(Params):
         return params
 
 
-class RxState(Params):
+class RxState(Component):
     def __init__(
         self,
         name: str,
@@ -1067,7 +1181,7 @@ class RxState(Params):
         return params
 
 
-class RxEngineState(Params):
+class RxEngineState(Component):
     def __init__(
         self,
         name: str,

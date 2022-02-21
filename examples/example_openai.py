@@ -28,12 +28,24 @@ if __name__ == "__main__":
         render_shape=[300, 300],
     )
 
+    flag = 'done' in obj.sensors
+
+    print(obj.default.sensors)
+    print(obj.sensors.done['msg_type'])
+    obj.sensors.done.update({"msg_type": 'a'})#.msg_type = 'a'
+    obj.sensors.done["msg_type"] = 'b'
+
     # Define graph
     graph = Graph.create(objects=[obj])
     graph.connect(source=(name, "sensors", "observation"), observation="observation", window=1)
     graph.connect(source=(name, "sensors", "reward"), observation="reward", window=1)
     graph.connect(source=(name, "sensors", "done"), observation="done", window=1)
     graph.connect(action="action", target=(name, "actuators", "action"), window=1)
+
+    # graph.connect(source=obj.sensors.observation,   observation="observation",      window=1)
+    # graph.connect(source=obj.sensors.reward,        observation="reward",           window=1)
+    # graph.connect(source=obj.sensors.done,          observation="done",             window=1)
+    # graph.connect(action="action",                  target=obj.actuators.action,    window=1)
 
     # Add rendering
     # graph.add_component(name, 'sensors', 'image')
