@@ -3,8 +3,15 @@ version: 2
 conda:
     environment: docs/environment.yml
 
+# Set the version of Python and other tools you might need
 build:
-   image: latest
+  os: ubuntu-20.04
+  tools:
+    python: "3.8"
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+   configuration: docs/conf.py
 
 # This part is necessary otherwise the project is not built
 python:
