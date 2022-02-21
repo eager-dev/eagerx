@@ -38,45 +38,41 @@ class EngineGraph:
         identity_conv = Identity().get_yaml_definition()
 
         # Create actuator node
-        outputs = []
         spec = EngineNode.pre_make(None, None)
-        spec.set_parameter("name", "actuators")
+        spec.default.name = "actuators"
         nodes.append(spec)
         for cname, params in actuators.items():
             # We use identity converter instead of params['converter'], because this output converter is a "placeholder".
             # When building the actuator node (being the connected engine node), this output converter is not even initialized.
             spec.add_output(
                 cname,
-                msg_type=params["msg_type"],
+                msg_type=params.msg_type,
                 converter=ConverterSpec(identity_conv),
-                space_converter=ConverterSpec(params["space_converter"]),
+                space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
             spec.add_input(
                 cname,
-                msg_type=params["msg_type"],
-                skip=params["skip"],
+                msg_type=params.msg_type,
+                skip=params.skip,
                 converter=ConverterSpec(identity_conv),
-                space_converter=ConverterSpec(params["space_converter"]),
+                space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
-            outputs.append(cname)
-        spec.set_parameter("outputs", outputs)
+            spec.default.outputs.append(cname)
 
         # Create sensor node
-        inputs = []
         spec = EngineNode.pre_make(None, None)
-        spec.set_parameter("name", "sensors")
+        spec.default.name = "sensors"
         nodes.append(spec)
         for cname, params in sensors.items():
             # We use identity converter instead of params['converter'], because this input converter is a "placeholder".
             # When building the sensor node (being the connected engine node), this input converter is not even initialized.
             spec.add_input(
                 cname,
-                msg_type=params["msg_type"],
+                msg_type=params.msg_type,
                 converter=ConverterSpec(identity_conv),
-                space_converter=ConverterSpec(params["space_converter"]),
+                space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
-            inputs.append(cname)
-        spec.set_parameter("inputs", inputs)
+            spec.default.inputs.append(cname)
 
         # Create a state
         state = dict(nodes=dict(), connects=list())
@@ -98,7 +94,7 @@ class EngineGraph:
             nodes = [nodes]
 
         for node in nodes:
-            name = node.get_parameter("name")
+            name = node.default.name
             assert name not in state["nodes"], (
                 'There is already a node or object registered in this graph with name "%s".' % name
             )
@@ -667,8 +663,8 @@ class EngineGraph:
                 else:
                     # Put node name into object namespace
                     spec = EngineNodeSpec(params)
-                    name = f'$(ns obj_name)/{spec.get_parameter("name")}'
-                    spec.set_parameter("name", name)
+                    name = f'$(ns obj_name)/{spec.default.name}'
+                    spec.default.name = name
                     params = spec.params
 
                     # Substitute placeholder args of simnode

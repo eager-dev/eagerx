@@ -87,7 +87,7 @@ class Graph:
             entities = [entities]
 
         for entity in entities:
-            name = entity.get_parameter("name")
+            name = entity.default.name
             assert (
                 name not in state["nodes"]
             ), f'There is already a node or object registered in this graph with name "{name}".'

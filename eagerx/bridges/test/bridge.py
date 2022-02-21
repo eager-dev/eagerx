@@ -39,31 +39,22 @@ class TestBridgeNode(Bridge):
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(TestBridgeNode)
 
-        # Set default
-        states = states if states else ["param_1"]
-
         # Modify default bridge params
-        params = dict(
-            rate=rate,
-            process=process,
-            is_reactive=is_reactive,
-            real_time_factor=real_time_factor,
-            simulate_delays=simulate_delays,
-            log_level=log_level,
-            color="magenta",
-            states=states,
-        )
-        spec.set_parameters(params)
+        spec.default.rate = rate
+        spec.default.process = process
+        spec.default.is_reactive = is_reactive
+        spec.default.real_time_factor = real_time_factor
+        spec.default.simulate_delays = simulate_delays
+        spec.default.log_level = log_level
+        spec.default.color = "magenta"
+        spec.default.states = states if states else ["param_1"]
 
         # Add custom params
-        custom = dict(
-            num_substeps=10, nonreactive_address="/nonreactive_input_topic"  # Not used
-        )  # Only required to test nonreactive inputs
-        spec.set_parameters(custom)
+        spec.default.num_substeps = 10
+        spec.default.nonreactive_address = "/nonreactive_input_topic"  # Only required to test nonreactive inputs
 
         # Add state: "param_1"
-        space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
-        spec.set_parameter("space_converter", space_converter, "states", "param_1")
+        spec.states.param_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
 
     @register.bridge_params(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):

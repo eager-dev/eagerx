@@ -24,17 +24,14 @@ class EnvNode(Node):
         spec.initialize(EnvNode)
 
         # Modify default node params
-        params = dict(
-            name="environment",
-            rate=rate,
-            process=process.ENVIRONMENT,
-            color=color,
-            log_level=log_level,
-            inputs=[],
-            outputs=[],
-            states=[],
-        )
-        spec.set_parameters(params)
+        spec.default.name = "environment"
+        spec.default.rate = rate
+        spec.default.process = process.ENVIRONMENT
+        spec.default.color = color
+        spec.default.log_level = log_level
+        spec.default.inputs = []
+        spec.default.outputs = []
+        spec.default.states = []
 
     def initialize(self):
         # Define observation buffers
@@ -123,26 +120,17 @@ class ObservationsNode(Node):
         spec.initialize(ObservationsNode)
 
         # Modify default node params
-        params = dict(
-            name="env/observations",
-            rate=rate,
-            process=process.ENVIRONMENT,
-            color=color,
-            log_level=log_level,
-            inputs=["actions_set"],
-            outputs=["set"],
-            states=[],
-        )
-        spec.set_parameters(params)
+        spec.default.name = "env/observations"
+        spec.default.rate = rate
+        spec.default.process = process.ENVIRONMENT
+        spec.default.color = color
+        spec.default.log_level = log_level
+        spec.default.inputs = ["actions_set"]
+        spec.default.outputs = ["set"]
+        spec.default.states = []
 
-        # Pre-set address
-        spec.set_parameter("address", "env/actions/outputs/set", "inputs", "actions_set")
-
-        # Pre-set window
-        spec.set_parameter("window", 0, "inputs", "actions_set")
-
-        # Set skip for first action_set (so that we do not block at t=0)
-        spec.set_parameter("skip", True, "inputs", "actions_set")
+        # Pre-set address to mock an actual input
+        spec.inputs.actions_set.address = "env/actions/outputs/set"
 
     def initialize(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
@@ -165,25 +153,17 @@ class ActionsNode(Node):
         spec.initialize(ActionsNode)
 
         # Modify default node params
-        params = dict(
-            name="env/actions",
-            rate=rate,
-            process=process.ENVIRONMENT,
-            color=color,
-            log_level=log_level,
-            inputs=["observations_set", "step"],
-            outputs=["set"],
-            states=[],
-        )
-        spec.set_parameters(params)
+        spec.default.name = "env/actions"
+        spec.default.rate = rate
+        spec.default.process = process.ENVIRONMENT
+        spec.default.color = color
+        spec.default.log_level = log_level
+        spec.default.inputs = ["step"]
+        spec.default.outputs = ["set"]
+        spec.default.states = []
 
-        # Pre-set addresses
-        spec.set_parameter("address", "env/observations/outputs/set", "inputs", "observations_set")
-        spec.set_parameter("address", "env/supervisor/outputs/step", "inputs", "step")
-
-        # Pre-set window
-        spec.set_parameter("window", 0, "inputs", "observations_set")
-        spec.set_parameter("window", 0, "inputs", "step")
+        # Pre-set address to mock an actual input
+        spec.inputs.step.address = "env/supervisor/outputs/step"
 
     def initialize(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
@@ -206,23 +186,20 @@ class RenderNode(Node):
         spec.initialize(RenderNode)
 
         # Modify default node params
-        params = dict(
-            name="env/render",
-            rate=rate,
-            process=process.NEW_PROCESS,
-            color=color,
-            log_level=log_level,
-            inputs=["image"],
-            outputs=["done"],
-            states=[],
-        )
-        spec.set_parameters(params)
+        spec.default.name = "env/render"
+        spec.default.rate = rate
+        spec.default.process = process.ENVIRONMENT
+        spec.default.color = color
+        spec.default.log_level = log_level
+        spec.default.inputs = ["image"]
+        spec.default.outputs = ["done"]
+        spec.default.states = []
 
         # Modify custom params
-        spec.set_parameter("display", display)
+        spec.default.display = display
 
         # Pre-set window
-        spec.set_parameter("window", 0, "inputs", "image")
+        spec.inputs.image.window = 0
 
     def initialize(self, display):
         self.cv_bridge = CvBridge()

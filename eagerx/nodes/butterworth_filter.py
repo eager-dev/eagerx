@@ -43,26 +43,22 @@ class ButterworthFilter(Node):
         spec.initialize(ButterworthFilter)
 
         # Modify default node params
-        params = dict(
-            name=name,
-            rate=rate,
-            process=process,
-            color=color,
-            inputs=["signal"],
-            outputs=["filtered"],
-        )
-        spec.set_parameters(params)
+        spec.default.name = name
+        spec.default.rate = rate
+        spec.default.process = process
+        spec.default.color = color
+        spec.default.inputs = ["signal"]
+        spec.default.outputs = ["filtered"]
 
         # Modify custom node params
-        spec.set_parameters({"N": N, "Wn": Wn, "btype": btype})
-
-        # Register standard converters, space_converters, and processors
+        spec.default.N = N
+        spec.default.Wn = Wn
+        spec.default.btype = btype
 
         # Add converter & space_converter
-        c = Processor.make("GetIndex_Float32MultiArray", index=index)
-        sc = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
-        mapping = dict(window="$(default N)", space_converter=sc, converter=c)
-        spec.set_parameters(mapping, "inputs", "signal")
+        spec.inputs.signal.window = "$(default N)"
+        spec.inputs.signal.converter = Processor.make("GetIndex_Float32MultiArray", index=index)
+        spec.inputs.signal.space_converter = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
 
     def initialize(self, N, Wn, btype):
         for i in self.inputs:

@@ -174,8 +174,8 @@ class BaseNode(Entity):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter("entity_id")
-        name = spec.get_parameter("name")
+        entity_id = spec.default.entity_id
+        name = spec.default.name
         assert name is not None and isinstance(
             name, str
         ), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
@@ -386,7 +386,8 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        spec.set_parameter("executable", "python:=eagerx.core.executable_node")
+        with spec.default as d:
+            d.executable = "python:=eagerx.core.executable_node"
         from eagerx.core.specs import NodeSpec  # noqa: F811
 
         return NodeSpec(spec.params)
@@ -394,8 +395,8 @@ class Node(BaseNode):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter("entity_id")
-        name = spec.get_parameter("name")
+        entity_id = spec.default.entity_id
+        name = spec.default.name
 
         # Check that there is atleast a single input & output defined.
         assert (
@@ -415,16 +416,18 @@ class ResetNode(Node):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         spec._params["targets"] = dict()
-        spec._set({"default": dict(targets=[])})
-        from eagerx.core.specs import ResetNodeSpec  # noqa: F811
+        spec._params["feedthroughs"] = dict()
+        with spec.default as d:
+            d.targets = []
 
+        from eagerx.core.specs import ResetNodeSpec  # noqa: F811
         return ResetNodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter("entity_id")
-        name = spec.get_parameter("name")
+        entity_id = spec.default.entity_id
+        name = spec.default.name
 
         # Check that there is at least a single target & output was defined.
         assert (
@@ -779,14 +782,12 @@ class Bridge(BaseNode):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
-        default = dict(
-            name="bridge",
-            is_reactive=True,
-            real_time_factor=0,
-            simulate_delays=True,
-            executable="python:=eagerx.core.executable_bridge",
-        )
-        spec._set({"default": default})
+        with spec.default as d:
+            d.name = "bridge"
+            d.is_reactive = True
+            d.real_time_factor = 0
+            d.simulate_delays = True
+            d.executable = "python:=eagerx.core.executable_bridge"
         from eagerx.core.specs import BridgeSpec  # noqa: F811
 
         return BridgeSpec(spec.params)

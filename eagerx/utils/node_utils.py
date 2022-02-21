@@ -90,7 +90,7 @@ def initialize_nodes(
             params = node.build(ns=ns)
 
             # Check if node name is unique
-            name = node.get_parameter("name")
+            name = node.default.name
             assert (
                 rospy.get_param(("%s/%s/rate") % (ns, name), None) is None
             ), 'Node name "%s" already exists. Node names must be unique.' % (ns + "/" + name)

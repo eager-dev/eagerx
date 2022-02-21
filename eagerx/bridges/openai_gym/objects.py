@@ -30,37 +30,31 @@ class GymObject(Object):
         # Register standard converters, space_converters, and processors
         import eagerx.converters  # noqa # pylint: disable=unused-import
 
-        # Set observation properties: (space_converters, rate, etc...)
-        sc = SpaceConverter.make(
+        # Set observation space_converters
+        spec.sensors.observation.space_converter = SpaceConverter.make(
             "GymSpace_Float32MultiArray",
             gym_id="$(default gym_env_id)",
             space="observation",
         )
-        spec.set_space_converter(sc, "sensors", "observation")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "observation")
-
-        sc = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
-        spec.set_space_converter(sc, "sensors", "reward")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "reward")
-
-        sc = SpaceConverter.make(
+        spec.sensors.reward.space_converter = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
+        spec.sensors.done.space_converter = SpaceConverter.make("Space_Bool")
+        spec.sensors.image.space_converter = SpaceConverter.make(
             "Space_Image",
             low=0,
             high=1,
             shape="(default render_shape)",
             dtype="float32",
         )
-        spec.set_space_converter(sc, "sensors", "image")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "image")
+        spec.actuators.action.space_converter = SpaceConverter.make(
+            "GymSpace_Float32MultiArray", gym_id="$(default gym_env_id)", space="action"
+        )
 
-        sc = SpaceConverter.make("Space_Bool")
-        spec.set_space_converter(sc, "sensors", "done")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "done")
-
-        # Set actuator properties: (space_converters, rate, etc...)
-        sc = SpaceConverter.make("GymSpace_Float32MultiArray", gym_id="$(default gym_env_id)", space="action")
-        spec.set_space_converter(sc, "actuators", "action")
-        spec.set_parameter("rate", "$(default gym_rate)", "actuators", "action")
+        # Set observation rates
+        spec.sensors.observation.rate = "$(default gym_rate)"
+        spec.sensors.reward.rate = "$(default gym_rate)"
+        spec.sensors.done.rate = "$(default gym_rate)"
+        spec.sensors.image.rate = "$(default gym_rate)"
+        spec.actuators.action.rate = "$(default gym_rate)"
 
     @staticmethod
     @register.spec("GymObject", Object)

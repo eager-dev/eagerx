@@ -376,7 +376,7 @@ def is_supported_type(param: Any, types: Tuple, none_support):
             for value in param:
                 is_supported_type(value, types, none_support)
     else:
-        raise ValueError(
+        raise TypeError(
             f'Type "{type(param)}" of a specified (nested) param "{param}" is not supported. Only types {types} are supported.'
         )
 

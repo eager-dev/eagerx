@@ -1,6 +1,8 @@
 from yaml import dump
-from eagerx.core.specs import EntitySpec, merge
-from eagerx.utils.utils import supported_types
+from eagerx.utils.utils import is_supported_type
+
+
+supported_types = (str, int, list, float, bool, dict)
 
 
 def keys_exists(element, *keys):
@@ -34,7 +36,39 @@ def tree_dict(l, d=None):
     return d
 
 
+def _is_supported_type(param):
+    try:
+        is_supported_type(param, supported_types, none_support=True)
+    except TypeError:
+        if isinstance(param, Lookup):
+            param = param.to_dict()
+            is_supported_type(param, supported_types, none_support=True)
+        else:
+            from eagerx.core.specs import EntitySpec
+            if isinstance(param, EntitySpec):
+                param = param.params
+                is_supported_type(param, supported_types, none_support=True)
+            else:
+                raise
+
+
+def _convert_type(param):
+    if type(param) in supported_types or param is None:
+        return param
+    else:
+        if isinstance(param, Lookup):
+            return param.to_dict()
+        else:
+            from eagerx.core.specs import EntitySpec
+            if isinstance(param, EntitySpec):
+                return param.params
+            else:
+                message = f'Type "{type(param)}" is not supported. Only types {supported_types} are supported.'
+                raise TypeError(message)
+
+
 class LookupIterator(object):
+    # todo: deal with entity spec.
     def __init__(self, lookup, items=False):
         self._lookup = lookup
         self._items = items
@@ -65,8 +99,11 @@ class Lookup(object):
         super(Lookup, self).__setattr__('_name', name)
         super(Lookup, self).__setattr__('_unlocked', False)
 
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
     def __setattr__(self, name, value):
+        # Check if type is supported
+        _is_supported_type(value)
+        value = _convert_type(value)  # Convert Lookup & EntitySpec to dicts
+
         d = get_dict(self._spec._params, self._depth)
         if name in d:
             d[name] = value
@@ -152,10 +189,9 @@ class Lookup(object):
     def _unlock(self):
         super(Lookup, self).__setattr__('_unlocked', True)
 
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
     def update(self, mapping):
-        d = get_dict(self._spec._params, self._depth)
-        merge(d, mapping)
+        for key, value in mapping.items():
+            setattr(self, key, value)
         return self
 
     def items(self):

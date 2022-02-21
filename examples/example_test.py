@@ -30,6 +30,14 @@ if __name__ == "__main__":
     #  - Pause environment
 
     # Define nodes
+    N3 = ResetNode.make(
+        "RealReset",
+        "N3",
+        rate=rate,
+        process=node_p,
+        inputs=["in_1", "in_2"],
+        targets=["target_1"],
+    )
     N1 = Node.make("Process", "N1", rate=1.0, process=node_p)
     KF = Node.make(
         "KalmanFilter",
@@ -38,14 +46,6 @@ if __name__ == "__main__":
         process=node_p,
         inputs=["in_1", "in_2"],
         outputs=["out_1", "out_2"],
-    )
-    N3 = ResetNode.make(
-        "RealReset",
-        "N3",
-        rate=rate,
-        process=node_p,
-        inputs=["in_1", "in_2"],
-        targets=["target_1"],
     )
 
     # Define object
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     # TEST Test with KF having skipped all inputs at t=0
     graph.remove_component("KF", "inputs", "in_1")
 
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")

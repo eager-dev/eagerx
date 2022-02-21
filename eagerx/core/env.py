@@ -37,10 +37,11 @@ class Env(gym.Env):
         entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
         supervisor = Node.pre_make("N/a", entity_type)
         supervisor.add_output("step", msg_type=UInt64)
-        supervisor.set_parameter("name", "env/supervisor")
-        supervisor.set_parameter("color", "yellow")
-        supervisor.set_parameter("process", process.ENVIRONMENT)
-        supervisor.set_parameter("outputs", ["step"])
+
+        supervisor.default.name = "env/supervisor"
+        supervisor.default.color = "yellow"
+        supervisor.default.process = process.ENVIRONMENT
+        supervisor.default.outputs = ["step"]
         return supervisor
 
     def __init__(self, name: str, rate: float, graph: Graph, bridge: BridgeSpec) -> None:
@@ -84,7 +85,7 @@ class Env(gym.Env):
             if "states" not in i.params["default"]:
                 continue
             for cname in i.params["default"]["states"]:
-                entity_name = i.get_parameter("name")
+                entity_name = i.default.name
                 name = f"{entity_name}/{cname}"
                 address = f"{entity_name}/states/{cname}"
                 msg_type = i.params["states"][cname]["msg_type"]
@@ -95,8 +96,9 @@ class Env(gym.Env):
                 ), f'Cannot have duplicate states. State "{name}" is defined multiple times.'
 
                 mapping = dict(address=address, msg_type=msg_type, converter=space_converter)
-                supervisor._set({"states": {name: mapping}})
-                supervisor._params["default"]["states"].append(name)
+                with supervisor.states as d:
+                    d[name] = mapping
+                supervisor.default.states.append(name)
 
             # Get states from simnodes. WARNING: can make environment non-agnostic.
             if isinstance(i, ObjectSpec):
@@ -124,8 +126,9 @@ class Env(gym.Env):
                                 msg_type=msg_type,
                                 converter=space_converter,
                             )
-                            supervisor._set({"states": {name: mapping}})
-                            supervisor._params["default"]["states"].append(name)
+                            with supervisor.states as d:
+                                d[name] = mapping
+                            supervisor.default.states.append(name)
 
         # Delete pre-existing parameters
         try:
@@ -142,13 +145,13 @@ class Env(gym.Env):
         mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"))
 
         # Get info from bridge on reactive properties
-        is_reactive = bridge.get_parameter("is_reactive")
-        real_time_factor = bridge.get_parameter("real_time_factor")
-        simulate_delays = bridge.get_parameter("simulate_delays")
+        is_reactive = bridge.default.is_reactive
+        real_time_factor = bridge.default.real_time_factor
+        simulate_delays = bridge.default.simulate_delays
 
         # Create supervisor node
-        name = supervisor.get_parameter("name")
-        supervisor.set_parameter("rate", self.rate)
+        name = supervisor.default.name
+        supervisor.default.rate = self.rate
         supervisor_params = supervisor.build(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
         rx_supervisor = Supervisor(
@@ -185,8 +188,9 @@ class Env(gym.Env):
                 for cname in i.params["default"]["targets"]:
                     address = i.params["targets"][cname]["address"]
                     target_addresses.append(address)
-        bridge._set({"default": {"node_names": node_names}})
-        bridge._set({"default": {"target_addresses": target_addresses}})
+        with bridge.default as d:
+            d.node_names = node_names
+            d.target_addresses = target_addresses
 
         initialize_nodes(
             bridge,
@@ -219,19 +223,21 @@ class Env(gym.Env):
 
         # Create env node
         env_spec = Node.make("Environment", rate=self.rate)
-        name = env_spec.get_parameter("name")
-        inputs = observations.get_parameter("inputs")
-        outputs = actions.get_parameter("outputs")
+        name = env_spec.default.name
+        inputs = observations.default.inputs
+        outputs = actions.default.outputs
         for i in inputs:
             if i == "actions_set":
                 continue
-            env_spec._params["inputs"][i] = observations.get_parameters("inputs", i)
-            env_spec._params["default"]["inputs"].append(i)
+            with env_spec.inputs as d:
+                d[i] = getattr(observations.inputs, i)
+            env_spec.default.inputs.append(i)
         for i in outputs:
             if i == "set":
                 continue
-            env_spec._params["outputs"][i] = actions.get_parameters("outputs", i)
-            env_spec._params["default"]["outputs"].append(i)
+            with env_spec.outputs as d:
+                d[i] = getattr(actions.outputs, i)
+            env_spec.default.outputs.append(i)
         env_params = env_spec.build(ns=self.ns)
         rosparam.upload_params(self.ns, env_params)
         rx_env = RxNode(name="%s/%s" % (self.ns, name), message_broker=message_broker)
