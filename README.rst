@@ -10,8 +10,8 @@
    :target: https://github.com/psf/black
    :alt: codestyle
 
-.. image:: https://readthedocs.org/projects/mushroomrl/badge/?version=latest
-   :target: https://eagerx.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/eagerx/badge/?version=master
+   :target: https://eagerx.readthedocs.io/en/master/?badge=master
    :alt: Documentation Status
 
 .. image:: https://github.com/eager-dev/eagerx/actions/workflows/ci.yml/badge.svg?branch=master
