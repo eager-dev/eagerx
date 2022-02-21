@@ -12,6 +12,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import re
 import os
 import sys
 from unittest.mock import MagicMock
@@ -53,6 +54,14 @@ author = "EAGERx Contributors"
 
 # The short X.Y version
 from eagerx import __version__
+# version_file = os.path.join(os.path.dirname(__file__), "../eagerx", "__init__.py")
+# with open(version_file, "r") as file_handler:
+#     file = file_handler.read().strip()
+#     __version__ = None
+#     for i in file.split("\n"):
+#         if "__version__" in i:
+#             __version__ = re.findall('"([^"]*)"', i)[0]
+# assert __version__ is not None, "Could not extract version."
 
 version = "master (" + __version__ + " )"
 # The full version, including alpha/beta/rc tags
