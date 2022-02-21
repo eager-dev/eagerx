@@ -28,12 +28,22 @@ if __name__ == "__main__":
         render_shape=[300, 300],
     )
 
-    flag = 'done' in obj.sensors
+    # for key, value in obj.sensors.items():
+    #     print(key, value)
+    #
+    # for key in obj.sensors:
+    #     print(key)
+    #
+    # flag = 'done' in obj.sensors
+    #
+    # print(obj.default.sensors)
+    # print(obj.sensors.done['msg_type'])
+    # obj.sensors.done.update({"msg_type": 'a'})#.msg_type = 'a'
+    # obj.sensors.done["msg_type"] = 'b'
+    # obj.sensors.done = {'test': 1, 'v2': 3}
 
-    print(obj.default.sensors)
-    print(obj.sensors.done['msg_type'])
-    obj.sensors.done.update({"msg_type": 'a'})#.msg_type = 'a'
-    obj.sensors.done["msg_type"] = 'b'
+    # with obj.sensors.unlocked as s:
+    #     s.fla = 'test'
 
     # Define graph
     graph = Graph.create(objects=[obj])

@@ -6,7 +6,7 @@ authors = ["Bas van der Heijden <d.s.vanderheijden@tudelft.nl>", "Jelle Luijkx <
 license = "Apache2.0"
 homepage = "https://github.com/eager-dev/eagerx"
 repository = "https://github.com/eager-dev/eagerx"
-documentation = "https://eagerx.readthedocs.io/en/latest/"
+documentation = "https://eagerx.readthedocs.io/en/master/"
 
 [tool.poetry.dependencies]
 python = "^3.6.2"
