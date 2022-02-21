@@ -52,6 +52,21 @@ def test_graph():
         states=["N9"],
     )
 
+    # Test lookup
+    with N3.inputs.unlocked:
+        _ = N3.inputs.__repr__()
+        for _ in N3.inputs:
+            pass
+    try:
+        _ = N3.inputs.dummy_cname
+    except AttributeError as e:
+        print("Must fail! ", e)
+
+    try:
+        N3.inputs.dummy_cname = dict()
+    except AttributeError as e:
+        print("Must fail! ", e)
+
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
     RosImage_RosUInt64 = Converter.make("RosImage_RosUInt64", test_arg="test")

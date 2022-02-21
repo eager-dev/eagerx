@@ -6,13 +6,13 @@ supported_types = (str, int, list, float, bool, dict)
 
 
 def keys_exists(element, *keys):
-    '''
+    """
     Check if *keys (nested) exists in `element` (dict).
-    '''
+    """
     if not isinstance(element, dict):
-        raise AttributeError('keys_exists() expects dict as first argument.')
+        raise AttributeError("keys_exists() expects dict as first argument.")
     if len(keys) == 0:
-        raise AttributeError('keys_exists() expects at least two arguments, one given.')
+        raise AttributeError("keys_exists() expects at least two arguments, one given.")
 
     _element = element
     for key in keys:
@@ -29,13 +29,6 @@ def get_dict(params, depth):
     return params
 
 
-def tree_dict(l, d=None):
-    d = {} if d is None else d
-    for key in reversed(l):
-        d = {key: d}
-    return d
-
-
 def _is_supported_type(param):
     try:
         is_supported_type(param, supported_types, none_support=True)
@@ -45,6 +38,7 @@ def _is_supported_type(param):
             is_supported_type(param, supported_types, none_support=True)
         else:
             from eagerx.core.specs import EntitySpec
+
             if isinstance(param, EntitySpec):
                 param = param.params
                 is_supported_type(param, supported_types, none_support=True)
@@ -60,6 +54,7 @@ def _convert_type(param):
             return param.to_dict()
         else:
             from eagerx.core.specs import EntitySpec
+
             if isinstance(param, EntitySpec):
                 return param.params
             else:
@@ -76,7 +71,7 @@ class LookupIterator(object):
         self._index = 0
 
     def __iter__(self):
-        ''' Returns the Iterator object '''
+        """Returns the Iterator object"""
         return self
 
     def __next__(self):
@@ -94,10 +89,10 @@ class LookupIterator(object):
 
 class Lookup(object):
     def __init__(self, spec, depth, name=None):
-        super(Lookup, self).__setattr__('_spec', spec)
-        super(Lookup, self).__setattr__('_depth', depth)
-        super(Lookup, self).__setattr__('_name', name)
-        super(Lookup, self).__setattr__('_unlocked', False)
+        super(Lookup, self).__setattr__("_spec", spec)
+        super(Lookup, self).__setattr__("_depth", depth)
+        super(Lookup, self).__setattr__("_name", name)
+        super(Lookup, self).__setattr__("_unlocked", False)
 
     def __setattr__(self, name, value):
         # Check if type is supported
@@ -111,8 +106,8 @@ class Lookup(object):
             d[name] = value
         else:
             message = f"Cannot set new attribute '{name}' when locked. \n"
-            message += f"The lock is there because new attributes are likely not accepted during initialization. "
-            message += f"If you are sure it will not break functionality, you can use '.unlock() before setting."
+            message += "The lock is there because new attributes are likely not accepted during initialization. "
+            message += "If you are sure it will not break functionality, you can use '.unlock() before setting."
             raise AttributeError(message)
 
     def __getattr__(self, name):
@@ -132,10 +127,10 @@ class Lookup(object):
                 if self._name:
                     depth_str = f"{self._name}"
                 else:
-                    depth_str = f"params"
+                    depth_str = "params"
                 for i in self._depth:
                     depth_str += f".{i}"
-                attr_available = ['.' + n for n in list(d.keys())]
+                attr_available = ["." + n for n in list(d.keys())]
                 message = f"Attribute '{name}' not found. Available attributes in {depth_str}={attr_available}."
                 raise AttributeError(message) from e
 
@@ -146,7 +141,7 @@ class Lookup(object):
             raise KeyError(name)
 
     def __setitem__(self, name, value):
-        if name.startswith('__'):
+        if name.startswith("__"):
             raise AttributeError("Cannot set magic attribute '{}'".format(name))
         self.__setattr__(name, value)
 
@@ -184,10 +179,10 @@ class Lookup(object):
         return self
 
     def _lock(self):
-        super(Lookup, self).__setattr__('_unlocked', False)
+        super(Lookup, self).__setattr__("_unlocked", False)
 
     def _unlock(self):
-        super(Lookup, self).__setattr__('_unlocked', True)
+        super(Lookup, self).__setattr__("_unlocked", True)
 
     def update(self, mapping):
         for key, value in mapping.items():

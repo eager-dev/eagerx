@@ -102,8 +102,8 @@ class Env(gym.Env):
 
             # Get states from simnodes. WARNING: can make environment non-agnostic.
             if isinstance(i, ObjectSpec):
-                obj_name = i.get_parameter("name")
-                context = {"ns": {"obj_name": obj_name}, "default": i.get_parameters()}
+                obj_name = i.default.name
+                context = {"ns": {"obj_name": obj_name}, "default": i.default.to_dict()}
                 for node_name, params_simnode in i.params[self._bridge_name]["nodes"].items():
                     if "states" in params_simnode["default"]:
                         for cname in params_simnode["default"]["states"]:
@@ -115,7 +115,7 @@ class Env(gym.Env):
                             space_converter = comp_params["space_converter"]
 
                             rospy.logwarn(
-                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.get_parameter("entity_id")}" under bridge implementation "{self._bridge_name}" for more info.'
+                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.default.entity_id}" under bridge implementation "{self._bridge_name}" for more info.'
                             )
                             assert (
                                 name not in supervisor.params["states"]

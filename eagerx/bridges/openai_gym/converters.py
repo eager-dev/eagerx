@@ -26,8 +26,15 @@ class GymSpace_Float32MultiArray(SpaceConverter):
         shape=None,
         dtype="float32",
     ):
-        params = dict(gym_id=gym_id, space=space, low=low, high=high, shape=shape, dtype=dtype)
-        spec.set_parameters(params)
+        # Initialize converter
+        spec.initialize(GymSpace_Float32MultiArray)
+
+        spec.default.gym_id = gym_id
+        spec.default.space = space
+        spec.default.low = low
+        spec.default.high = high
+        spec.default.shape = shape
+        spec.default.dtype = dtype
 
     def initialize(self, gym_id=None, space=None, low=None, high=None, shape=None, dtype="float32"):
         if gym_id is not None and space in ["observation", "action"]:

@@ -96,8 +96,8 @@ class Arm(Object):
     def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation of the Arm with the test bridge."""
         # Set object arguments
-        spec.req_arg = "TEST"
-        spec.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
+        spec.default.req_arg = "TEST"
+        spec.default.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
 
         # Create simstates
         spec.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
@@ -148,8 +148,6 @@ class Arm(Object):
 
         # Test SpecificSpec:
         _ = spec.__str__()
-        spec.set_parameters(spec.get_parameters())
-        spec.set_state_parameter("test_arg", "test2", "N9")
         spec.states.N9.test_arg = "test2"
 
         # Test EngineGraph: Add/remove sensor
@@ -294,8 +292,9 @@ class Viper(Arm):
     def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation of the Viper with the test bridge."""
         # Set object arguments
-        spec.req_arg = "TEST ARGUMENT"
-        spec.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
+        spec.default.req_arg = "TEST ARGUMENT"
+        spec.default.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
+        spec.default.xacro = spec.default.xacro
 
         # Create simstates
         spec.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")

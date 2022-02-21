@@ -400,7 +400,7 @@ class Node(BaseNode):
 
         # Check that there is atleast a single input & output defined.
         assert (
-            len(spec._params["default"]["inputs"]) > 0 or name == "environment"
+            len(spec.default.inputs) > 0 or name == "environment"
         ), f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
 
 
@@ -421,6 +421,7 @@ class ResetNode(Node):
             d.targets = []
 
         from eagerx.core.specs import ResetNodeSpec  # noqa: F811
+
         return ResetNodeSpec(spec.params)
 
     @classmethod
@@ -431,10 +432,10 @@ class ResetNode(Node):
 
         # Check that there is at least a single target & output was defined.
         assert (
-            len(spec._params["default"]["outputs"]) > 0
+            len(spec.default.outputs) > 0
         ), f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
         assert (
-            len(spec._params["default"]["targets"]) > 0
+            len(spec.default.targets) > 0
         ), f'Node "{name}" does not have any targets selected. Please select at least one target when making the spec, or check the spec defined for "{entity_id}".'
 
         # Check if all selected targets have an implementation (other components are checked in BaseNode.check_spec())

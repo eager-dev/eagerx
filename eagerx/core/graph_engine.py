@@ -663,7 +663,7 @@ class EngineGraph:
                 else:
                     # Put node name into object namespace
                     spec = EngineNodeSpec(params)
-                    name = f'$(ns obj_name)/{spec.default.name}'
+                    name = f"$(ns obj_name)/{spec.default.name}"
                     spec.default.name = name
                     params = spec.params
 

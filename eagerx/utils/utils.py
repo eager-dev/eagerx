@@ -408,59 +408,6 @@ def supported_types(*types: Tuple, is_classmethod=True):
     return _check
 
 
-def exists(func):
-    argspec = inspect.getfullargspec(func)
-    if argspec.defaults:
-        positional_count = len(argspec.args) - len(argspec.defaults)
-        defaults = dict(zip(argspec.args[positional_count:], argspec.defaults))
-    else:
-        defaults = []
-
-    def _exists(self, *args, **kwargs):
-        check_args = dict()
-        for _args in [zip(argspec.args[1:], args), kwargs.items()]:
-            for arg, value in _args:
-                if arg in ["component", "cname", "parameter", "bridge_id", "level"]:
-                    check_args[arg] = value
-
-        if "level" not in check_args and "level" in defaults:
-            check_args["level"] = defaults["level"]
-
-        # Remove level from check_args if level='agnostic'
-        if "level" in check_args and check_args["level"] == "agnostic":
-            check_args.pop("level")
-
-        params = self.params
-        _args = check_args
-        if "level" in _args:
-            level = _args["level"]
-            assert level in params, f"Level '{level}' not found. Available keys({params})={params.keys()}."
-            if "component" not in _args and "parameter" in _args:
-                parameter = _args["parameter"]
-                assert (
-                    parameter in params[level]
-                ), f"Parameter '{parameter}' not found. Available keys(params[{level}])={params[level].keys()}."
-        if "component" in _args:
-            component = _args["component"]
-            assert component in params, f"Component '{component}' not found. Available keys(params)={params.keys()}."
-            assert (
-                "level" not in check_args or component in params["default"]
-            ), f"Component '{component}' not found. Available keys(params['default'])={params['default'].keys()}."
-            if "cname" in _args:
-                cname = _args["cname"]
-                assert (
-                    cname in params[component]
-                ), f"Cname '{cname}' not found. Available keys(params[{component}])={params[component].keys()}."
-                if "parameter" in _args:
-                    parameter = _args["parameter"]
-                    assert (
-                        parameter in params[component][cname]
-                    ), f"Parameter '{parameter}' not found. Available keys(params[{component}][{cname}])={params[component][cname].keys()}."
-        return func(self, *args, **kwargs)
-
-    return _exists
-
-
 def get_default_params(func):
     argspec = inspect.getfullargspec(func)
     if argspec.defaults:

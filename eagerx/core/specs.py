@@ -8,9 +8,7 @@ from eagerx.core.lookup import Lookup
 from eagerx.utils.utils import (
     replace_None,
     deepcopy,
-    supported_types,
     get_module_type_string,
-    exists,
     get_default_params,
     substitute_args,
 )
@@ -40,7 +38,7 @@ def merge(a, b, path=None):
 
 class EntitySpec(object):
     def __init__(self, params):
-        super(EntitySpec, self).__setattr__('_params', params)
+        super(EntitySpec, self).__setattr__("_params", params)
 
     def __setattr__(self, name, value):
         raise AttributeError("You can only (re)set the attributes '_params', 'identity'")
@@ -55,52 +53,38 @@ class EntitySpec(object):
 
 
 class ConverterSpec(EntitySpec):
-    def set_parameter(self, parameter: str, value: Any):
-        self.set_parameters({parameter: value})
+    def initialize(self, spec_cls):
+        # Set default params
+        defaults = get_default_params(spec_cls.initialize)
+        with self.default as d:
+            d.update(defaults)
 
-    @supported_types(str, int, list, float, bool, dict, None)
-    def set_parameters(self, mapping: Dict):
-        self._params.update(mapping)
-
-    def get_parameter(self, parameter: str, default: Optional[Any] = None):
-        return self.params.get(parameter, default)
-
-    def get_parameters(self):
-        return self.params
+    @property
+    def default(self):
+        return Lookup(self, depth=[])
 
 
 class EngineStateSpec(EntitySpec):
     def initialize(self, spec_cls):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
-        self._set(defaults)
+        with self.default as d:
+            d.update(defaults)
 
-    def set_parameter(self, parameter: str, value: Any):
-        self.set_parameters({parameter: value})
-
-    @supported_types(str, int, list, float, bool, dict, None)
-    def set_parameters(self, mapping: Dict):
-        self._params.update(mapping)
-
-    def get_parameter(self, parameter: str, default: Optional[Any] = None):
-        return self.params.get(parameter, default)
-
-    def get_parameters(self):
-        return self.params
-
-    @supported_types(str, int, list, float, bool, dict, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
+    @property
+    def default(self):
+        return Lookup(self, depth=[])
 
 
 class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
-        super(EntitySpec, self).__setattr__('identity', BaseConverter.make("Identity"))
+
+        super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
-        return Lookup(self, depth=[depth], name=self._params['default']['name'])
+        return Lookup(self, depth=[depth], name=self._params["default"]["name"])
 
     @property
     def inputs(self):
@@ -414,10 +398,11 @@ class ObjectSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
-        super(EntitySpec, self).__setattr__('identity', BaseConverter.make("Identity"))
+
+        super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
-        return Lookup(self, depth=[depth], name=self._params['default']['name'])
+        return Lookup(self, depth=[depth], name=self._params["default"]["name"])
 
     @property
     def sensors(self):
@@ -530,7 +515,7 @@ class ObjectSpec(EntitySpec):
                 engine_spec.states.pop(cname)
 
         # Set engine_spec
-        with engine_spec as d:
+        with engine_spec.default as d:
             d.actuators = actuators
             d.sensors = sensors
             d.nodes = nodes
@@ -549,147 +534,9 @@ class ObjectSpec(EntitySpec):
         graph = EngineGraph.create(**mapping)
         return graph
 
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
-
-    @exists
-    def _get_components(self, component: str):
-        return self.get_parameters(component, level="agnostic")
-
-    # CHANGE OBJECT PARAMETERS. level=('default', bridge_id)
-    @exists
-    def set_parameter(
-        self,
-        parameter: str,
-        value: Any,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if isinstance(value, dict):
-                self._params[level][
-                    parameter
-                ] = None  # Required to clear the parameter instead of merging into it, if it is a dict.
-            self._set({level: {parameter: value}})
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if isinstance(value, dict):
-                self._params[component][cname][
-                    parameter
-                ] = None  # Required to clear the parameter instead of merging into it, if it is a dict.
-            self._set({component: {cname: {parameter: value}}})
-        else:  # level=bridge_id
-            raise NotImplementedError(f'Not possible to set parameters for bridge "{level}"')
-
-    def set_parameters(
-        self,
-        mapping: Dict,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            for parameter, value in mapping.items():
-                self.set_parameter(parameter, value)
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            for parameter, value in mapping.items():
-                self.set_parameter(parameter, value, component, cname, level)
-        else:  # level=bridge_id
-            raise NotImplementedError(f'Not possible to set parameters for bridge "{level}"')
-
-    @exists
-    def get_parameter(
-        self,
-        parameter: str,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level].get(parameter)
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[component][cname].get(parameter)
-        else:  # level=bridge_id
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level][component][cname].get(parameter)
-
-    @exists
-    def get_parameters(
-        self,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level]
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if cname is None:
-                return self.params[component]
-            else:
-                return self.params[component][cname]
-        else:  # level=bridge_id
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if cname is None:
-                return self.params[level][component]
-            else:
-                return self.params[level][component][cname]
-
     def build(self, ns, bridge_id):
         params = self.params  # Creates a deepcopy
-        default = self.get_parameters()  # Creates a deepcopy
+        default = copy.deepcopy(self.default.to_dict())  # Creates a deepcopy
         name = default["name"]
 
         # Construct context
@@ -837,9 +684,9 @@ class ObjectSpec(EntitySpec):
 
 class AgnosticSpec(EntitySpec):
     def __init__(self, params):
-        params['sensors'] = dict()
-        params['actuators'] = dict()
-        params['states'] = dict()
+        params["sensors"] = dict()
+        params["actuators"] = dict()
+        params["states"] = dict()
         super().__init__(params)
 
     def _lookup(self, depth):
@@ -860,61 +707,16 @@ class AgnosticSpec(EntitySpec):
 
 class SpecificSpec(EntitySpec):
     def __init__(self, params):
-        params['states'] = dict()
+        params["states"] = dict()
         super().__init__(params)
 
-    def __enter__(self):
-        lookup = Lookup(self, depth=[])
-        lookup._unlock()
-        return lookup
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        pass
-
-    def __setattr__(self, name, value):
-        lookup = Lookup(self, depth=[])
-        return setattr(lookup, name, value)
-
-    def __getattr__(self, name):
-        lookup = Lookup(self, depth=[])
-        return getattr(lookup, name)
+    @property
+    def default(self):
+        return Lookup(self, depth=[])
 
     @property
     def states(self):
         return Lookup(self, depth=["states"])
-
-    @exists
-    def set_parameter(self, parameter: str, value: Any):
-        if isinstance(value, dict):
-            self._params[parameter] = None
-        self._set({parameter: value})
-
-    @exists
-    def set_parameters(self, mapping: Dict):
-        for parameter, value in mapping.items():
-            self.set_parameter(parameter, value)
-
-    @exists
-    def get_parameter(self, parameter: str):
-        return self.params.get(parameter)
-
-    @exists
-    def get_parameters(self):
-        return self.params
-
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
-
-    def set_state_parameter(self, parameter: str, value: Any, cname: str):
-        self.set_state({parameter: value}, cname)
-
-    def set_state(self, mapping: Dict, cname: str):
-        self._set_component_parameters("states", cname, mapping)
-
-    @exists
-    def _set_component_parameters(self, component: str, cname: str, mapping: Dict):
-        self._set({component: {cname: mapping}})
 
 
 # REQUIRED FOR BUILDING SPECS

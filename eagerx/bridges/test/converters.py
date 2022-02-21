@@ -21,11 +21,16 @@ class Space_RosUInt64(SpaceConverter):
     @staticmethod
     @register.spec("Space_RosUInt64", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
-        params = dict(low=low, high=high, shape=shape, dtype=dtype)
-        spec.set_parameters(params)
-        _ = spec.get_parameters()  # Test function
-        spec.set_parameter("low", spec.get_parameter("low"))  # Test function
-        return spec
+        # Initialize converter
+        spec.initialize(Space_RosUInt64)
+
+        spec.default.low = low
+        spec.default.high = high
+        spec.default.shape = shape
+        spec.default.dtype = dtype
+
+        # Test spec
+        spec.default.dtype = spec.default.dtype
 
     def get_space(self):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
@@ -63,9 +68,13 @@ class Space_RosString(SpaceConverter):
     @staticmethod
     @register.spec("Space_RosString", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
-        params = dict(low=low, high=high, shape=shape, dtype=dtype)
-        spec.set_parameters(params)
-        return spec
+        # Initialize converter
+        spec.initialize(Space_RosString)
+
+        spec.default.low = low
+        spec.default.high = high
+        spec.default.shape = shape
+        spec.default.dtype = dtype
 
     def get_space(self):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
@@ -87,8 +96,10 @@ class RosImage_RosUInt64(Converter):
     @staticmethod
     @register.spec("RosImage_RosUInt64", Converter)
     def spec(spec, test_arg):
-        spec.set_parameter("test_arg", test_arg)
-        return spec
+        # Initialize converter
+        spec.initialize(RosImage_RosUInt64)
+
+        spec.default.test_arg = test_arg
 
     def A_to_B(self, msg):
         return UInt64(data=999)
@@ -107,8 +118,10 @@ class RosString_RosUInt64(Converter):
     @staticmethod
     @register.spec("RosString_RosUInt64", Converter)
     def spec(spec, test_arg):
-        spec.set_parameter("test_arg", test_arg)
-        return spec
+        # Initialize converter
+        spec.initialize(RosString_RosUInt64)
+
+        spec.default.test_arg = test_arg
 
     def A_to_B(self, msg):
         return UInt64(data=int(msg.data[8:]))

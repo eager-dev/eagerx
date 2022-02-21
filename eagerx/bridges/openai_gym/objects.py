@@ -72,24 +72,16 @@ class GymObject(Object):
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymObject)
 
-        # Set default
-        sensors = sensors if sensors else ["observation", "reward", "done"]
-        render_shape = render_shape if render_shape else [200, 200]
+        # Set default node params
+        spec.default.name = name
+        spec.default.sensors = sensors if sensors else ["observation", "reward", "done"]
+        spec.default.actuators = ["action"]
 
-        # Modify default node params
-        # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        default = dict(name=name, sensors=sensors, actuators=["action"])
-        spec.set_parameters(default)
-
-        # Add custom params
-        params = dict(
-            gym_env_id=gym_env_id,
-            gym_rate=gym_rate,
-            gym_always_render=gym_always_render,
-            default_action=default_action,
-            render_shape=render_shape,
-        )
-        spec.set_parameters(params)
+        # Set custom node params
+        spec.default.render_shape = render_shape if render_shape else [200, 200]
+        spec.default.gym_env_id = gym_env_id
+        spec.default.gym_rate = gym_rate
+        spec.default.gym_always_render = gym_always_render
 
         # Add bridge implementation
         GymObject.openai_gym(spec)
@@ -99,11 +91,7 @@ class GymObject(Object):
     def openai_gym(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (GymBridge) of the object."""
         # Set bridge arguments (nothing to set here in this case)
-        bridge_params = dict(env_id="$(default gym_env_id)")
-        spec.set_parameters(bridge_params)
-
-        # Create simstates (no agnostic states defined in this case)
-        # spec.set_state('some_state', SimState.make('SomeState', args='something'))
+        spec.default.env_id = "$(default gym_env_id)"
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
