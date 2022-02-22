@@ -63,7 +63,6 @@ def _convert_type(param):
 
 
 class LookupIterator(object):
-    # todo: deal with entity spec.
     def __init__(self, lookup, items=False):
         self._lookup = lookup
         self._items = items
@@ -95,6 +94,10 @@ class Lookup(object):
         super(Lookup, self).__setattr__("_unlocked", False)
 
     def __setattr__(self, name, value):
+        if self._spec.locked:
+            raise AttributeError(f"Cannot set attribute '{name}', because root Spec '{self()}' has been locked.")
+        if self._spec.disposed:
+            raise AttributeError(f"Cannot set attribute '{name}', because root Spec '{self()}' has been disposed.")
         # Check if type is supported
         _is_supported_type(value)
         value = _convert_type(value)  # Convert Lookup & EntitySpec to dicts
@@ -111,6 +114,8 @@ class Lookup(object):
             raise AttributeError(message)
 
     def __getattr__(self, name):
+        if self._spec.disposed:
+            raise AttributeError(f"Cannot get attribute '{name}', because root Spec '{self()}' has been disposed.")
         if keys_exists(self._spec._params, *self._depth, name):
             new_depth = self._depth.copy() + [name]
             d = get_dict(self._spec._params, new_depth)
@@ -147,13 +152,13 @@ class Lookup(object):
 
     def __str__(self):
         d = get_dict(self._spec._params, self._depth)
-        repr = f"Params for {self.entry()}: \n\n"
+        repr = f"Params for {self()}: \n\n"
         repr += dump(d)
         return repr
 
     def __repr__(self):
         d = get_dict(self._spec._params, self._depth)
-        repr = f"Params for {self.entry()}: \n\n"
+        repr = f"Params for {self()}: \n\n"
         repr += dump(d)
         return repr
 
@@ -192,7 +197,7 @@ class Lookup(object):
     def items(self):
         return LookupIterator(self, items=True)
 
-    def entry(self):
+    def __call__(self):
         if self._name:
             return tuple([self._name] + self._depth)
         else:

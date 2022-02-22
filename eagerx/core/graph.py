@@ -23,20 +23,44 @@ from eagerx.utils.network_utils import (
     is_stale,
 )
 from eagerx.core.entities import Node, BaseConverter, SpaceConverter
+from eagerx.core.lookup import Lookup
 from eagerx.core.specs import (
     BaseNodeSpec,
     ObjectSpec,
     ConverterSpec,
     EntitySpec,
-    merge,
     NodeSpec,
 )
 
 yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 
 
+def merge(a, b, path=None):
+    "merges b into a"
+    # If it is a spec, convert to params
+    if path is None:
+        path = []
+    for key in b:
+        if isinstance(b[key], EntitySpec):
+            b[key] = b[key].params
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge(a[key], b[key], path + [str(key)])
+            elif a[key] == b[key]:
+                pass  # same leaf value
+            else:
+                a[key] = b[key]
+        else:
+            a[key] = b[key]
+    return a
+
+
 class Graph:
     def __init__(self, state: Dict):
+        # todo: how to change API to fit Lookup, but also fit original setup?
+        # todo: lock added specs
+        # todo: block changing entity name.
+        # todo: when saving, dispose all added specs
         self._state = state
 
     def __str__(self):
@@ -258,8 +282,8 @@ class Graph:
 
     def connect(
         self,
-        source: Optional[Tuple[str, str, str]] = None,
-        target: Optional[Tuple[str, str, str]] = None,
+        source: Lookup = None,
+        target: Lookup = None,
         action: str = None,
         observation: str = None,
         converter: Optional[Dict] = None,
@@ -267,6 +291,9 @@ class Graph:
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
     ):
+        source = source() if source else source
+        target = target() if target else target
+
         assert not source or not action, (
             'You cannot specify a source if you wish to connect action "%s", as the action will act as the source.' % action
         )

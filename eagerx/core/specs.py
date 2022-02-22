@@ -14,34 +14,22 @@ from eagerx.utils.utils import (
 )
 
 
-def merge(a, b, path=None):
-    "merges b into a"
-    # If it is a spec, convert to params
-    if path is None:
-        path = []
-    for key in b:
-        if isinstance(b[key], EntitySpec):
-            b[key] = b[key].params
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            else:
-                a[key] = b[key]
-            # else:
-            #     raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
-        else:
-            a[key] = b[key]
-    return a
-
-
 class EntitySpec(object):
     def __init__(self, params):
         super(EntitySpec, self).__setattr__("_params", params)
+        super(EntitySpec, self).__setattr__("_lock", False)
+        super(EntitySpec, self).__setattr__("_disposed", False)
+
+    def __enter__(self):
+        """Only for internal use. Temporarily unlocks spec."""
+        self._unlock()
+
+    def __exit__(self):
+        """Locks spec again, after temporary lift of lock."""
+        self.lock()
 
     def __setattr__(self, name, value):
-        raise AttributeError("You can only (re)set the attributes '_params', 'identity'")
+        raise AttributeError("You cannot set the new attributes to EntitySpec.")
 
     def __str__(self):
         return dump(self._params)
@@ -50,6 +38,23 @@ class EntitySpec(object):
     @deepcopy
     def params(self):
         return self._params
+
+    def lock(self):
+        self._lock = True
+
+    def _unlock(self):
+        self._lock = False
+
+    def dispose(self):
+        self._disposed = True
+
+    @property
+    def locked(self):
+        return self._lock
+
+    @property
+    def disposed(self):
+        return self._disposed
 
 
 class ConverterSpec(EntitySpec):
@@ -80,7 +85,6 @@ class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
-
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
