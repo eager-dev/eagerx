@@ -4,7 +4,7 @@ from yaml import dump
 import copy
 
 import eagerx.core.register as register
-from eagerx.core.lookup import Lookup
+from eagerx.core.view import SpecView, GraphView
 from eagerx.utils.utils import (
     replace_None,
     deepcopy,
@@ -17,16 +17,7 @@ from eagerx.utils.utils import (
 class EntitySpec(object):
     def __init__(self, params):
         super(EntitySpec, self).__setattr__("_params", params)
-        super(EntitySpec, self).__setattr__("_lock", False)
-        super(EntitySpec, self).__setattr__("_disposed", False)
-
-    def __enter__(self):
-        """Only for internal use. Temporarily unlocks spec."""
-        self._unlock()
-
-    def __exit__(self):
-        """Locks spec again, after temporary lift of lock."""
-        self.lock()
+        super(EntitySpec, self).__setattr__("_graph", None)
 
     def __setattr__(self, name, value):
         raise AttributeError("You cannot set the new attributes to EntitySpec.")
@@ -39,22 +30,16 @@ class EntitySpec(object):
     def params(self):
         return self._params
 
-    def lock(self):
-        self._lock = True
-
-    def _unlock(self):
-        self._lock = False
-
-    def dispose(self):
-        self._disposed = True
+    def set_graph(self, graph):
+        super(EntitySpec, self).__setattr__("_graph", graph)
 
     @property
-    def locked(self):
-        return self._lock
+    def has_graph(self):
+        return True if self._graph else False
 
     @property
-    def disposed(self):
-        return self._disposed
+    def graph(self):
+        return self._graph
 
 
 class ConverterSpec(EntitySpec):
@@ -66,7 +51,7 @@ class ConverterSpec(EntitySpec):
 
     @property
     def default(self):
-        return Lookup(self, depth=[])
+        return SpecView(self, depth=[])
 
 
 class EngineStateSpec(EntitySpec):
@@ -78,7 +63,7 @@ class EngineStateSpec(EntitySpec):
 
     @property
     def default(self):
-        return Lookup(self, depth=[])
+        return SpecView(self, depth=[])
 
 
 class BaseNodeSpec(EntitySpec):
@@ -88,7 +73,11 @@ class BaseNodeSpec(EntitySpec):
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
-        return Lookup(self, depth=[depth], name=self._params["default"]["name"])
+        name = self._params["default"]["name"]
+        if self.has_graph:
+            return GraphView(self.graph, depth=[name, depth], name=name)
+        else:
+            return SpecView(self, depth=[depth], name=name)
 
     @property
     def inputs(self):
@@ -406,7 +395,11 @@ class ObjectSpec(EntitySpec):
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
-        return Lookup(self, depth=[depth], name=self._params["default"]["name"])
+        name = self._params["default"]["name"]
+        if self.has_graph:
+            return GraphView(self.graph, depth=[name, depth], name=name)
+        else:
+            return SpecView(self, depth=[depth], name=name)
 
     @property
     def sensors(self):
@@ -694,7 +687,7 @@ class AgnosticSpec(EntitySpec):
         super().__init__(params)
 
     def _lookup(self, depth):
-        return Lookup(self, depth=[depth])
+        return SpecView(self, depth=[depth])
 
     @property
     def sensors(self):
@@ -716,11 +709,11 @@ class SpecificSpec(EntitySpec):
 
     @property
     def default(self):
-        return Lookup(self, depth=[])
+        return SpecView(self, depth=[])
 
     @property
     def states(self):
-        return Lookup(self, depth=["states"])
+        return SpecView(self, depth=["states"])
 
 
 # REQUIRED FOR BUILDING SPECS

@@ -136,15 +136,11 @@ def test_graph():
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
     graph.remove_component("N3", "inputs", "in_2")
 
-    # Rename entity (object/node) and all associated connections
-    graph.rename("KF", "KF2")
-    graph.rename("KF2", "KF")
-
     # Rename action & observation
-    graph.rename("act_2", "act_1", name="env/actions", component="outputs")
-    graph.rename("act_1", "act_2", action="act_2")
-    graph.rename("act_2", "act_1", action="act_1")
-    graph.rename("obs_3", "obs_2", observation="obs_2")
+    graph.rename("act_2", action="act_1")
+    graph.rename("act_1", action="act_2")
+    graph.rename("act_2", action="act_1")
+    graph.rename("obs_3", observation="obs_2")
 
     # Remove & add action (without action terminal removal)
     graph.disconnect(action="act_1", target=("KF", "inputs", "in_2"))
