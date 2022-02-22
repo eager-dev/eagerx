@@ -3,7 +3,7 @@ from tabulate import tabulate
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing import List, Union, Dict, Tuple, Optional, Any
+from typing import List, Union, Dict, Optional, Any
 import rospy
 from eagerx.utils.utils import (
     get_opposite_msg_cls,
@@ -104,7 +104,9 @@ class Graph:
 
         for entity in entities:
             name = entity.default.name
-            assert (name not in self._state["nodes"]), f'There is already a node or object registered in this graph with name "{name}".'
+            assert (
+                name not in self._state["nodes"]
+            ), f'There is already a node or object registered in this graph with name "{name}".'
             assert not entity.has_graph, f"Spec '{name}' is already added to a graph."
 
             # Add node to state
@@ -190,8 +192,9 @@ class Graph:
         assert observation != "actions_set", 'Cannot define an observations with the reserved name "actions_set".'
         params_obs = self._state["nodes"]["env/observations"]
         if observation in params_obs["inputs"]:
-            assert len(params_obs["inputs"][observation]) == 0, ('Observation "%s" already exists'
-                                                                 ' and is connected.' % observation)
+            assert len(params_obs["inputs"][observation]) == 0, (
+                'Observation "%s" already exists' " and is connected." % observation
+            )
         else:
             params_obs["inputs"][observation] = dict()
             view = self.get_view("env/observations", ["inputs", observation])
@@ -237,8 +240,9 @@ class Graph:
 
     def _remove_action(self, action: str):
         """Method to remove an action. It will first disconnect all connections in connect."""
-        self._remove_component("env/actions", "outputs", action, remove=False)
-        params_action = self._state["nodes"]["env/actions"]["params"]
+        view = self.get_view("env/actions", ["outputs", action])
+        self._remove_component(view, remove=False)
+        params_action = self._state["nodes"]["env/actions"]
         source = ["env/actions", "outputs", action]
         connect_exists = False
         for c in self._state["connects"]:
@@ -253,8 +257,9 @@ class Graph:
 
     def _remove_observation(self, observation: str):
         """Method to remove an observation. It will first disconnect all connections in connect."""
-        self._remove_component("env/observations", "inputs", observation, remove=False)
-        params_obs = self._state["nodes"]["env/observations"]["params"]
+        view = self.get_view("env/observations", ["inputs", observation])
+        self._remove_component(view, remove=False)
+        params_obs = self._state["nodes"]["env/observations"]
         target = ["env/observations", "inputs", observation]
         connect_exists = False
         for c in self._state["connects"]:
@@ -281,10 +286,13 @@ class Graph:
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
     ):
-        assert not source or not action, 'You cannot specify a source if you wish to connect action "%s",' \
-                                         ' as the action will act as the source.' % action
-        assert not target or not observation, 'You cannot specify a target if you wish to connect observation "%s",' \
-                                              ' as the observation will act as the target.' % observation
+        assert not source or not action, (
+            'You cannot specify a source if you wish to connect action "%s",' " as the action will act as the source." % action
+        )
+        assert not target or not observation, (
+            'You cannot specify a target if you wish to connect observation "%s",'
+            " as the observation will act as the target." % observation
+        )
         assert not (observation and action), "You cannot connect an action directly to an observation."
 
         if isinstance(converter, ConverterSpec):
@@ -330,10 +338,11 @@ class Graph:
         # Perform checks on target
         target_name, target_comp, target_cname = target()
         if target_comp == "feedthroughs":
-            assert window is None or window > 0, "Feedthroughs must have a window > 0, " \
-                                                 "else no action can be fed through."
-            assert not skip, "Feedthroughs cannot skip, as they only feedthrough outputs. " \
-                             "When setting skip=True, no msg can be fed through."
+            assert window is None or window > 0, "Feedthroughs must have a window > 0, " "else no action can be fed through."
+            assert not skip, (
+                "Feedthroughs cannot skip, as they only feedthrough outputs. "
+                "When setting skip=True, no msg can be fed through."
+            )
             ft_view = self.get_view(target_name, ["outputs", target_cname])
             self._is_selected(self._state, ft_view)
         else:
@@ -369,8 +378,9 @@ class Graph:
             component = "outputs"
             target = self.get_view(name, [component, cname])
 
-        assert "space_converter" in target, (f'"{cname}" does not have a space_converter defined for '
-                                             f'{component} in the spec of object "{name}".')
+        assert "space_converter" in target, (
+            f'"{cname}" does not have a space_converter defined for ' f'{component} in the spec of object "{name}".'
+        )
 
         # Infer source properties (converter & msg_type) from target
         space_converter = target.space_converter.to_dict()
@@ -384,19 +394,25 @@ class Graph:
         if len(params_action["outputs"][action]) > 0:  # Action already registered
             space_converter_state = params_action["outputs"][action]["converter"]
             msg_type_B_state = get_opposite_msg_cls(params_action["outputs"][action]["msg_type"], space_converter_state)
-            assert (msg_type_B == msg_type_B_state), f'Conflicting msg_types for action "{action}" that is already ' \
-                                                     f'used in another connection. Occurs with connection %s' % tuple([name, component, cname])
+            assert msg_type_B == msg_type_B_state, (
+                f'Conflicting msg_types for action "{action}" that is already '
+                f"used in another connection. Occurs with connection %s" % tuple([name, component, cname])
+            )
 
             if not space_converter == space_converter_state:
-                rospy.logwarn('Conflicting %s for action "%s". '
-                              'Not using the space_converter '
-                              'of %s[%s][%s]' % ("space_converters", action, name, component, cname))
+                rospy.logwarn(
+                    'Conflicting %s for action "%s". '
+                    "Not using the space_converter "
+                    "of %s[%s][%s]" % ("space_converters", action, name, component, cname)
+                )
             msg_type_A = get_opposite_msg_cls(msg_type_B_state, space_converter_state)
         else:
             # Verify that converter is not modifying the msg_type (i.e. it is a processor).
-            assert (msg_type_B == msg_type_C), "Cannot have a converter that maps to a different msg_type as the " \
-                                               "converted msg_type will not be compatible with the " \
-                                               "space_converter specified in the spec."
+            assert msg_type_B == msg_type_C, (
+                "Cannot have a converter that maps to a different msg_type as the "
+                "converted msg_type will not be compatible with the "
+                "space_converter specified in the spec."
+            )
             msg_type_A = get_opposite_msg_cls(msg_type_B, space_converter)
             msg_type = get_module_type_string(msg_type_A)
             mapping = dict(
@@ -413,10 +429,12 @@ class Graph:
         assert observation in params_obs["inputs"], 'Observation "%s" must be added, before you can connect it.' % observation
         name, component, cname = source()
 
-        assert (converter is not None or "space_converter" in source), f'"{cname}" does not have a space_converter ' \
-                                                                       f'defined under {component} in the spec of "{name}". ' \
-                                                                       "Either specify it there, or add an input converter " \
-                                                                       "that acts as a space_converter to this connection."
+        assert converter is not None or "space_converter" in source, (
+            f'"{cname}" does not have a space_converter '
+            f'defined under {component} in the spec of "{name}". '
+            "Either specify it there, or add an input converter "
+            "that acts as a space_converter to this connection."
+        )
 
         # Infer target properties (converter & msg_type) from source
         msg_type_A = get_cls_from_string(source.msg_type)
@@ -478,21 +496,28 @@ class Graph:
         observation: str = None,
     ):
         """Disconnects a source from a target. The target is reset in self._state to its disconnected state."""
-        assert not source or not action, ('You cannot specify a source if you wish to disconnect action "%s",'
-                                          ' as the action will act as the source.' % action)
-        assert not target or not observation, ('You cannot specify a target if you wish to disconnect observation "%s",'
-                                               ' as the observation will act as the target.' % observation)
-        assert not (observation and action), "You cannot disconnect an action from an observation," \
-                                             " as such a connection cannot exist."
+        assert not source or not action, (
+            'You cannot specify a source if you wish to disconnect action "%s",'
+            " as the action will act as the source." % action
+        )
+        assert not target or not observation, (
+            'You cannot specify a target if you wish to disconnect observation "%s",'
+            " as the observation will act as the target." % observation
+        )
+        assert not (observation and action), (
+            "You cannot disconnect an action from an observation," " as such a connection cannot exist."
+        )
 
         # Create source & target entries
         if action:
-            assert (target is not None), f"If you want to disconnect action {action}, " \
-                                         "please also specify the corresponding target."
+            assert target is not None, (
+                f"If you want to disconnect action {action}, " "please also specify the corresponding target."
+            )
             source = self.get_view("env/actions", ["outputs", action])
         if observation:
-            assert (source is not None), f"If you want to disconnect observation {observation}," \
-                                         " please also specify the corresponding source."
+            assert source is not None, (
+                f"If you want to disconnect observation {observation}," " please also specify the corresponding source."
+            )
             target = self.get_view("env/observations", ["inputs", observation])
 
         # Check if connection exists
@@ -507,8 +532,12 @@ class Graph:
                 connect_exists = True
                 idx_connect = idx
                 break
-        assert connect_exists, "The connection with source=%s and target=%s cannot be removed," \
-                               " because it does not exist." % (source(), target())
+        assert (
+            connect_exists
+        ), "The connection with source=%s and target=%s cannot be removed," " because it does not exist." % (
+            source(),
+            target(),
+        )
 
         # Pop the connection from the state
         self._state["connects"].pop(idx_connect)
@@ -591,11 +620,11 @@ class Graph:
     ):
         """Renames action/observation if specified."""
         if action:
-            assert observation is None, 'Cannot supply both an action and observation.'
+            assert observation is None, "Cannot supply both an action and observation."
             entry = self.get_view("env/actions", ["outputs", action])
         if observation:
-            assert action is None, 'Cannot supply both an action and observation.'
-            assert observation is not None, 'Either an action or observation must be supplied.'
+            assert action is None, "Cannot supply both an action and observation."
+            assert observation is not None, "Either an action or observation must be supplied."
             entry = self.get_view("env/observations", ["inputs", observation])
         self._rename_component(entry, new_cname=new)
 
@@ -609,8 +638,9 @@ class Graph:
         params = self._state["nodes"][name]
 
         # For now, we only support changing action/observation cnames
-        assert name in ["env/observations", "env/actions"], f'Cannot change "{old_cname}" of "{name}". Only name ' \
-                                                            'changes to observations and actions are supported.'
+        assert name in ["env/observations", "env/actions"], (
+            f'Cannot change "{old_cname}" of "{name}". Only name ' "changes to observations and actions are supported."
+        )
         assert new_cname not in params[component], f'"{new_cname}" already defined in "{name}" under {component}.'
 
         # Rename cname in params
@@ -620,7 +650,9 @@ class Graph:
                 assert new_cname not in d[component], f'"{new_cname}" already defined in "{name}" under {component}.'
                 d[component][new_cname] = d[component].pop(old_cname)
             if component in d["default"] and old_cname in d["default"][component]:
-                assert new_cname not in d["default"][component], f'"{new_cname}" already defined in "{name}" under {component}.'
+                assert (
+                    new_cname not in d["default"][component]
+                ), f'"{new_cname}" already defined in "{name}" under {component}.'
                 d["default"][component].remove(old_cname)
                 d["default"][component].append(new_cname)
 
@@ -634,13 +666,14 @@ class Graph:
             if target_comp == component and target_cname == old_cname:
                 target[2] = new_cname
 
-    def set(self,
-            mapping: Any,
-            entry: Optional[GraphView] = None,
-            action: Optional[str] = None,
-            observation: Optional[str] = None,
-            parameter: Optional[str] = None
-            ):
+    def set(
+        self,
+        mapping: Any,
+        entry: Optional[GraphView] = None,
+        action: Optional[str] = None,
+        observation: Optional[str] = None,
+        parameter: Optional[str] = None,
+    ):
         """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
         parameter will be set there. Else, the parameter is set under the "default" key.
         For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
@@ -653,12 +686,15 @@ class Graph:
         if observation:
             entry = self.get_view("env/observations", ["inputs", observation])
         if parameter is None:
-            assert isinstance(mapping, dict)
+            if isinstance(mapping, GraphView):
+                mapping = mapping.to_dict()
+            assert isinstance(mapping, dict), "Can only set mappings of type dict. Else, also set 'parameter=<param_name>'."
         else:
             mapping = {parameter: mapping}
 
         for parameter, value in mapping.items():
-            if parameter: getattr(entry, parameter)  # Check if parameter exists
+            if parameter:
+                getattr(entry, parameter)  # Check if parameter exists
             if parameter == "converter":
                 if isinstance(value, ConverterSpec):
                     value = value.params
@@ -684,57 +720,60 @@ class Graph:
                     p = self._state["nodes"][name][component][cname]
                 self._set(p, {parameter: value})
 
-    def set_parameters(
-        self,
-        mapping: Dict[str, Any],
-        entry: Optional[GraphView] = None,
-        action: Optional[str] = None,
-        observation: Optional[str] = None,
-    ):
-        """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-        parameter will be set there. Else, the parameter is set under the "default" key.
-        For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
-        If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
-        disconnected. See _set_converter for more info.
-        """
-        self._correct_signature(entry, action, observation)
-        if action:
-            entry = self.get_view("env/actions", ["outputs", action])
-        if observation:
-            entry = self.get_view("env/observations", ["inputs", observation])
-
-        if len(entry()) == 3:  # component parameter
-            for parameter, value in mapping.items():
-                if parameter: getattr(entry, parameter)  # Check if parameter exists
-                if parameter == "converter":
-                    if isinstance(value, ConverterSpec):
-                        value = value.params
-                    self._set_converter(entry, value)
-                else:
-                    name, component, cname = entry()
-                    self._set(self._state["nodes"][name][component][cname], {parameter: value})
-        else:  # len(entry()) == 2 --> Default parameter
-            for parameter, value in mapping.items():
-                if parameter: getattr(entry, parameter)  # Check if parameter exists
-                name, _ = entry()
-                assert parameter not in [
-                    "sensors",
-                    "actuators",
-                    "targets",
-                    "states",
-                    "inputs",
-                    "outputs",
-                ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
-                assert parameter not in ["name"], "You cannot rename with this function. Use rename_(name) instead."
-                default = self._state["nodes"][name]["default"]
-                self._set(default, {parameter: value})
+    # todo: uncomment to check usages.
+    # def set_parameter(
+    #     self,
+    #     mapping: Dict[str, Any],
+    #     entry: Optional[GraphView] = None,
+    #     action: Optional[str] = None,
+    #     observation: Optional[str] = None,
+    # ):
+    #     """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
+    #     parameter will be set there. Else, the parameter is set under the "default" key.
+    #     For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
+    #     If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
+    #     disconnected. See _set_converter for more info.
+    #     """
+    #     self._correct_signature(entry, action, observation)
+    #     if action:
+    #         entry = self.get_view("env/actions", ["outputs", action])
+    #     if observation:
+    #         entry = self.get_view("env/observations", ["inputs", observation])
+    #
+    #     if len(entry()) == 3:  # component parameter
+    #         for parameter, value in mapping.items():
+    #             if parameter:
+    #                 getattr(entry, parameter)  # Check if parameter exists
+    #             if parameter == "converter":
+    #                 if isinstance(value, ConverterSpec):
+    #                     value = value.params
+    #                 self._set_converter(entry, value)
+    #             else:
+    #                 name, component, cname = entry()
+    #                 self._set(self._state["nodes"][name][component][cname], {parameter: value})
+    #     else:  # len(entry()) == 2 --> Default parameter
+    #         for parameter, value in mapping.items():
+    #             if parameter:
+    #                 getattr(entry, parameter)  # Check if parameter exists
+    #             name, _ = entry()
+    #             assert parameter not in [
+    #                 "sensors",
+    #                 "actuators",
+    #                 "targets",
+    #                 "states",
+    #                 "inputs",
+    #                 "outputs",
+    #             ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
+    #             assert parameter not in ["name"], "You cannot rename with this function. Use rename_(name) instead."
+    #             default = self._state["nodes"][name]["default"]
+    #             self._set(default, {parameter: value})
 
     def _set_converter(self, entry: GraphView, converter: Dict):
         """Replaces the converter specified for a node's/object's I/O.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
-        getattr(entry, "converter")  # Check if parameter exists
+        _ = entry.converter  # Check if parameter exists
         name, component, cname = entry()
         params = self._state["nodes"][name]
 
@@ -752,27 +791,37 @@ class Graph:
             was_disconnected = False
 
         # If disconnected action/observation, we cannot add converter so raise error.
-        assert not (was_disconnected and name in ["env/actions", "env/observations"]),\
-            'Cannot change the converter of action/observation "%s", as it changes the msg_type from ' \
-            '"%s" to "%s"' % (cname, msg_type_ros_old, msg_type_ros_new)
+        assert not (
+            was_disconnected and name in ["env/actions", "env/observations"]
+        ), 'Cannot change the converter of action/observation "%s", as it changes the msg_type from ' '"%s" to "%s"' % (
+            cname,
+            msg_type_ros_old,
+            msg_type_ros_new,
+        )
 
         # Make sure the converter is a spaceconverter
         if name in ["env/actions", "env/observations"]:
             converter_cls = get_attribute_from_module(converter["converter_type"])
-            assert issubclass(converter_cls, SpaceConverter), \
-                'Incorrect converter type for "%s". Action/observation converters should always be a subclass of ' \
+            assert issubclass(converter_cls, SpaceConverter), (
+                'Incorrect converter type for "%s". Action/observation converters should always be a subclass of '
                 '"%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
+            )
 
         # Replace converter
         params[component][cname].pop("converter")
         self._set(params[component][cname], {"converter": converter})
 
+    def get_parameters(self, name: str):
+        """Gets all parameters from an entity"""
+        assert name in self._state["nodes"][name], f" No entity with name '{name}' in graph."
+        return self._state["nodes"][name]
+
     def get(
-            self,
-            entry: Optional[GraphView] = None,
-            action: Optional[str] = None,
-            observation: Optional[str] = None,
-            parameter: Optional[str] = None,
+        self,
+        entry: Optional[GraphView] = None,
+        action: Optional[str] = None,
+        observation: Optional[str] = None,
+        parameter: Optional[str] = None,
     ):
         self._correct_signature(entry, action, observation)
         if action:
@@ -789,21 +838,12 @@ class Graph:
         parameter: str,
         entry: Optional[GraphView] = None,
         action: Optional[str] = None,
-        observation: Optional[str] = None
+        observation: Optional[str] = None,
     ):
         """Get node/object parameters. If component and cname are specified, get the parameter of them instead.
         If default was specified, get default parameter instead. Else, raise an error.
         """
         return self.get(entry=entry, action=action, observation=observation, parameter=parameter)
-
-    def get_parameters(
-        self,
-        entry: Optional[GraphView] = None,
-        action: Optional[str] = None,
-        observation: Optional[str] = None,
-    ):
-        """Get all node/object parameters. If component and cname are specified, get the parameters of them instead."""
-        return self.get(entry=entry, action=action, observation=observation)
 
     def register(self):
         """Set the addresses in all incoming components.
@@ -866,7 +906,7 @@ class Graph:
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
-        id: str ="Render",
+        id: str = "Render",
         **kwargs,
     ):
         # Delete old render node from self._state['nodes'] if it exists
@@ -1011,26 +1051,32 @@ class Graph:
                     ]:
                         continue
                     for cname in params["default"][component]:
-                        assert (cname in params[component]), f'"{cname}" was selected in {component} of "{name}", ' \
-                                                             'but has no implementation.'
+                        assert cname in params[component], (
+                            f'"{cname}" was selected in {component} of "{name}", ' "but has no implementation."
+                        )
                         if component not in ["inputs", "targets", "feedthroughs"]:
                             continue
-                        assert params[component][cname]["address"] is not None, (f'"{cname}" was selected in {component} '
-                                                                                 f'of "{name}", but no address could be '
-                                                                                 'produced/inferred. Either deselect it, '
-                                                                                 'or connect it.')
+                        assert params[component][cname]["address"] is not None, (
+                            f'"{cname}" was selected in {component} '
+                            f'of "{name}", but no address could be '
+                            "produced/inferred. Either deselect it, "
+                            "or connect it."
+                        )
             else:
                 for component in params["default"]:
                     if component not in ["sensors", "actuators", "states"]:
                         continue
                     for cname in params["default"][component]:
-                        assert cname in params[component], f'"{cname}" was selected in {component} of "{name}", ' \
-                                                           'but has no (agnostic) implementation.'
+                        assert cname in params[component], (
+                            f'"{cname}" was selected in {component} of "{name}", ' "but has no (agnostic) implementation."
+                        )
                         if component not in ["actuators"]:
                             continue
-                        assert "address" in params[component][cname], f'"{cname}" was selected in {component} of "{name}", ' \
-                                                                      'but no address could be produced/inferred. ' \
-                                                                      'Either deselect it, or connect it.'
+                        assert "address" in params[component][cname], (
+                            f'"{cname}" was selected in {component} of "{name}", '
+                            "but no address could be produced/inferred. "
+                            "Either deselect it, or connect it."
+                        )
         return True
 
     @staticmethod
@@ -1306,4 +1352,3 @@ class Graph:
         depth = depth if depth else []
         depth = [name] + depth
         return GraphView(self, depth=depth, name=name)
-

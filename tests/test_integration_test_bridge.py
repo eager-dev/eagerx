@@ -72,27 +72,27 @@ def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
     graph = Graph.create(nodes=[N1, N3, KF], objects=[viper])
 
     # Connect outputs KF
-    graph.connect(source=("KF", "outputs", "out_1"), observation="obs_2")
+    graph.connect(source=KF.outputs.out_1, observation="obs_2")
 
     # Connect sensors (= outputs of object)
-    graph.connect(source=("obj", "sensors", "N6"), observation="obs_1")
-    graph.connect(source=("obj", "sensors", "N6"), target=("N3", "inputs", "in_1"))
-    graph.connect(source=("obj", "sensors", "N6"), target=("KF", "inputs", "in_1"))
+    graph.connect(source=viper.sensors.N6, observation="obs_1")
+    graph.connect(source=viper.sensors.N6, target=N3.inputs.in_1)
+    graph.connect(source=viper.sensors.N6, target=KF.inputs.in_1)
 
     # Connect actions (= outputs of environment)
-    graph.connect(action="act_1", target=("KF", "inputs", "in_2"), skip=True)
-    graph.connect(action="act_1", target=("N3", "feedthroughs", "out_1"))
-    graph.connect(action="act_2", target=("N1", "inputs", "in_1"), skip=True)
+    graph.connect(action="act_1", target=KF.inputs.in_2, skip=True)
+    graph.connect(action="act_1", target=N3.feedthroughs.out_1)
+    graph.connect(action="act_2", target=N1.inputs.in_1, skip=True)
 
     # Connect outputs N1
-    graph.connect(source=("N1", "outputs", "out_1"), observation="obs_3")
+    graph.connect(source=N1.outputs.out_1, observation="obs_3")
 
     # Connect outputs & targets N3
-    graph.connect(source=("N3", "outputs", "out_1"), target=("obj", "actuators", "N8"), converter=RosString_RosUInt64)
-    graph.connect(source=("obj", "states", "N9"), target=("N3", "targets", "target_1"))
+    graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8, converter=RosString_RosUInt64)
+    graph.connect(source=viper.states.N9, target=N3.targets.target_1)
 
     # Define render
-    graph.render(source=("obj", "sensors", "N6"), rate=1, converter=RosImage_RosUInt64)
+    graph.render(source=viper.sensors.N6, rate=1, converter=RosImage_RosUInt64)
 
     # Open GUI (only opens if eagerx-gui installed)
     graph.gui()

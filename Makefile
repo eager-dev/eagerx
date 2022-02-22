@@ -8,6 +8,10 @@ check-codestyle:
 	# Reformat using black
 	poetry run black --check -l 127 ${LINT_PATHS}
 
+codestyle:
+	# Reformat using black
+	poetry run black -l 127 ${LINT_PATHS}
+
 lint:
 	# stop the build if there are Python syntax errors or undefined names
 	# see https://lintlyci.github.io/Flake8Rules/

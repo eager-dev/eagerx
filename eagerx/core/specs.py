@@ -70,6 +70,7 @@ class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
+
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
