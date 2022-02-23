@@ -15,8 +15,6 @@ lint:
 	# exit-zero treats all errors as warnings.
 	poetry run flake8 ${LINT_PATHS} --count --exit-zero --statistics
 
-.PHONY: check-codestyle
-
 # Build docker images
 # If you do export RELEASE=True, it will also push them
 docker:
@@ -33,3 +31,28 @@ docker-sb-cpu:
 
 docker-sb-gpu:
 	ADD_SB=True USE_GPU=True ./scripts/build_docker.sh
+
+# Make docs
+doc:
+	cd docs && make html
+
+spelling:
+	cd docs && make spelling
+
+clean:
+	cd docs && make clean
+
+# PyPi package release
+#release:
+	#python setup.py sdist
+	#python setup.py bdist_wheel
+	#twine upload dist/*
+
+# Test PyPi package release
+#test-release:
+	#python setup.py sdist
+	#python setup.py bdist_wheel
+	#twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
+
+.PHONY: check-codestyle

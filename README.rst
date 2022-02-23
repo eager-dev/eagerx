@@ -1,14 +1,17 @@
-******
-EAGERx
-******
+.. image:: docs/_static/img/banner.png
+
 **Streamlining the transfer of simulated robot learning to the real-world.**
+
+.. image:: https://img.shields.io/badge/License-Apache_2.0-blue.svg
+   :target: https://opensource.org/licenses/Apache-2.0
+   :alt: license
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: codestyle
 
-.. image:: https://readthedocs.org/projects/mushroomrl/badge/?version=latest
-   :target: https://eagerx.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/eagerx/badge/?version=master
+   :target: https://eagerx.readthedocs.io/en/master/?badge=master
    :alt: Documentation Status
 
 .. image:: https://github.com/eager-dev/eagerx/actions/workflows/ci.yml/badge.svg?branch=master
@@ -23,15 +26,13 @@ EAGERx
    :target: https://codeclimate.com/github/eager-dev/eagerx/test_coverage
    :alt: Test Coverage
 
-
-
 .. contents:: Table of Contents
     :depth: 2
 
 
 What is EAGERx
 ==============
-EAGERx enables users to easily define new tasks, switch from one sensor to another,
+EAGERx (Engine Agnostic Gym Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
 EAGERx explicitly addresses the differences in learning between simulation and reality,
 with essential features for roboticists such as a safety layer, signal delay simulation, and controller switching for resets.
@@ -55,9 +56,10 @@ You can do a minimal installation of ``EAGERx`` with:
 
     pip3 install eagerx
 
-EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
-so it does **not** impose a ROS package structure on your project.
-See `here <ROS_>`_ for installation instructions.
+.. note::
+    EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
+    so it does **not** impose a ROS package structure on your project.
+    See `here <ROS_>`_ for installation instructions.
 
 Extras: GUI
 ---------------------
@@ -73,10 +75,13 @@ You can install everything by running:
   TODO: Add example and gif of GUI
 
 Extras: training visualization
----------------------
+------------------------------
 
-For training visualization, either a ``desktop`` or ``desktop-full`` ROS installation is required.
-See `here <ROS_>`_ for installation instructions.
+In robotics it is crucial to monitor the robot's behavior during the learning process.
+Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
+
+.. note::
+    ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. See `here <ROS_>`_ for installation instructions.
 
 ..
   TODO: add example and gif of visualization.

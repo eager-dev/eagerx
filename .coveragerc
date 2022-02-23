@@ -16,4 +16,5 @@ exclude_lines =
     elif print_mode == ROS:
     filter_info_for_printing
     remap_cb_input
+    trace_observable
     raise
