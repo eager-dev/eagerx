@@ -30,12 +30,13 @@ RUN pip3 install --upgrade pip
 RUN pip3 install "poetry==$POETRY_VERSION"
 
 
-# Install Anaconda and dependencies
+# Install Anaconda and dependencies for using the specified python version
 RUN curl -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
      chmod +x ~/miniconda.sh && \
      ~/miniconda.sh -b -p /opt/conda && \
      rm ~/miniconda.sh && \
      /opt/conda/bin/conda install -y python=$PYTHON_VERSION && \
+     # When installing stable-baselines3, we want to use the appropriate pytorch version (cpu or gpu)
      if [ ${ADD_SB} ] ; then /opt/conda/bin/conda install -y pytorch $PYTORCH_DEPS -c pytorch; fi && \
      /opt/conda/bin/conda clean -ya
 ENV PATH /opt/conda/bin:$PATH
@@ -44,6 +45,7 @@ ENV PATH /opt/conda/bin:$PATH
 WORKDIR /code
 COPY poetry.lock pyproject.toml /code/
 
+# Install eagerx without creation of poetry environment since the docker is already isolated
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
 
 # Install ROS
@@ -53,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ros-noetic-ros-
 RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 RUN echo "export ROSLAUNCH_SSH_UNKNOWN=1" >> /root/.bashrc
 
+# Install eagerx-examples if ADD_SB, this will also install stable-baselines3
 RUN if [ ${ADD_SB} ] ; then pip install eagerx-examples; fi
 
 # Use headless opencv
