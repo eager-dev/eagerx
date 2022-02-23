@@ -5,9 +5,9 @@ channels:
 dependencies:
   - pip=21.1
   - python=3.8
-  - ros-rospy
-  - ros-rosparam
-  - ros-roslaunch
+#  - ros-rospy
+#  - ros-rosparam
+#  - ros-roslaunch
   - pip:
     - opencv-python>=4.3.0.36
     - networkx
