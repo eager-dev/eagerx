@@ -74,6 +74,7 @@ jobs:
       - name: Build the doc
         run: |
           sudo apt-get install python3-sphinx
+          pip3 install sphinx-autodoc-typehints sphinx_rtd_theme
           source .venv/bin/activate
           make doc
       #----------------------------------------------
