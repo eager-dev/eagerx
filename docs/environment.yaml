@@ -6,7 +6,7 @@ dependencies:
   - pip=21.1
   - python=3.6.2
   - ros-rospy
-  - ros-rosparam
+#  - ros-rosparam
 #  - ros-roslaunch
   - pip:
     - opencv-python>=4.3.0.36
