@@ -24,13 +24,13 @@ class Space_RosUInt64(SpaceConverter):
         # Initialize converter
         spec.initialize(Space_RosUInt64)
 
-        spec.default.low = low
-        spec.default.high = high
-        spec.default.shape = shape
-        spec.default.dtype = dtype
+        spec.config.low = low
+        spec.config.high = high
+        spec.config.shape = shape
+        spec.config.dtype = dtype
 
         # Test spec
-        spec.default.dtype = spec.default.dtype
+        spec.config.dtype = spec.config.dtype
 
     def get_space(self):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
@@ -71,10 +71,10 @@ class Space_RosString(SpaceConverter):
         # Initialize converter
         spec.initialize(Space_RosString)
 
-        spec.default.low = low
-        spec.default.high = high
-        spec.default.shape = shape
-        spec.default.dtype = dtype
+        spec.config.low = low
+        spec.config.high = high
+        spec.config.shape = shape
+        spec.config.dtype = dtype
 
     def get_space(self):
         return Box(self.low, self.high, shape=self.shape, dtype=self.dtype)
@@ -99,7 +99,7 @@ class RosImage_RosUInt64(Converter):
         # Initialize converter
         spec.initialize(RosImage_RosUInt64)
 
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
     def A_to_B(self, msg):
         return UInt64(data=999)
@@ -121,7 +121,7 @@ class RosString_RosUInt64(Converter):
         # Initialize converter
         spec.initialize(RosString_RosUInt64)
 
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
     def A_to_B(self, msg):
         return UInt64(data=int(msg.data[8:]))

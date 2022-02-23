@@ -36,17 +36,17 @@ class RealResetNode(ResetNode):
         spec.initialize(RealResetNode)
 
         # Modify default node params
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["in_1"]
-        spec.default.outputs = outputs if outputs else ["out_1"]
-        spec.default.states = states if states else ["state_1"]
-        spec.default.targets = targets if targets else ["target_1"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["in_1"]
+        spec.config.outputs = outputs if outputs else ["out_1"]
+        spec.config.states = states if states else ["state_1"]
+        spec.config.targets = targets if targets else ["target_1"]
 
         # Modify extra params
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
         # Test NodeSPec
         spec.add_target("target_test", UInt64)
@@ -186,16 +186,16 @@ class ProcessNode(TestNode):
         spec.initialize(ProcessNode)
 
         # Modify default node params
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["in_1"]
-        spec.default.outputs = outputs if outputs else ["out_1"]
-        spec.default.states = states if states else ["state_1"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["in_1"]
+        spec.config.outputs = outputs if outputs else ["out_1"]
+        spec.config.states = states if states else ["state_1"]
 
         # Modify extra params
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
         # set input parameters
         spec.inputs.in_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
@@ -235,16 +235,16 @@ class KalmanNode(TestNode):
         spec.initialize(KalmanNode)
 
         # Modify default node params
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["in_1"]
-        spec.default.outputs = outputs if outputs else ["out_1"]
-        spec.default.states = states if states else ["state_1"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["in_1"]
+        spec.config.outputs = outputs if outputs else ["out_1"]
+        spec.config.states = states if states else ["state_1"]
 
         # Modify extra params
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
         # Test NodeSpec adding & removing of components
         spec.add_input("in_test", UInt64)
@@ -301,15 +301,15 @@ class TestActuator(TestNode):
         spec.initialize(TestActuator)
 
         # Modify default node params
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick", "in_1", "in_2", "in_3"]
-        spec.default.outputs = outputs if outputs else ["out_1"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick", "in_1", "in_2", "in_3"]
+        spec.config.outputs = outputs if outputs else ["out_1"]
 
         # Modify extra params
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
         # Set state parameters
         spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
@@ -336,16 +336,16 @@ class TestSensor(TestNode):
         spec.initialize(TestSensor)
 
         # Modify default node params
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick_1", "in_1"]
-        spec.default.outputs = outputs if outputs else ["out_1"]
-        spec.default.states = states if states else ["state_1"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick_1", "in_1"]
+        spec.config.outputs = outputs if outputs else ["out_1"]
+        spec.config.states = states if states else ["state_1"]
 
         # Modify extra params
-        spec.default.test_arg = test_arg
+        spec.config.test_arg = test_arg
 
         # Set state parameters
         spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")

@@ -31,13 +31,13 @@ class Arm(Object):
         # Set state properties: space_converters
         spec.sensors.N6.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.sensors.N7.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.sensors.N6.rate = "$(default arg_rate)"
+        spec.sensors.N6.rate = "$(config arg_rate)"
         spec.sensors.N7.rate = 2
 
         # Set actuator properties: space_converters
         spec.actuators.N8.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
         spec.actuators.ref_vel.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.actuators.N8.rate = "$(default arg_rate)"
+        spec.actuators.N8.rate = "$(config arg_rate)"
         spec.actuators.ref_vel.rate = 1
 
         # Set state properties: space_converters
@@ -59,8 +59,8 @@ class Arm(Object):
         position: Optional[List[str]] = None,
         orientation: Optional[List[str]] = None,
         string: Optional[str] = "test_arg",
-        test_string: Optional[str] = "$(default string)",
-        test_list: Optional[str] = "$(default orientation)",
+        test_string: Optional[str] = "$(config string)",
+        test_list: Optional[str] = "$(config orientation)",
         low: Optional[int] = 0,
     ):
         """Object spec of Arm"""
@@ -69,26 +69,26 @@ class Arm(Object):
 
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        spec.default.name = name
-        spec.default.sensors = sensors if sensors else ["N6", "N7"]
-        spec.default.actuators = actuators if actuators else ["ref_vel"]
-        spec.default.states = states if states else ["N9", "N10"]
+        spec.config.name = name
+        spec.config.sensors = sensors if sensors else ["N6", "N7"]
+        spec.config.actuators = actuators if actuators else ["ref_vel"]
+        spec.config.states = states if states else ["N9", "N10"]
 
         # Change custom params
-        spec.default.position = position if position else [0, 0, 0]
-        spec.default.orientation = orientation if orientation else [0, 0, 0]
-        spec.default.string = string
-        spec.default.test_string = test_string
-        spec.default.test_list = test_list
-        spec.default.low = low
-        spec.default.arg_rate = 15
+        spec.config.position = position if position else [0, 0, 0]
+        spec.config.orientation = orientation if orientation else [0, 0, 0]
+        spec.config.string = string
+        spec.config.test_string = test_string
+        spec.config.test_list = test_list
+        spec.config.low = low
+        spec.config.arg_rate = 15
 
         # Add bridge implementation
         Arm.test_bridge(spec)
 
         # Test ObjectSpec
         spec.sensors.N6 = spec.sensors.N6
-        spec.default.name = spec.default.name
+        spec.config.name = spec.config.name
         return spec
 
     @classmethod
@@ -96,8 +96,8 @@ class Arm(Object):
     def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation of the Arm with the test bridge."""
         # Set object arguments
-        spec.default.req_arg = "TEST"
-        spec.default.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
+        spec.config.req_arg = "TEST"
+        spec.config.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
 
         # Create simstates
         spec.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
@@ -111,7 +111,7 @@ class Arm(Object):
             inputs=["tick", "in_1"],
             outputs=["out_1"],
             states=["state_1"],
-            test_arg="$(default req_arg)",
+            test_arg="$(config req_arg)",
         )
         N7 = EngineNode.make(
             "TestSensor",
@@ -121,7 +121,7 @@ class Arm(Object):
             inputs=["tick", "in_1"],
             outputs=["out_1"],
             states=[],
-            test_arg="$(default test_string)",
+            test_arg="$(config test_string)",
         )
 
         # Create actuator engine nodes
@@ -132,7 +132,7 @@ class Arm(Object):
             process=2,
             inputs=["tick", "in_2", "in_3"],
             outputs=["out_1"],
-            test_arg="$(default test_string)",
+            test_arg="$(config test_string)",
             color="green",
         )
         ref_vel = EngineNode.make(
@@ -142,7 +142,7 @@ class Arm(Object):
             process=2,
             inputs=["tick", "in_1", "in_2"],
             outputs=["out_1"],
-            test_arg="$(default test_string)",
+            test_arg="$(config test_string)",
             color="green",
         )
 
@@ -153,75 +153,84 @@ class Arm(Object):
         # Test EngineGraph: Add/remove sensor
         graph.add(N6)
         _ = graph.__str__()
-        graph.add_component("N6", "outputs", "out_2")
-        graph.remove_component("N6", "outputs", "out_2")
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.remove("N6")
+        graph.add_component(N6.outputs.out_2)
+        graph.remove_component(N6.outputs.out_2)
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.remove(N6)
+        N6.set_graph(None)
 
         # Test EngineGraph: Add/remove actuator
         graph.add(N8)
-        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
+        graph.connect(actuator="N8", target=N8.inputs.in_3)
         graph.remove("N8")
+        N8.set_graph(None)
 
         # Test EngineGraph: Remove component
         graph.add(N6)
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.rename("N6", "N6_new")  # Test renaming
-        graph.remove_component("N6_new", "outputs", "out_1")
-        graph.add_component("N6_new", "outputs", "out_1")
-        graph.remove("N6_new")
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.remove_component(N6.outputs.out_1)
+        graph.add_component(N6.outputs.out_1)
+        graph.remove("N6")
+        N6.set_graph(None)
 
         # Test EngineGraph: Remove component
         graph.add(N8)
-        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
-        graph.remove_component("N8", "inputs", "in_3")
-        graph.add_component("N8", "inputs", "in_3")
+        graph.connect(actuator="N8", target=N8.inputs.in_3)
+        graph.remove_component(N8.inputs.in_3)
+        graph.add_component(N8.inputs.in_3)
         graph.remove("N8")
+        N8.set_graph(None)
 
         # Test EngineGraph: parameters
         graph.add([N6, N8])
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
-        graph.get_parameter("converter", "N6", "outputs", "out_1")
-        graph.set_parameter("test_arg", "NEW_ARG", "N6")
-        graph.get_parameter("converter", actuator="N8")
-        graph.get_parameter("converter", sensor="N6")
-        graph.get_parameters(sensor="N6")
-        graph.get_parameters(actuator="N8")
-        graph.get_parameters("N6", "outputs", "out_1")
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.connect(actuator="N8", target=N8.inputs.in_3)
+        graph.get(N6.outputs.out_1.converter)
+        graph.set({"test_arg": "NEW_ARG"}, N6.config)
+        graph.get(actuator="N8", parameter="converter")
+        graph.get(sensor="N6", parameter="converter")
+        graph.get(sensor="N6")
+        graph.get(actuator="N8")
+        graph.get(N6.outputs.out_1)
+        graph.set(graph.get(N6.outputs.out_1), N6.outputs.out_1)
+        graph.set(N6.outputs.out_1.converter, N6.outputs.out_1, parameter="converter")
+        graph.set(BaseConverter.make("Identity"), N6.outputs.out_1, parameter="converter")
+        graph.get(N6)
         graph.remove(["N6", "N8"])
+        N6.set_graph(None)
+        N8.set_graph(None)
 
         # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])
 
         # Connect sensors & actuators to engine nodes
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.disconnect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.connect(source=("N7", "outputs", "out_1"), sensor="N7")
-        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
-        graph.connect(actuator="ref_vel", target=("ref_vel", "inputs", "in_1"))
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.disconnect(source=N6.outputs.out_1, sensor="N6")
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.connect(source=N7.outputs.out_1, sensor="N7")
+        graph.connect(actuator="N8", target=N8.inputs.in_3)
+        graph.connect(actuator="ref_vel", target=ref_vel.inputs.in_1)
 
         # Interconnect engine nodes
         id = BaseConverter.make("Identity")
         graph.connect(
-            source=("N8", "outputs", "out_1"),
-            target=("N7", "inputs", "in_1"),
+            source=N8.outputs.out_1,
+            target=N7.inputs.in_1,
             skip=True,
         )
-        graph.connect(source=("N6", "outputs", "out_1"), target=("N8", "inputs", "in_2"), window=1, converter=id)
-        graph.connect(source=("N6", "outputs", "out_1"), target=("ref_vel", "inputs", "in_2"), delay=0.0)
+        graph.connect(source=N6.outputs.out_1, target=N8.inputs.in_2, window=1, converter=id)
+        graph.connect(source=N6.outputs.out_1, target=ref_vel.inputs.in_2, delay=0.0)
 
         # Connect simnode with external address (cannot be actuator or sensor)
         graph.connect(
             address="$(ns env_name)/nonreactive_input_topic",
-            target=("N6", "inputs", "in_1"),
+            target=N6.inputs.in_1,
             external_rate=20,
         )
-        graph.disconnect(target=("N6", "inputs", "in_1"))
+        graph.disconnect(target=N6.inputs.in_1)
         graph.connect(
             address="$(ns env_name)/nonreactive_input_topic",
-            target=("N6", "inputs", "in_1"),
+            target=N6.inputs.in_1,
             external_rate=20,
         )
 
@@ -230,10 +239,10 @@ class Arm(Object):
 
         plt.ion()
 
-        graph.add_component("N8", "inputs", "in_1")
-        graph.connect(source=("N7", "outputs", "out_1"), target=("N8", "inputs", "in_1"))
-        graph.disconnect(source=("N8", "outputs", "out_1"), target=("N7", "inputs", "in_1"))
-        graph.connect(source=("N8", "outputs", "out_1"), target=("N7", "inputs", "in_1"))
+        graph.add_component(N8.inputs.in_1)
+        graph.connect(source=N7.outputs.out_1, target=N8.inputs.in_1)
+        graph.disconnect(source=N8.outputs.out_1, target=N7.inputs.in_1)
+        graph.connect(source=N8.outputs.out_1, target=N7.inputs.in_1)
         try:
             graph.is_valid(plot=True)
         except AssertionError as e:
@@ -242,9 +251,9 @@ class Arm(Object):
             else:
                 raise
         # Reconnect
-        graph.remove_component("N8", "inputs", "in_1")
-        graph.disconnect(source=("N8", "outputs", "out_1"), target=("N7", "inputs", "in_1"))
-        graph.connect(source=("N8", "outputs", "out_1"), target=("N7", "inputs", "in_1"), skip=True)
+        graph.remove_component(N8.inputs.in_1)
+        graph.disconnect(source=N8.outputs.out_1, target=N7.inputs.in_1)
+        graph.connect(source=N8.outputs.out_1, target=N7.inputs.in_1, skip=True)
 
 
 class Viper(Arm):
@@ -259,8 +268,8 @@ class Viper(Arm):
         position: Optional[List[float]] = None,
         orientation: Optional[List[float]] = None,
         string: Optional[str] = "test_arg",
-        test_string: Optional[str] = "$(default string)",
-        test_list: Optional[str] = "$(default orientation)",
+        test_string: Optional[str] = "$(config string)",
+        test_list: Optional[str] = "$(config orientation)",
         low: Optional[int] = 0,
     ):
         """Object spec of Viper"""
@@ -269,19 +278,19 @@ class Viper(Arm):
 
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        spec.default.name = name
-        spec.default.sensors = sensors if sensors else ["N6", "N7"]
-        spec.default.actuators = actuators if actuators else ["ref_vel"]
-        spec.default.states = states if states else ["N9", "N10"]
+        spec.config.name = name
+        spec.config.sensors = sensors if sensors else ["N6", "N7"]
+        spec.config.actuators = actuators if actuators else ["ref_vel"]
+        spec.config.states = states if states else ["N9", "N10"]
 
         # Change custom params
-        spec.default.position = position if position else [0, 0, 0]
-        spec.default.orientation = orientation if orientation else [0, 0, 0]
-        spec.default.string = string
-        spec.default.test_string = test_string
-        spec.default.test_list = test_list
-        spec.default.low = low
-        spec.default.arg_rate = 15
+        spec.config.position = position if position else [0, 0, 0]
+        spec.config.orientation = orientation if orientation else [0, 0, 0]
+        spec.config.string = string
+        spec.config.test_string = test_string
+        spec.config.test_list = test_list
+        spec.config.low = low
+        spec.config.arg_rate = 15
 
         # Add bridge implementation
         Viper.test_bridge(spec)
@@ -292,9 +301,9 @@ class Viper(Arm):
     def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation of the Viper with the test bridge."""
         # Set object arguments
-        spec.default.req_arg = "TEST ARGUMENT"
-        spec.default.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
-        spec.default.xacro = spec.default.xacro
+        spec.config.req_arg = "TEST ARGUMENT"
+        spec.config.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
+        spec.config.xacro = spec.config.xacro
 
         # Create simstates
         spec.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
@@ -309,7 +318,7 @@ class Viper(Arm):
             inputs=["tick", "in_1"],
             outputs=["out_1"],
             states=["state_1"],
-            test_arg="$(default req_arg)",
+            test_arg="$(config req_arg)",
         )
         N7 = EngineNode.make(
             "TestSensor",
@@ -319,7 +328,7 @@ class Viper(Arm):
             inputs=["tick", "in_1"],
             outputs=["out_1"],
             states=[],
-            test_arg="$(default test_string)",
+            test_arg="$(config test_string)",
         )
 
         # Create actuator engine nodes
@@ -330,7 +339,7 @@ class Viper(Arm):
             process=2,
             inputs=["tick", "in_2", "in_3"],
             outputs=["out_1"],
-            test_arg="$(default test_string)",
+            test_arg="$(config test_string)",
             color="green",
         )
         ref_vel = EngineNode.make(
@@ -340,7 +349,7 @@ class Viper(Arm):
             process=2,
             inputs=["tick", "in_1", "in_2"],
             outputs=["out_1"],
-            test_arg="$(default test_string)",
+            test_arg="$(config test_string)",
             color="green",
         )
 
@@ -348,31 +357,31 @@ class Viper(Arm):
         graph.add([N6, N7, N8, ref_vel])
 
         # Connect sensors & actuators to engine nodes
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.disconnect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.connect(source=("N6", "outputs", "out_1"), sensor="N6")
-        graph.connect(source=("N7", "outputs", "out_1"), sensor="N7")
-        graph.connect(actuator="N8", target=("N8", "inputs", "in_3"))
-        graph.connect(actuator="ref_vel", target=("ref_vel", "inputs", "in_1"))
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.disconnect(source=N6.outputs.out_1, sensor="N6")
+        graph.connect(source=N6.outputs.out_1, sensor="N6")
+        graph.connect(source=N7.outputs.out_1, sensor="N7")
+        graph.connect(actuator="N8", target=N8.inputs.in_3)
+        graph.connect(actuator="ref_vel", target=ref_vel.inputs.in_1)
 
         # Interconnect engine nodes
         graph.connect(
-            source=("N8", "outputs", "out_1"),
-            target=("N7", "inputs", "in_1"),
+            source=N8.outputs.out_1,
+            target=N7.inputs.in_1,
             skip=True,
         )
-        graph.connect(source=("N6", "outputs", "out_1"), target=("N8", "inputs", "in_2"))
-        graph.connect(source=("N6", "outputs", "out_1"), target=("ref_vel", "inputs", "in_2"))
+        graph.connect(source=N6.outputs.out_1, target=N8.inputs.in_2)
+        graph.connect(source=N6.outputs.out_1, target=ref_vel.inputs.in_2)
 
         # Connect simnode with external address (cannot be actuator or sensor)
         graph.connect(
             address="$(ns env_name)/nonreactive_input_topic",
-            target=("N6", "inputs", "in_1"),
+            target=N6.inputs.in_1,
             external_rate=20,
         )
-        graph.disconnect(target=("N6", "inputs", "in_1"))
+        graph.disconnect(target=N6.inputs.in_1)
         graph.connect(
             address="$(ns env_name)/nonreactive_input_topic",
-            target=("N6", "inputs", "in_1"),
+            target=N6.inputs.in_1,
             external_rate=20,
         )

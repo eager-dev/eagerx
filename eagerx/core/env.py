@@ -38,10 +38,10 @@ class Env(gym.Env):
         supervisor = Node.pre_make("N/a", entity_type)
         supervisor.add_output("step", msg_type=UInt64)
 
-        supervisor.default.name = "env/supervisor"
-        supervisor.default.color = "yellow"
-        supervisor.default.process = process.ENVIRONMENT
-        supervisor.default.outputs = ["step"]
+        supervisor.config.name = "env/supervisor"
+        supervisor.config.color = "yellow"
+        supervisor.config.process = process.ENVIRONMENT
+        supervisor.config.outputs = ["step"]
         return supervisor
 
     def __init__(self, name: str, rate: float, graph: Graph, bridge: BridgeSpec) -> None:
@@ -50,7 +50,7 @@ class Env(gym.Env):
         self.ns = "/" + name
         self.rate = rate
         self.initialized = False
-        self._bridge_name = bridge.params["default"]["entity_id"]
+        self._bridge_name = bridge.params["config"]["entity_id"]
 
         # Register graph
         self.graph = graph
@@ -82,10 +82,10 @@ class Env(gym.Env):
 
         # Get all states from objects & nodes
         for i in [bridge] + nodes + objects:
-            if "states" not in i.params["default"]:
+            if "states" not in i.params["config"]:
                 continue
-            for cname in i.params["default"]["states"]:
-                entity_name = i.default.name
+            for cname in i.params["config"]["states"]:
+                entity_name = i.config.name
                 name = f"{entity_name}/{cname}"
                 address = f"{entity_name}/states/{cname}"
                 msg_type = i.params["states"][cname]["msg_type"]
@@ -98,24 +98,24 @@ class Env(gym.Env):
                 mapping = dict(address=address, msg_type=msg_type, converter=space_converter)
                 with supervisor.states as d:
                     d[name] = mapping
-                supervisor.default.states.append(name)
+                supervisor.config.states.append(name)
 
             # Get states from simnodes. WARNING: can make environment non-agnostic.
             if isinstance(i, ObjectSpec):
-                obj_name = i.default.name
-                context = {"ns": {"obj_name": obj_name}, "default": i.default.to_dict()}
+                obj_name = i.config.name
+                context = {"ns": {"obj_name": obj_name}, "config": i.config.to_dict()}
                 for node_name, params_simnode in i.params[self._bridge_name]["nodes"].items():
-                    if "states" in params_simnode["default"]:
-                        for cname in params_simnode["default"]["states"]:
+                    if "states" in params_simnode["config"]:
+                        for cname in params_simnode["config"]["states"]:
                             comp_params = params_simnode["states"][cname]
-                            node_name_sub = substitute_args(node_name, context=context, only=["ns", "default"])
+                            node_name_sub = substitute_args(node_name, context=context, only=["ns", "config"])
                             name = f"{node_name_sub}/{cname}"
                             address = f"{node_name_sub}/states/{cname}"
                             msg_type = comp_params["msg_type"]
                             space_converter = comp_params["space_converter"]
 
                             rospy.logwarn(
-                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.default.entity_id}" under bridge implementation "{self._bridge_name}" for more info.'
+                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under bridge implementation "{self._bridge_name}" for more info.'
                             )
                             assert (
                                 name not in supervisor.params["states"]
@@ -128,7 +128,7 @@ class Env(gym.Env):
                             )
                             with supervisor.states as d:
                                 d[name] = mapping
-                            supervisor.default.states.append(name)
+                            supervisor.config.states.append(name)
 
         # Delete pre-existing parameters
         try:
@@ -145,13 +145,13 @@ class Env(gym.Env):
         mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"))
 
         # Get info from bridge on reactive properties
-        is_reactive = bridge.default.is_reactive
-        real_time_factor = bridge.default.real_time_factor
-        simulate_delays = bridge.default.simulate_delays
+        is_reactive = bridge.config.is_reactive
+        real_time_factor = bridge.config.real_time_factor
+        simulate_delays = bridge.config.simulate_delays
 
         # Create supervisor node
-        name = supervisor.default.name
-        supervisor.default.rate = self.rate
+        name = supervisor.config.name
+        supervisor.config.rate = self.rate
         supervisor_params = supervisor.build(ns=self.ns)
         rosparam.upload_params(self.ns, supervisor_params)
         rx_supervisor = Supervisor(
@@ -170,13 +170,13 @@ class Env(gym.Env):
     def _init_bridge(self, bridge: BridgeSpec, nodes: List[NodeSpec]) -> None:
         # Check that reserved keywords are not already defined.
         assert (
-            "node_names" not in bridge.params["default"]
+            "node_names" not in bridge.params["config"]
         ), f'Keyword "{"node_names"}" is a reserved keyword within the bridge params and cannot be used twice.'
         assert (
-            "target_addresses" not in bridge.params["default"]
+            "target_addresses" not in bridge.params["config"]
         ), f'Keyword "{"target_addresses"}" is a reserved keyword within the bridge params and cannot be used twice.'
         assert (
-            not bridge.params["default"]["process"] == process.BRIDGE
+            not bridge.params["config"]["process"] == process.BRIDGE
         ), "Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}."
 
         # Extract node_names
@@ -184,11 +184,11 @@ class Env(gym.Env):
         target_addresses = []
         for i in nodes:
             # node_names.append(i.params['default']['name'])
-            if "targets" in i.params["default"]:
-                for cname in i.params["default"]["targets"]:
+            if "targets" in i.params["config"]:
+                for cname in i.params["config"]["targets"]:
                     address = i.params["targets"][cname]["address"]
                     target_addresses.append(address)
-        with bridge.default as d:
+        with bridge.config as d:
             d.node_names = node_names
             d.target_addresses = target_addresses
 
@@ -207,14 +207,14 @@ class Env(gym.Env):
     def _init_environment(self, actions: NodeSpec, observations: NodeSpec, supervisor_node, message_broker):
         # Check that env has at least one input & output.
         assert (
-            len(observations.params["default"]["inputs"]) > 0
+            len(observations.params["config"]["inputs"]) > 0
         ), f'Environment "{self.name}" must have at least one input (i.e. input).'
         assert (
-            len(actions.params["default"]["outputs"]) > 0
+            len(actions.params["config"]["outputs"]) > 0
         ), f'Environment "{self.name}" must have at least one action (i.e. output).'
 
         # Check that all observation addresses are unique
-        addresses_obs = [observations.params["inputs"][cname]["address"] for cname in observations.params["default"]["inputs"]]
+        addresses_obs = [observations.params["inputs"][cname]["address"] for cname in observations.params["config"]["inputs"]]
         len(set(addresses_obs)) == len(
             addresses_obs
         ), "Duplicate observations found: %s. Make sure to only have unique observations" % (
@@ -223,21 +223,21 @@ class Env(gym.Env):
 
         # Create env node
         env_spec = Node.make("Environment", rate=self.rate)
-        name = env_spec.default.name
-        inputs = observations.default.inputs
-        outputs = actions.default.outputs
+        name = env_spec.config.name
+        inputs = observations.config.inputs
+        outputs = actions.config.outputs
         for i in inputs:
             if i == "actions_set":
                 continue
             with env_spec.inputs as d:
                 d[i] = getattr(observations.inputs, i)
-            env_spec.default.inputs.append(i)
+            env_spec.config.inputs.append(i)
         for i in outputs:
             if i == "set":
                 continue
             with env_spec.outputs as d:
                 d[i] = getattr(actions.outputs, i)
-            env_spec.default.outputs.append(i)
+            env_spec.config.outputs.append(i)
         env_params = env_spec.build(ns=self.ns)
         rosparam.upload_params(self.ns, env_params)
         rx_env = RxNode(name="%s/%s" % (self.ns, name), message_broker=message_broker)

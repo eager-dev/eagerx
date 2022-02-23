@@ -143,11 +143,11 @@ def test_graph():
     graph.set(graph.get(observation="obs_1"), observation="obs_1")
     graph.set({"window": 1}, observation="obs_1")
     _ = graph.get(observation="obs_1", parameter="converter")
-    _ = graph.get(N3.default, parameter="test_arg")
+    _ = graph.get(N3.config, parameter="test_arg")
     _ = graph.get(viper.sensors.N6)
-    graph.set("Modified", N3.default, parameter="test_arg")
-    graph.set({"test_arg": "Modified"}, N3.default)
-    graph.set([1, 1, 1], viper.default, parameter="position")
+    graph.set("Modified", N3.config, parameter="test_arg")
+    graph.set({"test_arg": "Modified"}, N3.config)
+    graph.set([1, 1, 1], viper.config, parameter="position")
 
     # Replace output converter (disconnects all connections (obs_1, KF, N3))
     graph.set({"converter": RosString_RosUInt64}, viper.sensors.N6)
@@ -234,7 +234,7 @@ def test_graph():
     graph.add(N2)
     graph.connect(source=N2.outputs.out_1, observation="obs_N2")
     graph.connect(action="act_N2", target=N2.inputs.in_1)
-    graph.remove("N2", remove=True)
+    graph.remove(N2, remove=True)
 
     # Test when KF skips all inputs at t=0
     graph.remove_component(KF.inputs.in_1)

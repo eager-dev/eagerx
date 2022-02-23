@@ -43,20 +43,20 @@ class ButterworthFilter(Node):
         spec.initialize(ButterworthFilter)
 
         # Modify default node params
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = ["signal"]
-        spec.default.outputs = ["filtered"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = ["signal"]
+        spec.config.outputs = ["filtered"]
 
         # Modify custom node params
-        spec.default.N = N
-        spec.default.Wn = Wn
-        spec.default.btype = btype
+        spec.config.N = N
+        spec.config.Wn = Wn
+        spec.config.btype = btype
 
         # Add converter & space_converter
-        spec.inputs.signal.window = "$(default N)"
+        spec.inputs.signal.window = "$(config N)"
         spec.inputs.signal.converter = Processor.make("GetIndex_Float32MultiArray", index=index)
         spec.inputs.signal.space_converter = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
 

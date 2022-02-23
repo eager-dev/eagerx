@@ -32,12 +32,12 @@ class ObservationSensor(EngineNode):
         spec.initialize(ObservationSensor)
 
         # Set default
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick"]
-        spec.default.outputs = outputs if outputs else ["observation"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick"]
+        spec.config.outputs = outputs if outputs else ["observation"]
 
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -85,12 +85,12 @@ class RewardSensor(EngineNode):
         spec.initialize(RewardSensor)
 
         # Set default
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick"]
-        spec.default.outputs = outputs if outputs else ["reward"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick"]
+        spec.config.outputs = outputs if outputs else ["reward"]
 
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -138,12 +138,12 @@ class DoneSensor(EngineNode):
         spec.initialize(DoneSensor)
 
         # Set default
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick"]
-        spec.default.outputs = outputs if outputs else ["done"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick"]
+        spec.config.outputs = outputs if outputs else ["done"]
 
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -192,15 +192,15 @@ class ActionActuator(EngineNode):
         spec.initialize(ActionActuator)
 
         # Set default
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick", "action"]
-        spec.default.outputs = outputs if outputs else ["action_applied"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick", "action"]
+        spec.config.outputs = outputs if outputs else ["action_applied"]
 
         # Modify custom node params
-        spec.default.zero_action = zero_action
+        spec.config.zero_action = zero_action
 
     def initialize(self, zero_action):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -275,16 +275,16 @@ class GymImage(EngineNode):
         spec.initialize(GymImage)
 
         # Set default
-        spec.default.name = name
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.color = color
-        spec.default.inputs = inputs if inputs else ["tick"]
-        spec.default.outputs = outputs if outputs else ["image"]
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick"]
+        spec.config.outputs = outputs if outputs else ["image"]
 
         # Modify custom node params
-        spec.default.shape = shape if shape else [200, 200]
-        spec.default.always_render = always_render
+        spec.config.shape = shape if shape else [200, 200]
+        spec.config.always_render = always_render
 
     def initialize(self, shape, always_render):
         # We will probably use self.simulator[self.obj_name] in callback & reset.

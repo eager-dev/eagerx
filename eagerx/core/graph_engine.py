@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
 from eagerx.utils.utils import (
+    supported_types,
     get_opposite_msg_cls,
     get_cls_from_string,
     substitute_args,
@@ -16,9 +17,11 @@ from eagerx.utils.network_utils import (
     color_edges,
     is_stale,
 )
-from eagerx.core.specs import EngineNodeSpec, ConverterSpec
+from eagerx.core.graph import merge
+from eagerx.core.specs import EngineNodeSpec, ConverterSpec, EntitySpec
+from eagerx.core.view import GraphView
 
-yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
+yaml.Dumper.ignore_aliases = lambda *args: True
 
 
 class EngineGraph:
@@ -39,7 +42,7 @@ class EngineGraph:
 
         # Create actuator node
         spec = EngineNode.pre_make(None, None)
-        spec.default.name = "actuators"
+        spec.config.name = "actuators"
         nodes.append(spec)
         for cname, params in actuators.items():
             # We use identity converter instead of params['converter'], because this output converter is a "placeholder".
@@ -57,11 +60,11 @@ class EngineGraph:
                 converter=ConverterSpec(identity_conv),
                 space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
-            spec.default.outputs.append(cname)
+            spec.config.outputs.append(cname)
 
         # Create sensor node
         spec = EngineNode.pre_make(None, None)
-        spec.default.name = "sensors"
+        spec.config.name = "sensors"
         nodes.append(spec)
         for cname, params in sensors.items():
             # We use identity converter instead of params['converter'], because this input converter is a "placeholder".
@@ -72,21 +75,15 @@ class EngineGraph:
                 converter=ConverterSpec(identity_conv),
                 space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
-            spec.default.inputs.append(cname)
+            spec.config.inputs.append(cname)
 
         # Create a state
-        state = dict(nodes=dict(), connects=list())
-        cls._add(state, nodes)
-        return cls(state)
+        state = dict(nodes=dict(), connects=list(), backup=dict())
+        graph = cls(state)
+        graph.add(nodes)
+        return graph
 
     def add(self, nodes: Union[EngineNodeSpec, List[EngineNodeSpec]]):
-        """
-        Add a node or object to the state of this graph.
-        """
-        self._add(self._state, nodes)
-
-    @staticmethod
-    def _add(state: Dict, nodes: Union[Any, List]):
         """
         Add a node/object to the provided state.
         """
@@ -94,17 +91,20 @@ class EngineGraph:
             nodes = [nodes]
 
         for node in nodes:
-            name = node.default.name
-            assert name not in state["nodes"], (
+            name = node.config.name
+            assert name not in self._state["nodes"], (
                 'There is already a node or object registered in this graph with name "%s".' % name
             )
+            assert not node.has_graph, f"NodeSpec '{name}' is already added to a graph."
 
             # Add node to state
-            state["nodes"][name] = dict()
-            state["nodes"][name]["params"] = node.params
-            state["nodes"][name]["default"] = node.params
+            self._state["nodes"][name] = node.params
+            self._state["backup"][name] = node.params
 
-    def remove(self, names: Union[str, List[str]]):
+            # Add graph reference to spec
+            node.set_graph(self)
+
+    def remove(self, names: Union[Union[str, EntitySpec], List[Union[str, EntitySpec]]]):
         """
         Removes a node.
         First removes all associated connects from self._state.
@@ -113,7 +113,9 @@ class EngineGraph:
         if not isinstance(names, list):
             names = [names]
         for name in names:
-            self._exist(self._state, name)
+            if isinstance(name, EntitySpec):
+                name = name.params["config"]["name"]
+                assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
             for source, target in deepcopy(self._state["connects"]):
                 if name in [source[0], target[0]]:
                     if source[0] == "actuators":
@@ -121,45 +123,44 @@ class EngineGraph:
                         source = None
                     else:
                         actuator = None
-                        source = source
+                        source = self.get_view(source[0], source[1:])
                     if target[0] == "sensors":
                         sensor = target[2]
                         target = None
                     else:
                         sensor = None
-                        target = target
+                        target = self.get_view(target[0], target[1:])
                     self.disconnect(source, target, actuator, sensor)
             self._state["nodes"].pop(name)
 
-    def add_component(self, name: str, component: str, cname: str):
+    def add_component(self, entry: GraphView):
         """
         Adds a component entry to the selection list.
         """
-        # Check that cname exists
-        self._exist(self._state, name, component=component, cname=cname)
-
+        name, component, cname = entry()
         # Add cname to selection list if it is not already selected
-        params = self._state["nodes"][name]["params"]
-        assert cname not in params["default"][component], f'"{cname}" already selected in "{name}" under {component}.'
-        params["default"][component].append(cname)
+        params = self._state["nodes"][name]
+        assert cname not in params["config"][component], f'"{cname}" already selected in "{name}" under {component}.'
+        params["config"][component].append(cname)
 
-    def remove_component(self, name: str, component: str, cname: str):
+    def remove_component(self, entry: GraphView):
         """
         Removes a component entry from the selection list. It will first disconnect all connections in connect.
         """
-        self._is_selected(self._state, name, component, cname)
+        self._is_selected(self._state, entry)
 
         # Disconnect component entry
-        self._disconnect_component(name, component, cname)
+        self._disconnect_component(entry)
 
         # Remove cname from selection list
-        params = self._state["nodes"][name]["params"]
-        params["default"][component].remove(cname)
+        name, component, cname = entry()
+        params = self._state["nodes"][name]
+        params["config"][component].remove(cname)
 
     def connect(
         self,
-        source: Optional[Tuple[str, str, str]] = None,
-        target: Optional[Tuple[str, str, str]] = None,
+        source: Optional[GraphView] = None,
+        target: Optional[GraphView] = None,
         actuator: str = None,
         sensor: str = None,
         address: str = None,
@@ -169,68 +170,83 @@ class EngineGraph:
         skip: Optional[bool] = None,
         external_rate: Optional[float] = None,
     ):
-        assert not address or (
-            source is None and actuator is None and sensor is None
-        ), f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
-        assert (
-            not source or not actuator
-        ), f'You cannot specify an actuator if you wish to connect actuator "{actuator}", as the actuator will act as the source.'
-        assert (
-            not target or not sensor
-        ), f'You cannot specify a target if you wish to connect sensor "{sensor}", as the sensor will act as the target.'
+        flag = not address or (source is None and actuator is None and sensor is None)
+        assert flag, f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
+        flag = not source or not actuator
+        assert flag, (
+            f'You cannot specify an actuator if you wish to connect actuator "{actuator}", '
+            "as the actuator will act as the source."
+        )
+        flag = not target or not sensor
+        assert flag, (
+            f'You cannot specify a target if you wish to connect sensor "{sensor}", ' "as the sensor will act as the target."
+        )
         assert not (actuator and sensor), "You cannot connect an actuator directly to a sensor."
         if address:
-            curr_address = self.get_parameter("address", *target)
-            assert (
-                curr_address is None
-            ), f'Cannot connect target "{target}" to external address "{address}", because it is already connected to an external address "{curr_address}". Disconnect target first.'
-            self.set_parameter("address", address, *target)
-            assert (
-                external_rate is not None
-            ), f'When providing an external address "{address}", an external rate must also be provided.'
+            curr_address = target.address
+            assert curr_address is None, (
+                f'Cannot connect target "{target}" to external address "{address}", '
+                f'because it is already connected to an external address "{curr_address}". '
+                "Disconnect target first."
+            )
+
+            self.set({"address": address}, target)
+            assert external_rate is not None, (
+                f'When providing an external address "{address}", ' "an external rate must also be provided."
+            )
             assert external_rate > 0, f'Invalid external rate "{external_rate}". External rate must be > 0.'
-            self.set_parameter("external_rate", external_rate, *target)
+            self.set({"external_rate": external_rate}, target)
             return
         else:
             assert external_rate is None, "An external rate may only be provided in combination with an address."
 
         if isinstance(converter, ConverterSpec):
             converter = converter.params
+        if isinstance(converter, GraphView):
+            converter = converter.to_dict()
 
         if actuator:  # source = actuator
-            assert (
-                converter is None
-            ), f'Cannot specify an input converter when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
-            assert (
-                window is None
-            ), f'Cannot specify a window when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
-            assert (
-                delay is None
-            ), f'Cannot specify a delay when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
-            assert (
-                skip is None
-            ), f'Cannot specify a skip when connecting actuator "{actuator}". You can only do that in the agnostic object definition.'
-            source = ("actuators", "outputs", actuator)
+            assert converter is None, (
+                f'Cannot specify an input converter when connecting actuator "{actuator}". '
+                "You can only do that in the agnostic object definition."
+            )
+            assert window is None, (
+                f'Cannot specify a window when connecting actuator "{actuator}". '
+                f"You can only do that in the agnostic object definition."
+            )
+            assert delay is None, (
+                f'Cannot specify a delay when connecting actuator "{actuator}". '
+                f"You can only do that in the agnostic object definition."
+            )
+            assert skip is None, (
+                f'Cannot specify a skip when connecting actuator "{actuator}". '
+                f"You can only do that in the agnostic object definition."
+            )
+            source = self.get_view("actuators", ["outputs", actuator])
         elif sensor:  # target = sensor
-            assert (
-                converter is None
-            ), f'Cannot specify an input converter when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
-            assert (
-                window is None
-            ), f'Cannot specify a window when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
-            assert (
-                delay is None
-            ), f'Cannot specify a delay when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
-            assert (
-                skip is None
-            ), f'Cannot specify a skip when connecting sensor "{sensor}". You can only do that in the agnostic object definition.'
-            target = ("sensors", "inputs", sensor)
+            assert converter is None, (
+                f'Cannot specify an input converter when connecting sensor "{sensor}".'
+                " You can only do that in the agnostic object definition."
+            )
+            assert window is None, (
+                f'Cannot specify a window when connecting sensor "{sensor}".'
+                " You can only do that in the agnostic object definition."
+            )
+            assert delay is None, (
+                f'Cannot specify a delay when connecting sensor "{sensor}".'
+                " You can only do that in the agnostic object definition."
+            )
+            assert skip is None, (
+                f'Cannot specify a skip when connecting sensor "{sensor}".'
+                " You can only do that in the agnostic object definition."
+            )
+            target = self.get_view("sensors", ["inputs", sensor])
         self._connect(source, target, converter, window, delay, skip)
 
     def _connect(
         self,
-        source: Optional[Tuple[str, str, str]] = None,
-        target: Optional[Tuple[str, str, str]] = None,
+        source: Optional[GraphView] = None,
+        target: Optional[GraphView] = None,
         converter: Optional[Dict] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
@@ -241,124 +257,118 @@ class EngineGraph:
         after which an additional call to connect_actuator/sensor is required before calling this method.
         For more info, see self.connect.
         """
-
-        if isinstance(source, tuple):
-            source = list(source)
-        if isinstance(target, tuple):
-            target = list(target)
-
         # Perform checks on source
-        source_name, source_comp, source_cname = source
-        self._is_selected(self._state, source_name, source_comp, source_cname)
+        self._is_selected(self._state, source)
 
         # Perform checks on target
-        target_name, target_comp, target_cname = target
-        self._is_selected(self._state, target_name, target_comp, target_cname)
+        self._is_selected(self._state, target)
 
         # Make sure that target is not already connected.
-        curr_address = self.get_parameter("address", *target)
-        assert (
-            curr_address is None
-        ), f'Cannot connect target "{target}" to source "{source}", because it is already connected to an external address "{curr_address}". Disconnect target first.'
-        for _, t in self._state["connects"]:
+        curr_address = target.address
+        assert curr_address is None, (
+            f'Cannot connect target "{target}" to source "{source}", '
+            f'because it is already connected to an external address "{curr_address}". '
+            "Disconnect target first."
+        )
+        target_name, target_comp, target_cname = target()
+        for s, t in self._state["connects"]:
             t_name, t_comp, t_cname = t
-            assert not (
-                target_name == t_name and target_comp == t_comp and target_cname == t_cname
-            ), f'Target "{target}" is already connected to source "{_}"'
+            flag = not (target_name == t_name and target_comp == t_comp and target_cname == t_cname)
+            assert flag, f'Target "{target}" is already connected to source "{s}"'
 
         # Add properties to target params
         if converter is not None:
-            self.set_parameter("converter", converter, target_name, target_comp, target_cname)
+            self.set({"converter": converter}, target)
         if window is not None:
-            self.set_parameter("window", window, target_name, target_comp, target_cname)
+            self.set({"window": window}, target)
         if delay is not None:
-            self.set_parameter("delay", delay, target_name, target_comp, target_cname)
+            self.set({"delay": delay}, target)
         if skip is not None:
-            self.set_parameter("skip", skip, target_name, target_comp, target_cname)
+            self.set({"skip": skip}, target)
 
         # Add connection
-        connect = [source, target]
         EngineGraph.check_msg_type(source, target, self._state)
+        connect = [list(source()), list(target())]
         self._state["connects"].append(connect)
 
     def disconnect(
         self,
-        source: Optional[Tuple[str, str, str]] = None,
-        target: Optional[Tuple[str, str, str]] = None,
+        source: Optional[GraphView] = None,
+        target: Optional[GraphView] = None,
         actuator: str = None,
         sensor: str = None,
     ):
         """
         Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         """
-        assert (
-            not source or not actuator
-        ), f'You cannot specify a source if you wish to disconnect actuator "{actuator}", as the actuator will act as the source.'
-        assert (
-            not target or not sensor
-        ), f'You cannot specify a target if you wish to disconnect sensor "{sensor}", as the sensor will act as the target.'
-        assert not (
-            sensor and actuator
-        ), "You cannot disconnect an actuator from an sensor, as such a connection cannot exist."
+        assert not source or not actuator, (
+            "You cannot specify a source if you wish to disconnect actuator ",
+            f'"{actuator}", as the actuator will act as the source.',
+        )
+        assert not target or not sensor, (
+            "You cannot specify a target if you wish to disconnect sensor "
+            f'"{sensor}", as the sensor will act as the target.'
+        )
+        assert not (sensor and actuator), "You cannot disconnect an actuator from a sensor, as such a connection cannot exist."
 
         # Create source & target entries
         if actuator:
-            source = ["actuators", "outputs", actuator]
+            source = self.get_view("actuators", ["outputs", actuator])
         if sensor:
-            target = ["sensors", "inputs", sensor]
+            target = self.get_view("sensors", ["inputs", sensor])
 
         self._disconnect(source, target)
 
-    def _disconnect(self, source: Tuple[str, str, str], target: Tuple[str, str, str]):
+    def _disconnect(self, source: GraphView, target: GraphView):
         """
         Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         """
-        if isinstance(source, tuple):
-            source = list(source)
-        if isinstance(target, tuple):
-            target = list(target)
-
         # Check if connection exists
-        self._is_selected(self._state, *target)
+        self._is_selected(self._state, target)
 
         # Check if connection exists
         if source is None:
-            assert (
-                self.get_parameter("address", *target) is not None
-            ), f"Cannot disconnect. No source was provided, and the target={target} also does not have an address specified."
-            self.set_parameter("address", None, *target)
-            self.set_parameter("external_rate", None, *target)
+            flag = target.address is not None
+            assert flag, (
+                f"Cannot disconnect. No source was provided, and the target={target} "
+                "also does not have an address specified."
+            )
+            self.set(None, target, parameter="address")
+            self.set(None, target, parameter="external_rate")
         else:
-            self._is_selected(self._state, *source)
+            self._is_selected(self._state, source)
             connect_exists = False
             idx_connect = None
             for idx, c in enumerate(self._state["connects"]):
-                if source == c[0] and target == c[1]:
+                if list(source()) == c[0] and list(target()) == c[1]:
                     connect_exists = True
                     idx_connect = idx
                     break
-            assert (
-                connect_exists
-            ), f"The connection with source={source} and target={target} cannot be removed, because it does not exist."
+            assert connect_exists, (
+                f"The connection with source={source()} and target={target()} cannot be removed," " because it does not exist."
+            )
 
             # Pop the connection from the state
             self._state["connects"].pop(idx_connect)
 
         # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
-        target_name, target_comp, target_cname = target
-        target_params = self._state["nodes"][target_name]["params"]
-        target_params[target_comp][target_cname] = self._state["nodes"][target_name]["default"][target_comp][target_cname]
+        target_name, target_comp, target_cname = target()
+        target_params = self._state["nodes"][target_name]
+        target_params[target_comp][target_cname] = self._state["backup"][target_name][target_comp][target_cname]
 
-    def _disconnect_component(self, name: str, component: str, cname: str):
+    def _disconnect_component(self, entry: GraphView):
         """
         Disconnects all associated connects from self._state.
         """
         was_connected = False
+        name, component, cname = entry()
         for source, target in deepcopy(self._state["connects"]):
-            self._is_selected(self._state, *source)
-            self._is_selected(self._state, *target)
-            source_name, source_comp, source_cname = source
-            target_name, target_comp, target_cname = target
+            source = self.get_view(source[0], source[1:])
+            target = self.get_view(target[0], target[1:])
+            self._is_selected(self._state, source)
+            self._is_selected(self._state, target)
+            source_name, source_comp, source_cname = source()
+            target_name, target_comp, target_cname = target()
             if name == source_name and component == source_comp and cname == source_cname:
                 self.disconnect(source, target)
                 was_connected = True
@@ -367,197 +377,110 @@ class EngineGraph:
                 was_connected = True
         return was_connected
 
-    def rename(self, old: str, new: str):
-        """
-        Renames the entity (node) in _state['nodes'] and self._state[connects]
-        """
-        self._exist(self._state, old)
-        assert old not in [
-            "sensors",
-            "actuators",
-        ], f'Node name "{old}" is fixed and cannot be changed.'
-        assert (
-            new not in self._state["nodes"]
-        ), f'There is already a node or object registered in this graph with name "{new}".'
-
-        # Rename entity in params
-        self._state["nodes"][new] = self._state["nodes"].pop(old)
-        self._state["nodes"][new]["default"]["default"]["name"] = new
-        self._state["nodes"][new]["params"]["default"]["name"] = new
-
-        # Rename in all connects
-        for source, target in self._state["connects"]:
-            source_name, source_comp, source_cname = source
-            target_name, target_comp, target_cname = target
-
-            if source_name == old:
-                source[0] = new
-            if target_name == old:
-                target[0] = new
-
-    def set_parameter(
-        self,
-        parameter: str,
-        value: Any,
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-    ):
-        """
-        A wrapper to set a single parameter. See set_parameters for more info.
-        """
-        return self.set_parameters({parameter: value}, name=name, component=component, cname=cname)
-
-    def set_parameters(
-        self,
-        mapping: Dict[str, Any],
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        actuator: Optional[str] = None,
-        sensor: Optional[str] = None,
-    ):
+    def set(self, mapping: Any, entry: Optional[GraphView], parameter: Optional[str] = None):
         """
         Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-        parameter will be set there. Else, the parameter is set under the "default" key.
+        parameter will be set there. Else, the parameter is set under the "config" key.
         For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
         If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
         disconnected. See _set_converter for more info.
         """
-        self._correct_signature(name, component, cname, actuator, sensor)
-        if actuator:
-            raise ValueError(
-                "Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition."
-            )
-        if sensor:
-            raise ValueError(
-                "Cannot change the actuator parameters here, in a bridge specific implementation. That is only possible in the object's agnostic definition."
-            )
-        self._exist(self._state, name, component=component, cname=cname)
+        assert not entry()[0] == "actuators", (
+            "Cannot change the actuator parameters here, "
+            "in a bridge specific implementation. That is only possible in the "
+            "object's agnostic definition."
+        )
+        assert not entry()[0] == "sensors", (
+            "Cannot change the sensor parameters here, "
+            "in a bridge specific implementation. That is only possible in the "
+            "object's agnostic definition."
+        )
 
-        if (component is not None) and (cname is not None):  # component parameter
-            for parameter, value in mapping.items():
-                self._exist(
-                    self._state,
-                    name,
-                    component=component,
-                    cname=cname,
-                    parameter=parameter,
-                )
-                if parameter == "converter":
-                    if isinstance(value, ConverterSpec):
-                        value = value.params
-                    self._set_converter(name, component, cname, value)
+        if parameter is None:
+            if isinstance(mapping, GraphView):
+                mapping = mapping.to_dict()
+            assert isinstance(mapping, dict), "Can only set mappings of type dict. Else, also set 'parameter=<param_name>'."
+        else:
+            mapping = {parameter: mapping}
+        for parameter, value in mapping.items():
+            if parameter:
+                getattr(entry, parameter)  # Check if parameter exists
+            if parameter == "converter":
+                if isinstance(value, ConverterSpec):
+                    value = value.params
+                elif isinstance(value, GraphView):
+                    value = value.to_dict()
+                self._set_converter(entry, value)
+            else:
+                t = entry()
+                name = t[0]
+                if t[1] == "config":
+                    assert parameter not in [
+                        "sensors",
+                        "actuators",
+                        "targets",
+                        "states",
+                        "inputs",
+                        "outputs",
+                    ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
+                    assert parameter not in ["msg_type"], f"You cannot rename '{name}'."
+                    assert parameter not in ["msg_type"], f"You cannot modify msg_type '{value}'."
+                    p = self._state["nodes"][name]["config"]
                 else:
-                    self._state["nodes"][name]["params"][component][cname][parameter] = value
-        else:  # Default parameter
-            for parameter, value in mapping.items():
-                self._exist(
-                    self._state,
-                    name,
-                    component=component,
-                    cname=cname,
-                    parameter=parameter,
-                )
-                assert parameter not in [
-                    "sensors",
-                    "actuators",
-                    "targets",
-                    "states",
-                    "inputs",
-                    "outputs",
-                ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
-                assert parameter not in ["name"], "You cannot rename with this function. Use rename_(name) instead."
-                default = self._state["nodes"][name]["params"]["default"]
-                default[parameter] = value
+                    name, component, cname = entry()
+                    p = self._state["nodes"][name][component][cname]
+                self._set(p, {parameter: value})
 
-    def _set_converter(self, name: str, component: str, cname: str, converter: Dict):
+    def _set_converter(self, entry: GraphView, converter: Dict):
         """
         Replaces the converter specified for a node's/object's I/O.
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
-        self._exist(self._state, name, component=component, cname=cname, parameter="converter")
-        params = self._state["nodes"][name]["params"]
+        _ = entry.converter  # Check if parameter exists
 
         # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
-        msg_type = get_cls_from_string(params[component][cname]["msg_type"])
-        converter_old = params[component][cname]["converter"]
+        msg_type = get_cls_from_string(entry.msg_type)
+        converter_old = entry.converter.to_dict()
         msg_type_ros_old = get_opposite_msg_cls(msg_type, converter_old)
         msg_type_ros_new = get_opposite_msg_cls(msg_type, converter)
         if not msg_type_ros_new == msg_type_ros_old:
-            was_disconnected = self._disconnect_component(name, component, cname)
+            was_disconnected = self._disconnect_component(entry)
         else:
             was_disconnected = False
 
         # If disconnected action/observation, we cannot add converter so raise error.
-        assert not (
-            was_disconnected and name in ["actuators", "sensors"]
-        ), f'Cannot change the converter of actuator/sensor "{cname}", as it changes the msg_type from "{msg_type_ros_old}" to "{msg_type_ros_new}"'
+        name, component, cname = entry()
+        params = self._state["nodes"][name]
+        flag = not (was_disconnected and name in ["actuators", "sensors"])
+        assert flag, (
+            f'Cannot change the converter of actuator/sensor "{cname}", '
+            f'as it changes the msg_type from "{msg_type_ros_old}" to "{msg_type_ros_new}"'
+        )
 
         # Replace converter
         params[component][cname]["converter"] = converter
 
-    def get_parameter(
+    def get(
         self,
-        parameter: str,
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
+        entry: Optional[Union[GraphView, EntitySpec]] = None,
         actuator: Optional[str] = None,
         sensor: Optional[str] = None,
-        default=None,
+        parameter: Optional[str] = None,
     ):
-        """
-        Get node/object parameters. If component and cname are specified, get the parameter of them instead.
-        If default was specified, get default parameter instead. Else, raise an error.
-        """
-        self._correct_signature(name, component, cname, actuator, sensor)
+        if isinstance(entry, EntitySpec):
+            name = entry.params["config"]["name"]
+            assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
+            return self._state["nodes"][name]
+        self._correct_signature(entry, actuator, sensor)
         if actuator:
-            name = "actuators"
-            component = "outputs"
-            cname = actuator
+            entry = self.get_view("actuators", ["outputs", actuator])
         if sensor:
-            name = "sensors"
-            component = "inputs"
-            cname = sensor
-        try:
-            self._exist(self._state, name, component, cname, parameter=parameter)
-            if (component is not None) and (cname is not None):  # component parameter
-                return self._state["nodes"][name]["params"][component][cname][parameter]
-            else:  # default parameter
-                return self._state["nodes"][name]["params"]["default"][parameter]
-        except AssertionError:
-            if default:
-                return default
-            else:
-                raise
-
-    def get_parameters(
-        self,
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        actuator: Optional[str] = None,
-        sensor: Optional[str] = None,
-    ):
-        """
-        Get all node/object parameters. If component and cname are specified, get the parameters of them instead.
-        """
-        self._correct_signature(name, component, cname, actuator, sensor)
-        if actuator:
-            name = "actuators"
-            component = "outputs"
-            cname = actuator
-        if sensor:
-            name = "sensors"
-            component = "inputs"
-            cname = sensor
-        self._exist(self._state, name, component, cname)
-        if (component is not None) and (cname is not None):  # component parameter
-            return deepcopy(self._state["nodes"][name]["params"][component][cname])
-        else:  # default parameter
-            return deepcopy(self._state["nodes"][name]["params"]["default"])
+            entry = self.get_view("sensors", ["inputs", sensor])
+        if parameter:
+            return getattr(entry, parameter)
+        else:
+            return entry
 
     def _node_depenencies(self, state):
         import networkx as nx
@@ -578,7 +501,7 @@ class EngineGraph:
 
         # Determine sensor dependencies
         dependencies = dict(sensors=dict(), actuators=dict())
-        for cname in state["nodes"]["sensors"]["params"]["inputs"]:
+        for cname in state["nodes"]["sensors"]["inputs"]:
             dependencies["sensors"][cname] = []
             target_name = f"sensors/{cname}"
             descendants = nx.descendants(G_rev, target_name)
@@ -589,7 +512,7 @@ class EngineGraph:
                 dependencies["sensors"][cname].append(node_name)
 
         # Determine actuator dependency
-        for cname in state["nodes"]["actuators"]["params"]["outputs"]:
+        for cname in state["nodes"]["actuators"]["outputs"]:
             dependencies["actuators"][cname] = []
             source_name = f"actuators/{cname}"
             descendants = nx.descendants(G, source_name)
@@ -647,14 +570,13 @@ class EngineGraph:
                     "dependency": dependency,
                 }
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
-            state["nodes"][target_name]["params"][target_comp][target_cname]["address"] = address
+            state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
         # Initialize param objects
         nodes = dict()
         from eagerx.core.specs import EngineNodeSpec
 
-        for name, entry in state["nodes"].items():
-            params = entry["params"]
+        for name, params in state["nodes"].items():
             if "node_type" in params:
                 if name == "actuators":
                     pass
@@ -663,13 +585,13 @@ class EngineGraph:
                 else:
                     # Put node name into object namespace
                     spec = EngineNodeSpec(params)
-                    name = f"$(ns obj_name)/{spec.default.name}"
-                    spec.default.name = name
+                    name = f"$(ns obj_name)/{spec.config.name}"
+                    spec.config.name = name
                     params = spec.params
 
                     # Substitute placeholder args of simnode
-                    context = {"ns": {"node_name": name}, "default": params["default"]}
-                    substitute_args(params, context, only=["default", "ns"])
+                    context = {"ns": {"node_name": name}, "config": params["config"]}
+                    substitute_args(params, context, only=["config", "ns"])
                     nodes[name] = params
 
         assert actuators, "No actuators node defined in the graph."
@@ -699,100 +621,31 @@ class EngineGraph:
         return address
 
     @staticmethod
-    def _exist(
-        state: Dict,
-        name: str,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        parameter: Optional[str] = None,
-        check_default: Optional[bool] = False,
-    ):
-        """
-        Check if provided entry exists.
-        """
-        # Check that node/object exists
-        assert name in state["nodes"], f'There is no node or object registered in this graph with name "{name}".'
-
-        # See if we must check both default and current params.
-        if check_default:
-            check_params = (
-                state["nodes"][name]["params"],
-                state["nodes"][name]["default"],
-            )
-        else:
-            check_params = (state["nodes"][name]["params"],)
-
-        # Check params
-        for params in check_params:
-            default = params["default"]
-
-            # Check that components and specific entry (cname) exists
-            assert component is None or component in params, f'Component "{component}" not present in "{name}".'
-            if component is None:
-                assert cname is None, f'Cannot check if "{name}" exists, because no component was specified.'
-            assert cname is None or cname in params[component], f'"{cname}" not defined in "{name}" under {component}.'
-
-            # check that parameter exists
-            if parameter is not None:
-                if (component is not None) and (cname is not None):  # component parameter
-                    assert (
-                        parameter in params[component][cname]
-                    ), f'Cannot set parameter "{parameter}". Parameter does not exist in "{cname}" under {component}.'
-                else:
-                    assert (
-                        parameter in default
-                    ), f'Cannot set parameter "{parameter}". Parameter does not exist under "default" of {name}.'
-
-    @staticmethod
-    def _is_selected(state: Dict, name: str, component: str, cname: str):
+    def _is_selected(state: Dict, entry: GraphView):
         """
         Check if provided entry was selected in params.
         """
-        EngineGraph._exist(state, name, component, cname)
-        params = state["nodes"][name]["params"]
+        name, component, cname = entry()
+        params = state["nodes"][name]
         component = "outputs" if component == "feedthroughs" else component
-        assert cname in params["default"][component], '"%s" not selected in "%s" under "default" in %s. ' % (
-            cname,
-            name,
-            component,
-        )
+        assert cname in params["config"][component], f'"{cname}" not selected in "{name}" under "config" in {component}.'
 
     @staticmethod
     def _correct_signature(
-        name: Optional[str] = None,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
+        entry: Optional[GraphView] = None,
         actuator: Optional[str] = None,
         sensor: Optional[str] = None,
     ):
-        # assert only actuator, only sensor, or only name, component, cname
-        if (name is not None) and (component is not None) and (cname is not None):  # component parameter
-            assert actuator is None, "If {name, component, cname} are specified, actuator argument cannot be specified."
-            assert sensor is None, "If {name, component, cname} are specified, sensor argument cannot be specified."
-        if name is not None:  # entity parameter
-            assert actuator is None, "If {name, component, cname} are specified, actuator argument cannot be specified."
-            assert sensor is None, "If {name, component, cname} are specified, sensor argument cannot be specified."
-        if component is not None:  # entity parameter
-            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
-            assert actuator is None, "If {name, component, cname} are specified, actuator argument cannot be specified."
-            assert sensor is None, "If {name, component, cname} are specified, sensor argument cannot be specified."
-        if cname is not None:  # entity parameter
-            assert name is not None, f'Either both or None of component "{component}" and name "{name}" must be specified.'
-            assert (
-                component is not None
-            ), f'If cname "{cname}" is specified, also component "{component}" and name "{name}" must be specified.'
-            assert actuator is None, "If {name, component, cname} are specified, actuator argument cannot be specified."
-            assert sensor is None, "If {name, component, cname} are specified, sensor argument cannot be specified."
+        # assert only action, only observation, or only entry
+        if entry:  # component parameter
+            assert actuator is None, "If 'entry' is specified, actuator argument cannot be specified."
+            assert sensor is None, "If 'entry' is specified, sensor argument cannot be specified."
         if actuator:
             assert sensor is None, "If actuator is specified, sensor must be None."
-            assert (
-                (name is None) and (component is None) and (cname is None)
-            ), "If actuator is specified, arguments {name, component, cname} cannot be specified."
+            assert entry is None, "If actuator is specified, the 'entry' argument cannot be specified."
         if sensor:
-            assert actuator is None, "If observation is specified, actuator must be None."
-            assert (
-                (name is None) and (component is None) and (cname is None)
-            ), "If actuator is specified, arguments {name, component, cname} cannot be specified."
+            assert actuator is None, "If sensor is specified, action must be None."
+            assert entry is None, "If actuator is specified, the 'entry' argument cannot be specified."
 
     def is_valid(self, plot=True):
         return self._is_valid(self._state, plot=plot)
@@ -807,37 +660,34 @@ class EngineGraph:
 
     @staticmethod
     def check_msg_type(source, target, state):
-        source_name, source_comp, source_cname = source
-        source_params = state["nodes"][source_name]["params"]
-        target_name, target_comp, target_cname = target
-        target_params = state["nodes"][target_name]["params"]
-
         # Convert the source msg_type to target msg_type with converters:
         # msg_type_source --> output_converter --> msg_type_ROS --> input_converter --> msg_type_target
-        msg_type_out = get_cls_from_string(source_params[source_comp][source_cname]["msg_type"])
-        converter_out = source_params[source_comp][source_cname]["converter"]
+        msg_type_out = get_cls_from_string(source.msg_type)
+        converter_out = source.converter.to_dict()
         msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
-        converter_in = target_params[target_comp][target_cname]["converter"]
+        converter_in = target.converter.to_dict()
         msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
 
         # Verify that this msg_type_in is the same as the msg_type specified in the target
-        msg_type_in_yaml = get_cls_from_string(target_params[target_comp][target_cname]["msg_type"])
+        msg_type_in_registered = get_cls_from_string(target.msg_type)
 
         msg_type_str = msg_type_error(
-            source,
-            target,
+            source(),
+            target(),
             msg_type_out,
             converter_out,
             msg_type_ros,
             converter_in,
             msg_type_in,
-            msg_type_in_yaml,
+            msg_type_in_registered,
         )
-        assert msg_type_in == msg_type_in_yaml, msg_type_str
+        assert msg_type_in == msg_type_in_registered, msg_type_str
 
     @staticmethod
     def check_msg_types_are_consistent(state):
         for source, target in state["connects"]:
+            source = EngineGraph._get_view(state, source[0], source[1:])
+            target = EngineGraph._get_view(state, target[0], target[1:])
             EngineGraph.check_msg_type(source, target, state)
         return True
 
@@ -847,11 +697,10 @@ class EngineGraph:
         for source, target in state["connects"]:
             address = EngineGraph._get_address(source, target)
             target_name, target_comp, target_cname = target
-            state["nodes"][target_name]["params"][target_comp][target_cname]["address"] = address
+            state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
-        for name, entry in state["nodes"].items():
-            params = entry["params"]
-            for component in params["default"]:
+        for name, params in state["nodes"].items():
+            for component in params["config"]:
                 if component not in [
                     "inputs",
                     "outputs",
@@ -860,17 +709,18 @@ class EngineGraph:
                     "states",
                 ]:
                     continue
-                for cname in params["default"][component]:
-                    assert (
-                        cname in params[component]
-                    ), f'"{cname}" was selected in {component} of "{name}", but has no implementation.'
+                for cname in params["config"][component]:
+                    flag = cname in params[component]
+                    assert flag, f'"{cname}" was selected in {component} of "{name}", but has no implementation.'
                     if component not in ["inputs", "targets", "feedthroughs"]:
                         continue
                     if name in ["sensors", "actuators"]:
                         continue
-                    assert (
-                        params[component][cname]["address"] is not None
-                    ), f'"{cname}" was selected in {component} of "{name}", but no address was specified. Either deselect it, or connect it.'
+                    flag = params[component][cname]["address"] is not None
+                    assert flag, (
+                        f'"{cname}" was selected in {component} of "{name}", but no address was specified. '
+                        f"Either deselect it, or connect it."
+                    )
         return True
 
     @staticmethod
@@ -931,7 +781,7 @@ class EngineGraph:
         G = nx.MultiDiGraph()
         # label_mapping = {'env/observations/set': 'observations', 'env/render/done': 'render'}
         for node, params in state["nodes"].items():
-            default = params["params"]["default"]
+            default = params["config"]
             if "outputs" in default:
                 has_tick = True if "tick" in default["inputs"] else False
                 for cname in default["outputs"]:
@@ -966,7 +816,7 @@ class EngineGraph:
                 source_edge = "%s/%s" % (source_name, source_cname)
                 # Determine target node name
                 target_edges = []
-                target_default = state["nodes"][target_name]["params"]["default"]
+                target_default = state["nodes"][target_name]["config"]
                 for cname in target_default["outputs"]:
                     target_edge = "%s/%s" % (target_name, cname)
                     target_edges.append(target_edge)
@@ -976,9 +826,9 @@ class EngineGraph:
 
                 # Determine edges that do not break DAG property (i.e. edges that are skipped)
                 if source_name == "actuators":
-                    skip = state["nodes"][source_name]["params"]["inputs"][source_cname]["skip"]
+                    skip = state["nodes"][source_name]["inputs"][source_cname]["skip"]
                 else:
-                    skip = state["nodes"][target_name]["params"][target_comp][target_cname]["skip"]
+                    skip = state["nodes"][target_name][target_comp][target_cname]["skip"]
 
                 # Determine color
                 color = "green" if skip else "black"
@@ -1004,3 +854,19 @@ class EngineGraph:
         color_nodes(G)
         color_edges(G)
         return G
+
+    @staticmethod
+    def _get_view(state, name: str, depth: Optional[List[str]] = None):
+        depth = depth if depth else []
+        depth = [name] + depth
+        return GraphView(EngineGraph(state), depth=depth, name=name)
+
+    def get_view(self, name: str, depth: Optional[List[str]] = None):
+        depth = depth if depth else []
+        depth = [name] + depth
+        return GraphView(self, depth=depth, name=name)
+
+    @staticmethod
+    @supported_types(str, int, list, float, bool, dict, EntitySpec, GraphView, None)
+    def _set(state, mapping):
+        merge(state, mapping)

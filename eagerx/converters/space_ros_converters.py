@@ -22,7 +22,7 @@ class Space_Float32MultiArray(SpaceConverter):
         # Initialize spec with default arguments
         spec.initialize(Space_Float32MultiArray)
         params = dict(low=low, high=high, dtype=dtype)
-        spec.default.update(params)
+        spec.config.update(params)
 
     def initialize(self, low=None, high=None, dtype="float32"):
         self.low = np.array(low, dtype=dtype)
@@ -51,7 +51,7 @@ class Space_Image(SpaceConverter):
         spec.initialize(Space_Image)
 
         params = dict(low=low, high=high, shape=shape, dtype=dtype)
-        spec.default.update(params)
+        spec.config.update(params)
 
     def initialize(self, low=None, high=None, shape=None, dtype="float32"):
         if shape is not None and len(shape) == 2:
@@ -112,7 +112,7 @@ class Space_Float32(SpaceConverter):
         spec.initialize(Space_Float32)
 
         params = dict(low=low, high=high, dtype=dtype)
-        spec.default.update(params)
+        spec.config.update(params)
 
     def initialize(self, low=None, high=None, dtype="float32"):
         self.low = low

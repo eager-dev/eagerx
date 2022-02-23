@@ -111,11 +111,11 @@ def substitute_args(
     only: Optional[List[str]] = None,
 ):
     """Substitute arguments based on the context dictionairy (and possibly sourced packages).
-    Follows the xacro substition convention of ROS, with a 'default' and 'ns' command added.
+    Follows the xacro substition convention of ROS, with a 'config' and 'ns' command added.
     :param param: dict or string we wish to perform substitutions on.
     :param context: dict[command][context] with replacement values .
     :param only: List of possible commands. If only is not provided, all commands are executed.
-                 Options are ['env', 'optenv', 'dirname', 'anon', 'arg', 'ns', 'default'].
+                 Options are ['env', 'optenv', 'dirname', 'anon', 'arg', 'ns', 'config'].
     :return: Substituted param file
     """
     # substitute string
@@ -173,7 +173,7 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
         "anon": sub._anon,
         "arg": sub._arg,
         "ns": _ns,
-        "default": _default,
+        "config": _config,
     }
     if only is not None:
         exec_commands = {}
@@ -200,7 +200,7 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
 
 def _resolve_args(arg_str, context, resolve_anon, commands):
     ros_valid = ["find", "env", "optenv", "dirname", "anon", "arg"]
-    valid = ros_valid + ["ns", "default"]
+    valid = ros_valid + ["ns", "config"]
     resolved = arg_str
     if isinstance(arg_str, (str, list)):
         for a in _collect_args(arg_str):
@@ -237,22 +237,22 @@ def tryeval(val):
     return val
 
 
-def _default(resolved, a, args, context):
+def _config(resolved, a, args, context):
     """
-    process $(default) arg
+    process $(config) arg
 
     :returns: updated resolved argument, ``str``
     :raises: :exc:`sub.ArgException` If arg invalidly specified
     """
     if len(args) == 0:
-        raise sub.SubstitutionException("$(default var) must specify a variable name [%s]" % (a))
+        raise sub.SubstitutionException("$(config var) must specify a variable name [%s]" % (a))
     elif len(args) > 1:
-        raise sub.SubstitutionException("$(default var) may only specify one arg [%s]" % (a))
+        raise sub.SubstitutionException("$(config var) may only specify one arg [%s]" % (a))
 
-    if "default" not in context:
-        context["default"] = {}
+    if "config" not in context:
+        context["config"] = {}
     try:
-        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context["default"]))))
+        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context["config"]))))
     except Exception as e:  # sub.ArgException:
         if isinstance(e, sub.ArgException):
             return resolved

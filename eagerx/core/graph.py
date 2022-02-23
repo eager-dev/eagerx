@@ -59,7 +59,6 @@ def merge(a, b, path=None):
 
 class Graph:
     def __init__(self, state: Dict):
-        # todo: block changing entity name.
         self._state = state
 
     def __str__(self):
@@ -103,7 +102,7 @@ class Graph:
             entities = [entities]
 
         for entity in entities:
-            name = entity.default.name
+            name = entity.config.name
             assert (
                 name not in self._state["nodes"]
             ), f'There is already a node or object registered in this graph with name "{name}".'
@@ -126,6 +125,9 @@ class Graph:
         if not isinstance(names, list):
             names = [names]
         for name in names:
+            if isinstance(name, EntitySpec):
+                name = name.params["config"]["name"]
+                assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
             for source, target in deepcopy(self._state["connects"]):
                 if name in [source[0], target[0]]:
                     if source[0] == "env/actions":
@@ -171,12 +173,12 @@ class Graph:
 
         # Add cname to selection list if it is not already selected
         params = self._state["nodes"][name]
-        assert cname not in params["default"][component], '"%s" already selected in "%s" under %s.' % (
+        assert cname not in params["config"][component], '"%s" already selected in "%s" under %s.' % (
             cname,
             name,
             component,
         )
-        params["default"][component].append(cname)
+        params["config"][component].append(cname)
 
     def _add_action(self, action: str):
         """Adds disconnected action entry to 'env/actions' node in self._state."""
@@ -236,7 +238,7 @@ class Graph:
 
         # Remove cname from selection list
         params = self._state["nodes"][name]
-        params["default"][component].remove(cname)
+        params["config"][component].remove(cname)
 
     def _remove_action(self, action: str):
         """Method to remove an action. It will first disconnect all connections in connect."""
@@ -322,11 +324,7 @@ class Graph:
         """Method to connect a source to a target. For actions/observations, first a (new) disconnected entry must be created,
         after which an additional call to connect_action/observation is required before calling this method.
         For more info, see self.connect."""
-        if isinstance(converter, ConverterSpec):
-            converter = converter.params
-
         # Perform checks on source
-        # source_name, source_comp, source_cname = source
         self._is_selected(self._state, source)
 
         # Perform checks on target
@@ -343,10 +341,10 @@ class Graph:
             self._is_selected(self._state, target)
 
         # Make sure that target is not already connected.
-        for _, t in self._state["connects"]:
+        for s, t in self._state["connects"]:
             t_name, t_comp, t_cname = t
             flag = not (target_name == t_name and target_comp == t_comp and target_cname == t_cname)
-            assert flag, f'Target "{target}" is already connected to source "{_}"'
+            assert flag, f'Target "{target}" is already connected to source "{s}"'
 
         # Add properties to target params
         if converter is not None:
@@ -359,8 +357,8 @@ class Graph:
             self.set({"skip": skip}, target)
 
         # Add connection
-        connect = [list(source()), list(target())]
         Graph.check_msg_type(source, target, self._state)
+        connect = [list(source()), list(target())]
         self._state["connects"].append(connect)
 
     def _connect_action(self, action, target, converter=None):
@@ -411,7 +409,7 @@ class Graph:
             msg_type = get_module_type_string(msg_type_A)
             mapping = dict(
                 msg_type=msg_type,
-                rate="$(default rate)",
+                rate="$(config rate)",
                 converter=space_converter,
                 space_converter=None,
             )
@@ -491,12 +489,12 @@ class Graph:
     ):
         """Disconnects a source from a target. The target is reset in self._state to its disconnected state."""
         assert not source or not action, (
-            'You cannot specify a source if you wish to disconnect action "%s",'
-            " as the action will act as the source." % action
+            'You cannot specify a source if you wish to disconnect action "%s", '
+            "as the action will act as the source." % action
         )
         assert not target or not observation, (
-            'You cannot specify a target if you wish to disconnect observation "%s",'
-            " as the observation will act as the target." % observation
+            'You cannot specify a target if you wish to disconnect observation "%s", '
+            "as the observation will act as the target." % observation
         )
         assert not (observation and action), (
             "You cannot disconnect an action from an observation," " as such a connection cannot exist."
@@ -505,13 +503,15 @@ class Graph:
         # Create source & target entries
         if action:
             assert target is not None, (
-                f"If you want to disconnect action {action}, " "please also specify the corresponding target."
+                f"If you want to disconnect action {action}, " f"please also specify the corresponding target."
             )
+
             source = self.get_view("env/actions", ["outputs", action])
         if observation:
             assert source is not None, (
-                f"If you want to disconnect observation {observation}," " please also specify the corresponding source."
+                f"If you want to disconnect observation {observation}," f" please also specify the corresponding source."
             )
+
             target = self.get_view("env/observations", ["inputs", observation])
 
         # Check if connection exists
@@ -526,11 +526,8 @@ class Graph:
                 connect_exists = True
                 idx_connect = idx
                 break
-        assert (
-            connect_exists
-        ), "The connection with source=%s and target=%s cannot be removed," " because it does not exist." % (
-            source(),
-            target(),
+        assert connect_exists, (
+            f"The connection with source={source()} and target={target()} cannot be removed," " because it does not exist."
         )
 
         # Pop the connection from the state
@@ -541,8 +538,6 @@ class Graph:
             self._disconnect_action(action)
         else:
             pass  # Nothing to do here (for now)
-            # source_name, source_comp, source_cname = source()
-            # source_params = self._state["nodes
 
         # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
         if observation:
@@ -643,12 +638,10 @@ class Graph:
             if component in d and old_cname in d[component]:
                 assert new_cname not in d[component], f'"{new_cname}" already defined in "{name}" under {component}.'
                 d[component][new_cname] = d[component].pop(old_cname)
-            if component in d["default"] and old_cname in d["default"][component]:
-                assert (
-                    new_cname not in d["default"][component]
-                ), f'"{new_cname}" already defined in "{name}" under {component}.'
-                d["default"][component].remove(old_cname)
-                d["default"][component].append(new_cname)
+            if component in d["config"] and old_cname in d["config"][component]:
+                assert new_cname not in d["config"][component], f'"{new_cname}" already defined in "{name}" under {component}.'
+                d["config"][component].remove(old_cname)
+                d["config"][component].append(new_cname)
 
         # Rename cname in all connects
         for source, target in self._state["connects"]:
@@ -669,7 +662,7 @@ class Graph:
         parameter: Optional[str] = None,
     ):
         """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-        parameter will be set there. Else, the parameter is set under the "default" key.
+        parameter will be set there. Else, the parameter is set under the "config" key.
         For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
         If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
         disconnected. See _set_converter for more info.
@@ -698,7 +691,7 @@ class Graph:
             else:
                 t = entry()
                 name = t[0]
-                if t[1] == "default":
+                if t[1] == "config":
                     assert parameter not in [
                         "sensors",
                         "actuators",
@@ -708,7 +701,8 @@ class Graph:
                         "outputs",
                     ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
                     assert parameter not in ["name"], f"You cannot rename '{name}'."
-                    p = self._state["nodes"][name]["default"]
+                    assert parameter not in ["msg_type"], f"You cannot modify msg_type '{value}'."
+                    p = self._state["nodes"][name]["config"]
                 else:
                     name, component, cname = entry()
                     p = self._state["nodes"][name][component][cname]
@@ -765,7 +759,7 @@ class Graph:
         parameter: Optional[str] = None,
     ):
         if isinstance(entry, EntitySpec):
-            name = entry.params["default"]["name"]
+            name = entry.params["config"]["name"]
             assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
             return self._state["nodes"][name]
         self._correct_signature(entry, action, observation)
@@ -793,16 +787,16 @@ class Graph:
 
             # For actions & observations, replace default args
             if source_name == "env/actions":
-                default = state["nodes"][target_name]["default"]
-                context = {"default": default}
+                default = state["nodes"][target_name]["config"]
+                context = {"config": default}
                 cname_params = state["nodes"][source_name][source_comp][source_cname]
-                substitute_args(cname_params, context, only=["default", "ns"])
+                substitute_args(cname_params, context, only=["config", "ns"])
                 address = "%s/%s/%s" % ("environment", source_comp, source_cname)
             elif target_name == "env/observations":
-                default = state["nodes"][source_name]["default"]
-                context = {"default": default}
+                default = state["nodes"][source_name]["config"]
+                context = {"config": default}
                 cname_params = state["nodes"][target_name][target_comp][target_cname]
-                substitute_args(cname_params, context, only=["default", "ns"])
+                substitute_args(cname_params, context, only=["config", "ns"])
                 address = "%s/%s/%s" % (source_name, source_comp, source_cname)
             else:
                 address = "%s/%s/%s" % (source_name, source_comp, source_cname)
@@ -891,11 +885,7 @@ class Graph:
         name, component, cname = entry()
         params = state["nodes"][name]
         component = "outputs" if component == "feedthroughs" else component
-        assert cname in params["default"][component], '"%s" not selected in "%s" under "default" in %s. ' % (
-            cname,
-            name,
-            component,
-        )
+        assert cname in params["config"][component], f'"{cname}" not selected in "{name}" under "config" in {component}.'
 
     @staticmethod
     def _correct_signature(
@@ -974,7 +964,7 @@ class Graph:
 
         for name, params in state["nodes"].items():
             if "node_type" in params:
-                for component in params["default"]:
+                for component in params["config"]:
                     if component not in [
                         "inputs",
                         "outputs",
@@ -983,7 +973,7 @@ class Graph:
                         "states",
                     ]:
                         continue
-                    for cname in params["default"][component]:
+                    for cname in params["config"][component]:
                         assert cname in params[component], (
                             f'"{cname}" was selected in {component} of "{name}", ' "but has no implementation."
                         )
@@ -997,10 +987,10 @@ class Graph:
                             "or connect it."
                         )
             else:
-                for component in params["default"]:
+                for component in params["config"]:
                     if component not in ["sensors", "actuators", "states"]:
                         continue
-                    for cname in params["default"][component]:
+                    for cname in params["config"][component]:
                         assert cname in params[component], (
                             f'"{cname}" was selected in {component} of "{name}", ' "but has no (agnostic) implementation."
                         )
@@ -1022,7 +1012,7 @@ class Graph:
             "env/render/done": "render",
         }
         for node, params in state["nodes"].items():
-            default = params["default"]
+            default = params["config"]
             if "node_type" not in state["nodes"][node]:  # Object
                 if "sensors" in default:
                     for cname in default["sensors"]:
@@ -1063,7 +1053,7 @@ class Graph:
                         )
 
         # Add edges
-        for cname in state["nodes"]["env/actions"]["default"]["outputs"]:
+        for cname in state["nodes"]["env/actions"]["config"]["outputs"]:
             if cname == "set":
                 continue
             name = "env/actions/%s" % cname
@@ -1093,7 +1083,7 @@ class Graph:
                     source_edge = "%s/%s/%s" % (source_name, source_comp, source_cname)
                 # Determine target node name
                 target_edges = []
-                target_default = state["nodes"][target_name]["default"]
+                target_default = state["nodes"][target_name]["config"]
                 if "node_type" in state["nodes"][target_name]:
                     for cname in target_default["outputs"]:
                         target_edge = "%s/%s" % (target_name, cname)
@@ -1202,19 +1192,19 @@ class Graph:
         bridges = []
         objects = []
         for node, params in state["nodes"].items():
-            default = params["default"]
+            default = params["config"]
             # todo: only check bridge if it concerns one of the selected components
             if "node_type" not in state["nodes"][node]:  # Object
                 params = state["nodes"][node]
-                entity_id = params["default"]["entity_id"]
-                obj_name = params["default"]["name"]
+                entity_id = params["config"]["entity_id"]
+                obj_name = params["config"]["name"]
                 entry = [obj_name, entity_id]
 
                 # Add all (unknown) bridges to the list
                 for key, _value in params.items():
                     if key in [
                         "entity_type",
-                        "default",
+                        "config",
                         "sensors",
                         "actuators",
                         "states",

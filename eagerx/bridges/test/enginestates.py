@@ -11,8 +11,8 @@ class TestEngineState(EngineState):
         spec.initialize(TestEngineState)
 
         # Modify parameters based on arguments
-        spec.default.test_arg = test_arg
-        spec.default.test_arg = spec.default.test_arg
+        spec.config.test_arg = test_arg
+        spec.config.test_arg = spec.config.test_arg
 
     def initialize(self, test_arg):
         self.test_arg = test_arg

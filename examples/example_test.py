@@ -83,10 +83,10 @@ if __name__ == "__main__":
     _ = graph.get(action="act_2", parameter="converter")
     graph.set(1, observation="obs_1", parameter="window")
     _ = graph.get(observation="obs_1", parameter="converter")
-    _ = graph.get(N3.default, parameter="test_arg")
+    _ = graph.get(N3.config, parameter="test_arg")
     _ = graph.get(viper)
-    graph.set("Modified", entry=N3.default, parameter="test_arg")
-    graph.set([1, 1, 1], entry=viper.default, parameter="position")
+    graph.set("Modified", entry=N3.config, parameter="test_arg")
+    graph.set([1, 1, 1], entry=viper.config, parameter="position")
 
     # Replace output converter
     identity = BaseConverter.make("Identity")

@@ -18,7 +18,7 @@ class GetIndex_Float32MultiArray(Processor):
             index = [index]
         for i in index:
             assert isinstance(i, int) and i >= 0, f'Incorrect index "{i}". Indices must be >= 0.'
-        spec.default.index = index
+        spec.config.index = index
 
     def initialize(self, index):
         self.index = index

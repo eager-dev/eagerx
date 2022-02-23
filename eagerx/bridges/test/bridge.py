@@ -40,18 +40,18 @@ class TestBridgeNode(Bridge):
         spec.initialize(TestBridgeNode)
 
         # Modify default bridge params
-        spec.default.rate = rate
-        spec.default.process = process
-        spec.default.is_reactive = is_reactive
-        spec.default.real_time_factor = real_time_factor
-        spec.default.simulate_delays = simulate_delays
-        spec.default.log_level = log_level
-        spec.default.color = "magenta"
-        spec.default.states = states if states else ["param_1"]
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.is_reactive = is_reactive
+        spec.config.real_time_factor = real_time_factor
+        spec.config.simulate_delays = simulate_delays
+        spec.config.log_level = log_level
+        spec.config.color = "magenta"
+        spec.config.states = states if states else ["param_1"]
 
         # Add custom params
-        spec.default.num_substeps = 10
-        spec.default.nonreactive_address = "/nonreactive_input_topic"  # Only required to test nonreactive inputs
+        spec.config.num_substeps = 10
+        spec.config.nonreactive_address = "/nonreactive_input_topic"  # Only required to test nonreactive inputs
 
         # Add state: "param_1"
         spec.states.param_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")

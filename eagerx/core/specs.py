@@ -46,11 +46,11 @@ class ConverterSpec(EntitySpec):
     def initialize(self, spec_cls):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
-        with self.default as d:
+        with self.config as d:
             d.update(defaults)
 
     @property
-    def default(self):
+    def config(self):
         return SpecView(self, depth=[])
 
 
@@ -58,11 +58,11 @@ class EngineStateSpec(EntitySpec):
     def initialize(self, spec_cls):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
-        with self.default as d:
+        with self.config as d:
             d.update(defaults)
 
     @property
-    def default(self):
+    def config(self):
         return SpecView(self, depth=[])
 
 
@@ -74,7 +74,7 @@ class BaseNodeSpec(EntitySpec):
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
-        name = self._params["default"]["name"]
+        name = self._params["config"]["name"]
         if self.has_graph:
             return GraphView(self.graph, depth=[name, depth], name=name)
         else:
@@ -93,8 +93,8 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("states")
 
     @property
-    def default(self):
-        return self._lookup("default")
+    def config(self):
+        return self._lookup("config")
 
     def initialize(self, spec_cls):
         try:
@@ -107,7 +107,7 @@ class BaseNodeSpec(EntitySpec):
 
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
-        with self.default as d:
+        with self.config as d:
             d.update(defaults)
 
         if "bridge_params" in params:
@@ -128,10 +128,10 @@ class BaseNodeSpec(EntitySpec):
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
                 if component == "outputs":
-                    self.default.outputs.append(cname)
+                    self.config.outputs.append(cname)
                     mapping = dict(
                         msg_type=msg_type,
-                        rate="$(default rate)",
+                        rate="$(config rate)",
                         converter=self.identity.params,
                         space_converter=None,
                     )
@@ -151,7 +151,7 @@ class BaseNodeSpec(EntitySpec):
                             d[cname] = mapping_ft
                         # self._set({"feedthroughs": {cname: mapping_ft}})
                 elif component == "inputs":
-                    self.default.inputs.append(cname)
+                    self.config.inputs.append(cname)
                     address = "bridge/outputs/tick" if cname == "tick" else None
                     mapping = dict(
                         msg_type=msg_type,
@@ -164,7 +164,7 @@ class BaseNodeSpec(EntitySpec):
                         address=address,
                     )
                 elif component == "targets":
-                    self.default.targets.append(cname)
+                    self.config.targets.append(cname)
                     mapping = dict(
                         msg_type=msg_type,
                         converter=self.identity.params,
@@ -172,7 +172,7 @@ class BaseNodeSpec(EntitySpec):
                         address=None,
                     )
                 else:
-                    self.default.states.append(cname)
+                    self.config.states.append(cname)
                     component = "states"
                     mapping = dict(
                         msg_type=msg_type,
@@ -184,8 +184,8 @@ class BaseNodeSpec(EntitySpec):
 
     def _remove_component(self, component: str, cname: str):
         getattr(self, component).pop(cname)
-        if cname in self.default[component]:
-            self.default[component].remove(cname)
+        if cname in self.config[component]:
+            self.config[component].remove(cname)
 
     def remove_input(self, cname: str):
         self._remove_component("inputs", cname)
@@ -241,7 +241,7 @@ class BaseNodeSpec(EntitySpec):
                 msg_type
             ), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
             msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type, rate="$(default rate)")
+        mapping = dict(msg_type=msg_type, rate="$(config rate)")
         mapping["converter"] = converter.params if converter else self.identity.params
         mapping["space_converter"] = space_converter.params if space_converter else None
         with self.outputs as d:
@@ -266,13 +266,13 @@ class BaseNodeSpec(EntitySpec):
         mapping = dict(msg_type=msg_type)
         mapping["converter"] = converter.params if converter else self.identity.params
 
-        assert "targets" in self._params["default"], f"Cannot add target '{cname}'. Node is not a 'ResetNode'"
+        assert "targets" in self._params["config"], f"Cannot add target '{cname}'. Node is not a 'ResetNode'"
         with self.targets as d:
             d[cname] = mapping
 
     def build(self, ns):
         params = self.params  # Creates a deepcopy
-        default = copy.deepcopy(self.default.to_dict())
+        default = copy.deepcopy(self.config.to_dict())
         name = default["name"]
         default["node_type"] = params["node_type"]
         entity_id = default["entity_id"]
@@ -280,9 +280,9 @@ class BaseNodeSpec(EntitySpec):
         # Replace args in .yaml
         context = {
             "ns": {"env_name": ns, "node_name": name},
-            "default": params["default"],
+            "config": params["config"],
         }
-        substitute_args(params, context, only=["default", "ns"])
+        substitute_args(params, context, only=["config", "ns"])
 
         # Process inputs
         inputs = []
@@ -396,7 +396,7 @@ class ObjectSpec(EntitySpec):
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
     def _lookup(self, depth):
-        name = self._params["default"]["name"]
+        name = self._params["config"]["name"]
         if self.has_graph:
             return GraphView(self.graph, depth=[name, depth], name=name)
         else:
@@ -415,14 +415,14 @@ class ObjectSpec(EntitySpec):
         return self._lookup("states")
 
     @property
-    def default(self):
-        return self._lookup("default")
+    def config(self):
+        return self._lookup("config")
 
     def initialize(self, spec_cls):
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
 
         # Set default agnostic params
-        with self.default as d:
+        with self.config as d:
             d.update(agnostic.pop("agnostic_params"))
 
         # Set default components
@@ -479,11 +479,11 @@ class ObjectSpec(EntitySpec):
         nodes, actuators, sensors = graph.register()
 
         # Check that there is no parameter clash between node and object
-        obj_name = self.default.name
-        agnostic_params = self.default
+        obj_name = self.config.name
+        agnostic_params = self.config
         engine_params = engine_spec.params
         for _node, params in nodes.items():
-            default = params["default"]
+            default = params["config"]
             node_name = default["name"]
             for key in default.keys():
                 if key in ["name", "states", "entity_id"]:
@@ -505,7 +505,7 @@ class ObjectSpec(EntitySpec):
 
         # Substitute engine_specific object_params (registered in the bridge implementation)
         engine_params.pop("states")
-        substitute_args(nodes, context={"default": engine_params}, only=["default"])
+        substitute_args(nodes, context={"config": engine_params}, only=["config"])
 
         # Pop states that were not implemented.
         for cname in list(engine_spec.states.keys()):
@@ -513,7 +513,7 @@ class ObjectSpec(EntitySpec):
                 engine_spec.states.pop(cname)
 
         # Set engine_spec
-        with engine_spec.default as d:
+        with engine_spec.config as d:
             d.actuators = actuators
             d.sensors = sensors
             d.nodes = nodes
@@ -534,19 +534,19 @@ class ObjectSpec(EntitySpec):
 
     def build(self, ns, bridge_id):
         params = self.params  # Creates a deepcopy
-        default = copy.deepcopy(self.default.to_dict())  # Creates a deepcopy
+        default = copy.deepcopy(self.config.to_dict())  # Creates a deepcopy
         name = default["name"]
 
         # Construct context
-        context = {"ns": {"env_name": ns, "obj_name": name}, "default": default}
-        substitute_args(default, context, only=["default", "ns"])  # First resolve args within the context
-        substitute_args(params, context, only=["default", "ns"])  # Resolve rest of params
+        context = {"ns": {"env_name": ns, "obj_name": name}, "config": default}
+        substitute_args(default, context, only=["config", "ns"])  # First resolve args within the context
+        substitute_args(params, context, only=["config", "ns"])  # Resolve rest of params
 
         # Get agnostic definition
         agnostic = dict()
         for key in list(params.keys()):
             if key not in ["actuators", "sensors", "states"]:
-                if key not in ["default", bridge_id]:
+                if key not in ["config", bridge_id]:
                     params.pop(key)
                 continue
             agnostic[key] = params.pop(key)
@@ -596,8 +596,8 @@ class ObjectSpec(EntitySpec):
                     ), f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a enginenode "{node_name}". If this enginenode is used for multiple sensors/components, then their specified rates must be equal.'
                 else:
                     rates[node_name] = rate
-                node_params["default"]["rate"] = rate
-                for o in node_params["default"]["outputs"]:
+                node_params["config"]["rate"] = rate
+                for o in node_params["config"]["outputs"]:
                     node_params["outputs"][o]["rate"] = rate
 
                 # Set component params
@@ -658,7 +658,7 @@ class ObjectSpec(EntitySpec):
             state_names.append(f'{ns}/{args["name"]}')
 
         # Create obj parameters
-        obj_params = params["default"]
+        obj_params = params["config"]
 
         # Gather node names
         obj_params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
@@ -709,7 +709,7 @@ class SpecificSpec(EntitySpec):
         super().__init__(params)
 
     @property
-    def default(self):
+    def config(self):
         return SpecView(self, depth=[])
 
     @property

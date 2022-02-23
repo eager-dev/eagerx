@@ -17,4 +17,5 @@ exclude_lines =
     filter_info_for_printing
     remap_cb_input
     trace_observable
+    print_info
     raise

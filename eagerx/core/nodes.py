@@ -24,14 +24,14 @@ class EnvNode(Node):
         spec.initialize(EnvNode)
 
         # Modify default node params
-        spec.default.name = "environment"
-        spec.default.rate = rate
-        spec.default.process = process.ENVIRONMENT
-        spec.default.color = color
-        spec.default.log_level = log_level
-        spec.default.inputs = []
-        spec.default.outputs = []
-        spec.default.states = []
+        spec.config.name = "environment"
+        spec.config.rate = rate
+        spec.config.process = process.ENVIRONMENT
+        spec.config.color = color
+        spec.config.log_level = log_level
+        spec.config.inputs = []
+        spec.config.outputs = []
+        spec.config.states = []
 
     def initialize(self):
         # Define observation buffers
@@ -120,14 +120,14 @@ class ObservationsNode(Node):
         spec.initialize(ObservationsNode)
 
         # Modify default node params
-        spec.default.name = "env/observations"
-        spec.default.rate = rate
-        spec.default.process = process.ENVIRONMENT
-        spec.default.color = color
-        spec.default.log_level = log_level
-        spec.default.inputs = ["actions_set"]
-        spec.default.outputs = ["set"]
-        spec.default.states = []
+        spec.config.name = "env/observations"
+        spec.config.rate = rate
+        spec.config.process = process.ENVIRONMENT
+        spec.config.color = color
+        spec.config.log_level = log_level
+        spec.config.inputs = ["actions_set"]
+        spec.config.outputs = ["set"]
+        spec.config.states = []
 
         # Pre-set address to mock an actual input
         spec.inputs.actions_set.address = "env/actions/outputs/set"
@@ -153,14 +153,14 @@ class ActionsNode(Node):
         spec.initialize(ActionsNode)
 
         # Modify default node params
-        spec.default.name = "env/actions"
-        spec.default.rate = rate
-        spec.default.process = process.ENVIRONMENT
-        spec.default.color = color
-        spec.default.log_level = log_level
-        spec.default.inputs = ["step"]
-        spec.default.outputs = ["set"]
-        spec.default.states = []
+        spec.config.name = "env/actions"
+        spec.config.rate = rate
+        spec.config.process = process.ENVIRONMENT
+        spec.config.color = color
+        spec.config.log_level = log_level
+        spec.config.inputs = ["step"]
+        spec.config.outputs = ["set"]
+        spec.config.states = []
 
         # Pre-set address to mock an actual input
         spec.inputs.step.address = "env/supervisor/outputs/step"
@@ -186,17 +186,17 @@ class RenderNode(Node):
         spec.initialize(RenderNode)
 
         # Modify default node params
-        spec.default.name = "env/render"
-        spec.default.rate = rate
-        spec.default.process = process.ENVIRONMENT
-        spec.default.color = color
-        spec.default.log_level = log_level
-        spec.default.inputs = ["image"]
-        spec.default.outputs = ["done"]
-        spec.default.states = []
+        spec.config.name = "env/render"
+        spec.config.rate = rate
+        spec.config.process = process.ENVIRONMENT
+        spec.config.color = color
+        spec.config.log_level = log_level
+        spec.config.inputs = ["image"]
+        spec.config.outputs = ["done"]
+        spec.config.states = []
 
         # Modify custom params
-        spec.default.display = display
+        spec.config.display = display
 
         # Pre-set window
         spec.inputs.image.window = 0

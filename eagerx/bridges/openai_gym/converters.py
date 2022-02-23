@@ -29,12 +29,12 @@ class GymSpace_Float32MultiArray(SpaceConverter):
         # Initialize converter
         spec.initialize(GymSpace_Float32MultiArray)
 
-        spec.default.gym_id = gym_id
-        spec.default.space = space
-        spec.default.low = low
-        spec.default.high = high
-        spec.default.shape = shape
-        spec.default.dtype = dtype
+        spec.config.gym_id = gym_id
+        spec.config.space = space
+        spec.config.low = low
+        spec.config.high = high
+        spec.config.shape = shape
+        spec.config.dtype = dtype
 
     def initialize(self, gym_id=None, space=None, low=None, high=None, shape=None, dtype="float32"):
         if gym_id is not None and space in ["observation", "action"]:
