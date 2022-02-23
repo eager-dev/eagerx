@@ -55,6 +55,7 @@ author = "EAGERx Contributors"
 
 # The short X.Y version
 from eagerx import __version__
+
 # version_file = os.path.join(os.path.dirname(__file__), "../eagerx", "__init__.py")
 # with open(version_file, "r") as file_handler:
 #     file = file_handler.read().strip()

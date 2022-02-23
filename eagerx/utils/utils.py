@@ -2,6 +2,7 @@
 import rospy
 import rosgraph
 import roslaunch
+
 # from roslaunch import substitution_args
 # from roslaunch.substitution_args import _collect_args
 
@@ -207,7 +208,9 @@ def _resolve_args(arg_str, context, resolve_anon, commands):
         for a in roslaunch.substitution_args._collect_args(arg_str):
             splits = [s for s in a.split(" ") if s]
             if not splits[0] in valid:
-                raise roslaunch.substitution_args.SubstitutionException("Unknown substitution command [%s]. Valid commands are %s" % (a, valid))
+                raise roslaunch.substitution_args.SubstitutionException(
+                    "Unknown substitution command [%s]. Valid commands are %s" % (a, valid)
+                )
             command = splits[0]
             args = splits[1:]
             if command in commands:
