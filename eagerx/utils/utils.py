@@ -1,6 +1,6 @@
 # ROS SPECIFIC
 import rospy
-from rosgraph.masterapi import Error
+import rosgraph
 from roslaunch import substitution_args as sub
 from roslaunch.substitution_args import _collect_args
 
@@ -89,7 +89,7 @@ def get_param_with_blocking(name, timeout=5):
 
         try:
             params = rospy.get_param(name)
-        except (Error, KeyError):
+        except (rosgraph.masterapi.Error, KeyError):
             sleep_time = 0.01
             if it % 20 == 0:
                 rospy.loginfo(
