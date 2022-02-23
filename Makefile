@@ -1,3 +1,5 @@
+# Adapted from DLR-RM/stable-baselines3
+
 SHELL=/bin/bash
 LINT_PATHS=eagerx/
 

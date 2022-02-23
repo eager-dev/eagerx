@@ -1,3 +1,5 @@
+# Adapted from DLR-RM/stable-baselines3
+
 ARG PARENT_IMAGE
 FROM $PARENT_IMAGE
 ARG PYTORCH_DEPS=cpuonly

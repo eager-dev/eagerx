@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Adapted from DLR-RM/stable-baselines3
+
 CPU_PARENT=ubuntu:20.04
 GPU_PARENT=nvidia/cuda:11.3.1-runtime-ubuntu20.04
 
