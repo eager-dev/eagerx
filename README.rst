@@ -40,7 +40,7 @@ A single RL pipeline that works with both the simulated and real robots eliminat
 The defined task follows the OpenAI Gym interface, so one can plug in algorithms from established RL libraries
 (e.g., `Stable-baselines3 <https://github.com/DLR-RM/stable-baselines3>`_ ) to solve the task afterward, again minimizing implementation errors.
 
-`Full documentation and tutorials available here <https://eagerx.readthedocs.io/en/latest/>`_.
+`Full documentation and tutorials available here <https://eagerx.readthedocs.io/en/master/>`_.
 
 ..
     TODO: ADD code example with gifs?
