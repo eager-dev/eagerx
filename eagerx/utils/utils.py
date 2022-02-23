@@ -218,14 +218,14 @@ def _resolve_args(arg_str, context, resolve_anon, commands):
     return resolved
 
 
-def _eval_default(name, args):
+def _eval_config(name, args):
     try:
         return args[name]
     except KeyError:
         raise roslaunch.substitution_args.ArgException(name)
 
 
-_eval_ns = _eval_default
+_eval_ns = _eval_config
 
 
 def tryeval(val):
@@ -249,14 +249,14 @@ def _config(resolved, a, args, context):
     :raises: :exc:`roslaunch.substitution_args.ArgException` If arg invalidly specified
     """
     if len(args) == 0:
-        raise roslaunch.substitution_args.SubstitutionException("$(default var) must specify a variable name [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(config var) must specify a variable name [%s]" % (a))
     elif len(args) > 1:
-        raise roslaunch.substitution_args.SubstitutionException("$(default var) may only specify one arg [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(config var) may only specify one arg [%s]" % (a))
 
     if "config" not in context:
         context["config"] = {}
     try:
-        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context["default"]))))
+        return tryeval(resolved.replace("$(%s)" % a, str(_eval_config(name=args[0], args=context["config"]))))
     except Exception as e:  # roslaunch.substitution_args.ArgException:
         if isinstance(e, roslaunch.substitution_args.ArgException):
             return resolved
