@@ -4,8 +4,8 @@ channels:
   - conda-forge
 dependencies:
   - pip=21.1
-  - python=3.6.2
-  - ros-rospy
+  - python=3.8
+#  - ros-rospy
 #  - ros-rosparam
 #  - ros-roslaunch
   - pip:

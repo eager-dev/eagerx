@@ -42,7 +42,7 @@ class Mock(MagicMock):
 # Note: because of that we cannot test examples using CI
 # 'torch', 'torch.nn', 'torch.nn.functional',
 # DO not mock modules for now, we will need to do that for read the docs later
-# MOCK_MODULES = ["rospy", "rosparam", "roslaunch"]
+MOCK_MODULES = ["rospy", "rosparam", "roslaunch", "genpy"]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 
