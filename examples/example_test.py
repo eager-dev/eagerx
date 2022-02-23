@@ -21,6 +21,9 @@ if __name__ == "__main__":
     rate = 7
 
     # todo: TODAY
+    #  - refactor graph_engine
+    #  - refactor gui
+    #  - refactor all existing packages.
     #  - Clean shutdown without errors
     #  - Documentation
     #  - Installation procedure

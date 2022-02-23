@@ -33,6 +33,14 @@ def test_graph():
         inputs=["in_1"],
         outputs=["out_1"],
     )
+    N2 = Node.make(
+        "Process",
+        "N2",
+        rate=rate,
+        process=process.ENVIRONMENT,
+        inputs=["in_1"],
+        outputs=["out_1"],
+    )
     KF = Node.make(
         "KalmanFilter",
         "KF",
@@ -60,7 +68,7 @@ def test_graph():
         states=["N9"],
     )
 
-    # Test lookup
+    # Test SpecView
     with N3.inputs.unlocked:
         _ = N3.inputs.__repr__()
         for _ in N3.inputs:
@@ -74,6 +82,7 @@ def test_graph():
         N3.inputs.dummy_cname = dict()
     except AttributeError as e:
         print("Must fail! ", e)
+    _ = len(N3.inputs)
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
@@ -81,6 +90,13 @@ def test_graph():
 
     # Define graphs in different ways
     _ = Graph.create(nodes=N0).__str__()
+    _ = N0.inputs.__repr__()
+    _ = N0.inputs.__str__()
+    try:
+        _ = N0.inputs.dummy_cname
+    except AttributeError as e:
+        print("Must fail! ", e)
+
     graph = Graph.create(nodes=[N3, KF], objects=viper)
 
     # Rendering
@@ -121,6 +137,7 @@ def test_graph():
     graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8, converter=RosString_RosUInt64)
 
     # Set & get parameters
+    _ = graph.get(N3)
     _ = graph.get(action="act_2", parameter="converter")
     graph.set(graph.get(action="act_2"), action="act_2")
     graph.set(graph.get(observation="obs_1"), observation="obs_1")
@@ -141,6 +158,8 @@ def test_graph():
     graph.connect(source=viper.sensors.N6, target=N3.inputs.in_1)  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
+    graph.remove_component(N3.inputs.in_2)
+    graph.add_component(N3.inputs.in_2)
     graph.remove_component(N3.inputs.in_2)
 
     # Rename action & observation
@@ -211,11 +230,17 @@ def test_graph():
     graph.connect(source=N1.outputs.out_1, observation="obs_6")
     graph.connect(action="act_6", target=N1.inputs.in_1, skip=True)
 
+    # Connect N1
+    graph.add(N2)
+    graph.connect(source=N2.outputs.out_1, observation="obs_N2")
+    graph.connect(action="act_N2", target=N2.inputs.in_1)
+    graph.remove("N2", remove=True)
+
     # Test when KF skips all inputs at t=0
     graph.remove_component(KF.inputs.in_1)
 
     # Open gui (only opens if eagerx-gui is installed)
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")

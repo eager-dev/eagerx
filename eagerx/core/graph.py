@@ -301,17 +301,11 @@ class Graph:
             converter = converter.to_dict()
 
         if action:  # source = action
-            try:
-                self.add_component(action=action)
-            except AssertionError:
-                pass
+            self.add_component(action=action)
             self._connect_action(action, target, converter=converter)
             source = self.get_view("env/actions", ["outputs", action])
         elif observation:  # target = observation
-            try:
-                self.add_component(observation=observation)
-            except AssertionError:
-                pass
+            self.add_component(observation=observation)
             converter = self._connect_observation(source, observation, converter=converter)
             target = self.get_view("env/observations", ["inputs", observation])
         self._connect(source, target, converter, window, delay, skip)
@@ -720,54 +714,6 @@ class Graph:
                     p = self._state["nodes"][name][component][cname]
                 self._set(p, {parameter: value})
 
-    # todo: uncomment to check usages.
-    # def set_parameter(
-    #     self,
-    #     mapping: Dict[str, Any],
-    #     entry: Optional[GraphView] = None,
-    #     action: Optional[str] = None,
-    #     observation: Optional[str] = None,
-    # ):
-    #     """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-    #     parameter will be set there. Else, the parameter is set under the "default" key.
-    #     For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
-    #     If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
-    #     disconnected. See _set_converter for more info.
-    #     """
-    #     self._correct_signature(entry, action, observation)
-    #     if action:
-    #         entry = self.get_view("env/actions", ["outputs", action])
-    #     if observation:
-    #         entry = self.get_view("env/observations", ["inputs", observation])
-    #
-    #     if len(entry()) == 3:  # component parameter
-    #         for parameter, value in mapping.items():
-    #             if parameter:
-    #                 getattr(entry, parameter)  # Check if parameter exists
-    #             if parameter == "converter":
-    #                 if isinstance(value, ConverterSpec):
-    #                     value = value.params
-    #                 self._set_converter(entry, value)
-    #             else:
-    #                 name, component, cname = entry()
-    #                 self._set(self._state["nodes"][name][component][cname], {parameter: value})
-    #     else:  # len(entry()) == 2 --> Default parameter
-    #         for parameter, value in mapping.items():
-    #             if parameter:
-    #                 getattr(entry, parameter)  # Check if parameter exists
-    #             name, _ = entry()
-    #             assert parameter not in [
-    #                 "sensors",
-    #                 "actuators",
-    #                 "targets",
-    #                 "states",
-    #                 "inputs",
-    #                 "outputs",
-    #             ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
-    #             assert parameter not in ["name"], "You cannot rename with this function. Use rename_(name) instead."
-    #             default = self._state["nodes"][name]["default"]
-    #             self._set(default, {parameter: value})
-
     def _set_converter(self, entry: GraphView, converter: Dict):
         """Replaces the converter specified for a node's/object's I/O.
         **DOES NOT** remove observation entries if they are disconnected.
@@ -811,18 +757,17 @@ class Graph:
         params[component][cname].pop("converter")
         self._set(params[component][cname], {"converter": converter})
 
-    def get_parameters(self, name: str):
-        """Gets all parameters from an entity"""
-        assert name in self._state["nodes"][name], f" No entity with name '{name}' in graph."
-        return self._state["nodes"][name]
-
     def get(
         self,
-        entry: Optional[GraphView] = None,
+        entry: Optional[Union[GraphView, EntitySpec]] = None,
         action: Optional[str] = None,
         observation: Optional[str] = None,
         parameter: Optional[str] = None,
     ):
+        if isinstance(entry, EntitySpec):
+            name = entry.params["default"]["name"]
+            assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
+            return self._state["nodes"][name]
         self._correct_signature(entry, action, observation)
         if action:
             entry = self.get_view("env/actions", ["outputs", action])
@@ -832,18 +777,6 @@ class Graph:
             return getattr(entry, parameter)
         else:
             return entry
-
-    def get_parameter(
-        self,
-        parameter: str,
-        entry: Optional[GraphView] = None,
-        action: Optional[str] = None,
-        observation: Optional[str] = None,
-    ):
-        """Get node/object parameters. If component and cname are specified, get the parameter of them instead.
-        If default was specified, get default parameter instead. Else, raise an error.
-        """
-        return self.get(entry=entry, action=action, observation=observation, parameter=parameter)
 
     def register(self):
         """Set the addresses in all incoming components.
@@ -1056,7 +989,8 @@ class Graph:
                         )
                         if component not in ["inputs", "targets", "feedthroughs"]:
                             continue
-                        assert params[component][cname]["address"] is not None, (
+                        p = params[component][cname]
+                        assert "address" in p and p["address"] is not None, (
                             f'"{cname}" was selected in {component} '
                             f'of "{name}", but no address could be '
                             "produced/inferred. Either deselect it, "
