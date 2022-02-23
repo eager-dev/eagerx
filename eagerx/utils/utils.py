@@ -113,11 +113,11 @@ def substitute_args(
     only: Optional[List[str]] = None,
 ):
     """Substitute arguments based on the context dictionairy (and possibly sourced packages).
-    Follows the xacro substition convention of ROS, with a 'default' and 'ns' command added.
+    Follows the xacro substition convention of ROS, with a 'config' and 'ns' command added.
     :param param: dict or string we wish to perform substitutions on.
     :param context: dict[command][context] with replacement values .
     :param only: List of possible commands. If only is not provided, all commands are executed.
-                 Options are ['env', 'optenv', 'dirname', 'anon', 'arg', 'ns', 'default'].
+                 Options are ['env', 'optenv', 'dirname', 'anon', 'arg', 'ns', 'config'].
     :return: Substituted param file
     """
     # substitute string
@@ -175,7 +175,7 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
         "anon": roslaunch.substitution_args._anon,
         "arg": roslaunch.substitution_args._arg,
         "ns": _ns,
-        "default": _default,
+        "config": _config,
     }
     if only is not None:
         exec_commands = {}
@@ -202,7 +202,7 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
 
 def _resolve_args(arg_str, context, resolve_anon, commands):
     ros_valid = ["find", "env", "optenv", "dirname", "anon", "arg"]
-    valid = ros_valid + ["ns", "default"]
+    valid = ros_valid + ["ns", "config"]
     resolved = arg_str
     if isinstance(arg_str, (str, list)):
         for a in roslaunch.substitution_args._collect_args(arg_str):
@@ -218,14 +218,14 @@ def _resolve_args(arg_str, context, resolve_anon, commands):
     return resolved
 
 
-def _eval_default(name, args):
+def _eval_config(name, args):
     try:
         return args[name]
     except KeyError:
         raise roslaunch.substitution_args.ArgException(name)
 
 
-_eval_ns = _eval_default
+_eval_ns = _eval_config
 
 
 def tryeval(val):
@@ -241,22 +241,22 @@ def tryeval(val):
     return val
 
 
-def _default(resolved, a, args, context):
+def _config(resolved, a, args, context):
     """
-    process $(default) arg
+    process $(config) arg
 
     :returns: updated resolved argument, ``str``
     :raises: :exc:`roslaunch.substitution_args.ArgException` If arg invalidly specified
     """
     if len(args) == 0:
-        raise roslaunch.substitution_args.SubstitutionException("$(default var) must specify a variable name [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(config var) must specify a variable name [%s]" % (a))
     elif len(args) > 1:
-        raise roslaunch.substitution_args.SubstitutionException("$(default var) may only specify one arg [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(config var) may only specify one arg [%s]" % (a))
 
-    if "default" not in context:
-        context["default"] = {}
+    if "config" not in context:
+        context["config"] = {}
     try:
-        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context["default"]))))
+        return tryeval(resolved.replace("$(%s)" % a, str(_eval_config(name=args[0], args=context["config"]))))
     except Exception as e:  # roslaunch.substitution_args.ArgException:
         if isinstance(e, roslaunch.substitution_args.ArgException):
             return resolved
@@ -380,7 +380,7 @@ def is_supported_type(param: Any, types: Tuple, none_support):
             for value in param:
                 is_supported_type(value, types, none_support)
     else:
-        raise ValueError(
+        raise TypeError(
             f'Type "{type(param)}" of a specified (nested) param "{param}" is not supported. Only types {types} are supported.'
         )
 
@@ -410,59 +410,6 @@ def supported_types(*types: Tuple, is_classmethod=True):
         return wrapper
 
     return _check
-
-
-def exists(func):
-    argspec = inspect.getfullargspec(func)
-    if argspec.defaults:
-        positional_count = len(argspec.args) - len(argspec.defaults)
-        defaults = dict(zip(argspec.args[positional_count:], argspec.defaults))
-    else:
-        defaults = []
-
-    def _exists(self, *args, **kwargs):
-        check_args = dict()
-        for _args in [zip(argspec.args[1:], args), kwargs.items()]:
-            for arg, value in _args:
-                if arg in ["component", "cname", "parameter", "bridge_id", "level"]:
-                    check_args[arg] = value
-
-        if "level" not in check_args and "level" in defaults:
-            check_args["level"] = defaults["level"]
-
-        # Remove level from check_args if level='agnostic'
-        if "level" in check_args and check_args["level"] == "agnostic":
-            check_args.pop("level")
-
-        params = self.params
-        _args = check_args
-        if "level" in _args:
-            level = _args["level"]
-            assert level in params, f"Level '{level}' not found. Available keys({params})={params.keys()}."
-            if "component" not in _args and "parameter" in _args:
-                parameter = _args["parameter"]
-                assert (
-                    parameter in params[level]
-                ), f"Parameter '{parameter}' not found. Available keys(params[{level}])={params[level].keys()}."
-        if "component" in _args:
-            component = _args["component"]
-            assert component in params, f"Component '{component}' not found. Available keys(params)={params.keys()}."
-            assert (
-                "level" not in check_args or component in params["default"]
-            ), f"Component '{component}' not found. Available keys(params['default'])={params['default'].keys()}."
-            if "cname" in _args:
-                cname = _args["cname"]
-                assert (
-                    cname in params[component]
-                ), f"Cname '{cname}' not found. Available keys(params[{component}])={params[component].keys()}."
-                if "parameter" in _args:
-                    parameter = _args["parameter"]
-                    assert (
-                        parameter in params[component][cname]
-                    ), f"Parameter '{parameter}' not found. Available keys(params[{component}][{cname}])={params[component][cname].keys()}."
-        return func(self, *args, **kwargs)
-
-    return _exists
 
 
 def get_default_params(func):

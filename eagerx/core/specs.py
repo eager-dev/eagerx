@@ -1,44 +1,26 @@
 from typing import Dict, Any, Optional
 import inspect
 from yaml import dump
+import copy
 
 import eagerx.core.register as register
+from eagerx.core.view import SpecView, GraphView
 from eagerx.utils.utils import (
     replace_None,
     deepcopy,
-    supported_types,
     get_module_type_string,
-    exists,
     get_default_params,
     substitute_args,
 )
 
 
-def merge(a, b, path=None):
-    "merges b into a"
-    # If it is a spec, convert to params
-    if path is None:
-        path = []
-    for key in b:
-        if isinstance(b[key], EntitySpec):
-            b[key] = b[key].params
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            else:
-                a[key] = b[key]
-            # else:
-            #     raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
-        else:
-            a[key] = b[key]
-    return a
-
-
 class EntitySpec(object):
     def __init__(self, params):
-        self._params = params
+        super(EntitySpec, self).__setattr__("_params", params)
+        super(EntitySpec, self).__setattr__("_graph", None)
+
+    def __setattr__(self, name, value):
+        raise AttributeError("You cannot set the new attributes to EntitySpec.")
 
     def __str__(self):
         return dump(self._params)
@@ -48,44 +30,40 @@ class EntitySpec(object):
     def params(self):
         return self._params
 
+    def set_graph(self, graph):
+        super(EntitySpec, self).__setattr__("_graph", graph)
+
+    @property
+    def has_graph(self):
+        return True if self._graph else False
+
+    @property
+    def graph(self):
+        return self._graph
+
 
 class ConverterSpec(EntitySpec):
-    def set_parameter(self, parameter: str, value: Any):
-        self.set_parameters({parameter: value})
+    def initialize(self, spec_cls):
+        # Set default params
+        defaults = get_default_params(spec_cls.initialize)
+        with self.config as d:
+            d.update(defaults)
 
-    @supported_types(str, int, list, float, bool, dict, None)
-    def set_parameters(self, mapping: Dict):
-        self._params.update(mapping)
-
-    def get_parameter(self, parameter: str, default: Optional[Any] = None):
-        return self.params.get(parameter, default)
-
-    def get_parameters(self):
-        return self.params
+    @property
+    def config(self):
+        return SpecView(self, depth=[])
 
 
 class EngineStateSpec(EntitySpec):
     def initialize(self, spec_cls):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
-        self._set(defaults)
+        with self.config as d:
+            d.update(defaults)
 
-    def set_parameter(self, parameter: str, value: Any):
-        self.set_parameters({parameter: value})
-
-    @supported_types(str, int, list, float, bool, dict, None)
-    def set_parameters(self, mapping: Dict):
-        self._params.update(mapping)
-
-    def get_parameter(self, parameter: str, default: Optional[Any] = None):
-        return self.params.get(parameter, default)
-
-    def get_parameters(self):
-        return self.params
-
-    @supported_types(str, int, list, float, bool, dict, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
+    @property
+    def config(self):
+        return SpecView(self, depth=[])
 
 
 class BaseNodeSpec(EntitySpec):
@@ -93,7 +71,30 @@ class BaseNodeSpec(EntitySpec):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
 
-        self.identity = BaseConverter.make("Identity")
+        super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
+
+    def _lookup(self, depth):
+        name = self._params["config"]["name"]
+        if self.has_graph:
+            return GraphView(self.graph, depth=[name, depth], name=name)
+        else:
+            return SpecView(self, depth=[depth], name=name)
+
+    @property
+    def inputs(self):
+        return self._lookup("inputs")
+
+    @property
+    def outputs(self):
+        return self._lookup("outputs")
+
+    @property
+    def states(self):
+        return self._lookup("states")
+
+    @property
+    def config(self):
+        return self._lookup("config")
 
     def initialize(self, spec_cls):
         try:
@@ -106,7 +107,8 @@ class BaseNodeSpec(EntitySpec):
 
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
-        self._set({"default": defaults})
+        with self.config as d:
+            d.update(defaults)
 
         if "bridge_params" in params:
             params.pop("bridge_params")
@@ -126,10 +128,10 @@ class BaseNodeSpec(EntitySpec):
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
                 if component == "outputs":
-                    self._params["default"]["outputs"].append(cname)
+                    self.config.outputs.append(cname)
                     mapping = dict(
                         msg_type=msg_type,
-                        rate="$(default rate)",
+                        rate="$(config rate)",
                         converter=self.identity.params,
                         space_converter=None,
                     )
@@ -145,9 +147,11 @@ class BaseNodeSpec(EntitySpec):
                             space_converter=None,
                             address=None,
                         )
-                        self._set({"feedthroughs": {cname: mapping_ft}})
+                        with self.feedthroughs as d:
+                            d[cname] = mapping_ft
+                        # self._set({"feedthroughs": {cname: mapping_ft}})
                 elif component == "inputs":
-                    self._params["default"]["inputs"].append(cname)
+                    self.config.inputs.append(cname)
                     address = "bridge/outputs/tick" if cname == "tick" else None
                     mapping = dict(
                         msg_type=msg_type,
@@ -160,7 +164,7 @@ class BaseNodeSpec(EntitySpec):
                         address=address,
                     )
                 elif component == "targets":
-                    self._params["default"]["targets"].append(cname)
+                    self.config.targets.append(cname)
                     mapping = dict(
                         msg_type=msg_type,
                         converter=self.identity.params,
@@ -168,19 +172,20 @@ class BaseNodeSpec(EntitySpec):
                         address=None,
                     )
                 else:
-                    self._params["default"]["states"].append(cname)
+                    self.config.states.append(cname)
                     component = "states"
                     mapping = dict(
                         msg_type=msg_type,
                         converter=self.identity.params,
                         space_converter=None,
                     )
-                self._set({component: {cname: mapping}})
+                with getattr(self, component) as d:
+                    d[cname] = mapping
 
     def _remove_component(self, component: str, cname: str):
-        self._params[component].pop(cname)
-        if cname in self._params["default"][component]:
-            self._params["default"][component].remove(cname)
+        getattr(self, component).pop(cname)
+        if cname in self.config[component]:
+            self.config[component].remove(cname)
 
     def remove_input(self, cname: str):
         self._remove_component("inputs", cname)
@@ -193,9 +198,6 @@ class BaseNodeSpec(EntitySpec):
 
     def remove_target(self, cname: str):
         self._remove_component("targets", cname)
-
-    def _add_component(self, component: str, cname: str, mapping: dict):
-        self._set({component: {cname: mapping}})
 
     def add_input(
         self,
@@ -224,7 +226,8 @@ class BaseNodeSpec(EntitySpec):
         )
         mapping["converter"] = converter.params if converter else self.identity.params
         mapping["space_converter"] = space_converter.params if space_converter else None
-        self._add_component("inputs", cname, mapping)
+        with self.inputs as d:
+            d[cname] = mapping
 
     def add_output(
         self,
@@ -238,10 +241,11 @@ class BaseNodeSpec(EntitySpec):
                 msg_type
             ), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
             msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type, rate="$(default rate)")
+        mapping = dict(msg_type=msg_type, rate="$(config rate)")
         mapping["converter"] = converter.params if converter else self.identity.params
         mapping["space_converter"] = space_converter.params if space_converter else None
-        self._add_component("outputs", cname, mapping)
+        with self.outputs as d:
+            d[cname] = mapping
 
     def add_state(self, cname: str, msg_type: Any, space_converter: ConverterSpec):
         if not isinstance(msg_type, str):
@@ -250,7 +254,8 @@ class BaseNodeSpec(EntitySpec):
             ), f'The provided msg_type "{msg_type}" is not a class. Make sure you are *not* providing an instance of the class, instead of the class itself.'
             msg_type = get_module_type_string(msg_type)
         mapping = dict(msg_type=msg_type, space_converter=space_converter.params)
-        self._add_component("states", cname, mapping)
+        with self.states as d:
+            d[cname] = mapping
 
     def add_target(self, cname: str, msg_type: Any, converter: Optional[ConverterSpec] = None):
         if not isinstance(msg_type, str):
@@ -261,103 +266,13 @@ class BaseNodeSpec(EntitySpec):
         mapping = dict(msg_type=msg_type)
         mapping["converter"] = converter.params if converter else self.identity.params
 
-        assert "targets" in self._params["default"], f"Cannot add target '{cname}'. Node is not a 'ResetNode'"
-        self._add_component("targets", cname, mapping)
-
-    # CHANGE NODE PARAMETERS.
-    @exists
-    def set_parameter(
-        self,
-        parameter: str,
-        value: Any,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if component is None or cname is None:
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if isinstance(value, dict):
-                self._params[level][
-                    parameter
-                ] = None  # Required to clear the parameter instead of merging into it, if it is a dict.
-            self._set({level: {parameter: value}})
-        else:
-            if isinstance(value, dict):
-                self._params[component][cname][
-                    parameter
-                ] = None  # Required to clear the parameter instead of merging into it, if it is a dict.
-            self._set({component: {cname: {parameter: value}}})
-
-    @exists
-    def set_parameters(
-        self,
-        mapping: Dict,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if component is None or cname is None:
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            for parameter, value in mapping.items():
-                self.set_parameter(parameter, value, level=level)
-        else:
-            for parameter, value in mapping.items():
-                self.set_parameter(parameter, value, component, cname)
-
-    @exists
-    def get_parameter(
-        self,
-        parameter: str,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if component is None or cname is None:
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level].get(parameter)
-        else:
-            return self.params[component][cname].get(parameter)
-
-    @exists
-    def get_parameters(
-        self,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if component is None or cname is None:
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level]
-        else:
-            return self.params[component][cname]
-
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
+        assert "targets" in self._params["config"], f"Cannot add target '{cname}'. Node is not a 'ResetNode'"
+        with self.targets as d:
+            d[cname] = mapping
 
     def build(self, ns):
         params = self.params  # Creates a deepcopy
-        default = self.get_parameters()  # Creates a deepcopy
+        default = copy.deepcopy(self.config.to_dict())
         name = default["name"]
         default["node_type"] = params["node_type"]
         entity_id = default["entity_id"]
@@ -365,9 +280,9 @@ class BaseNodeSpec(EntitySpec):
         # Replace args in .yaml
         context = {
             "ns": {"env_name": ns, "node_name": name},
-            "default": params["default"],
+            "config": params["config"],
         }
-        substitute_args(params, context, only=["default", "ns"])
+        substitute_args(params, context, only=["config", "ns"])
 
         # Process inputs
         inputs = []
@@ -460,7 +375,13 @@ class EngineNodeSpec(BaseNodeSpec):
 
 
 class ResetNodeSpec(BaseNodeSpec):
-    pass
+    @property
+    def targets(self):
+        return self._lookup("targets")
+
+    @property
+    def feedthroughs(self):
+        return self._lookup("feedthroughs")
 
 
 class BridgeSpec(BaseNodeSpec):
@@ -472,13 +393,37 @@ class ObjectSpec(EntitySpec):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
 
-        self.identity = BaseConverter.make("Identity")
+        super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
+
+    def _lookup(self, depth):
+        name = self._params["config"]["name"]
+        if self.has_graph:
+            return GraphView(self.graph, depth=[name, depth], name=name)
+        else:
+            return SpecView(self, depth=[depth], name=name)
+
+    @property
+    def sensors(self):
+        return self._lookup("sensors")
+
+    @property
+    def actuators(self):
+        return self._lookup("actuators")
+
+    @property
+    def states(self):
+        return self._lookup("states")
+
+    @property
+    def config(self):
+        return self._lookup("config")
 
     def initialize(self, spec_cls):
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
 
         # Set default agnostic params
-        self._set({"default": agnostic.pop("agnostic_params")})
+        with self.config as d:
+            d.update(agnostic.pop("agnostic_params"))
 
         # Set default components
         agnostic_spec = AgnosticSpec(dict())
@@ -510,9 +455,12 @@ class ObjectSpec(EntitySpec):
                         converter=self.identity.params,
                         space_converter=None,
                     )
-                agnostic_spec._set({component: {cname: mapping}})
+                with getattr(agnostic_spec, component) as d:
+                    d[cname] = mapping
         spec_cls.agnostic(agnostic_spec)
-        self._set(agnostic_spec.params)
+        for component in agnostic.keys():
+            with getattr(self, component) as d:
+                d.update(getattr(agnostic_spec, component))
 
     def _initialize_engine_spec(self, bridge_params):
         # Create param mapping
@@ -520,14 +468,10 @@ class ObjectSpec(EntitySpec):
         graph = self._initialize_object_graph()
 
         # Add all states to engine-specific params
-        spec._set({"states": dict()})
-        for component in ["states"]:
-            try:
-                cnames = self._get_components(component)
-            except AssertionError:
-                continue
-            for cname, _params in cnames.items():
-                spec._set({component: {cname: None}})
+        # Try, except AssertionError: continue needed? used to be here.
+        with spec.states as d:
+            for cname in self.states.keys():
+                d[cname] = None
         return spec, graph
 
     def _add_engine_spec(self, bridge_id, engine_spec, graph):
@@ -535,11 +479,11 @@ class ObjectSpec(EntitySpec):
         nodes, actuators, sensors = graph.register()
 
         # Check that there is no parameter clash between node and object
-        obj_name = self.get_parameter("name")
-        agnostic_params = self.get_parameters()
-        engine_params = engine_spec.get_parameters()
+        obj_name = self.config.name
+        agnostic_params = self.config
+        engine_params = engine_spec.params
         for _node, params in nodes.items():
-            default = params["default"]
+            default = params["config"]
             node_name = default["name"]
             for key in default.keys():
                 if key in ["name", "states", "entity_id"]:
@@ -561,25 +505,26 @@ class ObjectSpec(EntitySpec):
 
         # Substitute engine_specific object_params (registered in the bridge implementation)
         engine_params.pop("states")
-        substitute_args(nodes, context={"default": engine_params}, only=["default"])
+        substitute_args(nodes, context={"config": engine_params}, only=["config"])
 
         # Pop states that were not implemented.
-        for cname in list(engine_spec._params["states"].keys()):
-            if engine_spec._params["states"][cname] is None:
-                engine_spec._params["states"].pop(cname)
+        for cname in list(engine_spec.states.keys()):
+            if engine_spec.states[cname] is None:
+                engine_spec.states.pop(cname)
 
         # Set engine_spec
-        engine_spec._set({"actuators": actuators})
-        engine_spec._set({"sensors": sensors})
-        engine_spec._set({"nodes": nodes})
-        self._set({bridge_id: engine_spec})
+        with engine_spec.config as d:
+            d.actuators = actuators
+            d.sensors = sensors
+            d.nodes = nodes
+        self._params[bridge_id] = engine_spec.params
 
     def _initialize_object_graph(self):
         mapping = dict()
         for component in ["sensors", "actuators"]:
             try:
-                mapping[component] = self.get_parameters(component, level="agnostic")
-            except AssertionError:
+                mapping[component] = getattr(self, component)
+            except AttributeError:
                 continue
 
         from eagerx.core.graph_engine import EngineGraph
@@ -587,160 +532,21 @@ class ObjectSpec(EntitySpec):
         graph = EngineGraph.create(**mapping)
         return graph
 
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
-
-    @exists
-    def _get_components(self, component: str):
-        return self.get_parameters(component, level="agnostic")
-
-    # CHANGE OBJECT PARAMETERS. level=('default', bridge_id)
-    @exists
-    def set_parameter(
-        self,
-        parameter: str,
-        value: Any,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if isinstance(value, dict):
-                self._params[level][
-                    parameter
-                ] = None  # Required to clear the parameter instead of merging into it, if it is a dict.
-            self._set({level: {parameter: value}})
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if isinstance(value, dict):
-                self._params[component][cname][
-                    parameter
-                ] = None  # Required to clear the parameter instead of merging into it, if it is a dict.
-            self._set({component: {cname: {parameter: value}}})
-        else:  # level=bridge_id
-            raise NotImplementedError(f'Not possible to set parameters for bridge "{level}"')
-
-    def set_parameters(
-        self,
-        mapping: Dict,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            for parameter, value in mapping.items():
-                self.set_parameter(parameter, value)
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            for parameter, value in mapping.items():
-                self.set_parameter(parameter, value, component, cname, level)
-        else:  # level=bridge_id
-            raise NotImplementedError(f'Not possible to set parameters for bridge "{level}"')
-
-    @exists
-    def get_parameter(
-        self,
-        parameter: str,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level].get(parameter)
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[component][cname].get(parameter)
-        else:  # level=bridge_id
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level][component][cname].get(parameter)
-
-    @exists
-    def get_parameters(
-        self,
-        component: Optional[str] = None,
-        cname: Optional[str] = None,
-        level: str = "default",
-    ):
-        if level == "default":
-            assert (
-                component is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            assert (
-                cname is None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            return self.params[level]
-        elif level == "agnostic":
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if cname is None:
-                return self.params[component]
-            else:
-                return self.params[component][cname]
-        else:  # level=bridge_id
-            assert (
-                component is not None
-            ), f'The parameters cname "{cname}" and component "{component}" can only be specified together with level="<bridge_id>" or "agnostic" for the agnostic definition. If you wish to obtain the selected cnames of a component, please use the component as the "parameter" argument instead.'
-            if cname is None:
-                return self.params[level][component]
-            else:
-                return self.params[level][component][cname]
-
     def build(self, ns, bridge_id):
         params = self.params  # Creates a deepcopy
-        default = self.get_parameters()  # Creates a deepcopy
+        default = copy.deepcopy(self.config.to_dict())  # Creates a deepcopy
         name = default["name"]
-        # entity_id = default["entity_id"]
 
         # Construct context
-        context = {"ns": {"env_name": ns, "obj_name": name}, "default": default}
-        substitute_args(default, context, only=["default", "ns"])  # First resolve args within the context
-        substitute_args(params, context, only=["default", "ns"])  # Resolve rest of params
+        context = {"ns": {"env_name": ns, "obj_name": name}, "config": default}
+        substitute_args(default, context, only=["config", "ns"])  # First resolve args within the context
+        substitute_args(params, context, only=["config", "ns"])  # Resolve rest of params
 
         # Get agnostic definition
         agnostic = dict()
         for key in list(params.keys()):
             if key not in ["actuators", "sensors", "states"]:
-                if key not in ["default", bridge_id]:
+                if key not in ["config", bridge_id]:
                     params.pop(key)
                 continue
             agnostic[key] = params.pop(key)
@@ -790,8 +596,8 @@ class ObjectSpec(EntitySpec):
                     ), f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a enginenode "{node_name}". If this enginenode is used for multiple sensors/components, then their specified rates must be equal.'
                 else:
                     rates[node_name] = rate
-                node_params["default"]["rate"] = rate
-                for o in node_params["default"]["outputs"]:
+                node_params["config"]["rate"] = rate
+                for o in node_params["config"]["outputs"]:
                     node_params["outputs"][o]["rate"] = rate
 
                 # Set component params
@@ -852,7 +658,7 @@ class ObjectSpec(EntitySpec):
             state_names.append(f'{ns}/{args["name"]}')
 
         # Create obj parameters
-        obj_params = params["default"]
+        obj_params = params["config"]
 
         # Gather node names
         obj_params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
@@ -875,73 +681,46 @@ class ObjectSpec(EntitySpec):
 
 
 class AgnosticSpec(EntitySpec):
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
+    def __init__(self, params):
+        params["sensors"] = dict()
+        params["actuators"] = dict()
+        params["states"] = dict()
+        super().__init__(params)
 
-    # CHANGE AGNOSTIC COMPONENT PARAMETERS
-    def set_space_converter(self, space_converter: ConverterSpec, component: str, cname: str):
-        self.set_parameter("space_converter", space_converter.params, component, cname)
+    def _lookup(self, depth):
+        return SpecView(self, depth=[depth])
 
-    @exists
-    def set_parameter(self, parameter: str, value: Any, component: str, cname: str):
-        if isinstance(value, dict):
-            self._params[component][cname][parameter] = None
-        self._set({component: {cname: {parameter: value}}})
+    @property
+    def sensors(self):
+        return self._lookup("sensors")
 
-    @exists
-    def set_parameters(self, mapping: Dict, component: str, cname: str):
-        for parameter, value in mapping.items():
-            self.set_parameter(parameter, value, component, cname)
+    @property
+    def actuators(self):
+        return self._lookup("actuators")
 
-    @exists
-    def get_parameter(self, parameter: str, component: str, cname: str):
-        return self.params[component][cname].get(parameter)
-
-    @exists
-    def get_parameters(self, component: str, cname: str):
-        return self.params[component][cname]
+    @property
+    def states(self):
+        return self._lookup("states")
 
 
 class SpecificSpec(EntitySpec):
-    @exists
-    def set_parameter(self, parameter: str, value: Any):
-        if isinstance(value, dict):
-            self._params[parameter] = None
-        self._set({parameter: value})
+    def __init__(self, params):
+        params["states"] = dict()
+        super().__init__(params)
 
-    @exists
-    def set_parameters(self, mapping: Dict):
-        for parameter, value in mapping.items():
-            self.set_parameter(parameter, value)
+    @property
+    def config(self):
+        return SpecView(self, depth=[])
 
-    @exists
-    def get_parameter(self, parameter: str):
-        return self.params.get(parameter)
-
-    @exists
-    def get_parameters(self):
-        return self.params
-
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, None)
-    def _set(self, mapping):
-        merge(self._params, mapping)
-
-    def set_state_parameter(self, parameter: str, value: Any, cname: str):
-        self.set_state({parameter: value}, cname)
-
-    def set_state(self, mapping: Dict, cname: str):
-        self._set_component_parameters("states", cname, mapping)
-
-    @exists
-    def _set_component_parameters(self, component: str, cname: str, mapping: Dict):
-        self._set({component: {cname: mapping}})
+    @property
+    def states(self):
+        return SpecView(self, depth=["states"])
 
 
 # REQUIRED FOR BUILDING SPECS
 
 
-class Params(object):
+class Component(object):
     def __init__(self, **kwargs):
         # Iterates over provided arguments and sets the provided arguments as class properties
         for key, value in kwargs.items():
@@ -950,7 +729,7 @@ class Params(object):
             setattr(self, key, value)
 
 
-class RxInput(Params):
+class RxInput(Component):
     def __init__(
         self,
         name: str,
@@ -981,7 +760,7 @@ class RxInput(Params):
         return params
 
 
-class RxOutput(Params):
+class RxOutput(Component):
     def __init__(
         self,
         name: str,
@@ -1011,7 +790,7 @@ class RxOutput(Params):
         return params
 
 
-class RxFeedthrough(Params):
+class RxFeedthrough(Component):
     def __init__(
         self,
         address: str,
@@ -1041,7 +820,7 @@ class RxFeedthrough(Params):
         return params
 
 
-class RxState(Params):
+class RxState(Component):
     def __init__(
         self,
         name: str,
@@ -1067,7 +846,7 @@ class RxState(Params):
         return params
 
 
-class RxEngineState(Params):
+class RxEngineState(Component):
     def __init__(
         self,
         name: str,

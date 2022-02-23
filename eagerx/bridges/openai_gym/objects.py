@@ -30,37 +30,31 @@ class GymObject(Object):
         # Register standard converters, space_converters, and processors
         import eagerx.converters  # noqa # pylint: disable=unused-import
 
-        # Set observation properties: (space_converters, rate, etc...)
-        sc = SpaceConverter.make(
+        # Set observation space_converters
+        spec.sensors.observation.space_converter = SpaceConverter.make(
             "GymSpace_Float32MultiArray",
-            gym_id="$(default gym_env_id)",
+            gym_id="$(config gym_env_id)",
             space="observation",
         )
-        spec.set_space_converter(sc, "sensors", "observation")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "observation")
-
-        sc = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
-        spec.set_space_converter(sc, "sensors", "reward")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "reward")
-
-        sc = SpaceConverter.make(
+        spec.sensors.reward.space_converter = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
+        spec.sensors.done.space_converter = SpaceConverter.make("Space_Bool")
+        spec.sensors.image.space_converter = SpaceConverter.make(
             "Space_Image",
             low=0,
             high=1,
             shape="(default render_shape)",
             dtype="float32",
         )
-        spec.set_space_converter(sc, "sensors", "image")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "image")
+        spec.actuators.action.space_converter = SpaceConverter.make(
+            "GymSpace_Float32MultiArray", gym_id="$(config gym_env_id)", space="action"
+        )
 
-        sc = SpaceConverter.make("Space_Bool")
-        spec.set_space_converter(sc, "sensors", "done")
-        spec.set_parameter("rate", "$(default gym_rate)", "sensors", "done")
-
-        # Set actuator properties: (space_converters, rate, etc...)
-        sc = SpaceConverter.make("GymSpace_Float32MultiArray", gym_id="$(default gym_env_id)", space="action")
-        spec.set_space_converter(sc, "actuators", "action")
-        spec.set_parameter("rate", "$(default gym_rate)", "actuators", "action")
+        # Set observation rates
+        spec.sensors.observation.rate = "$(config gym_rate)"
+        spec.sensors.reward.rate = "$(config gym_rate)"
+        spec.sensors.done.rate = "$(config gym_rate)"
+        spec.sensors.image.rate = "$(config gym_rate)"
+        spec.actuators.action.rate = "$(config gym_rate)"
 
     @staticmethod
     @register.spec("GymObject", Object)
@@ -78,24 +72,16 @@ class GymObject(Object):
         # Performs all the steps to fill-in the params with registered info about all functions.
         spec.initialize(GymObject)
 
-        # Set default
-        sensors = sensors if sensors else ["observation", "reward", "done"]
-        render_shape = render_shape if render_shape else [200, 200]
+        # Set default node params
+        spec.config.name = name
+        spec.config.sensors = sensors if sensors else ["observation", "reward", "done"]
+        spec.config.actuators = ["action"]
 
-        # Modify default node params
-        # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        default = dict(name=name, sensors=sensors, actuators=["action"])
-        spec.set_parameters(default)
-
-        # Add custom params
-        params = dict(
-            gym_env_id=gym_env_id,
-            gym_rate=gym_rate,
-            gym_always_render=gym_always_render,
-            default_action=default_action,
-            render_shape=render_shape,
-        )
-        spec.set_parameters(params)
+        # Set custom node params
+        spec.config.render_shape = render_shape if render_shape else [200, 200]
+        spec.config.gym_env_id = gym_env_id
+        spec.config.gym_rate = gym_rate
+        spec.config.gym_always_render = gym_always_render
 
         # Add bridge implementation
         GymObject.openai_gym(spec)
@@ -105,11 +91,7 @@ class GymObject(Object):
     def openai_gym(cls, spec: SpecificSpec, graph: EngineGraph):
         """Engine-specific implementation (GymBridge) of the object."""
         # Set bridge arguments (nothing to set here in this case)
-        bridge_params = dict(env_id="$(default gym_env_id)")
-        spec.set_parameters(bridge_params)
-
-        # Create simstates (no agnostic states defined in this case)
-        # spec.set_state('some_state', SimState.make('SomeState', args='something'))
+        spec.config.env_id = "$(config gym_env_id)"
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
@@ -119,8 +101,8 @@ class GymObject(Object):
         image = EngineNode.make(
             "GymImage",
             "image",
-            shape="$(default render_shape)",
-            always_render="$(default gym_always_render)",
+            shape="$(config render_shape)",
+            always_render="$(config gym_always_render)",
             rate=None,
             process=2,
         )
@@ -132,16 +114,16 @@ class GymObject(Object):
             "action",
             rate=None,
             process=2,
-            zero_action="$(default default_action)",
+            zero_action="$(config default_action)",
         )
 
         # Connect all engine nodes
         graph.add([obs, rwd, done, image, action])
-        graph.connect(source=("obs", "outputs", "observation"), sensor="observation")
-        graph.connect(source=("rwd", "outputs", "reward"), sensor="reward")
-        graph.connect(source=("done", "outputs", "done"), sensor="done")
-        graph.connect(source=("image", "outputs", "image"), sensor="image")
-        graph.connect(actuator="action", target=("action", "inputs", "action"))
+        graph.connect(source=obs.outputs.observation, sensor="observation")
+        graph.connect(source=rwd.outputs.reward, sensor="reward")
+        graph.connect(source=done.outputs.done, sensor="done")
+        graph.connect(source=image.outputs.image, sensor="image")
+        graph.connect(actuator="action", target=action.inputs.action)
 
         # Check graph validity (comment out)
         # graph.is_valid(plot=True)

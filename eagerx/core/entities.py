@@ -152,7 +152,7 @@ class BaseNode(Entity):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         params["node_type"] = params.pop("entity_type")
-        params["default"] = dict(
+        params["config"] = dict(
             name=None,
             rate=None,
             process=0,
@@ -174,8 +174,8 @@ class BaseNode(Entity):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter("entity_id")
-        name = spec.get_parameter("name")
+        entity_id = spec.config.entity_id
+        name = spec.config.name
         assert name is not None and isinstance(
             name, str
         ), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
@@ -185,7 +185,7 @@ class BaseNode(Entity):
 
         # Check that all selected cnames have a corresponding implementation
         for component in ["inputs", "outputs", "states"]:
-            for cname in spec._params["default"][component]:
+            for cname in spec._params["config"][component]:
                 assert (
                     cname in spec._params[component]
                 ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
@@ -386,7 +386,8 @@ class Node(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        spec.set_parameter("executable", "python:=eagerx.core.executable_node")
+        with spec.config as d:
+            d.executable = "python:=eagerx.core.executable_node"
         from eagerx.core.specs import NodeSpec  # noqa: F811
 
         return NodeSpec(spec.params)
@@ -394,12 +395,12 @@ class Node(BaseNode):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter("entity_id")
-        name = spec.get_parameter("name")
+        entity_id = spec.config.entity_id
+        name = spec.config.name
 
         # Check that there is atleast a single input & output defined.
         assert (
-            len(spec._params["default"]["inputs"]) > 0 or name == "environment"
+            len(spec.config.inputs) > 0 or name == "environment"
         ), f'Node "{name}" does not have any inputs selected. Please select at least one input when making the spec, or check the spec defined for "{entity_id}".'
 
 
@@ -415,7 +416,10 @@ class ResetNode(Node):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         spec._params["targets"] = dict()
-        spec._set({"default": dict(targets=[])})
+        spec._params["feedthroughs"] = dict()
+        with spec.config as d:
+            d.targets = []
+
         from eagerx.core.specs import ResetNodeSpec  # noqa: F811
 
         return ResetNodeSpec(spec.params)
@@ -423,20 +427,20 @@ class ResetNode(Node):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
-        entity_id = spec.get_parameter("entity_id")
-        name = spec.get_parameter("name")
+        entity_id = spec.config.entity_id
+        name = spec.config.name
 
         # Check that there is at least a single target & output was defined.
         assert (
-            len(spec._params["default"]["outputs"]) > 0
+            len(spec.config.outputs) > 0
         ), f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
         assert (
-            len(spec._params["default"]["targets"]) > 0
+            len(spec.config.targets) > 0
         ), f'Node "{name}" does not have any targets selected. Please select at least one target when making the spec, or check the spec defined for "{entity_id}".'
 
         # Check if all selected targets have an implementation (other components are checked in BaseNode.check_spec())
         for component in ["targets"]:
-            for cname in spec._params["default"][component]:
+            for cname in spec._params["config"][component]:
                 assert (
                     cname in spec._params[component]
                 ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
@@ -481,7 +485,7 @@ class EngineNode(Node):
         process as the bridge.
 
         :param simulator: Simulator object. Passed along by the bridge if the node is launched inside the bridge process.
-        :param object_params: A dictionary containing the following: First, all the parameters defined under "default"
+        :param object_params: A dictionary containing the following: First, all the parameters defined under "config"
         in the package/config/<object>.yaml. Secondly, it contains all object parameters that are specific for this bridge
         implementation under the keyword 'bridge". These are the parameters defined under "<bridge>" in the object_package/config/<object>.yaml.
         :param kwargs: Arguments that are to be passed down to the baseclass. See Node & NodeBase for this.
@@ -779,14 +783,12 @@ class Bridge(BaseNode):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         # Set default bridge params
-        default = dict(
-            name="bridge",
-            is_reactive=True,
-            real_time_factor=0,
-            simulate_delays=True,
-            executable="python:=eagerx.core.executable_bridge",
-        )
-        spec._set({"default": default})
+        with spec.config as d:
+            d.name = "bridge"
+            d.is_reactive = True
+            d.real_time_factor = 0
+            d.simulate_delays = True
+            d.executable = "python:=eagerx.core.executable_bridge"
         from eagerx.core.specs import BridgeSpec  # noqa: F811
 
         return BridgeSpec(spec.params)
@@ -897,7 +899,7 @@ class Object(Entity):
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        params["default"] = dict(
+        params["config"] = dict(
             name=None,
             sensors=[],
             actuators=[],

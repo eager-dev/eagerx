@@ -34,16 +34,13 @@ class GymBridge(Bridge):
         spec.initialize(GymBridge)
 
         # Modify default bridge params
-        params = dict(
-            rate=rate,
-            process=process,
-            is_reactive=is_reactive,
-            real_time_factor=real_time_factor,
-            simulate_delays=simulate_delays,
-            log_level=log_level,
-            color="magenta",
-        )
-        spec.set_parameters(params)
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.is_reactive = is_reactive
+        spec.config.real_time_factor = real_time_factor
+        spec.config.simulate_delays = simulate_delays
+        spec.config.log_level = log_level
+        spec.config.color = "magenta"
 
     @register.bridge_params(env_id=None)
     def add_object(self, agnostic_params, bridge_params, node_params, state_params):

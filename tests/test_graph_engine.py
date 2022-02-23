@@ -4,7 +4,6 @@ from eagerx import initialize, log, process
 # Environment imports
 from eagerx.core.env import EagerEnv
 from eagerx.core.graph import Graph
-from eagerx.wrappers import Flatten
 
 # Implementation specific
 import eagerx.bridges.test  # noqa # pylint: disable=unused-import
@@ -29,8 +28,8 @@ def test_graph_engine():
     graph = Graph.create(objects=[arm])
 
     # Connect sensors (= outputs of object)
-    graph.connect(source=("obj", "sensors", "N6"), observation="obs_1")
-    graph.connect(action="act_1", target=("obj", "actuators", "N8"))
+    graph.connect(source=arm.sensors.N6, observation="obs_1")
+    graph.connect(action="act_1", target=arm.actuators.N8)
 
     # Define bridge
     bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0, process=process.ENVIRONMENT)

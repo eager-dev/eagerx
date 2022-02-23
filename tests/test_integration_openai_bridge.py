@@ -47,15 +47,15 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     get_index = Processor.make("GetIndex_Float32MultiArray", index=0)
     bf = Node.make("ButterworthFilter", name="bf", rate=rate, N=2, Wn=4, process=process.ENVIRONMENT)
     graph.add(bf)
-    graph.connect(source=(name, "sensors", "observation"), target=("bf", "inputs", "signal"), converter=get_index)
+    graph.connect(source=obj.sensors.observation, target=bf.inputs.signal, converter=get_index)
     sc = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
-    graph.connect(source=("bf", "outputs", "filtered"), observation="filtered", converter=sc)
+    graph.connect(source=bf.outputs.filtered, observation="filtered", converter=sc)
 
     # Connect gym object
-    graph.connect(source=(name, "sensors", "observation"), observation="observation", window=1)
-    graph.connect(source=(name, "sensors", "reward"), observation="reward", window=1)
-    graph.connect(source=(name, "sensors", "done"), observation="done", window=1)
-    graph.connect(action="action", target=(name, "actuators", "action"), window=1)
+    graph.connect(source=obj.sensors.observation, observation="observation", window=1)
+    graph.connect(source=obj.sensors.reward, observation="reward", window=1)
+    graph.connect(source=obj.sensors.done, observation="done", window=1)
+    graph.connect(action="action", target=obj.actuators.action, window=1)
 
     name = f"{name}_{eps}_{is_reactive}_{p}"
 

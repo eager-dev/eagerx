@@ -93,7 +93,7 @@ class SupervisorNode(BaseNode):
         self.cum_registered += 1
 
         # Initialize node
-        node_name = node.get_parameter("name")
+        node_name = node.config.name
         initialize_nodes(
             node,
             process.ENVIRONMENT,
@@ -111,7 +111,7 @@ class SupervisorNode(BaseNode):
         self.cum_registered += 1
 
         # Check if object name is unique
-        obj_name = object.get_parameter("name")
+        obj_name = object.config.name
         assert (
             rospy.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
         ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
