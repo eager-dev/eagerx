@@ -23,6 +23,9 @@ termcolor = "^1.1.0"
 defusedxml = "^0.7.1"
 netifaces = "^0.11.0"
 pyglet = "^1.5.21"
+sphinx-autodoc-typehints = "^1.0"
+Sphinx = "^4.0"
+sphinx-rtd-theme = "^1.0"
 
 [tool.poetry.dev-dependencies]
 black = "^22.1.0"
@@ -30,9 +33,6 @@ pytest = "^5.2"
 pytest-cov = "^3.0.0"
 flake8 = "^4.0.1"
 flake8-bugbear = "^22.1.11"
-sphinx-autodoc-typehints = "^1.0"
-Sphinx = "^4.0"
-sphinx-rtd-theme = "^1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

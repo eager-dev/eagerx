@@ -1,7 +1,9 @@
 version: 2
 
-conda:
-    environment: docs/environment.yaml
+python:
+  install:
+    - method: pip
+      path: .
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:

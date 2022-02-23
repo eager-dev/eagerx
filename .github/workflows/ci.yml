@@ -81,13 +81,16 @@ jobs:
           echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
           sudo apt-get install ros-noetic-cv-bridge
       #----------------------------------------------
-      #    add matrix specifics and run test suite
+      # Build docs
       #----------------------------------------------
       - name: Build the doc
         run: |
           sudo apt-get install python3-sphinx
           source .venv/bin/activate
           make doc
+      #----------------------------------------------
+      #    add matrix specifics and run test suite
+      #----------------------------------------------
       - name: Run tests
         run: |
           source .venv/bin/activate

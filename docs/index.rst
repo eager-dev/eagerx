@@ -12,12 +12,12 @@
    :target: https://github.com/psf/black
    :alt: codestyle
 
-.. image:: https://readthedocs.org/projects/mushroomrl/badge/?version=latest
-   :target: https://eagerx.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/eagerx/badge/?version=master
+   :target: https://eagerx.readthedocs.io/en/master/?badge=master
    :alt: Documentation Status
 
 .. image:: https://github.com/eager-dev/eagerx/actions/workflows/ci.yml/badge.svg?branch=master
-   :target: https://github.com/MushroomRL/mushroom-rl/actions/workflows/continuous_integration.yml
+   :target: https://github.com/eager-dev/eagerx/actions/workflows/ci.yml
    :alt: Continuous Integration
 
 .. image:: https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/test_coverage

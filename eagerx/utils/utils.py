@@ -1,8 +1,10 @@
 # ROS SPECIFIC
 import rospy
-from rosgraph.masterapi import Error
-from roslaunch import substitution_args as sub
-from roslaunch.substitution_args import _collect_args
+import rosgraph
+import roslaunch
+
+# from roslaunch import substitution_args
+# from roslaunch.substitution_args import _collect_args
 
 # OTHER
 from typing import List, NamedTuple, Any, Optional, Dict, Union, Tuple
@@ -89,7 +91,7 @@ def get_param_with_blocking(name, timeout=5):
 
         try:
             params = rospy.get_param(name)
-        except (Error, KeyError):
+        except (rosgraph.masterapi.Error, KeyError):
             sleep_time = 0.01
             if it % 20 == 0:
                 rospy.loginfo(
@@ -156,7 +158,7 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
 
     @return str: arg_str with substitution args resolved
     @rtype:  str
-    @raise sub.SubstitutionException: if there is an error resolving substitution args
+    @raise roslaunch.substitution_args.SubstitutionException: if there is an error resolving substitution args
     """
     if context is None:
         context = {}
@@ -164,14 +166,14 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
         return arg_str
     # special handling of $(eval ...)
     if arg_str.startswith("$(eval ") and arg_str.endswith(")"):
-        return sub._eval(arg_str[7:-1], context)
+        return roslaunch.substitution_args._eval(arg_str[7:-1], context)
     # first resolve variables like 'env' and 'arg'
     commands = {
-        "env": sub._env,
-        "optenv": sub._optenv,
-        "dirname": sub._dirname,
-        "anon": sub._anon,
-        "arg": sub._arg,
+        "env": roslaunch.substitution_args._env,
+        "optenv": roslaunch.substitution_args._optenv,
+        "dirname": roslaunch.substitution_args._dirname,
+        "anon": roslaunch.substitution_args._anon,
+        "arg": roslaunch.substitution_args._arg,
         "ns": _ns,
         "config": _config,
     }
@@ -185,7 +187,7 @@ def resolve_args(arg_str, context=None, resolve_anon=True, filename=None, only=N
     resolved = _resolve_args(arg_str, context, resolve_anon, exec_commands)
     # then resolve 'find' as it requires the subsequent path to be expanded already
     commands = {
-        "find": sub._find,
+        "find": roslaunch.substitution_args._find,
     }
     if only is not None:
         exec_commands = {}
@@ -203,10 +205,12 @@ def _resolve_args(arg_str, context, resolve_anon, commands):
     valid = ros_valid + ["ns", "config"]
     resolved = arg_str
     if isinstance(arg_str, (str, list)):
-        for a in _collect_args(arg_str):
+        for a in roslaunch.substitution_args._collect_args(arg_str):
             splits = [s for s in a.split(" ") if s]
             if not splits[0] in valid:
-                raise sub.SubstitutionException("Unknown substitution command [%s]. Valid commands are %s" % (a, valid))
+                raise roslaunch.substitution_args.SubstitutionException(
+                    "Unknown substitution command [%s]. Valid commands are %s" % (a, valid)
+                )
             command = splits[0]
             args = splits[1:]
             if command in commands:
@@ -218,7 +222,7 @@ def _eval_default(name, args):
     try:
         return args[name]
     except KeyError:
-        raise sub.ArgException(name)
+        raise roslaunch.substitution_args.ArgException(name)
 
 
 _eval_ns = _eval_default
@@ -242,19 +246,19 @@ def _config(resolved, a, args, context):
     process $(config) arg
 
     :returns: updated resolved argument, ``str``
-    :raises: :exc:`sub.ArgException` If arg invalidly specified
+    :raises: :exc:`roslaunch.substitution_args.ArgException` If arg invalidly specified
     """
     if len(args) == 0:
-        raise sub.SubstitutionException("$(config var) must specify a variable name [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(default var) must specify a variable name [%s]" % (a))
     elif len(args) > 1:
-        raise sub.SubstitutionException("$(config var) may only specify one arg [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(default var) may only specify one arg [%s]" % (a))
 
     if "config" not in context:
         context["config"] = {}
     try:
-        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context["config"]))))
-    except Exception as e:  # sub.ArgException:
-        if isinstance(e, sub.ArgException):
+        return tryeval(resolved.replace("$(%s)" % a, str(_eval_default(name=args[0], args=context["default"]))))
+    except Exception as e:  # roslaunch.substitution_args.ArgException:
+        if isinstance(e, roslaunch.substitution_args.ArgException):
             return resolved
         elif isinstance(e, TypeError):
             raise
@@ -267,19 +271,19 @@ def _ns(resolved, a, args, context):
     process $(ns) arg
 
     :returns: updated resolved argument, ``str``
-    :raises: :exc:`sub.ArgException` If arg invalidly specified
+    :raises: :exc:`roslaunch.substitution_args.ArgException` If arg invalidly specified
     """
     if len(args) == 0:
-        raise sub.SubstitutionException("$(ns var) must specify a variable name [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(ns var) must specify a variable name [%s]" % (a))
     elif len(args) > 1:
-        raise sub.SubstitutionException("$(ns var) may only specify one arg [%s]" % (a))
+        raise roslaunch.substitution_args.SubstitutionException("$(ns var) may only specify one arg [%s]" % (a))
 
     if "ns" not in context:
         context["ns"] = {}
     try:
         return tryeval(resolved.replace("$(%s)" % a, str(_eval_ns(name=args[0], args=context["ns"]))))
-    except Exception as e:  # sub.ArgException:
-        if isinstance(e, sub.ArgException):
+    except Exception as e:  # roslaunch.substitution_args.ArgException:
+        if isinstance(e, roslaunch.substitution_args.ArgException):
             return resolved
         elif isinstance(e, TypeError):
             raise
