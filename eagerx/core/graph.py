@@ -87,7 +87,7 @@ class Graph:
         nodes += [actions, observations]
 
         # Create a state
-        state = dict(nodes=dict(), connects=list(), backup=dict())
+        state = dict(nodes=dict(), connects=list(), backup=dict(), gui_state=dict())
         graph = cls(state)
         graph.add(nodes)
         graph.add(objects)
@@ -115,7 +115,7 @@ class Graph:
             # Add graph reference to spec
             entity.set_graph(self)
 
-    def remove(self, names: Union[str, List[str]], remove: bool = False):
+    def remove(self, names: Union[str, EntitySpec, List[Union[str, EntitySpec]]], remove: bool = False):
         """Removes a node.
         First removes all associated connects from self._state.
         Then, removes node/object from self._state.
@@ -874,7 +874,7 @@ class Graph:
             from eagerx_gui import launch_gui
         except ImportError as e:
             rospy.logwarn(
-                f"{e}. You will likely have to install it. Please visit the eagerx_packages repository for installation instructions."
+                f"{e}. You will likely have to install eagerx-gui. Please visit the eagerx_packages repository for installation instructions."
             )
             return
 

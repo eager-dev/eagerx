@@ -21,11 +21,9 @@ if __name__ == "__main__":
     rate = 7
 
     # todo: TODAY
-    #  - refactor graph_engine
-    #  - refactor gui
-    #  - refactor all existing packages.
-    #  - Clean shutdown without errors
-    #  - Documentation
+    #  - Refactor gui
+    #  - Clean env.shutdown() without errors
+    #  - Close procedure for nodes.
     #  - Installation procedure
     #  - Why is ode bridge so slow in async mode?
     #  - Effect of skipping first action on environment synchronization.
@@ -129,7 +127,7 @@ if __name__ == "__main__":
     # GUI: Identify if source/target is action/observation
     observation = target[2] if target[0] == "env/observations" else None
     action = source[2] if source()[0] == "env/actions" else None
-    params = graph.get_parameters(observation="obs_1")  # Grab already defined parameters from input component
+    params = graph.get(observation="obs_1")  # Grab already defined parameters from input component
     if len(params) == 0:  # If observation, dict will be empty.
         converter = graph.get(source, parameter="space_converter")
         delay, window = 0, 0
@@ -153,7 +151,7 @@ if __name__ == "__main__":
     # TEST with KF having skipped all inputs at t=0
     graph.remove_component(KF.inputs.in_1)
 
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")
@@ -186,12 +184,6 @@ if __name__ == "__main__":
             # rgb = env.render(mode='rgb_array')
         obs = env.reset()
     print("\n[Finished]")
-
-    # todo: DOCUMENTATION
-    #  - RxNode.create(...), RxBridge.create(...), RxObject.create(...)
-    #  - RxEnv, EAGERxEnv
-    #  - Converter, Processor, SpaceConverter
-    #  - SimState
 
     # todo: THINGS TO KEEP IN MIND:
     #  - We repeat the observation_space for the set window length. If window = 0, it is not included in the observation_space.
