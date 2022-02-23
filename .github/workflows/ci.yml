@@ -69,15 +69,6 @@ jobs:
         run: |
           make lint
       #----------------------------------------------
-      # Build docs
-      #----------------------------------------------
-      - name: Build the doc
-        run: |
-          sudo apt-get install python3-sphinx
-          pip3 install sphinx-autodoc-typehints sphinx_rtd_theme
-          source .venv/bin/activate
-          make doc
-      #----------------------------------------------
       #  -----  install & configure ROS  -----
       #----------------------------------------------
       - name: install ROS
@@ -89,6 +80,14 @@ jobs:
           sudo apt install ros-noetic-ros-base
           echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
           sudo apt-get install ros-noetic-cv-bridge
+      #----------------------------------------------
+      # Build docs
+      #----------------------------------------------
+      - name: Build the doc
+        run: |
+          sudo apt-get install python3-sphinx
+          source .venv/bin/activate
+          make doc
       #----------------------------------------------
       #    add matrix specifics and run test suite
       #----------------------------------------------
