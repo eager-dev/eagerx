@@ -375,7 +375,8 @@ class Graph:
         )
 
         # Infer source properties (converter & msg_type) from target
-        space_converter = target.space_converter.to_dict()
+        sc = target.space_converter
+        space_converter = sc.to_dict() if isinstance(sc, GraphView) else sc
         msg_type_C = get_cls_from_string(target.msg_type)
         if converter:  # Overwrite msg_type_B if input converter specified
             msg_type_B = get_opposite_msg_cls(msg_type_C, converter)
