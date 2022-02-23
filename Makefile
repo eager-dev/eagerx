@@ -1,3 +1,5 @@
+# Adapted from DLR-RM/stable-baselines3
+
 SHELL=/bin/bash
 LINT_PATHS=eagerx/
 
@@ -14,6 +16,23 @@ lint:
 	poetry run flake8 ${LINT_PATHS} --count --select=E9,F63,F7,F82 --show-source --statistics
 	# exit-zero treats all errors as warnings.
 	poetry run flake8 ${LINT_PATHS} --count --exit-zero --statistics
+
+# Build docker images
+# If you do export RELEASE=True, it will also push them
+docker:
+	docker-cpu docker-gpu docker-sb-cpu docker-sb-gpu
+
+docker-cpu:
+	./scripts/build_docker.sh
+
+docker-gpu:
+	USE_GPU=True ./scripts/build_docker.sh
+
+docker-sb-cpu:
+	ADD_SB=True ./scripts/build_docker.sh
+
+docker-sb-gpu:
+	ADD_SB=True USE_GPU=True ./scripts/build_docker.sh
 
 # Make docs
 doc:
