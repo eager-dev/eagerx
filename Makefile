@@ -16,3 +16,20 @@ lint:
 	poetry run flake8 ${LINT_PATHS} --count --exit-zero --statistics
 
 .PHONY: check-codestyle
+
+# Build docker images
+# If you do export RELEASE=True, it will also push them
+docker:
+	docker-cpu docker-gpu docker-sb-cpu docker-sb-gpu
+
+docker-cpu:
+	./scripts/build_docker.sh
+
+docker-gpu:
+	USE_GPU=True ./scripts/build_docker.sh
+
+docker-sb-cpu:
+	ADD_SB=True ./scripts/build_docker.sh
+
+docker-sb-gpu:
+	ADD_SB=True USE_GPU=True ./scripts/build_docker.sh
