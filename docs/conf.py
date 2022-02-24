@@ -129,7 +129,7 @@ pygments_style = "sphinx"
 # Fix for read the docs
 on_rtd = os.environ.get("READTHEDOCS") == "True"
 if on_rtd:
-    html_theme = "config"
+    html_theme = "sphinx_rtd_theme"  # "config"
 else:
     html_theme = "sphinx_rtd_theme"
 
