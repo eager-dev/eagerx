@@ -45,6 +45,10 @@ class RxMessageBroker(object):
         self.connected_ros = dict()
         self.connected_rx = dict()
 
+        # All publishers and subscribers (grouped to unregister when shutting down)
+        self._publishers = []
+        self.subscribers = []
+
     # Every method is wrapped in a 'with Condition' block in order to be threadsafe
     def __getattribute__(self, name):
         attr = super(RxMessageBroker, self).__getattribute__(name)
@@ -161,11 +165,13 @@ class RxMessageBroker(object):
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self._publishers.append(i["msg_pub"])
             i["reset_pub"] = rospy.Publisher(i["address"] + "/reset", UInt64, queue_size=0, latch=True)
             i["reset"].subscribe(
                 on_next=i["reset_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self._publishers.append(i["reset_pub"])
         for i in feedthrough:
             address = i["address"]
             cname_address = f"{i['feedthrough_to']}:{address}"
@@ -208,6 +214,7 @@ class RxMessageBroker(object):
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self._publishers.append(i["msg_pub"])
         for i in state_inputs:
             address = i["address"]
             try:
@@ -280,6 +287,7 @@ class RxMessageBroker(object):
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self._publishers.append(i["msg_pub"])
         for i in reactive_proxy:
             address = i["address"]
             cname_address = f"{i['name']}:{address}"
@@ -300,6 +308,7 @@ class RxMessageBroker(object):
                 on_next=i["reset_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self._publishers.append(i["reset_pub"])
 
         # Add new addresses to already registered I/Os
         for key in n.keys():
@@ -430,7 +439,7 @@ class RxMessageBroker(object):
                         rate_str = "|" + "".center(3, " ")
                         msg_type = entry["msg_type"]
                         self.connected_ros[node_name][key][cname_address] = entry
-                        T = from_topic(msg_type, address, node_name=node_name)
+                        T = from_topic(msg_type, address, node_name, self.subscribers)
 
                     # Subscribe and change status
                     entry["disposable"] = T.subscribe(entry["rx"])
@@ -470,13 +479,31 @@ class RxMessageBroker(object):
     def _assert_already_registered(self, name, d, component):
         assert name not in d[component], f'Cannot re-register the same address ({name}) twice as "{component}".'
 
+    def shutdown(self):
+        rospy.logdebug(f"[{self.owner}] RxMessageBroker.shutdown() called.")
+        [pub.unregister() for pub in self._publishers]
+        [sub.unregister() for sub in self.subscribers]
 
-def from_topic(topic_type: Any, topic_name: str, node_name) -> Observable:
+
+def from_topic(topic_type: Any, topic_name: str, node_name, subscribers: list) -> Observable:
     def _subscribe(observer, scheduler=None) -> Disposable:
         try:
-            rospy.Subscriber(topic_name, topic_type, lambda msg: observer.on_next(msg))
+            wrapped_sub = []
+
+            def cb_from_topic(msg, wrapped_sub):
+                try:
+                    observer.on_next(msg)
+                except rospy.exceptions.ROSException as e:
+                    sub = wrapped_sub[0]
+                    sub.unregister()
+                    rospy.logdebug(f"[{sub.name}]: Unregistered this subscription because of exception: {e}")
+
+            sub = rospy.Subscriber(topic_name, topic_type, callback=cb_from_topic, callback_args=wrapped_sub)
+            wrapped_sub.append(sub)
+            subscribers.append(sub)
         except Exception as e:
-            print("[%s]: %s" % (node_name, e))
+            rospy.logwarn("[%s]: %s" % (node_name, e))
+            raise
         return observer
 
     return create(_subscribe)

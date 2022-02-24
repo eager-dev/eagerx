@@ -195,6 +195,9 @@ class BaseNode(Entity):
         """A method to initialize this node."""
         pass
 
+    def shutdown(self):
+        pass
+
 
 class Node(BaseNode):
     def __init__(self, **kwargs):

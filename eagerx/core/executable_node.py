@@ -25,6 +25,7 @@ class RxNode(object):
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
         self.initialized = False
+        self.has_shutdown = False
 
         # Prepare input & output topics
         (
@@ -51,12 +52,12 @@ class RxNode(object):
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
         # Prepare closing routine
-        rospy.on_shutdown(self._close)
+        rospy.on_shutdown(self.node_shutdown)
 
     def node_initialized(self):
         # Notify env that node is initialized
-        init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
-        init_pub.publish(UInt64())
+        self.init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
+        self.init_pub.publish(UInt64())
 
         if not self.initialized:
             rospy.loginfo('Node "%s" initialized.' % self.name)
@@ -133,8 +134,17 @@ class RxNode(object):
             node,
         )
 
-    def _close(self):
+    def _shutdown(self):
+        rospy.logdebug(f"[{self.name}] RxNode._shutdown() called.")
+        self.init_pub.unregister()
+
+    def node_shutdown(self):
+        rospy.logdebug(f"[{self.name}] RxNode.node_shutdown() called.")
         rospy.loginfo(f"[{self.name}] Shutting down.")
+        self._shutdown()
+        self.node.shutdown()
+        self.mb.shutdown()
+        self.has_shutdown = True
 
 
 if __name__ == "__main__":
@@ -159,4 +169,6 @@ if __name__ == "__main__":
 
         rospy.spin()
     finally:
-        rospy.signal_shutdown(f"Terminating '{ns}/{name}'")
+        if not pnode.has_shutdown:
+            rospy.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
+            rospy.signal_shutdown(f"Terminating '{ns}/{name}'")

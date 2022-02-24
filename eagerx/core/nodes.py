@@ -268,3 +268,7 @@ class RenderNode(Node):
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64())
         return output_msgs
+
+    def shutdown(self):
+        rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        cv2.destroyAllWindows()
