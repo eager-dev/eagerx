@@ -231,13 +231,14 @@ _eval_ns = _eval_config
 def tryeval(val):
     try:
         val = ast.literal_eval(val)
-    except Exception as e:
-        if isinstance(e, ValueError):
-            pass
-        elif isinstance(e, SyntaxError):
-            pass
-        else:
-            raise
+    except (ValueError, SyntaxError) as e:
+        pass
+        # if isinstance(e, ValueError):
+        #     pass
+        # elif isinstance(e, SyntaxError):
+        #     pass
+        # else:
+        #     raise
     return val
 
 
@@ -257,7 +258,7 @@ def _config(resolved, a, args, context):
         context["config"] = {}
     try:
         return tryeval(resolved.replace("$(%s)" % a, str(_eval_config(name=args[0], args=context["config"]))))
-    except Exception as e:  # roslaunch.substitution_args.ArgException:
+    except roslaunch.substitution_args.ArgException as e:  # roslaunch.substitution_args.ArgException:
         if isinstance(e, roslaunch.substitution_args.ArgException):
             return resolved
         elif isinstance(e, TypeError):
@@ -282,7 +283,7 @@ def _ns(resolved, a, args, context):
         context["ns"] = {}
     try:
         return tryeval(resolved.replace("$(%s)" % a, str(_eval_ns(name=args[0], args=context["ns"]))))
-    except Exception as e:  # roslaunch.substitution_args.ArgException:
+    except roslaunch.substitution_args.ArgException as e:  # roslaunch.substitution_args.ArgException:
         if isinstance(e, roslaunch.substitution_args.ArgException):
             return resolved
         elif isinstance(e, TypeError):

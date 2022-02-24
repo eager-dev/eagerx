@@ -48,7 +48,7 @@ if __name__ == "__main__":
     bridge = Bridge.make(
         "GymBridge",
         rate=rate,
-        is_reactive=False,
+        is_reactive=True,
         real_time_factor=1,
         process=process.NEW_PROCESS,
     )
