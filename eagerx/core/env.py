@@ -22,6 +22,7 @@ from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.core.constants import process
 
 # OTHER IMPORTS
+import atexit
 import abc
 import cv2
 import numpy as np
@@ -50,6 +51,10 @@ class Env(gym.Env):
         self.ns = "/" + name
         self.rate = rate
         self.initialized = False
+        self.has_shutdown = False
+
+        # Take deepcopy of bridge
+        bridge = BridgeSpec(bridge.params)
         self._bridge_name = bridge.params["config"]["entity_id"]
 
         # Register graph
@@ -57,14 +62,14 @@ class Env(gym.Env):
         nodes, objects, actions, observations, self.render_node = graph.register()
 
         # Initialize supervisor node
-        self.mb, self.supervisor_node, _ = self._init_supervisor(bridge, nodes, objects)
+        self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(bridge, nodes, objects)
         self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize bridge
         self._init_bridge(bridge, nodes)
 
         # Create environment node
-        self.env_node, _ = self._init_environment(actions, observations, self.supervisor_node, self.mb)
+        self.env_node, self.env = self._init_environment(actions, observations, self.supervisor_node, self.mb)
 
         # Register render node
         if self.render_node:
@@ -75,6 +80,9 @@ class Env(gym.Env):
 
         # Register objects
         self.register_objects(objects)
+
+        # Implement clean up
+        atexit.register(self.shutdown)
 
     def _init_supervisor(self, bridge: BridgeSpec, nodes: List[NodeSpec], objects: List[ObjectSpec]):
         # Initialize supervisor
@@ -250,6 +258,7 @@ class Env(gym.Env):
 
     @property
     def observation_space(self) -> gym.spaces.Dict:
+        assert not self.has_shutdown, "This environment has been shutdown."
         observation_space = dict()
         for name, buffer in self.env_node.observation_buffer.items():
             space = buffer["converter"].get_space()
@@ -263,6 +272,7 @@ class Env(gym.Env):
 
     @property
     def action_space(self) -> gym.spaces.Dict:
+        assert not self.has_shutdown, "This environment has been shutdown."
         action_space = dict()
         for name, buffer in self.env_node.action_buffer.items():
             action_space[name] = buffer["converter"].get_space()
@@ -317,6 +327,7 @@ class Env(gym.Env):
         rospy.loginfo("Pipelines initialized.")
 
     def _reset(self, states: Dict) -> Dict:
+        assert not self.has_shutdown, "This environment has been shutdown."
         # Initialize environment
         if not self.initialized:
             self._initialize()
@@ -332,6 +343,7 @@ class Env(gym.Env):
     def _step(self, action: Dict) -> Dict:
         # Check that nodes were previously initialized.
         assert self.initialized, "Not yet initialized. Call .reset() before calling .step()."
+        assert not self.has_shutdown, "This environment has been shutdown."
 
         # Set actions in buffer
         self._set_action(action)
@@ -341,16 +353,27 @@ class Env(gym.Env):
         return self._get_observation()
 
     def _shutdown(self):
-        for name in self.supervisor_node.launch_nodes:
-            self.supervisor_node.launch_nodes[name].terminate()
-        try:
-            rosparam.delete_param(f"/{self.name}")
-            rospy.loginfo(f'Parameters under namespace "/{self.name}" deleted.')
-        except ROSMasterException as e:
-            rospy.logwarn(e)
-        # rospy.signal_shutdown(f"[/{name}] Terminating.")
+        if not self.has_shutdown:
+            for address, node in self.supervisor_node.launch_nodes.items():
+                rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
+                node.terminate()
+                # node.terminate(f"[{self.name}] Terminating '{address}'")
+            for address, rxnode in self.supervisor_node.sp_nodes.items():
+                rxnode: RxNode
+                rospy.loginfo(f"[{self.name}][{rxnode.name}] Shutting down.")
+                rxnode.node_shutdown()
+            self.supervisor.node_shutdown()
+            self.env.node_shutdown()
+            self.mb.shutdown()
+            try:
+                rosparam.delete_param(f"/{self.name}")
+                rospy.loginfo(f'Parameters under namespace "/{self.name}" deleted.')
+            except ROSMasterException as e:
+                rospy.logwarn(e)
+            self.has_shutdown = True
 
     def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
+        assert not self.has_shutdown, "This environment has been shutdown."
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(nodes, list):
             nodes = [nodes]
@@ -359,6 +382,7 @@ class Env(gym.Env):
         [self.supervisor_node.register_node(n) for n in nodes]
 
     def register_objects(self, objects: Union[List[ObjectSpec], ObjectSpec]) -> None:
+        assert not self.has_shutdown, "This environment has been shutdown."
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(objects, list):
             objects = [objects]
@@ -367,6 +391,7 @@ class Env(gym.Env):
         [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
 
     def render(self, mode="human"):
+        assert not self.has_shutdown, "This environment has been shutdown."
         if self.render_node:
             if mode == "human":
                 self.supervisor_node.start_render()
@@ -403,6 +428,7 @@ class Env(gym.Env):
         pass
 
     def close(self):
+        assert not self.has_shutdown, "This environment has been shutdown."
         self.supervisor_node.stop_render()
 
     def shutdown(self):

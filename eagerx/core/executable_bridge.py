@@ -13,6 +13,7 @@ from eagerx.utils.utils import (
     get_param_with_blocking,
     get_opposite_msg_cls,
 )
+from eagerx.core.executable_node import RxNode
 from eagerx.utils.node_utils import wait_for_node_initialization
 from eagerx.core.constants import log_levels_ROS
 
@@ -27,6 +28,7 @@ class RxBridge(object):
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
         self.initialized = False
+        self.has_shutdown = False
 
         # Prepare input & output topics
         (
@@ -56,7 +58,7 @@ class RxBridge(object):
         self.cond_reg = Condition()
 
         # Prepare closing routine
-        rospy.on_shutdown(self._close)
+        rospy.on_shutdown(self.node_shutdown)
 
     def node_initialized(self):
         with self.cond_reg:
@@ -65,8 +67,8 @@ class RxBridge(object):
 
             # Notify env that node is initialized
             if not self.initialized:
-                init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
-                init_pub.publish(UInt64(data=1))
+                self.init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
+                self.init_pub.publish(UInt64(data=1))
                 rospy.loginfo('Node "%s" initialized.' % self.name)
                 self.initialized = True
 
@@ -114,11 +116,24 @@ class RxBridge(object):
             node,
         )
 
-    def _close(self):
+    def _shutdown(self):
+        rospy.logdebug(f"[{self.name}] RxBridge._shutdown() called.")
+        self.init_pub.unregister()
+
+    def node_shutdown(self):
+        rospy.logdebug(f"[{self.name}] RxBridge.node_shutdown() called.")
+        for address, node in self.bridge.launch_nodes.items():
+            rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
+            node.terminate()
+        for address, rxnode in self.bridge.sp_nodes.items():
+            rxnode: RxNode
+            rospy.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
+            rxnode.node_shutdown()
         rospy.loginfo(f"[{self.name}] Shutting down.")
-        for address, node in self.bridge.launch_nodes:
-            rospy.loginfo(f"[{self.name}] Terminating '{address}'")
-            node.terminate(f"[{self.name}] Terminating '{address}'")
+        self._shutdown()
+        self.bridge.shutdown()
+        self.mb.shutdown()
+        self.has_shutdown = True
 
 
 if __name__ == "__main__":
@@ -143,5 +158,6 @@ if __name__ == "__main__":
 
         rospy.spin()
     finally:
-        rospy.loginfo(f"[{ns}/{name}] Terminating.")
-        rospy.signal_shutdown(f"[{ns}/{name}] Terminating.")
+        if not pnode.has_shutdown:
+            rospy.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
+            rospy.signal_shutdown(f"[{ns}/{name}] Terminating '{ns}/{name}'.")

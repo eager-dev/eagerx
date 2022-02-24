@@ -8,6 +8,7 @@ from eagerx.utils.utils import substitute_args
 from eagerx.core.constants import process, log, log_levels_ROS
 
 # OTHER
+import atexit
 import importlib
 import subprocess
 from time import sleep
@@ -22,6 +23,8 @@ def initialize(*args, log_level=log.INFO, **kwargs):
         rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
     except rospy.exceptions.ROSException as e:
         rospy.logwarn(e)
+    if roscore:
+        atexit.register(roscore.shutdown)
     return roscore
 
 
@@ -73,6 +76,7 @@ def initialize_nodes(
     launch_nodes: Dict,
     rxnode_cls: Any = None,
     node_args: Dict = None,
+    subscribers: List = None,
 ):
     if rxnode_cls is None:
         from eagerx.core.executable_node import RxNode
@@ -116,7 +120,8 @@ def initialize_nodes(
         def initialized(msg, name):
             is_initialized[name] = True
 
-        rospy.Subscriber(node_address + "/initialized", UInt64, partial(initialized, name=name))
+        sub = rospy.Subscriber(node_address + "/initialized", UInt64, partial(initialized, name=name))
+        message_broker.subscribers.append(sub)
 
         # Initialize node
         if params["process"] == process_id:  # Initialize inside this process

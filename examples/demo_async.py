@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # ROS packages required
 from eagerx import Object, Bridge, initialize, log, process
 

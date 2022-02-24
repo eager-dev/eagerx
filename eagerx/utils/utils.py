@@ -94,7 +94,7 @@ def get_param_with_blocking(name, timeout=5):
         except (rosgraph.masterapi.Error, KeyError):
             sleep_time = 0.01
             if it % 20 == 0:
-                rospy.loginfo(
+                rospy.logdebug(
                     'Parameters under namespace "%s" not (yet) uploaded on parameter server. Retry with small pause (%s s).'
                     % (name, sleep_time)
                 )

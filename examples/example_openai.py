@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # EAGERx imports
 from eagerx import Object, Bridge, initialize, log, process
 
@@ -50,10 +48,17 @@ if __name__ == "__main__":
     bridge = Bridge.make(
         "GymBridge",
         rate=rate,
-        is_reactive=True,
-        real_time_factor=0,
+        is_reactive=False,
+        real_time_factor=1,
         process=process.NEW_PROCESS,
     )
+
+    # todo: Test shutdown
+    # todo: close node initialization_topic.
+    env = eagerx_gym.EagerGym(name="rx", rate=rate, graph=graph, bridge=bridge)
+    env.render(mode="human")
+    done, obs = False, env.reset()
+    env.shutdown()
 
     # Initialize Environment
     env = eagerx_gym.EagerGym(name="rx", rate=rate, graph=graph, bridge=bridge)
@@ -62,18 +67,17 @@ if __name__ == "__main__":
     env.render(mode="human")
 
     # First reset
-    done = False
-    obs = env.reset()
-
-    for j in range(20000):
+    obs, done = env.reset(), False
+    for j in range(5):
         print("\n[Episode %s]" % j)
         iter = 0
-        while not done:  # and iter < 10:
+        while not done and iter < 10:
             iter += 1
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
         obs = env.reset()
         done = False
     print("\n[Finished]")
-    env.shutdown()
+    # env.shutdown()
     print("\n[shutdown]")
+

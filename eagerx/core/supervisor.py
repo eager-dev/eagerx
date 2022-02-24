@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from __future__ import print_function
 
 # ROS imports
@@ -102,7 +100,7 @@ class SupervisorNode(BaseNode):
             self.is_initialized,
             self.sp_nodes,
             self.launch_nodes,
-            rxnode_cls=RxNode,
+            rxnode_cls=RxNode
         )
         self.subjects["register_node"].on_next(String(self.ns + "/" + node_name))
 
@@ -160,6 +158,11 @@ class SupervisorNode(BaseNode):
         self.env_node.obs_event.wait()
         rospy.logdebug("STEP END")
 
+    def shutdown(self):
+        self.pub_get_last_image.unregister()
+        self.sub_set_last_image.unregister()
+        self.render_toggle_pub.unregister()
+
 
 class Supervisor(object):
     def __init__(self, name, message_broker, is_reactive, real_time_factor, simulate_delays):
@@ -168,6 +171,7 @@ class Supervisor(object):
         self.mb = message_broker
         self.initialized = False
         self.is_reactive = is_reactive
+        self.has_shutdown = False
 
         # Prepare input & output topics
         outputs, states, self.node = self._prepare_io_topics(self.name, is_reactive, real_time_factor, simulate_delays)
@@ -181,8 +185,8 @@ class Supervisor(object):
 
     def node_initialized(self):
         # Notify env that node is initialized
-        init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
-        init_pub.publish(UInt64())
+        self.init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
+        self.init_pub.publish(UInt64())
 
         if not self.initialized:
             rospy.loginfo('Node "%s" initialized.' % self.name)
@@ -216,17 +220,14 @@ class Supervisor(object):
 
         return tuple(params["outputs"]), tuple(params["states"]), node
 
+    def _shutdown(self):
+        rospy.logdebug(f"[{self.name}] Supervisor._shutdown() called.")
+        self.init_pub.unregister()
 
-if __name__ == "__main__":
-
-    rospy.init_node("env", log_level=rospy.INFO)
-
-    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=rospy.get_name())
-
-    pnode = Supervisor(name=rospy.get_name(), message_broker=message_broker)
-
-    message_broker.connect_io()
-
-    pnode.node_initialized()
-
-    rospy.spin()
+    def node_shutdown(self):
+        rospy.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
+        rospy.loginfo(f"[{self.name}] Shutting down.")
+        self._shutdown()
+        self.node.shutdown()
+        self.mb.shutdown()
+        self.has_shutdown = True
