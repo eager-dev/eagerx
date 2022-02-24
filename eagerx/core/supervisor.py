@@ -100,7 +100,7 @@ class SupervisorNode(BaseNode):
             self.is_initialized,
             self.sp_nodes,
             self.launch_nodes,
-            rxnode_cls=RxNode
+            rxnode_cls=RxNode,
         )
         self.subjects["register_node"].on_next(String(self.ns + "/" + node_name))
 

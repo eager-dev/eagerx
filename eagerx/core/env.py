@@ -358,7 +358,7 @@ class Env(gym.Env):
                 rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()
                 # node.terminate(f"[{self.name}] Terminating '{address}'")
-            for address, rxnode in self.supervisor_node.sp_nodes.items():
+            for _, rxnode in self.supervisor_node.sp_nodes.items():
                 rxnode: RxNode
                 rospy.loginfo(f"[{self.name}][{rxnode.name}] Shutting down.")
                 rxnode.node_shutdown()

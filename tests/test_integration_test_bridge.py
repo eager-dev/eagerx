@@ -102,7 +102,7 @@ def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
 
     # Initialize Environment
     env = EagerEnv(
-        name=name,
+        name='test_bridge',
         rate=rate,
         graph=graph,
         bridge=bridge,

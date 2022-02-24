@@ -125,7 +125,7 @@ class RxBridge(object):
         for address, node in self.bridge.launch_nodes.items():
             rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
             node.terminate()
-        for address, rxnode in self.bridge.sp_nodes.items():
+        for _, rxnode in self.bridge.sp_nodes.items():
             rxnode: RxNode
             rospy.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
             rxnode.node_shutdown()

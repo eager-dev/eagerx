@@ -489,6 +489,7 @@ def from_topic(topic_type: Any, topic_name: str, node_name, subscribers: list) -
     def _subscribe(observer, scheduler=None) -> Disposable:
         try:
             wrapped_sub = []
+
             def cb_from_topic(msg, wrapped_sub):
                 try:
                     observer.on_next(msg)

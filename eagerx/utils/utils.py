@@ -231,14 +231,8 @@ _eval_ns = _eval_config
 def tryeval(val):
     try:
         val = ast.literal_eval(val)
-    except (ValueError, SyntaxError) as e:
+    except (ValueError, SyntaxError):
         pass
-        # if isinstance(e, ValueError):
-        #     pass
-        # elif isinstance(e, SyntaxError):
-        #     pass
-        # else:
-        #     raise
     return val
 
 
