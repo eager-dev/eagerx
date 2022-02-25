@@ -370,7 +370,7 @@ class Graph:
             component = "outputs"
             target = self.get_view(name, [component, cname])
 
-        assert "space_converter" in target, (
+        assert target.space_converter is not None (
             f'"{cname}" does not have a space_converter defined for ' f'{component} in the spec of object "{name}".'
         )
 
@@ -422,7 +422,7 @@ class Graph:
         assert observation in params_obs["inputs"], 'Observation "%s" must be added, before you can connect it.' % observation
         name, component, cname = source()
 
-        assert converter is not None or "space_converter" in source, (
+        assert converter is not None or source.space_converter, (
             f'"{cname}" does not have a space_converter '
             f'defined under {component} in the spec of "{name}". '
             "Either specify it there, or add an input converter "
