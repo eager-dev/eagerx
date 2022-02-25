@@ -27,21 +27,24 @@ RUN apt-get install -y --no-install-recommends apt-utils \
   software-properties-common &&\
   rm -rf /var/lib/apt/lists/*
 
-# System deps:
-RUN pip3 install --upgrade pip
-RUN pip3 install "poetry==$POETRY_VERSION"
-
-
 # Install Anaconda and dependencies for using the specified python version
 RUN curl -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
      chmod +x ~/miniconda.sh && \
      ~/miniconda.sh -b -p /opt/conda && \
      rm ~/miniconda.sh && \
      /opt/conda/bin/conda install -y python=$PYTHON_VERSION && \
-     # When installing stable-baselines3, we want to use the appropriate pytorch version (cpu or gpu)
      if [ ${ADD_SB} ] ; then /opt/conda/bin/conda install -y pytorch $PYTORCH_DEPS -c pytorch; fi && \
      /opt/conda/bin/conda clean -ya
 ENV PATH /opt/conda/bin:$PATH
+
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
+
+# System deps:
+RUN pip3 install --upgrade pip
+RUN pip3 install "poetry==$POETRY_VERSION"
+
+# When installing stable-baselines3, we want to use the appropriate pytorch version (cpu or gpu)
+# if [ ${ADD_SB} ] ; then /opt/conda/bin/conda install -y pytorch $PYTORCH_DEPS -c pytorch; fi && \
 
 # Copy only requirements to cache them in docker layer
 WORKDIR /code
@@ -49,6 +52,9 @@ COPY poetry.lock pyproject.toml /code/
 
 # Install eagerx without creation of poetry environment since the docker is already isolated
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
+
+# Creating folders, and files for a project:
+COPY . /code
 
 # Install ROS
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654

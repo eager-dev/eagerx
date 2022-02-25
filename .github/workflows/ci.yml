@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [ master, ft_test ]
+    branches: [ master, ft_test, docker-fix]
   pull_request:
     branches: [ master ]
 
@@ -102,4 +102,3 @@ jobs:
         uses: paambaati/codeclimate-action@v2.7.5
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
-      
