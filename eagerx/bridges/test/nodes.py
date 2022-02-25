@@ -7,7 +7,7 @@ import rospy
 from std_msgs.msg import UInt64, String, Bool
 
 # EAGERx IMPORTS
-from eagerx.core.constants import process
+from eagerx.core.constants import process as p
 from eagerx.utils.utils import Msg
 from eagerx.core.entities import Node, ResetNode, EngineNode, SpaceConverter
 import eagerx.core.register as register
@@ -23,7 +23,7 @@ class RealResetNode(ResetNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.ENVIRONMENT,
+        process: Optional[int] = p.ENVIRONMENT,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         states: Optional[List[str]] = None,
@@ -174,7 +174,7 @@ class ProcessNode(TestNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.ENVIRONMENT,
+        process: Optional[int] = p.ENVIRONMENT,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         states: Optional[List[str]] = None,
@@ -223,7 +223,7 @@ class KalmanNode(TestNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.ENVIRONMENT,
+        process: Optional[int] = p.ENVIRONMENT,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         states: Optional[List[str]] = None,
@@ -290,7 +290,7 @@ class TestActuator(TestNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = p.BRIDGE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "green",
@@ -324,7 +324,7 @@ class TestSensor(TestNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = p.BRIDGE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         states: Optional[List[str]] = None,
@@ -351,3 +351,70 @@ class TestSensor(TestNode):
         spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
         spec.states.state_2.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
         return spec
+
+
+class EvalComponent(EngineNode):
+    def initialize(self):
+        pass
+
+    @staticmethod
+    @register.spec("EvalComponent", EngineNode)
+    def spec(spec, name: str, rate: float, inputs: List[str] = None, process: Optional[int] = p.BRIDGE, color: Optional[str] = "cyan"):
+        """EvalComponent spec"""
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(EvalComponent)
+
+        # Modify default node params
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if inputs else ["tick_1", "in_1"]
+        spec.config.outputs = ["out_1"]
+
+    @register.states()
+    def reset(self) -> None:
+        pass
+
+    @register.inputs(tick=UInt64, in_1=UInt64)
+    @register.outputs(out_1=UInt64)
+    def callback(self, t_n: float, tick: Optional[Msg] = None, in_1: Optional[Msg] = None):
+        # Fill output msg with number of node ticks
+        output_msgs = dict(out_1=UInt64(data=self.num_ticks))
+        return output_msgs
+
+
+class EvalNode(Node):
+    def initialize(self):
+        pass
+
+    @staticmethod
+    @register.spec("EvalNode", Node)
+    def spec(spec, name: str, rate: float, process: Optional[int] = p.BRIDGE, color: Optional[str] = "cyan"):
+        """EvalNode spec"""
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(EvalComponent)
+
+        # Modify default node params
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = ["in_1"]
+        spec.config.outputs = ["out_1"]
+
+        # Add space_converters
+        sc = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
+        spec.inputs.in_1.space_converter = sc
+        spec.outputs.out_1.space_converter = sc
+
+    @register.states()
+    def reset(self) -> None:
+        pass
+
+    @register.inputs(in_1=UInt64)
+    @register.outputs(out_1=UInt64)
+    def callback(self, t_n: float, in_1: Optional[Msg] = None):
+        # Fill output msg with number of node ticks
+        output_msgs = dict(out_1=UInt64(data=self.num_ticks))
+        return output_msgs

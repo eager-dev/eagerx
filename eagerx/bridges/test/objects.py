@@ -10,6 +10,7 @@ from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState
 from eagerx.core.specs import ObjectSpec, AgnosticSpec, SpecificSpec
 from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
+from eagerx.core.constants import process as p
 
 
 class Arm(Object):
@@ -385,3 +386,74 @@ class Viper(Arm):
             target=N6.inputs.in_1,
             external_rate=20,
         )
+
+
+class Evaluation(Object):
+    @staticmethod
+    @register.sensors(sens_1=UInt64)
+    @register.actuators(act_1=UInt64)
+    @register.agnostic_params(node_process=p.NEW_PROCESS)
+    def agnostic(spec: AgnosticSpec):
+        """Agnostic definition of the Evaluation object"""
+        # Set state properties: space_converters
+        spec.sensors.sens_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.sensors.sens_1.rate = 1
+
+        # Set actuator properties: space_converters
+        spec.actuators.act_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.actuators.act_1.rate = 1
+
+    @staticmethod
+    @register.spec("Evaluation", Object)
+    def spec(
+        spec: ObjectSpec,
+        name: str,
+        process: int = p.NEW_PROCESS,
+    ):
+        """Object spec of Evaluation object"""
+        # Performs all the steps to fill-in the params with registered info about all functions.
+        spec.initialize(Evaluation)
+
+        # Modify default agnostic params
+        # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
+        spec.config.name = name
+        spec.config.sensors = ["sens_1"]
+        spec.config.actuators = ["act_1"]
+        spec.config.node_process = process
+
+        # Add bridge implementation
+        Evaluation.test_bridge(spec)
+
+    @classmethod
+    @register.bridge(TestBridgeNode)  # This decorator pre-initializes bridge implementation with default object_params
+    def test_bridge(cls, spec: SpecificSpec, graph: EngineGraph):
+        """Engine-specific implementation of the Evaluation object with the test bridge."""
+        # Create sensor engine nodes
+        sens_1 = EngineNode.make(
+            "EvalComponent",
+            "sens_1",
+            rate=1,
+            inputs=["tick"],
+            process="$(config node_process)",
+            color="cyan",
+        )
+
+        # Create actuator engine nodes
+        act_1 = EngineNode.make(
+            "EvalComponent",
+            "act_1",
+            rate=1,
+            process="$(config node_process)",
+            inputs=["tick", "in_1"],
+            color="green",
+        )
+
+        # Add nodes to graph and connect them to actuators/sensors
+        graph.add([sens_1, act_1])
+
+        # Connect sensors & actuators to engine nodes
+        graph.connect(source=sens_1.outputs.out_1, sensor="sens_1")
+        graph.connect(actuator="act_1", target=act_1.inputs.in_1)
+
+        # Check if graph is valid
+        # graph.is_valid(plot=True)

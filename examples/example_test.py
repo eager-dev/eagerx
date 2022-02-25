@@ -21,9 +21,7 @@ if __name__ == "__main__":
     rate = 7
 
     # todo: TODAY
-    #  - Refactor gui
     #  - Clean env.shutdown() without errors
-    #  - Close procedure for nodes.
     #  - Installation procedure
     #  - Why is ode bridge so slow in async mode?
     #  - Effect of skipping first action on environment synchronization.
