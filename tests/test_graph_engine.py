@@ -13,7 +13,7 @@ import pytest
 
 def test_graph_engine():
     # Start roscore
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
+    roscore = initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
     # Define object
     arm = Object.make(

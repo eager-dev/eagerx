@@ -2,8 +2,6 @@
 from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
-initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
-
 # Environment imports
 from eagerx.core.env import EagerEnv
 from eagerx.core.graph import Graph
@@ -151,7 +149,7 @@ if __name__ == "__main__":
     # TEST with KF having skipped all inputs at t=0
     graph.remove_component(KF.inputs.in_1)
 
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")

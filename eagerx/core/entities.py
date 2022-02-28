@@ -142,6 +142,7 @@ class BaseNode(Entity):
         effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
         self.log_memory = effective_log_level >= log_level and log_level_memory >= effective_log_level
         self.initialize(*args, **kwargs)
+        self._pipelines_initialized = False
 
     @staticmethod
     def get_msg_type(cls, component, cname):
@@ -268,7 +269,12 @@ class Node(BaseNode):
             else:
                 kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
-        return self.reset(**kwargs)
+        if not self._pipelines_initialized:
+            self._pipelines_initialized = True
+            return
+        else:
+            return self.reset(**kwargs)
+        # return self.reset(**kwargs)
 
     def callback_cb(self, node_tick: int, t_n: float, **kwargs):
         self.iter_ticks += 1
@@ -699,7 +705,11 @@ class Bridge(BaseNode):
             else:
                 kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
-        return self.pre_reset(**kwargs)
+        if not self._pipelines_initialized:
+            return
+        else:
+            return self.pre_reset(**kwargs)
+        # return self.pre_reset(**kwargs)
 
     def reset_cb(self, **kwargs):
         self.num_ticks = 0
@@ -711,7 +721,12 @@ class Bridge(BaseNode):
                 kwargs[cname] = msg.msgs[0]
         [kwargs.pop(key) for key in keys_to_pop]
         self.num_resets += 1
-        return self.reset(**kwargs)
+        if not self._pipelines_initialized:
+            self._pipelines_initialized = True
+            return
+        else:
+            return self.reset(**kwargs)
+        # return self.reset(**kwargs)
 
     def callback_cb(self, node_tick: int, t_n: float, **kwargs: Optional[Msg]):
         self.iter_ticks += 1
