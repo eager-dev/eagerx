@@ -1,7 +1,7 @@
 # EAGERx imports
 from eagerx import Object, Bridge, initialize, log, process
 
-initialize("eagerx_core", anonymous=True, log_level=log.INFO)
+initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
 # Environment imports
 from eagerx.core.graph import Graph

@@ -694,10 +694,11 @@ def init_bridge(
         trace_observable("cb_pre_reset", node),
         ops.share(),
     )
-
+    offset = pre_reset_trigger.pipe(ops.map(lambda x: 1), ops.start_with(0), ops.start_with(0))
     pre_reset_trigger.pipe(
         ops.map(lambda x: x[0][0]),
-        ops.map(lambda x: UInt64(data=x[0] + 1)),
+        ops.zip(offset),
+        ops.map(lambda x: UInt64(data=x[0][0] + x[1])),  # add extra message sent, after pipeline is initialized.
         ops.share(),  # x[0][0]=Nc
     ).subscribe(RM)
     ss_cl = pre_reset_trigger.pipe(ops.map(lambda x: x[0][-1]))  # x[0][-1]=ss_cl
@@ -916,7 +917,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     tick = dict(name="tick", address=ns + "/bridge/outputs/tick", msg=Subject(), msg_type=UInt64)
     end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
-    end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
+    end_reset["msg"].pipe(ops.skip(1), spy("INIT TICK", node, log_level=DEBUG)).subscribe(tick["msg"])
+    end_reset["msg"].pipe(ops.take(1), spy("SKIP TICK", node, log_level=DEBUG)).subscribe(node.initial_reset)
 
     # Create node inputs & outputs
     node_inputs = [reset, end_reset]

@@ -142,6 +142,9 @@ class SupervisorNode(BaseNode):
                 buffer["msg"] = None  # After sending state, set msg to None
         return msgs
 
+    def initial_reset(self, msg):
+        self.env_node.obs_event.set()
+
     def reset(self):
         self.env_node.obs_event.clear()
         self.env_node.must_reset = True
