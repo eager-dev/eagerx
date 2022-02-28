@@ -38,7 +38,7 @@ def evaluation(num_nodes, is_reactive, rtf, process):
             nodes.append(n)
 
             # Interconnect nodes
-            graph.connect(source=nodes[idx-1].outputs.out_1, target=n.inputs.in_1)
+            graph.connect(source=nodes[idx - 1].outputs.out_1, target=n.inputs.in_1)
 
         # Add connection between env and object
         graph.connect(source=nodes[-1].outputs.out_1, observation="obs_1")
@@ -57,7 +57,10 @@ def evaluation(num_nodes, is_reactive, rtf, process):
     def run_info(iter, iter_tot, start, end, start_rel, iter_rel):
         t = end - start
         t_rel = end - start_rel
-        print(f"N={num_nodes}, R={is_reactive}, P={process} | iter={iter}/{iter_tot} | {iter/t: .2f} Hz | {(iter-iter_rel)/t_rel: .2f} Hz (last {t_rel: .2f} s)")
+        print(
+            f"N={num_nodes}, R={is_reactive}, P={process} | iter={iter}/{iter_tot} | {iter/t: .2f} Hz | {(iter-iter_rel)/t_rel: .2f} Hz (last {t_rel: .2f} s)"
+        )
+
     env.reset()
     action = env.action_space.sample()
     iter_tot = 20000
@@ -65,7 +68,7 @@ def evaluation(num_nodes, is_reactive, rtf, process):
     start_rel = start
     rel = 2
     iter_rel = 0
-    for j in range(1, iter_tot+1):
+    for j in range(1, iter_tot + 1):
         env.step(action)
         end = perf_counter()
         if (end - start_rel) > rel:
@@ -77,5 +80,4 @@ def evaluation(num_nodes, is_reactive, rtf, process):
 
 
 if __name__ == "__main__":
-    evaluation(10, is_reactive=True, rtf=0, process=p.NEW_PROCESS)
-
+    evaluation(10, is_reactive=False, rtf=2000, process=p.NEW_PROCESS)
