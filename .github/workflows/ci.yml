@@ -3,11 +3,11 @@
 
 name: CI
 
-on:
-  push
-  pull_request
-  schedule:
-    - cron:  '0 23 * * *'
+on:[push, pull_request]
+# push:
+# pull_request:
+# schedule:
+#   - cron:  '0 23 * * *'
 
 jobs:
   call-eagerx-ci-workflow:
