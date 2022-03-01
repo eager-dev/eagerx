@@ -1,0 +1,3 @@
+[submodule "eagerx_ci"]
+	path = eagerx_ci
+	url = git@github.com:eager-dev/eagerx_ci.git

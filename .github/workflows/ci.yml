@@ -5,14 +5,16 @@ name: CI
 
 on:
   push:
-    branches: [ master, ft_test, docker-fix]
   pull_request:
-    branches: [ master ]
+  schedule:
+    - cron:  '0 23 * * *'
 
 jobs:
-  test:
-    # Skip CI if [ci skip] in the commit message
-    if: "! contains(toJSON(github.event.commits.*.message), '[ci skip]')"
+  call-eagerx-ci-workflow:
+    if: ${{ github.event_name == 'pull_request' || contains(github.ref_name, 'master') || github.event_name == 'schedule' || contains(toJSON(github.event.commits.*.message), '[ci run]') && (! contains(toJSON(github.event.commits.*.message), '[ci skip]') || contains(github.event.pull_request.labels.*.name, 'ci skip')) }}
+    uses: eager_dev/eagerx_ci/.github/workflows/ci.yml@master
+  test_docs:
+    if: ${{ github.event_name == 'pull_request' || contains(github.ref_name, 'master') || github.event_name == 'schedule' || contains(toJSON(github.event.commits.*.message), '[ci run]') && (! contains(toJSON(github.event.commits.*.message), '[ci skip]') || contains(github.event.pull_request.labels.*.name, 'ci skip')) }}
     strategy:
       fail-fast: true
       matrix:
@@ -69,18 +71,6 @@ jobs:
         run: |
           make lint
       #----------------------------------------------
-      #  -----  install & configure ROS  -----
-      #----------------------------------------------
-      - name: install ROS
-        run: |
-          sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-          sudo apt install curl # if you haven't already installed curl
-          curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
-          sudo apt update
-          sudo apt install ros-noetic-ros-base
-          echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
-          sudo apt-get install ros-noetic-cv-bridge
-      #----------------------------------------------
       # Build docs
       #----------------------------------------------
       - name: Build the doc
@@ -88,17 +78,3 @@ jobs:
           sudo apt-get install python3-sphinx
           source .venv/bin/activate
           make doc
-      #----------------------------------------------
-      #    add matrix specifics and run test suite
-      #----------------------------------------------
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          make pytest
-      #----------------------------------------------
-      #    upload code coverage to CodeClimate
-      #----------------------------------------------
-      - name: Publish code coverage to CodeClimate
-        uses: paambaati/codeclimate-action@v2.7.5
-        env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
