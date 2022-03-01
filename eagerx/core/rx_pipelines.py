@@ -292,8 +292,16 @@ def init_node(
     # Reset flags
     F = Subject()
     f = rx.merge(F, F_init)
-    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
+    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=ss_flags.pipe(ops.take(1)))
+    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=ss_flags)
+    # check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    # check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+
+    # Create reset flags for the set_states
+    # ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
+    # SS_ho.on_next(ss_flags.pipe(ops.take(1), ops.start_with(None)))
+    # SS_CL_ho.on_next(ss_flags.pipe(ops.start_with(None)))
 
     # Node ticks
     Rn_ho = BehaviorSubject(BehaviorSubject((0, 0, True)))
@@ -528,8 +536,12 @@ def init_bridge(
 
         D = Subject()
         i["done"] = D
-    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+
+    ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
+    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=ss_flags.pipe(ops.take(1)))
+    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=ss_flags)
+    # check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    # check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
 
     # Prepare target_addresses
     df_inputs = []
@@ -784,10 +796,11 @@ def init_bridge(
     )
 
     # Dynamically initialize new state pipeline
-    check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    # check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=Subject())
     ss_flags = simstate_inputs.pipe(
-        ops.zip(simSS.pipe(spy("simSS", node))),
-        ops.map(lambda i: i[0]),
+        # ops.zip(simSS.pipe(spy("simSS", node))),
+        # ops.map(lambda i: i[0]),
         ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node)),
         ops.share(),
     )
@@ -803,12 +816,12 @@ def init_bridge(
         ops.map(lambda x: [d.dispose() for d in x[0]]),
         ops.start_with(None),
         ops.zip(
-            ss_cl,
-            reset_obs,
-            check_simSS,
+            ss_cl.pipe(spy("ss_cl", node)),
+            reset_obs.pipe(spy("reset_obs", node)),
+            check_simSS.pipe(spy("check_simSS", node)),
             NF.pipe(spy("NF", node)),
-            check_SS,
-            check_SS_CL,
+            check_SS.pipe(spy("check_SS", node)),
+            check_SS_CL.pipe(spy("check_SS_CL", node)),
         ),
         ops.map(lambda x: node.reset_cb(**x[1])),
         spy("POST-RESET", node, log_level=DEBUG),
@@ -857,7 +870,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
 
     # Publish state msgs
-    msgs = SR.pipe(ops.skip(1), ops.map(node._get_states), ops.share())
+    # msgs = SR.pipe(ops.skip(1), ops.map(node._get_states), ops.share())
+    msgs = SR.pipe(ops.map(node._get_states), ops.share())
     for s in state_outputs:
         msgs.pipe(
             ops.pluck(s["name"] + "/done"),

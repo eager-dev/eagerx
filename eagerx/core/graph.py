@@ -370,9 +370,7 @@ class Graph:
             component = "outputs"
             target = self.get_view(name, [component, cname])
 
-        assert target.space_converter is not None (
-            f'"{cname}" does not have a space_converter defined for ' f'{component} in the spec of object "{name}".'
-        )
+
 
         # Infer source properties (converter & msg_type) from target
         sc = target.space_converter
@@ -400,6 +398,9 @@ class Graph:
                 )
             msg_type_A = get_opposite_msg_cls(msg_type_B_state, space_converter_state)
         else:
+            assert target.space_converter is not None, (
+                f'"{cname}" does not have a space_converter defined for ' f'{component} in the spec of object "{name}".'
+            )
             # Verify that converter is not modifying the msg_type (i.e. it is a processor).
             assert msg_type_B == msg_type_C, (
                 "Cannot have a converter that maps to a different msg_type as the "
