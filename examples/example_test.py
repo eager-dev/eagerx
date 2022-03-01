@@ -164,11 +164,11 @@ if __name__ == "__main__":
         rate=rate,
         graph=graph,
         bridge=bridge,
-        # reset_fn=lambda env: {
-            # "obj/N9": env.state_space.sample()["obj/N9"],
-            # "obj/N6/state_1": env.state_space.sample()["obj/N6/state_1"],
-            # "bridge/param_1": env.state_space.sample()["bridge/param_1"],
-        # },
+        reset_fn=lambda env: {
+            "obj/N9": env.state_space.sample()["obj/N9"],
+            "obj/N6/state_1": env.state_space.sample()["obj/N6/state_1"],
+            "bridge/param_1": env.state_space.sample()["bridge/param_1"],
+        },
     )
     env = Flatten(env)
 

@@ -370,8 +370,6 @@ class Graph:
             component = "outputs"
             target = self.get_view(name, [component, cname])
 
-
-
         # Infer source properties (converter & msg_type) from target
         sc = target.space_converter
         space_converter = sc.to_dict() if isinstance(sc, GraphView) else sc

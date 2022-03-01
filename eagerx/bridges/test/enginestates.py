@@ -19,5 +19,5 @@ class TestEngineState(EngineState):
         self.test_arg = test_arg
 
     def reset(self, state, done):
-        rospy.logdebug('INSIDE SIMSTATE RESET: (%s, %s)' % (state, done))
+        rospy.logdebug("INSIDE SIMSTATE RESET: (%s, %s)" % (state, done))
         return
