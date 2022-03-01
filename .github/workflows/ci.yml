@@ -10,9 +10,9 @@ on:
     - cron:  '0 23 * * *'
 
 jobs:
-  call-eagerx-ci-workflow:
-    # if: ${{ github.event_name == 'pull_request' || contains(github.ref_name, 'master') || github.event_name == 'schedule' || contains(toJSON(github.event.commits.*.message), '[ci run]') && (! contains(toJSON(github.event.commits.*.message), '[ci skip]') || contains(github.event.pull_request.labels.*.name, 'ci skip')) }}
-    uses: eager-dev/eagerx_ci/.github/workflows/ci.yml@master
+  # call-eagerx-ci-workflow:
+  #   # if: ${{ github.event_name == 'pull_request' || contains(github.ref_name, 'master') || github.event_name == 'schedule' || contains(toJSON(github.event.commits.*.message), '[ci run]') && (! contains(toJSON(github.event.commits.*.message), '[ci skip]') || contains(github.event.pull_request.labels.*.name, 'ci skip')) }}
+  #   uses: eager-dev/eagerx_ci/.github/workflows/ci.yml@master
   test_docs:
     # if: ${{ github.event_name == 'pull_request' || contains(github.ref_name, 'master') || github.event_name == 'schedule' || contains(toJSON(github.event.commits.*.message), '[ci run]') && (! contains(toJSON(github.event.commits.*.message), '[ci skip]') || contains(github.event.pull_request.labels.*.name, 'ci skip')) }}
     strategy:
