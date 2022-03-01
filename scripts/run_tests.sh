@@ -1,1 +1,1 @@
-../eagerx_ci/ci/scripts/run_tests.sh
+../eagerx_ci/scripts/run_tests.sh

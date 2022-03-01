@@ -1,1 +1,1 @@
-eagerx_ci/ci/Makefile
+eagerx_ci/Makefile
