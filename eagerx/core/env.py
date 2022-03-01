@@ -328,6 +328,9 @@ class Env(gym.Env):
 
     def _reset(self, states: Dict) -> Dict:
         assert not self.has_shutdown, "This environment has been shutdown."
+        # Set desired reset states
+        self._set_state(states)
+
         # Initialize environment
         if not self.initialized:
             self._initialize()
