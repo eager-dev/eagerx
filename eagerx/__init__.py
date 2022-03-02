@@ -1,4 +1,5 @@
 import importlib.metadata
+
 __version__ = importlib.metadata.version("eagerx")
 
 from eagerx.core.constants import process, log  # noqa: F401
