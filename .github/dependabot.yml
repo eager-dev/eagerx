@@ -9,4 +9,4 @@ updates:
       - "bheijden"
     commit-message:
       # Prefix all commit messages with "npm"
-      prefix: "chore(dependabot): "
+      prefix: "chore: "
