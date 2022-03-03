@@ -9,6 +9,8 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions: read-all|write-all
+
 jobs:
   test:
     # Skip CI if [ci skip] in the commit message
@@ -125,7 +127,7 @@ jobs:
           pip install python-semantic-release
           git config user.name github-actions
           git config user.email github-actions@github.com
-          semantic-release publish
+          semantic-release publish -D commit_author="github-actions <action@github.com>"
         env:
-          pypi_username: ${{ secrets.PYPI_USERNAME }}
-          pypi_password: ${{ secrets.PYPI_PASSWORD }}
+          REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
