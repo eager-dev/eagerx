@@ -16,6 +16,7 @@ NP = process.NEW_PROCESS
 ENV = process.ENVIRONMENT
 
 
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "gym_id, eps, is_reactive, rtf, p",
     [("Pendulum-v0", 2, True, 0, ENV), ("Pendulum-v0", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],

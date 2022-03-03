@@ -15,6 +15,7 @@ NP = process.NEW_PROCESS
 ENV = process.ENVIRONMENT
 
 
+@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "eps, steps, is_reactive, rtf, p",
     [(3, 3, True, 0, ENV), (20, 40, True, 0, NP), (3, 3, True, 4, NP), (20, 40, False, 4, NP), (3, 3, False, 4, ENV)],
