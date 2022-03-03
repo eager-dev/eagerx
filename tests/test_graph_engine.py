@@ -11,6 +11,7 @@ import eagerx.bridges.test  # noqa # pylint: disable=unused-import
 import pytest
 
 
+@pytest.mark.timeout(60)
 def test_graph_engine():
     # Start roscore
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)

@@ -7,6 +7,6 @@ updates:
       interval: "daily"
     reviewers:
       - "bheijden"
-    commit_message:
-      prefix: "chore"
-      include_scope: true
+    commit-message:
+      # Prefix all commit messages with "npm"
+      prefix: "chore: "
