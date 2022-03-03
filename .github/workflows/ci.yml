@@ -9,6 +9,8 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions: read-all|write-all
+
 jobs:
   test:
     # Skip CI if [ci skip] in the commit message
