@@ -2,6 +2,8 @@
 from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
+initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
+
 # Environment imports
 from eagerx.core.env import EagerEnv
 from eagerx.core.graph import Graph
@@ -14,8 +16,8 @@ if __name__ == "__main__":
     initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
     # Process configuration (optional)
-    node_p = process.ENVIRONMENT
-    bridge_p = process.ENVIRONMENT
+    node_p = process.NEW_PROCESS
+    bridge_p = process.NEW_PROCESS
     rate = 7
 
     # todo: TODAY
@@ -149,7 +151,7 @@ if __name__ == "__main__":
     # TEST with KF having skipped all inputs at t=0
     graph.remove_component(KF.inputs.in_1)
 
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")
@@ -166,7 +168,6 @@ if __name__ == "__main__":
         bridge=bridge,
         reset_fn=lambda env: {
             "obj/N9": env.state_space.sample()["obj/N9"],
-            "obj/N6/state_1": env.state_space.sample()["obj/N6/state_1"],
             "bridge/param_1": env.state_space.sample()["bridge/param_1"],
         },
     )
