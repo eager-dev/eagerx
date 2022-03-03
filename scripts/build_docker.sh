@@ -6,7 +6,7 @@ CPU_PARENT=ubuntu:20.04
 GPU_PARENT=nvidia/cuda:11.3.1-runtime-ubuntu20.04
 
 TAG=eagerx
-VERSION=$(cat pyproject.toml | grep "^version\b" | tr -dc '0-9.')
+VERSION="$(poetry version --short)"
 POETRY_VERSION=1.1.3
 PYTHON_VERSION=3.8
 
@@ -25,7 +25,7 @@ fi
 
 echo "docker build --build-arg PARENT_IMAGE=${PARENT} --build-arg PYTORCH_DEPS=${PYTORCH_DEPS} \
  --build-arg POETRY_VERSION=${POETRY_VERSION} --build-arg ADD_SB=${ADD_SB} \
- --build-arg PYTHON_VERSION="{PYTHON_VERSION}" -t ${TAG}:${VERSION} ."
+ --build-arg PYTHON_VERSION="${PYTHON_VERSION}" -t ${TAG}:${VERSION} ."
 docker build --build-arg PARENT_IMAGE=${PARENT} --build-arg PYTORCH_DEPS=${PYTORCH_DEPS} \
 --build-arg POETRY_VERSION=${POETRY_VERSION} --build-arg ADD_SB=${ADD_SB} \
 --build-arg PYTHON_VERSION=${PYTHON_VERSION} -t ${TAG}:${VERSION} .
