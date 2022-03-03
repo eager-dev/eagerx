@@ -1,6 +1,4 @@
-import importlib.metadata
-
-__version__ = importlib.metadata.version("eagerx")
+__version__ = "0.1.2"
 
 from eagerx.core.constants import process, log  # noqa: F401
 from eagerx.core.entities import (  # noqa: F401
