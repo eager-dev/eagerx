@@ -9,6 +9,8 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions: read-all|write-all
+
 jobs:
   test:
     # Skip CI if [ci skip] in the commit message
@@ -127,5 +129,5 @@ jobs:
           git config user.email github-actions@github.com
           semantic-release publish -D commit_author="github-actions <action@github.com>"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PyPi_TOKEN: ${{ secrets.PyPI_TOKEN }}
+          REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
