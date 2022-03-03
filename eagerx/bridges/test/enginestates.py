@@ -1,3 +1,4 @@
+import rospy
 from typing import Optional
 from eagerx.core.entities import EngineState
 import eagerx.core.register as register
@@ -18,5 +19,4 @@ class TestEngineState(EngineState):
         self.test_arg = test_arg
 
     def reset(self, state, done):
-        # print('INSIDE SIMSTATE RESET: (%s, %s)' % (state, done))
-        return
+        rospy.logdebug("INSIDE SIMSTATE RESET: (%s, %s)" % (state, done))
