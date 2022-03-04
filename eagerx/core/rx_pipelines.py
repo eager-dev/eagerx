@@ -684,7 +684,7 @@ def init_bridge(
         ops.share(),
     )
     check_simSS, simSS, simSS_ho = switch_with_check_pipeline()
-    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
+    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho, scheduler=event_scheduler)
 
     # Before starting real_reset procedure, wait for EngineState pipeline to be initialized.
     # This, so that the first time, the engine states are run.
