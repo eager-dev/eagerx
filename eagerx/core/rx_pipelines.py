@@ -680,12 +680,12 @@ def init_bridge(
     # Dynamically initialize new state pipeline
     # todo: CHANGE reset_trigger....
     ResetTrigger = Subject()
-    ss_flags = simstate_inputs.pipe(
-        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),
-        ops.share(),
-    )
-    check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=Subject())
-    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
+    # ss_flags = simstate_inputs.pipe(
+    #     ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),
+    #     ops.share(),
+    # )
+    # check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=Subject())
+    # ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
 
     # Before starting real_reset procedure, wait for EngineState pipeline to be initialized.
     # This, so that the first time, the engine states are run.
@@ -695,8 +695,8 @@ def init_bridge(
     node_outputs.append(end_register)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS).pipe(
-    # rx.zip(check_F_init, check_reactive_proxy, check_NF).pipe(
+    # rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS).pipe(
+    rx.zip(check_F_init, check_reactive_proxy, check_NF).pipe(
         ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64())
     ).subscribe(ER)
 
@@ -814,14 +814,14 @@ def init_bridge(
     )
 
     # Dynamically initialize new state pipeline
-    # check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    # ss_flags = simstate_inputs.pipe(
-    #     ops.zip(simSS.pipe(spy("simSS", node))),
-    #     ops.map(lambda i: i[0]),
-    #     ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node)),
-    #     ops.share(),
-    # )
-    # ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
+    check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    ss_flags = simstate_inputs.pipe(
+        ops.zip(simSS.pipe(spy("simSS", node))),
+        ops.map(lambda i: i[0]),
+        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),
+        ops.share(),
+    )
+    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
 
     ###########################################################################
     # End reset ###############################################################
@@ -835,8 +835,8 @@ def init_bridge(
         ops.zip(
             ss_cl,
             reset_obs,
-            # check_simSS,
-            simSS.pipe(spy("RM-simSS", node)),
+            check_simSS,
+            # simSS.pipe(spy("RM-simSS", node)),
             NF.pipe(spy("NF", node)),
             check_SS,
             check_SS_CL,
@@ -899,34 +899,34 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # msgs = SR.pipe(ops.skip(1), ops.map(node._get_states), ops.share())
     msgs = ER.pipe(ops.map(node._get_states), ops.share())
     for s in state_outputs:
-        # if s["name"] == "obj/N9":
-        #     msgs.pipe(
-        #         ops.pluck(s["name"] + "/done"),
-        #         ops.skip(1),
-        #         trace_observable("done", node),
-        #         ops.share(),
-        #     ).subscribe(s["done"])
-        #
-        #     msgs.pipe(
-        #         filter_dict_on_key(s["name"]),
-        #         ops.skip(1),
-        #         ops.filter(lambda msg: msg is not None),
-        #         ops.map(s["converter"].convert),
-        #         ops.share(),
-        #     ).subscribe(s["msg"])
-        # else:
-        msgs.pipe(
-            ops.pluck(s["name"] + "/done"),
-            trace_observable("done", node),
-            ops.share(),
-        ).subscribe(s["done"])
+        if s["name"] == "obj/N9":
+            msgs.pipe(
+                ops.pluck(s["name"] + "/done"),
+                ops.skip(1),
+                trace_observable("done", node),
+                ops.share(),
+            ).subscribe(s["done"])
 
-        msgs.pipe(
-            filter_dict_on_key(s["name"]),
-            ops.filter(lambda msg: msg is not None),
-            ops.map(s["converter"].convert),
-            ops.share(),
-        ).subscribe(s["msg"])
+            msgs.pipe(
+                filter_dict_on_key(s["name"]),
+                ops.skip(1),
+                ops.filter(lambda msg: msg is not None),
+                ops.map(s["converter"].convert),
+                ops.share(),
+            ).subscribe(s["msg"])
+        else:
+            msgs.pipe(
+                ops.pluck(s["name"] + "/done"),
+                trace_observable("done", node),
+                ops.share(),
+            ).subscribe(s["done"])
+
+            msgs.pipe(
+                filter_dict_on_key(s["name"]),
+                ops.filter(lambda msg: msg is not None),
+                ops.map(s["converter"].convert),
+                ops.share(),
+            ).subscribe(s["msg"])
 
     ###########################################################################
     # Reset ###################################################################
