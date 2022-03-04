@@ -32,6 +32,7 @@ from eagerx.core.rx_operators import (
     get_node_params,
     extract_node_reset,
     throttle_callback_trigger,
+    with_latest_from,
 )
 
 
@@ -316,7 +317,8 @@ def init_node(
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn, f.pipe(spy("F", node)), SS.pipe(spy("SS", node))).pipe(
         spy("RM-RT", node),
-        ops.with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
+        with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
+        # ops.with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
         ops.map(lambda x: x[0][:-1] + (x[1],)),
         spy("RENEW_PIPE", node),
         ops.map(lambda x: x[-1]),
@@ -717,7 +719,8 @@ def init_bridge(
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
     pre_reset_trigger = rx.zip(RRn.pipe(spy("RRn", node)), RRr.pipe(spy("RRr", node)), SS.pipe(spy("SS", node))).pipe(
         spy("RM-RT", node),
-        ops.with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
+        with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
+        # ops.with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
         ops.map(lambda x: x[0][:-1] + (x[1],)),
         ops.map(lambda x: (x, node.pre_reset_cb(**x[-1]))),
         # Run pre-reset callback
