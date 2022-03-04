@@ -32,6 +32,7 @@ from eagerx.core.rx_operators import (
     get_node_params,
     extract_node_reset,
     throttle_callback_trigger,
+    with_latest_from,
 )
 
 
@@ -292,8 +293,10 @@ def init_node(
     # Reset flags
     F = Subject()
     f = rx.merge(F, F_init)
-    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+    ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
+    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=ss_flags)
+    latched_ss_flags = rx.combine_latest(SS_CL, ss_flags).pipe(ops.map(lambda x: x[1]), ops.take(1))
+    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=latched_ss_flags)
 
     # Node ticks
     Rn_ho = BehaviorSubject(BehaviorSubject((0, 0, True)))
@@ -313,7 +316,7 @@ def init_node(
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn, f.pipe(spy("F", node)), SS.pipe(spy("SS", node))).pipe(
-        ops.with_latest_from(SS_CL),
+        with_latest_from(SS_CL),
         ops.map(lambda x: x[0][:-1] + (x[1],)),
         spy("RENEW_PIPE", node),
         ops.map(lambda x: x[-1]),
@@ -528,8 +531,11 @@ def init_bridge(
 
         D = Subject()
         i["done"] = D
-    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
+
+    ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
+    check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=ss_flags)
+    latched_ss_flags = rx.combine_latest(SS_CL, ss_flags).pipe(ops.map(lambda x: x[1]), ops.take(1))
+    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=latched_ss_flags)
 
     # Prepare target_addresses
     df_inputs = []
@@ -671,12 +677,33 @@ def init_bridge(
     check_NF, NF, NF_ho = switch_with_check_pipeline()
     node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node))).subscribe(NF_ho)
 
+    # Dynamically initialize new state pipeline
+    ResetTrigger = Subject()
+    ss_flags = simstate_inputs.pipe(
+        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),
+        ops.share(),
+    )
+    check_simSS, simSS, simSS_ho = switch_with_check_pipeline()
+    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
+
+    # Before starting real_reset procedure, wait for EngineState pipeline to be initialized.
+    # This, so that the first time, the engine states are run.
+    # Some bridges/simulators might require that for setting initial state.
+    ER = Subject()
+    end_register = dict(name="end_register", address=ns + "/end_register", msg=ER, msg_type=UInt64)
+    node_outputs.append(end_register)
+
+    # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
+    rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS).pipe(
+        ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64())
+    ).subscribe(ER)
+
     ###########################################################################
     # Real reset ##############################################################
     ###########################################################################
     # Prepare real_reset output
-    real_reset_output = dict(name="real_reset", address=ns + "/real_reset", msg=RR, msg_type=UInt64)
-    node_outputs.append(real_reset_output)
+    real_reset_input = dict(name="real_reset", address=ns + "/real_reset", msg=RR, msg_type=UInt64)
+    node_inputs.append(real_reset_input)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
     rx.zip(check_F_init, check_reactive_proxy, check_NF).pipe(
@@ -686,7 +713,7 @@ def init_bridge(
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
     pre_reset_trigger = rx.zip(RRn.pipe(spy("RRn", node)), RRr.pipe(spy("RRr", node)), SS.pipe(spy("SS", node))).pipe(
-        ops.with_latest_from(SS_CL),
+        with_latest_from(SS_CL),
         ops.map(lambda x: x[0][:-1] + (x[1],)),
         ops.map(lambda x: (x, node.pre_reset_cb(**x[-1]))),
         # Run pre-reset callback
@@ -713,7 +740,7 @@ def init_bridge(
     # Send reset message
     RM.subscribe(R)
     Rr = R.pipe(ops.map(lambda x: True))
-    reset_trigger = rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(ops.share())
+    rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(ops.share()).subscribe(ResetTrigger)
 
     # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
     [RM.subscribe(o["reset"]) for o in outputs]
@@ -728,7 +755,7 @@ def init_bridge(
     # Dynamically initialize new input pipeline
     check_Nct, Nct, Nct_ho = switch_with_check_pipeline()
     inputs_flags = inputs.pipe(
-        ops.zip(reset_trigger),
+        ops.zip(ResetTrigger),
         ops.map(lambda i: i[0]),
         ops.map(
             lambda inputs: init_channels(
@@ -783,16 +810,6 @@ def init_bridge(
         ops.share(),
     )
 
-    # Dynamically initialize new state pipeline
-    check_simSS, simSS, simSS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    ss_flags = simstate_inputs.pipe(
-        ops.zip(simSS.pipe(spy("simSS", node))),
-        ops.map(lambda i: i[0]),
-        ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node)),
-        ops.share(),
-    )
-    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
-
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
@@ -805,7 +822,7 @@ def init_bridge(
         ops.zip(
             ss_cl,
             reset_obs,
-            check_simSS,
+            simSS,
             NF.pipe(spy("NF", node)),
             check_SS,
             check_SS_CL,
@@ -856,8 +873,17 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     start_reset = dict(name="start_reset", address=ns + "/start_reset", msg=Subject(), msg_type=UInt64)
     SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
 
+    ###########################################################################
+    # End register ############################################################
+    ###########################################################################
+    ER = Subject()
+    end_register = dict(name="reset", address=ns + "/end_register", msg_type=UInt64, msg=ER)
+    real_reset = dict(name="real_reset", address=ns + "/real_reset", msg=Subject(), msg_type=UInt64)
+    ER.subscribe(real_reset["msg"])
+
     # Publish state msgs
-    msgs = SR.pipe(ops.skip(1), ops.map(node._get_states), ops.share())
+    # msgs = SR.pipe(ops.skip(1), ops.map(node._get_states), ops.share())
+    msgs = ER.pipe(ops.map(node._get_states), ops.share())
     for s in state_outputs:
         msgs.pipe(
             ops.pluck(s["name"] + "/done"),
@@ -919,8 +945,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
 
     # Create node inputs & outputs
-    node_inputs = [reset, end_reset]
-    node_outputs = [register_object, register_node, start_reset, tick, node_reset]
+    node_inputs = [reset, end_reset, end_register]
+    node_outputs = [register_object, register_node, start_reset, tick, node_reset, real_reset]
     outputs = []
 
     # Create return objects

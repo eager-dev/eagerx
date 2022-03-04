@@ -853,7 +853,9 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
             )
 
             done, reset = trigger.pipe(
-                ops.with_latest_from(c),
+                with_latest_from(c),
+                ops.take(1),
+                ops.merge(rx.never()),
                 ops.map(lambda x: x[1]),
                 ops.partition(lambda x: x.info.done),
             )
@@ -1273,3 +1275,60 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, s
             ops.share(),
         )
     return Nct
+
+
+def with_latest_from(*sources: Observable):
+    def _with_latest_from(parent: Observable) -> Observable:
+        NO_VALUE = NotSet()
+
+        def subscribe(observer, scheduler=None):
+            def subscribe_all(parent, *children):
+                parent_queued = [None]
+                values = [NO_VALUE for _ in children]
+
+                def subscribe_child(i, child):
+                    subscription = SingleAssignmentDisposable()
+
+                    def on_next(value):
+                        with parent.lock:
+                            values[i] = value
+                            if parent_queued[0] is not None and NO_VALUE not in values:
+                                result = (parent_queued[0],) + tuple(values)
+                                parent_queued[0] = None
+                                observer.on_next(result)
+
+                    subscription.disposable = child.subscribe_(on_next, observer.on_error, scheduler=scheduler)
+                    return subscription
+
+                parent_subscription = SingleAssignmentDisposable()
+
+                def on_next(value):
+                    with parent.lock:
+                        if NO_VALUE not in values:
+                            result = (value,) + tuple(values)
+                            observer.on_next(result)
+                        else:
+                            parent_queued[0] = value
+
+                disp = parent.subscribe_(on_next, observer.on_error, observer.on_completed, scheduler)
+                parent_subscription.disposable = disp
+
+                children_subscription = [subscribe_child(i, child) for i, child in enumerate(children)]
+
+                return [parent_subscription] + children_subscription
+
+            return CompositeDisposable(subscribe_all(parent, *sources))
+
+        return Observable(subscribe)
+
+    return _with_latest_from
+
+
+class NotSet:
+    """Sentinel value."""
+
+    def __eq__(self, other):
+        return self is other
+
+    def __repr__(self):
+        return "NotSet"

@@ -307,8 +307,11 @@ class Env(gym.Env):
             observation[name] = buffer["msgs"]
         return observation
 
-    def _initialize(self) -> None:
+    def _initialize(self, states: Dict) -> None:
         assert not self.initialized, "Environment already initialized. Cannot re-initialize pipelines. "
+
+        # Set desired reset states
+        self._set_state(states)
 
         # Wait for nodes to be initialized
         [node.node_initialized() for name, node in self.supervisor_node.sp_nodes.items()]
@@ -330,7 +333,7 @@ class Env(gym.Env):
         assert not self.has_shutdown, "This environment has been shutdown."
         # Initialize environment
         if not self.initialized:
-            self._initialize()
+            self._initialize(states)
 
         # Set desired reset states
         self._set_state(states)

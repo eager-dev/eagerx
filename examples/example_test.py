@@ -2,8 +2,6 @@
 from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
-initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
-
 # Environment imports
 from eagerx.core.env import EagerEnv
 from eagerx.core.graph import Graph
@@ -166,10 +164,10 @@ if __name__ == "__main__":
         rate=rate,
         graph=graph,
         bridge=bridge,
-        reset_fn=lambda env: {
-            "obj/N9": env.state_space.sample()["obj/N9"],
-            "bridge/param_1": env.state_space.sample()["bridge/param_1"],
-        },
+        # reset_fn=lambda env: {
+        #     "obj/N9": env.state_space.sample()["obj/N9"],
+        #     "bridge/param_1": env.state_space.sample()["bridge/param_1"],
+        # },
     )
     env = Flatten(env)
 
