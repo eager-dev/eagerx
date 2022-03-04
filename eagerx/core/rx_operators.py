@@ -856,7 +856,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
 
             done, reset = trigger.pipe(
                 spy("RM-s-RT", node),
-                ops.with_latest_from(c.pipe(spy("RM-s-WLF", node))),
+                ops.with_latest_from(c.pipe(ops.start_with("TEST"), spy("RM-s-WLF", node))),
                 spy("RM-s-after", node),
                 ops.map(lambda x: x[1]),
                 ops.partition(lambda x: x.info.done),
