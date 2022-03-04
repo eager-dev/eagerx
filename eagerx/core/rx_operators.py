@@ -850,13 +850,19 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
                 ops.combine_latest(d),
+                spy("RM-sd", node),
                 ops.filter(lambda x: x[0][0] >= 0 or x[1]),
                 remap_state(s["name"], node.is_reactive, node.real_time_factor),
             )
 
             done, reset = trigger.pipe(
                 spy("RM-s-RT", node),
-                ops.with_latest_from(c.pipe(ops.start_with("TEST"), spy("RM-s-WLF", node))),
+                # ops.combine_latest(c.pipe(ops.take(1), ops.merge(rx.never()))),
+                # ops.map(lambda x: x[0]),
+                # ops.with_latest_from(c.pipe(ops.start_with("TEST"), spy("RM-s-WLF", node))),
+                ops.combine_latest(c.pipe(spy("RM-s-WLF", node))),
+                ops.take(1),
+                ops.merge(rx.never()),
                 spy("RM-s-after", node),
                 ops.map(lambda x: x[1]),
                 ops.partition(lambda x: x.info.done),
