@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "eagerx"
-version = "0.1.2"
+version = "0.1.4"
 description = "Engine Angostic Gym Environments for Robotics"
 authors = ["Bas van der Heijden <d.s.vanderheijden@tudelft.nl>", "Jelle Luijkx <j.d.luijkx@tudelft.nl>"]
 license = "Apache2.0"
@@ -38,3 +38,13 @@ pytest-timeout = "^2.1.0"
 [build-system]
 requires = ["poetry-core~=1.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.semantic_release]
+version_variable = [
+    "eagerx/__init__.py:__version__",
+    "pyproject.toml:version"
+]
+branch = "master"
+upload_to_pypi = true
+upload_to_release = true
+build_command = "pip install poetry && poetry build"
