@@ -92,246 +92,246 @@ jobs:
       #----------------------------------------------
       #    add matrix specifics and run test suite
       #----------------------------------------------
-      - name: Run example 1
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 2
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 3
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 4
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 5
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 6
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 7
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 8
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 9
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 10
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 11
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 12
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 13
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 14
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 15
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 16
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 17
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 18
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 19
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 20
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 31
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 32
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 33
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 34
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 35
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 36
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 37
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 38
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 39
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 40
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 1
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 2
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 3
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 4
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 5
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 6
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 7
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 8
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 9
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 10
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 11
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 12
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 13
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 14
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 15
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 16
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 17
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 18
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 19
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 20
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 31
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 32
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 33
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 34
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 35
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 36
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 37
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 38
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 39
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
-      - name: Run example 40
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 1
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 2
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 3
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 4
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 5
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 6
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 7
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 8
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 9
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 10
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 11
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 12
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 13
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 14
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 15
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 16
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 17
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 18
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 19
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 20
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 31
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 32
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 33
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 34
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 35
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 36
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 37
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 38
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 39
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 40
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 1
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 2
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 3
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 4
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 5
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 6
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 7
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 8
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 9
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 10
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 11
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 12
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 13
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 14
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 15
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 16
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 17
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 18
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 19
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 20
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 31
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 32
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 33
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 34
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 35
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 36
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 37
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 38
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 39
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
+#      - name: Run example 40
+#        run: |
+#          source .venv/bin/activate
+#          poetry run python ./examples/example_graph_engine.py
       #----------------------------------------------
       #    add matrix specifics and run test suite
       #----------------------------------------------
