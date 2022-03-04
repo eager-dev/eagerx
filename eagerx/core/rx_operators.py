@@ -857,10 +857,11 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
 
             done, reset = trigger.pipe(
                 spy("RM-s-RT", node),
+                with_latest_from(c.pipe(spy("RM-s-WLF", node))),
                 # ops.combine_latest(c.pipe(ops.take(1), ops.merge(rx.never()))),
                 # ops.map(lambda x: x[0]),
                 # ops.with_latest_from(c.pipe(ops.start_with("TEST"), spy("RM-s-WLF", node))),
-                ops.combine_latest(c.pipe(spy("RM-s-WLF", node))),
+                # ops.combine_latest(c.pipe(spy("RM-s-WLF", node))),
                 ops.take(1),
                 ops.merge(rx.never()),
                 spy("RM-s-after", node),
@@ -1283,3 +1284,172 @@ def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, s
             ops.share(),
         )
     return Nct
+
+
+def with_latest_from(*sources: Observable):
+    def _with_latest_from(parent: Observable) -> Observable:
+        NO_VALUE = NotSet()
+
+        def subscribe(observer, scheduler=None):
+
+            def subscribe_all(parent, *children):
+                parent_queued = [None]
+                values = [NO_VALUE for _ in children]
+
+                def subscribe_child(i, child):
+                    subscription = SingleAssignmentDisposable()
+
+                    def on_next(value):
+                        with parent.lock:
+                            values[i] = value
+                            if parent_queued[0] is not None and NO_VALUE not in values:
+                                result = (parent_queued[0],) + tuple(values)
+                                parent_queued[0] = None
+                                observer.on_next(result)
+                    subscription.disposable = child.subscribe_(on_next, observer.on_error, scheduler=scheduler)
+                    return subscription
+
+                parent_subscription = SingleAssignmentDisposable()
+
+                def on_next(value):
+                    with parent.lock:
+                        if NO_VALUE not in values:
+                            result = (value,) + tuple(values)
+                            observer.on_next(result)
+                        else:
+                            parent_queued[0] = value
+
+
+                disp = parent.subscribe_(on_next, observer.on_error, observer.on_completed, scheduler)
+                parent_subscription.disposable = disp
+
+                children_subscription = [subscribe_child(i, child) for i, child in enumerate(children)]
+
+                return [parent_subscription] + children_subscription
+            return CompositeDisposable(subscribe_all(parent, *sources))
+        return Observable(subscribe)
+    return _with_latest_from
+
+
+class NotSet:
+    """Sentinel value."""
+
+    def __eq__(self, other):
+        return self is other
+
+    def __repr__(self):
+        return 'NotSet'
+
+
+# def generate_msgs(
+#     source_Nc: Observable,
+#     rate_node: float,
+#     name: str,
+#     rate_in: float,
+#     params: dict,
+#     is_reactive: bool,
+#     real_time_factor: float,
+#     simulate_delays: bool,
+#     node=None,
+# ):
+#     dt_i = 1 / rate_in
+#
+#     def _generate_msgs(source_msg: Observable):
+#         window = params["window"]
+#         skip = int(params["skip"])
+#
+#         def subscribe(observer: typing.Observer, scheduler: Optional[typing.Scheduler] = None) -> CompositeDisposable:
+#             start = time.time()
+#             msgs_queue: List = []
+#             t_i_queue: List = []
+#             num_queue: List = []
+#             tick_queue: List = []
+#             msgs_window = deque(maxlen=window)
+#             t_i_window = deque(maxlen=window)
+#             t_n_window = deque(maxlen=window)
+#             lock = RLock()
+#
+#             @synchronized(lock)
+#             def next(i):
+#                 if len(tick_queue) > 0:
+#                     if not is_reactive or len(msgs_queue) >= num_queue[0]:
+#                         try:
+#                             tick = tick_queue.pop(0)
+#                             if is_reactive:
+#                                 # determine num_msgs
+#                                 num_msgs = num_queue.pop(0)
+#                                 msgs = msgs_queue[:num_msgs]
+#                                 t_i = t_i_queue[:num_msgs]
+#                                 msgs_queue[:] = msgs_queue[num_msgs:]
+#                                 t_i_queue[:] = t_i_queue[num_msgs:]
+#                             else:  # Empty complete buffer
+#                                 msgs = msgs_queue.copy()
+#                                 t_i = t_i_queue.copy()
+#                                 msgs_queue[:] = []
+#                                 t_i_queue[:] = []
+#                         except Exception as ex:  # pylint: disable=broad-except
+#                             observer.on_error(ex)
+#                             return
+#
+#                         # Determine t_n stamp
+#                         wc_stamp = time.time()
+#                         seq = tick
+#                         if is_reactive:
+#                             sim_stamp = round(tick / rate_node, 12)
+#                         else:
+#                             sim_stamp = (wc_stamp - start) / real_time_factor
+#                         t_n = Stamp(seq, sim_stamp, wc_stamp)
+#
+#                         if window > 0:
+#                             msgs_window.extend(msgs)
+#                             t_i_window.extend(t_i)
+#                             t_n_window.extend([t_n] * len(msgs))
+#                             wmsgs = list(msgs_window)
+#                             wt_i = list(t_i_window)
+#                             wt_n = list(t_n_window)
+#                         else:
+#                             wmsgs = msgs
+#                             wt_i = t_i
+#                             wt_n = [t_n] * len(msgs)
+#                         res = Msg(Info(name, tick, rate_in, wt_n, wt_i, None), wmsgs)
+#                         observer.on_next(res)
+#
+#             # Determine Nc logic
+#             def on_next_Nc(x):
+#                 if is_reactive:
+#                     # Caculate expected number of message to be received
+#                     delay = params["delay"] if simulate_delays else 0.0
+#                     num_msgs = expected_inputs(x - skip, rate_in, rate_node, delay)
+#                     num_queue.append(num_msgs)
+#                 tick_queue.append(x)
+#                 next(x)
+#
+#             subscriptions = []
+#             sad = SingleAssignmentDisposable()
+#             sad.disposable = source_Nc.subscribe(on_next_Nc, observer.on_error, observer.on_completed, scheduler)
+#             subscriptions.append(sad)
+#
+#             def on_next_msg(x):
+#                 msgs_queue.append(x[1])
+#                 wc_stamp = time.time()
+#                 seq = x[0]
+#                 if is_reactive:
+#                     sim_stamp = round(x[0] * dt_i, 12)
+#                 else:
+#                     sim_stamp = (wc_stamp - start) / real_time_factor
+#                 t_i_queue.append(Stamp(seq, sim_stamp, wc_stamp))
+#                 next(x)
+#
+#             sad = SingleAssignmentDisposable()
+#             if not is_reactive and simulate_delays:
+#                 source_msg_delayed = source_msg.pipe(ops.delay(params["delay"] / real_time_factor))
+#             else:
+#                 source_msg_delayed = source_msg
+#             sad.disposable = source_msg_delayed.subscribe(on_next_msg, observer.on_error, observer.on_completed, scheduler)
+#             subscriptions.append(sad)
+#
+#             return CompositeDisposable(subscriptions)
+#
+#         return rx.create(subscribe)
+#
+#     return _generate_msgs
