@@ -1282,7 +1282,6 @@ def with_latest_from(*sources: Observable):
         NO_VALUE = NotSet()
 
         def subscribe(observer, scheduler=None):
-
             def subscribe_all(parent, *children):
                 parent_queued = [None]
                 values = [NO_VALUE for _ in children]
@@ -1297,6 +1296,7 @@ def with_latest_from(*sources: Observable):
                                 result = (parent_queued[0],) + tuple(values)
                                 parent_queued[0] = None
                                 observer.on_next(result)
+
                     subscription.disposable = child.subscribe_(on_next, observer.on_error, scheduler=scheduler)
                     return subscription
 
@@ -1310,15 +1310,17 @@ def with_latest_from(*sources: Observable):
                         else:
                             parent_queued[0] = value
 
-
                 disp = parent.subscribe_(on_next, observer.on_error, observer.on_completed, scheduler)
                 parent_subscription.disposable = disp
 
                 children_subscription = [subscribe_child(i, child) for i, child in enumerate(children)]
 
                 return [parent_subscription] + children_subscription
+
             return CompositeDisposable(subscribe_all(parent, *sources))
+
         return Observable(subscribe)
+
     return _with_latest_from
 
 
@@ -1329,4 +1331,4 @@ class NotSet:
         return self is other
 
     def __repr__(self):
-        return 'NotSet'
+        return "NotSet"
