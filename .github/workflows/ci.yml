@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [ master, fix_reset_3rd]
+    branches: [ master, fix_reset_wlf]
   pull_request:
     branches: [ master ]
 
@@ -43,17 +43,17 @@ jobs:
       #----------------------------------------------
       #       load cached venv if cache exists
       #----------------------------------------------
-#      - name: Load cached venv
-#        id: cached-poetry-dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: .venv
-#          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
       #----------------------------------------------
       # install dependencies if cache does not exist
       #----------------------------------------------
       - name: Install dependencies
-#        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
       #----------------------------------------------
       # install your root project, if required
@@ -63,12 +63,12 @@ jobs:
       #----------------------------------------------
       # check codestyle & lint
       #----------------------------------------------
-#      - name: Check codestyle
-#        run: |
-#          make check-codestyle
-#      - name: Lint with flake8
-#        run: |
-#          make lint
+      - name: Check codestyle
+        run: |
+          make check-codestyle
+      - name: Lint with flake8
+        run: |
+          make lint
       #----------------------------------------------
       #  -----  install & configure ROS  -----
       #----------------------------------------------
@@ -84,269 +84,14 @@ jobs:
       #----------------------------------------------
       # Build docs
       #----------------------------------------------
-#      - name: Build the doc
-#        run: |
-#          sudo apt-get install python3-sphinx
-#          source .venv/bin/activate
-#          make doc
+      - name: Build the doc
+        run: |
+          sudo apt-get install python3-sphinx
+          source .venv/bin/activate
+          make doc
       #----------------------------------------------
       #    add matrix specifics and run test suite
       #----------------------------------------------
-      - name: Run example 1
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 2
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 3
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 4
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 5
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 6
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 7
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 8
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 9
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 10
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 11
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 12
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 13
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 14
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 15
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 16
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 17
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 18
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 19
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 20
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 31
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 32
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 33
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 34
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 35
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 36
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 37
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 38
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 39
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_openai.py
-      - name: Run example 40
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 1
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 2
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 3
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 4
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 5
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 6
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 7
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 8
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 9
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 10
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 11
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 12
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 13
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 14
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 15
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 16
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 17
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 18
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 19
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 20
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 31
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 32
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 33
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 34
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 35
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 36
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 37
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 38
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 39
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      - name: Run example 40
-        run: |
-          source .venv/bin/activate
-          poetry run python ./examples/example_debug_test.py
-      #----------------------------------------------
-      #    add matrix specifics and run test suite
-      #----------------------------------------------
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          make pytest
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          make pytest
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          make pytest
       - name: Run tests
         run: |
           source .venv/bin/activate
@@ -354,7 +99,7 @@ jobs:
       #----------------------------------------------
       #    upload code coverage to CodeClimate
       #----------------------------------------------
-#      - name: Publish code coverage to CodeClimate
-#        uses: paambaati/codeclimate-action@v2.7.5
-#        env:
-#          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+      - name: Publish code coverage to CodeClimate
+        uses: paambaati/codeclimate-action@v2.7.5
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
