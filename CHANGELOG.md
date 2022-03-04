@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.5 (2022-03-04)
+### Fix
+* Pipeline initialization with state reset ([#107](https://github.com/eager-dev/eagerx/issues/107)) ([`529c2da`](https://github.com/eager-dev/eagerx/commit/529c2da49c3986daa99f453ab36726e922106ddb))
+
 ## v0.1.4 (2022-03-03)
 ### Fix
 * **ci:** Remove incorrect permissions ([#106](https://github.com/eager-dev/eagerx/issues/106)) ([`eafb7bc`](https://github.com/eager-dev/eagerx/commit/eafb7bcc12390a42049d216f32a15e9ed05866b2))
