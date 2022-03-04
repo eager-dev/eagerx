@@ -70,7 +70,9 @@ EAGERx is currently maintained by Bas van der Heijden (`@bheijden <https://githu
 
 How to contact us
 =================
-For any question, drop an e-mail at d.s.vanderheijden@tudelft.nl.
+Follow us on Twitter `@EagerxD <https://twitter.com/EagerxD>`_!
+
+For any question, send an e-mail to eagerx.dev@gmail.com.
 
 Acknowledgements
 ================

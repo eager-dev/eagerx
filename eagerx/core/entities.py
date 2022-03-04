@@ -86,7 +86,7 @@ class BaseNode(Entity):
         *args,
         executable=None,
         color: str = "grey",
-        print_mode: int = 2,
+        print_mode: int = TERMCOLOR,
         log_level: int = ERROR,
         log_level_memory: int = SILENT,
         **kwargs,
