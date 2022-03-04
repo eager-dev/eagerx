@@ -292,11 +292,10 @@ def init_node(
     # Reset flags
     F = Subject()
     f = rx.merge(F, F_init)
-    # check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    # check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
     ss_flags = init_state_inputs_channel(ns, state_inputs, event_scheduler, node=node)
-    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=ss_flags.pipe(ops.take(1)))
     check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=ss_flags)
+    latched_ss_flags = rx.combine_latest(SS_CL, ss_flags).pipe(ops.map(lambda x: x[1]), ops.take(1))
+    check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=latched_ss_flags)
 
     # Node ticks
     Rn_ho = BehaviorSubject(BehaviorSubject((0, 0, True)))
@@ -316,7 +315,8 @@ def init_node(
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn, f.pipe(spy("F", node)), SS.pipe(spy("SS", node))).pipe(
-        ops.with_latest_from(SS_CL),
+        spy("RM-RT", node),
+        ops.with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
         ops.map(lambda x: x[0][:-1] + (x[1],)),
         spy("RENEW_PIPE", node),
         ops.map(lambda x: x[-1]),
@@ -681,6 +681,7 @@ def init_bridge(
     node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node))).subscribe(NF_ho)
 
     # Dynamically initialize new state pipeline
+    # todo: CHANGE reset_trigger....
     # ss_flags = simstate_inputs.pipe(
     #     ops.map(lambda s: init_state_resets(ns, s, reset_trigger, event_scheduler, node)),
     #     ops.share(),

@@ -2,8 +2,6 @@
 from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
-initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
-
 # Environment imports
 from eagerx.core.env import EagerEnv
 from eagerx.core.graph import Graph
