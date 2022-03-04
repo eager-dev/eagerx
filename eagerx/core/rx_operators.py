@@ -843,6 +843,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
+                spy("RM-s", node),
                 ops.map(s["converter"].convert),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
@@ -853,6 +854,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
             )
 
             done, reset = trigger.pipe(
+                spy("RM-s-RT", node),
                 ops.with_latest_from(c),
                 ops.map(lambda x: x[1]),
                 ops.partition(lambda x: x.info.done),

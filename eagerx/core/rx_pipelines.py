@@ -537,9 +537,6 @@ def init_bridge(
     latched_ss_flags = rx.combine_latest(SS_CL, ss_flags).pipe(ops.map(lambda x: x[1]), ops.take(1))
     check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=latched_ss_flags)
 
-    # check_SS, SS, SS_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-    # check_SS_CL, SS_CL, SS_CL_ho = switch_with_check_pipeline(init_ho=BehaviorSubject(dict()))
-
     # Prepare target_addresses
     df_inputs = []
     dfs = []
@@ -717,7 +714,8 @@ def init_bridge(
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
     pre_reset_trigger = rx.zip(RRn.pipe(spy("RRn", node)), RRr.pipe(spy("RRr", node)), SS.pipe(spy("SS", node))).pipe(
-        ops.with_latest_from(SS_CL),
+        spy("RM-RT", node),
+        ops.with_latest_from(SS_CL.pipe(spy("RM-SS_CL", node))),
         ops.map(lambda x: x[0][:-1] + (x[1],)),
         ops.map(lambda x: (x, node.pre_reset_cb(**x[-1]))),
         # Run pre-reset callback
@@ -744,7 +742,7 @@ def init_bridge(
     # Send reset message
     RM.subscribe(R)
     Rr = R.pipe(ops.map(lambda x: True))
-    reset_trigger = rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(ops.share())
+    reset_trigger = rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(spy("RM-b-RT", node), ops.share())
 
     # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
     [RM.subscribe(o["reset"]) for o in outputs]
