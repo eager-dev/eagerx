@@ -678,6 +678,7 @@ def init_bridge(
     node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node))).subscribe(NF_ho)
 
     # Dynamically initialize new state pipeline
+    # todo: ResetTrigger must be latched on receiving state. Else trigger has lready passed, before state has been receied.
     ResetTrigger = Subject()
     ss_flags = simstate_inputs.pipe(
         ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),

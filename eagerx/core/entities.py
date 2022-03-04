@@ -160,7 +160,7 @@ class BaseNode(Entity):
             outputs=[],
             states=[],
             color="grey",
-            print_mode=2,
+            print_mode=TERMCOLOR,
             log_level=ERROR,
             log_level_memory=SILENT,
             executable=None,
