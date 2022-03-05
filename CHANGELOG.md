@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.6 (2022-03-05)
+### Fix
+* Argvs for executables ([#108](https://github.com/eager-dev/eagerx/issues/108)) ([`b4beb53`](https://github.com/eager-dev/eagerx/commit/b4beb539b5a2c88ad0ea801feabe324e4eb020bc))
+
 ## v0.1.5 (2022-03-04)
 ### Fix
 * Pipeline initialization with state reset ([#107](https://github.com/eager-dev/eagerx/issues/107)) ([`529c2da`](https://github.com/eager-dev/eagerx/commit/529c2da49c3986daa99f453ab36726e922106ddb))
