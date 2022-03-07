@@ -550,7 +550,6 @@ class ObjectSpec(EntitySpec):
 
         # Sensors & actuators
         sensor_addresses = dict()
-        rates = dict()
         dependencies = []
         for obj_comp in ["actuators", "sensors"]:
             for obj_cname in default[obj_comp]:
@@ -600,10 +599,12 @@ class ObjectSpec(EntitySpec):
             try:
                 for entry in specific["actuators"][cname]:
                     node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
-                    msg = f'There appears to be a dependency on enginenode "{node_name}" for the implementation of ' \
-                          f'bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is ' \
-                          f'directly tied to an unselected actuator "{cname}". ' \
-                          "The actuator must be selected to resolve the graph."
+                    msg = (
+                        f'There appears to be a dependency on enginenode "{node_name}" for the implementation of '
+                        f'bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is '
+                        f'directly tied to an unselected actuator "{cname}". '
+                        "The actuator must be selected to resolve the graph."
+                    )
                     assert node_name not in dependencies, msg
             except KeyError:
                 # We pass here, because if cname is not selected, but also not implemented,

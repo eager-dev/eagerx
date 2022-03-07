@@ -189,15 +189,18 @@ class BaseNode(Entity):
             for cname in spec.config[component]:
                 c = getattr(spec, component)
 
-                assert (
-                    cname in getattr(spec, component)
-                ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
+                assert cname in c, (
+                    f'Cname "{cname}" was selected for node "{name}", '
+                    f'but it has no implementation. Check the spec of "{entity_id}".'
+                )
 
         # Check that all states have a space_converter
         for cname in spec.config.states:
             sc = getattr(spec.states, cname).space_converter
-            assert sc is not None, f'State "{cname}" was selected for node "{name}", ' \
-                                   f'but it has no space_converter. Check the spec of "{entity_id}".'
+            assert sc is not None, (
+                f'State "{cname}" was selected for node "{name}", '
+                f'but it has no space_converter. Check the spec of "{entity_id}".'
+            )
 
     @abc.abstractmethod
     def initialize(self, *args, **kwargs):
@@ -928,8 +931,10 @@ class Object(Entity):
         # Check that all selected states have a space_converter
         for cname in spec.config.states:
             sc = getattr(spec.states, cname).space_converter
-            assert sc is not None, f'State "{cname}" was selected for node "{name}", ' \
-                                   f'but it has no space_converter. Check the spec of "{entity_id}".'
+            assert sc is not None, (
+                f'State "{cname}" was selected for node "{name}", '
+                f'but it has no space_converter. Check the spec of "{entity_id}".'
+            )
 
 
 class BaseConverter(Entity):

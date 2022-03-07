@@ -554,7 +554,8 @@ class EngineGraph:
             address = EngineGraph._get_address(source, target)
             if source_name == "actuators":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["actuators"][source_cname]]
-                if source_cname not in actuators: actuators[source_cname] = []
+                if source_cname not in actuators:
+                    actuators[source_cname] = []
                 entry = {
                     "name": f"$(ns obj_name)/{target_name}",
                     "component": target_comp,
@@ -566,7 +567,8 @@ class EngineGraph:
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             if target_name == "sensors":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["sensors"][target_cname]]
-                if target_cname not in sensors: sensors[target_cname] = []
+                if target_cname not in sensors:
+                    sensors[target_cname] = []
                 entry = {
                     "name": f"$(ns obj_name)/{source_name}",
                     "component": source_comp,
