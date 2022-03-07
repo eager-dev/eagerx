@@ -84,9 +84,7 @@ class Arm(Object):
         Arm.agnostic(spec, rate=15)
 
     @staticmethod
-    @register.bridge(
-        entity_id, TestBridgeNode
-    )  # This decorator pre-initializes bridge implementation with default object_params
+    @register.bridge(entity_id, TestBridgeNode)
     def test_bridge(spec: ObjectSpec, graph: EngineGraph):
         """Engine-specific implementation of the Arm with the test bridge."""
         # Set bridge_config
@@ -100,7 +98,7 @@ class Arm(Object):
         N6 = EngineNode.make(
             "TestSensor",
             "N6",
-            rate=1,
+            rate=spec.sensors.N6.rate,
             process=2,
             inputs=["tick", "in_1"],
             outputs=["out_1"],
@@ -110,7 +108,7 @@ class Arm(Object):
         N7 = EngineNode.make(
             "TestSensor",
             "N7",
-            rate=1,
+            rate=spec.sensors.N7.rate,
             process=2,
             inputs=["tick", "in_1"],
             outputs=["out_1"],
@@ -122,7 +120,7 @@ class Arm(Object):
         N8 = EngineNode.make(
             "TestActuator",
             "N8",
-            rate=1,
+            rate=spec.actuators.N8.rate,
             process=2,
             inputs=["tick", "in_2", "in_3"],
             outputs=["out_1"],
@@ -132,7 +130,7 @@ class Arm(Object):
         ref_vel = EngineNode.make(
             "TestActuator",
             "ref_vel",
-            rate=1,
+            rate=spec.actuators.ref_vel.rate,
             process=2,
             inputs=["tick", "in_1", "in_2"],
             outputs=["out_1"],
@@ -249,6 +247,20 @@ class Arm(Object):
         graph.disconnect(source=N8.outputs.out_1, target=N7.inputs.in_1)
         graph.connect(source=N8.outputs.out_1, target=N7.inputs.in_1, skip=True)
 
+        # Connect multiple engine nodes to same actuator
+        N11 = EngineNode.make(
+            "TestActuator",
+            "N11",
+            rate=spec.actuators.N8.rate,
+            process=2,
+            inputs=["tick", "in_3"],
+            outputs=["out_1"],
+            test_arg=spec.config.test_string,
+            color="green",
+        )
+        graph.add(N11)
+        graph.connect(actuator="N8", target=N11.inputs.in_3)
+
 
 class Viper(Arm):
     entity_id = "Viper"
@@ -291,9 +303,7 @@ class Viper(Arm):
         Viper.agnostic(spec, rate=15)
 
     @staticmethod
-    @register.bridge(
-        entity_id, TestBridgeNode
-    )  # This decorator pre-initializes bridge implementation with default object_params
+    @register.bridge(entity_id, TestBridgeNode)
     def test_bridge(spec: ObjectSpec, graph: EngineGraph):
         """Engine-specific implementation of the Viper with the test bridge."""
         # Set object arguments
@@ -308,7 +318,7 @@ class Viper(Arm):
         N6 = EngineNode.make(
             "TestSensor",
             "N6",
-            rate=1,
+            rate=spec.sensors.N6.rate,
             process=2,
             inputs=["tick", "in_1"],
             outputs=["out_1"],
@@ -318,7 +328,7 @@ class Viper(Arm):
         N7 = EngineNode.make(
             "TestSensor",
             "N7",
-            rate=1,
+            rate=spec.sensors.N7.rate,
             process=2,
             inputs=["tick", "in_1"],
             outputs=["out_1"],
@@ -330,7 +340,7 @@ class Viper(Arm):
         N8 = EngineNode.make(
             "TestActuator",
             "N8",
-            rate=1,
+            rate=spec.actuators.N8.rate,
             process=2,
             inputs=["tick", "in_2", "in_3"],
             outputs=["out_1"],
@@ -340,7 +350,7 @@ class Viper(Arm):
         ref_vel = EngineNode.make(
             "TestActuator",
             "ref_vel",
-            rate=1,
+            rate=spec.actuators.ref_vel.rate,
             process=2,
             inputs=["tick", "in_1", "in_2"],
             outputs=["out_1"],

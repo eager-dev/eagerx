@@ -129,11 +129,17 @@ def substitute_args(
     if isinstance(param, dict):
         for key in param:
             # If the value is of type `(Ordered)dict`, then recurse with the value
-            if isinstance(param[key], dict):
+            if isinstance(param[key], (dict, list)):
                 substitute_args(param[key], context, only=only)
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
                 param[key] = resolve_args(param[key], context, only=only)
+    elif isinstance(param, list):
+        for idx, i in enumerate(param):
+            if isinstance(i, (dict, list)):
+                substitute_args(i, context, only=only)
+            elif isinstance(i, str):
+                param[idx] = resolve_args(i, context, only=only)
     return param
 
 

@@ -90,15 +90,15 @@ class GymObject(Object):
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
-        obs = EngineNode.make("ObservationSensor", "obs", rate=None, process=2)
-        rwd = EngineNode.make("RewardSensor", "rwd", rate=None, process=2)
-        done = EngineNode.make("DoneSensor", "done", rate=None, process=2)
+        obs = EngineNode.make("ObservationSensor", "obs", rate=spec.sensors.observation.rate, process=2)
+        rwd = EngineNode.make("RewardSensor", "rwd", rate=spec.sensors.reward.rate, process=2)
+        done = EngineNode.make("DoneSensor", "done", rate=spec.sensors.done.rate, process=2)
         image = EngineNode.make(
             "GymImage",
             "image",
             shape=spec.config.render_shape,
             always_render=spec.config.always_render,
-            rate=None,
+            rate=spec.sensors.image.rate,
             process=2,
         )
 
@@ -107,7 +107,7 @@ class GymObject(Object):
         action = EngineNode.make(
             "ActionActuator",
             "action",
-            rate=None,
+            rate=spec.actuators.action.rate,
             process=2,
             zero_action=spec.config.default_action,
         )

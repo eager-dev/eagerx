@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [ master, fix_reset_wlf]
+    branches: [ master, refactor_object_api]
   pull_request:
     branches: [ master ]
 

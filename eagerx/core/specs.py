@@ -552,65 +552,59 @@ class ObjectSpec(EntitySpec):
         sensor_addresses = dict()
         rates = dict()
         dependencies = []
-        for obj_comp in ["sensors", "actuators"]:
+        for obj_comp in ["actuators", "sensors"]:
             for obj_cname in default[obj_comp]:
                 try:
-                    entry = specific[obj_comp][obj_cname]
+                    entry_lst = specific[obj_comp][obj_cname]
                 except KeyError:
                     raise KeyError(
                         f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in bridge "{bridge_id}".'
                     )
-                node_name, node_comp, node_cname = (
-                    entry["name"],
-                    entry["component"],
-                    entry["cname"],
-                )
-                obj_comp_params = agnostic[obj_comp][obj_cname]
-                node_params = nodes[node_name]
+                # todo: here we assume a single node implements the actuator --> could be multiple
 
-                # Determine node dependency
-                dependencies += entry["dependency"]
+                # entry = entry_lst
+                for entry in reversed(entry_lst):
+                    node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
+                    obj_comp_params = agnostic[obj_comp][obj_cname]
+                    node_params = nodes[node_name]
 
-                # Set rate
-                rate = obj_comp_params["rate"]
-                if node_name in rates:
-                    assert (
-                        rates[node_name] == rate
-                    ), f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a enginenode "{node_name}". If this enginenode is used for multiple sensors/components, then their specified rates must be equal.'
-                else:
-                    rates[node_name] = rate
-                node_params["config"]["rate"] = rate
-                for o in node_params["config"]["outputs"]:
-                    node_params["outputs"][o]["rate"] = rate
+                    # Determine node dependency
+                    dependencies += entry["dependency"]
 
-                # Set component params
-                node_comp_params = nodes[node_name][node_comp][node_cname]
+                    # Set rate
+                    rate = obj_comp_params["rate"]
+                    msg_start = f'Different rate specified for {obj_comp} "{obj_cname}" and enginenode "{node_name}": '
+                    msg_end = "If an enginenode implements a sensor/actuator, their specified rates must be equal."
+                    msg_mid = f'{node_params["config"]["rate"]} vs {rate}. '
+                    assert node_params["config"]["rate"] == rate, msg_start + msg_mid + msg_end
+                    for o in node_params["config"]["outputs"]:
+                        msg_mid = f'{node_params["outputs"][o]["rate"]} vs {rate}. '
+                        assert node_params["outputs"][o]["rate"] == rate, msg_start + msg_mid + msg_end
 
-                if obj_comp == "sensors":
-                    node_comp_params.update(obj_comp_params)
-                    node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
-                    sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
-                else:  # Actuators
-                    node_comp_params.update(obj_comp_params)
-                    node_comp_params.pop("rate")
+                    # Set component params
+                    node_comp_params = nodes[node_name][node_comp][node_cname]
+                    if obj_comp == "sensors":
+                        node_comp_params.update(obj_comp_params)
+                        node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
+                        sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
+                    else:  # Actuators
+                        node_comp_params.update(obj_comp_params)
+                        node_comp_params.pop("rate")
 
         # Get set of node we are required to launch
         dependencies = list(set(dependencies))
-        dependencies = [substitute_args(node_name, context, only=["ns"]) for node_name in dependencies]
 
         # Verify that no dependency is an unlisted actuator node.
         not_selected = [cname for cname in agnostic["actuators"] if cname not in default["actuators"]]
         for cname in not_selected:
             try:
-                entry = specific["actuators"][cname]
-                node_name, node_comp, node_cname = (
-                    entry["name"],
-                    entry["component"],
-                    entry["cname"],
-                )
-                assert (
-                    node_name not in dependencies
-                ), f'There appears to be a dependency on enginenode "{node_name}" for the implementation of bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is directly tied to an unselected actuator "{cname}".'
+                for entry in specific["actuators"][cname]:
+                    node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
+                    msg = f'There appears to be a dependency on enginenode "{node_name}" for the implementation of ' \
+                          f'bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is ' \
+                          f'directly tied to an unselected actuator "{cname}". ' \
+                          "The actuator must be selected to resolve the graph."
+                    assert node_name not in dependencies, msg
             except KeyError:
                 # We pass here, because if cname is not selected, but also not implemented,
                 # we are sure that there is no dependency.

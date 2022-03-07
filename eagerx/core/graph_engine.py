@@ -554,21 +554,27 @@ class EngineGraph:
             address = EngineGraph._get_address(source, target)
             if source_name == "actuators":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["actuators"][source_cname]]
-                actuators[source_cname] = {
+                if source_cname not in actuators: actuators[source_cname] = []
+                entry = {
                     "name": f"$(ns obj_name)/{target_name}",
                     "component": target_comp,
                     "cname": target_cname,
                     "dependency": dependency,
                 }
+                # actuators[source_cname] = entry
+                actuators[source_cname].append(entry)
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             if target_name == "sensors":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["sensors"][target_cname]]
-                sensors[target_cname] = {
+                if target_cname not in sensors: sensors[target_cname] = []
+                entry = {
                     "name": f"$(ns obj_name)/{source_name}",
                     "component": source_comp,
                     "cname": source_cname,
                     "dependency": dependency,
                 }
+                # sensors[target_cname] = entry
+                sensors[target_cname].append(entry)
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
@@ -594,8 +600,8 @@ class EngineGraph:
                     substitute_args(params, context, only=["config", "ns"])
                     nodes[name] = params
 
-        assert actuators, "No actuators node defined in the graph."
-        assert sensors, "No sensors node defined in the graph."
+        assert len(actuators) > 0, "No actuators node defined in the graph."
+        assert len(sensors) > 0, "No sensors node defined in the graph."
         return nodes, actuators, sensors
 
     def gui(self):
