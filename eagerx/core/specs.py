@@ -572,7 +572,7 @@ class ObjectSpec(EntitySpec):
 
                     # Set rate
                     rate = obj_comp_params["rate"]
-                    msg_start = f'Different rate specified for {obj_comp} "{obj_cname}" and enginenode "{node_name}": '
+                    msg_start = f'Different rate specified for {obj_comp[:-1]} "{obj_cname}" and enginenode "{node_name}": '
                     msg_end = "If an enginenode implements a sensor/actuator, their specified rates must be equal."
                     msg_mid = f'{node_params["config"]["rate"]} vs {rate}. '
                     assert node_params["config"]["rate"] == rate, msg_start + msg_mid + msg_end
