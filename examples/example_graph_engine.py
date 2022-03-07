@@ -15,7 +15,7 @@ import time
 
 def graph_engine(idx):
     # Start roscore
-    # roscore = initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
+    roscore = initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
     # Define object
     arm = Object.make(

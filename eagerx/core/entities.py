@@ -184,15 +184,20 @@ class BaseNode(Entity):
             name, str
         ), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
 
-        # Check that there is at least a single input & output defined. # todo: needed?
-        # assert len(spec._params['default']['outputs']) > 0, f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
-
         # Check that all selected cnames have a corresponding implementation
         for component in ["inputs", "outputs", "states"]:
-            for cname in spec._params["config"][component]:
+            for cname in spec.config[component]:
+                c = getattr(spec, component)
+
                 assert (
-                    cname in spec._params[component]
+                    cname in getattr(spec, component)
                 ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
+
+        # Check that all states have a space_converter
+        for cname in spec.config.states:
+            sc = getattr(spec.states, cname).space_converter
+            assert sc is not None, f'State "{cname}" was selected for node "{name}", ' \
+                                   f'but it has no space_converter. Check the spec of "{entity_id}".'
 
     @abc.abstractmethod
     def initialize(self, *args, **kwargs):
@@ -917,6 +922,14 @@ class Object(Entity):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
+        entity_id = spec.config.entity_id
+        name = spec.config.name
+
+        # Check that all selected states have a space_converter
+        for cname in spec.config.states:
+            sc = getattr(spec.states, cname).space_converter
+            assert sc is not None, f'State "{cname}" was selected for node "{name}", ' \
+                                   f'but it has no space_converter. Check the spec of "{entity_id}".'
 
 
 class BaseConverter(Entity):
