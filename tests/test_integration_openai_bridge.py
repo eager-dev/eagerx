@@ -36,8 +36,8 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     obj = Object.make(
         "GymObject",
         name,
-        gym_env_id=gym_id,
-        gym_rate=rate,
+        env_id=gym_id,
+        rate=rate,
         default_action=za,
     )
 

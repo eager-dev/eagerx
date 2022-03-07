@@ -64,6 +64,10 @@ class Entity(object):
     def check_spec(cls, spec):
         pass
 
+    @classmethod
+    def initialize_spec(cls, spec):
+        spec.initialize(cls)
+
 
 class BaseNode(Entity):
     def __init__(
@@ -807,13 +811,7 @@ class Bridge(BaseNode):
 
     @abc.abstractmethod
     def add_object(
-        self,
-        agnostic_params: Dict,
-        bridge_params: Dict,
-        node_params: List[Dict],
-        state_params: List[Dict],
-        *args,
-        **kwargs,
+        self, config: Dict, bridge_config: Dict, node_params: List[Dict], state_params: List[Dict], *args, **kwargs
     ) -> None:
         """
         Adds an object to the bridge's simulator object.
@@ -822,8 +820,8 @@ class Bridge(BaseNode):
 
         This method is called in .register_object(...).
 
-        :param agnostic_params: A dict with all agnostic object params.
-        :param bridge_params: A dict with all engine specific params, defined in the engine agnostic definition of the object.
+        :param config: A dict with all agnostic object params.
+        :param bridge_config: A dict with all engine specific params, defined in the engine agnostic definition of the object.
 
         :param node_params: A list containing the parameters of all the nodes that represent the object's simulated
         sensors & actuators.

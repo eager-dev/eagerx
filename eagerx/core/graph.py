@@ -913,7 +913,7 @@ class Graph:
         Graph.check_msg_types_are_consistent(state)
         Graph.check_inputs_have_address(state)
         Graph.check_graph_is_acyclic(state, plot=plot)
-        Graph.check_exists_compatible_bridge(state)
+        # Graph.check_exists_compatible_bridge(state)
         return True
 
     @staticmethod

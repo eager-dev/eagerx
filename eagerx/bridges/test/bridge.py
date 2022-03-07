@@ -37,7 +37,7 @@ class TestBridgeNode(Bridge):
     ):
         """TestBridge spec"""
         # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(TestBridgeNode)
+        TestBridgeNode.initialize_spec(spec)
 
         # Modify default bridge params
         spec.config.rate = rate
@@ -56,10 +56,10 @@ class TestBridgeNode(Bridge):
         # Add state: "param_1"
         spec.states.param_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
 
-    @register.bridge_params(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
-    def add_object(self, agnostic_params, bridge_params, node_params, state_params):
+    @register.bridge_config(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
+    def add_object(self, config, bridge_config, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
+        rospy.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
 
     def pre_reset(self, param_1: Optional[UInt64] = None):
         return "PRE RESET RETURN VALUE"
