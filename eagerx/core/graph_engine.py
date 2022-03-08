@@ -1,3 +1,4 @@
+import rospy
 import yaml
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -37,10 +38,6 @@ class EngineGraph:
         nodes = []
 
         from eagerx.core.entities import EngineNode
-
-        # from eagerx.core.converters import Identity
-
-        # identity_conv = Identity().get_yaml_definition()
 
         # Create actuator node
         spec = EngineNode.pre_make(None, None)
@@ -191,7 +188,6 @@ class EngineGraph:
                 f'because it is already connected to an external address "{curr_address}". '
                 "Disconnect target first."
             )
-
             self.set({"address": address}, target)
             assert external_rate is not None, (
                 f'When providing an external address "{address}", ' "an external rate must also be provided."
@@ -208,10 +204,16 @@ class EngineGraph:
             converter = converter.to_dict()
 
         if actuator:  # source = actuator
-            assert converter is None, (
-                f'Cannot specify an input converter when connecting actuator "{actuator}". '
-                "You can only do that in the agnostic object definition."
-            )
+            source = self.get_view("actuators", ["outputs", actuator])
+            if converter:
+                msg = (
+                    f'Cannot specify an input converter for actuator "{actuator}", '
+                    "because one has already been specified in the agnostic graph definition. "
+                    "You can only have one input converter."
+                )
+                from eagerx.core.converters import Identity
+
+                assert source.converter.to_dict() == Identity().get_yaml_definition(), msg
             assert window is None, (
                 f'Cannot specify a window when connecting actuator "{actuator}". '
                 f"You can only do that in the agnostic object definition."
@@ -224,11 +226,24 @@ class EngineGraph:
                 f'Cannot specify a skip when connecting actuator "{actuator}". '
                 f"You can only do that in the agnostic object definition."
             )
-            source = self.get_view("actuators", ["outputs", actuator])
         elif sensor:  # target = sensor
+            target = self.get_view("sensors", ["inputs", sensor])
+            # Check for output converter clash.
+            # I.e. if both agnostic sensor & enginenode output have output converter.
+            from eagerx.core.converters import Identity
+
+            id = Identity().get_yaml_definition()
+            if source.converter.to_dict() != id:
+                src_name, _, src_cname = source()
+                msg = (
+                    "Output converter clash! "
+                    f"Output '{src_cname}' of EngineNode '{src_name}' you attempt to connect to sensor '{sensor}'"
+                    f" both have an output converter defined, but only one output converter can be used."
+                )
+                assert target.converter.to_dict() == id, msg
             assert converter is None, (
-                f'Cannot specify an input converter when connecting sensor "{sensor}".'
-                " You can only do that in the agnostic object definition."
+                f'Cannot specify an input converter when connecting sensor "{sensor}". '
+                "For sensors, you can only do that in the agnostic definition. "
             )
             assert window is None, (
                 f'Cannot specify a window when connecting sensor "{sensor}".'
@@ -242,7 +257,6 @@ class EngineGraph:
                 f'Cannot specify a skip when connecting sensor "{sensor}".'
                 " You can only do that in the agnostic object definition."
             )
-            target = self.get_view("sensors", ["inputs", sensor])
         self._connect(source, target, converter, window, delay, skip)
 
     def _connect(
@@ -280,7 +294,8 @@ class EngineGraph:
 
         # Add properties to target params
         if converter is not None:
-            self.set({"converter": converter}, target)
+            self._set_converter(target, converter)
+            # self.set({"converter": converter}, target)
         if window is not None:
             self.set({"window": window}, target)
         if delay is not None:
@@ -408,11 +423,11 @@ class EngineGraph:
             if parameter:
                 getattr(entry, parameter)  # Check if parameter exists
             if parameter == "converter":
-                if isinstance(value, ConverterSpec):
-                    value = value.params
-                elif isinstance(value, GraphView):
-                    value = value.to_dict()
-                self._set_converter(entry, value)
+                msg = (
+                    "Skipping converter. Cannot change the converter with this method. "
+                    "Add output converters before connecting, and input converters when making a connection."
+                )
+                rospy.logwarn_once(msg)
             else:
                 t = entry()
                 name = t[0]
@@ -439,6 +454,11 @@ class EngineGraph:
         **DOES NOT** remove observation entries if they are disconnected.
         **DOES NOT** remove action entries if they are disconnect and the last connection.
         """
+        if isinstance(converter, ConverterSpec):
+            converter = converter.params
+        elif isinstance(converter, GraphView):
+            converter = converter.to_dict()
+
         _ = entry.converter  # Check if parameter exists
 
         # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
@@ -695,6 +715,25 @@ class EngineGraph:
 
     @staticmethod
     def check_msg_types_are_consistent(state):
+        for source, target in state["connects"]:
+            if target[0] == "sensors":
+                target_view = EngineGraph._get_view(state, target[0], target[1:])
+                from eagerx.core.converters import Identity
+
+                id = Identity().get_yaml_definition()
+                # If agnostic definition has a non-identity output_converter,
+                # enginenode output cannot be inter-connected with other enginenodes,
+                # as they expect an unconverted output.
+                if target_view.converter.to_dict() != id:
+                    flag = [t for s, t in state["connects"] if s == source]
+                    msg = (
+                        f"Agnostic definition for sensor '{target[2]}' has a non-identity output converter, "
+                        f"However, output '{source[2]}' of EngineNode '{source[0]}' is interconnected to other "
+                        f"EngineNodes that expect the original (unconverted) output message: {flag}. "
+                        f"Non-identity output converters can only be added to a sensor if the corresponding "
+                        f"EngineNode output has only a single connection (with the sensor)."
+                    )
+                    assert len(flag) == 1, msg
         for source, target in state["connects"]:
             source = EngineGraph._get_view(state, source[0], source[1:])
             target = EngineGraph._get_view(state, target[0], target[1:])

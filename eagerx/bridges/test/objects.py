@@ -6,7 +6,7 @@ from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
 from eagerx.bridges.test.bridge import TestBridgeNode
-from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, BaseConverter
+from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, BaseConverter, Converter, Processor
 from eagerx.core.specs import ObjectSpec
 from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
@@ -17,7 +17,7 @@ class Arm(Object):
 
     @staticmethod
     @register.sensors(N6=UInt64, N7=UInt64)
-    @register.actuators(N8=String, ref_vel=UInt64)
+    @register.actuators(N8=String, ref_vel=UInt64, N12=UInt64)
     @register.simstates(N9=UInt64, N10=UInt64)
     @register.config(position=[0, 0, 0], orientation=[0, 0, 0], low=None, string=None, test_string=None, test_list=None)
     def agnostic(spec: ObjectSpec, rate):
@@ -30,8 +30,11 @@ class Arm(Object):
 
         # Set actuator properties: space_converters
         spec.actuators.N8.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
+        # spec.actuators.N12.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
+        spec.actuators.N12.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.actuators.ref_vel.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.actuators.N8.rate = rate
+        spec.actuators.N12.rate = rate
         spec.actuators.ref_vel.rate = 1
 
         # Set state properties: space_converters
@@ -185,8 +188,6 @@ class Arm(Object):
         graph.get(actuator="N8")
         graph.get(N6.outputs.out_1)
         graph.set(graph.get(N6.outputs.out_1), N6.outputs.out_1)
-        graph.set(N6.outputs.out_1.converter, N6.outputs.out_1, parameter="converter")
-        graph.set(BaseConverter.make("Identity"), N6.outputs.out_1, parameter="converter")
         graph.get(N6)
         graph.remove(["N6", "N8"])
         N6.set_graph(None)
@@ -358,6 +359,10 @@ class Viper(Arm):
             color="green",
         )
 
+        # Add IdentityProcessor to N6
+        IdentityProcessor = Processor.make("IdentityProcessor")
+        N6.outputs.out_1.converter = IdentityProcessor
+
         # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])
 
@@ -390,3 +395,18 @@ class Viper(Arm):
             target=N6.inputs.in_1,
             external_rate=20,
         )
+
+        # Test Adding converters to actuators
+        N12 = EngineNode.make(
+            "TestActuator",
+            "N12",
+            rate=spec.actuators.N12.rate,
+            process=2,
+            inputs=["tick", "in_3"],
+            outputs=["out_1"],
+            test_arg=spec.config.test_string,
+            color="green",
+        )
+        graph.add(N12)
+        RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
+        graph.connect(actuator="N12", target=N12.inputs.in_3, converter=RosString_RosUInt64)
