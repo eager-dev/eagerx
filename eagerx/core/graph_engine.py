@@ -7,6 +7,7 @@ from eagerx.utils.utils import (
     supported_types,
     get_opposite_msg_cls,
     get_cls_from_string,
+    get_opposite_msg_cls_v2,
     substitute_args,
     msg_type_error,
 )
@@ -36,28 +37,30 @@ class EngineGraph:
         nodes = []
 
         from eagerx.core.entities import EngineNode
-        from eagerx.core.converters import Identity
 
-        identity_conv = Identity().get_yaml_definition()
+        # from eagerx.core.converters import Identity
+
+        # identity_conv = Identity().get_yaml_definition()
 
         # Create actuator node
         spec = EngineNode.pre_make(None, None)
         spec.config.name = "actuators"
         nodes.append(spec)
         for cname, params in actuators.items():
-            # We use identity converter instead of params['converter'], because this output converter is a "placeholder".
-            # When building the actuator node (being the connected engine node), this output converter is not even initialized.
+            # Determine converted msg_type, based on user-defined input converter
+            # If input_conv != id but EngineNode connection also requires a converter --> raise error.
+            conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
             spec.add_output(
                 cname,
-                msg_type=params.msg_type,
-                converter=ConverterSpec(identity_conv),
+                msg_type=conv_msg_type,
+                converter=ConverterSpec(params.converter.to_dict()),  # Set input converter as output converter
                 space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
             spec.add_input(
                 cname,
                 msg_type=params.msg_type,
                 skip=params.skip,
-                converter=ConverterSpec(identity_conv),
+                converter=ConverterSpec(params.converter.to_dict()),
                 space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
             spec.config.outputs.append(cname)
@@ -67,15 +70,14 @@ class EngineGraph:
         spec.config.name = "sensors"
         nodes.append(spec)
         for cname, params in sensors.items():
-            # We use identity converter instead of params['converter'], because this input converter is a "placeholder".
-            # When building the sensor node (being the connected engine node), this input converter is not even initialized.
+            conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
+            spec.config.inputs.append(cname)
             spec.add_input(
                 cname,
-                msg_type=params.msg_type,
-                converter=ConverterSpec(identity_conv),
+                msg_type=conv_msg_type,
+                converter=ConverterSpec(params.converter.to_dict()),
                 space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
-            spec.config.inputs.append(cname)
 
         # Create a state
         state = dict(nodes=dict(), connects=list(), backup=dict())

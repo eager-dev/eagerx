@@ -1,5 +1,4 @@
 import yaml
-from tabulate import tabulate
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -1191,6 +1190,7 @@ class Graph:
         msg = "Bridge implementations are not part of the engine graph anymore."
         raise NotImplementedError(msg)
         # # Bridges are headers
+        # from tabulate import tabulate
         # bridges = []
         # objects = []
         # for node, params in state["nodes"].items():

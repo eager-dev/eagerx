@@ -74,6 +74,23 @@ def get_opposite_msg_cls(msg_type, converter_cls):
     return converter_cls.get_opposite_msg_type(converter_cls, msg_type)
 
 
+def get_opposite_msg_cls_v2(msg_type, converter_cls):
+    if isinstance(msg_type, str):
+        msg_type_cls = get_attribute_from_module(msg_type)
+    else:
+        msg_type_cls = msg_type
+    if isinstance(converter_cls, dict):
+        converter_cls = get_attribute_from_module(converter_cls["converter_type"])
+    else:  # It is a View object
+        converter_cls = converter_cls.to_dict()
+        converter_cls = get_attribute_from_module(converter_cls["converter_type"])
+    opposite_msg_type = converter_cls.get_opposite_msg_type(converter_cls, msg_type_cls)
+    if isinstance(msg_type, str):
+        return get_module_type_string(opposite_msg_type)
+    else:
+        return opposite_msg_type
+
+
 def get_module_type_string(cls):
     module = inspect.getmodule(cls).__name__
     return "%s/%s" % (module, cls.__name__)
