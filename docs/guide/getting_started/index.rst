@@ -1,5 +1,9 @@
-Installation
-============
+***************
+Getting Started
+***************
+
+Installing EAGERx
+=================
 
 You can do a minimal installation of ``EAGERx`` with:
 
@@ -36,14 +40,14 @@ Luckily, inter-node communication within EAGERx can always be listened to extern
 ..
   TODO: add example and gif of visualization.
 
-Dependencies
-============
-Below you find instructions for installing dependencies required for EAGERx.
+Runtime Dependencies
+====================
+Below you find instructions for installing runtime dependencies required for EAGERx.
 
 ROS
 ---
 
-See the `ROS Installation Options <https://eagerx.readthedocs.io/en/latest/>`_, or do the following.
+See the `ROS Installation Options <http://wiki.ros.org/ROS/Installation>`_, or do the following.
 By replacing ``<DISTRO>`` with the supported ROS distributions (``noetic``, ``melodic``),
 and ``<PACKAGE>`` with the installation type (``ros-base``, ``desktop``, ``desktop-full``),
 a minimal ros installation can be installed with:
