@@ -119,9 +119,9 @@ jobs:
           python-version: 3.8
       - name: Checkout code
         uses: actions/checkout@v2
-      #----------------------------------------------
+      #-----------------------------------------------
       #   Publish to PYPI in case of a new version
-      #----------------------------------------------
+      #-----------------------------------------------
       - name: Semantic Release
         run: |
           pip install python-semantic-release
