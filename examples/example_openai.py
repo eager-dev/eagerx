@@ -20,8 +20,8 @@ if __name__ == "__main__":
     obj = Object.make(
         "GymObject",
         name,
-        gym_env_id=gym_id,
-        gym_rate=rate,
+        env_id=gym_id,
+        rate=rate,
         default_action=0,
         render_shape=[300, 300],
     )

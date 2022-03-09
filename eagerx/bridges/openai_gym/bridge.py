@@ -42,14 +42,14 @@ class GymBridge(Bridge):
         spec.config.log_level = log_level
         spec.config.color = "magenta"
 
-    @register.bridge_params(env_id=None)
-    def add_object(self, agnostic_params, bridge_params, node_params, state_params):
+    @register.bridge_config(env_id=None)
+    def add_object(self, config, bridge_config, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{agnostic_params["name"]}" of type "{agnostic_params["entity_id"]}" to the simulator.')
+        rospy.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
 
         # Extract relevant object_params
-        obj_name = agnostic_params["name"]
-        id = bridge_params["env_id"]
+        obj_name = config["name"]
+        id = bridge_config["env_id"]
 
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(

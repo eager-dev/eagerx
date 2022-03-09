@@ -1,5 +1,5 @@
-from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
-from eagerx import initialize, log, process
+from eagerx import Object, Bridge, Node, ResetNode, Converter, Processor
+from eagerx import initialize, log
 
 # Environment imports
 from eagerx.core.env import EagerEnv
@@ -57,7 +57,7 @@ def graph_engine(idx):
     viper = Object.make(
         "Viper",
         "obj",
-        actuators=["N8"],
+        actuators=["N8", "N12"],
         sensors=["N6"],
         states=["N9"],
     )
@@ -65,6 +65,10 @@ def graph_engine(idx):
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
     RosImage_RosUInt64 = Converter.make("RosImage_RosUInt64", test_arg="test")
+
+    # Add simple identity processor
+    # IdentityProcessor = Processor.make("IdentityProcessor")
+    # viper.sensors.N6.converter = IdentityProcessor
 
     # Define graph
     graph = Graph.create(nodes=[N1, N3, KF], objects=[viper])
@@ -87,6 +91,7 @@ def graph_engine(idx):
 
     # Connect outputs & targets N3
     graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8, converter=RosString_RosUInt64)
+    graph.connect(source=N3.outputs.out_1, target=viper.actuators.N12)
     graph.connect(source=viper.states.N9, target=N3.targets.target_1)
 
     # Define render

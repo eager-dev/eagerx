@@ -168,18 +168,18 @@ def simstates(**simstates):
     return functools.partial(_register_types, TYPE_REGISTER, "states", simstates)
 
 
-def bridge_params(**bridge_params):
-    """Register default bridge_params arguments"""
-    return functools.partial(_register_types, TYPE_REGISTER, "bridge_params", bridge_params, cls_only=False)
+def bridge_config(**bridge_config):
+    """Register default bridge_config arguments"""
+    return functools.partial(_register_types, TYPE_REGISTER, "bridge_config", bridge_config, cls_only=False)
 
 
-def agnostic_params(**agnostic_params):
-    """Register default agnostic_params arguments"""
+def config(**params):
+    """Register default config arguments"""
     return functools.partial(
         _register_types,
         TYPE_REGISTER,
-        "agnostic_params",
-        agnostic_params,
+        "config",
+        params,
         cls_only=False,
     )
 
@@ -187,11 +187,11 @@ def agnostic_params(**agnostic_params):
 # BRIDGES
 
 
-def bridge(bridge_cls):
-    bridge_params = LOOKUP_TYPES[bridge_cls.add_object]["bridge_params"]
+def bridge(entity_id, bridge_cls):
+    bridge_config = LOOKUP_TYPES[bridge_cls.add_object]["bridge_config"]
     bridge_id = REVERSE_REGISTRY[bridge_cls.spec]
 
-    def _bridge(func):
+    def _register(func):
         name_split = func.__qualname__.split(".")
         cls_name = name_split[0]
         fn_name = name_split[1]
@@ -199,15 +199,44 @@ def bridge(bridge_cls):
         rospy.logdebug(f"[{cls_name}][{fn_name}]: bridge_id={bridge_id}, entry={entry}")
 
         @functools.wraps(func)
-        def bridge_fn(cls, object_spec):
+        def _bridge(spec):
             """First, initialize spec with object_info, then call the bridge function"""
-            engine_spec, graph = object_spec._initialize_engine_spec(copy.deepcopy(bridge_params))
-            try:
-                func(cls, engine_spec, graph)
-                object_spec._add_engine_spec(bridge_id, engine_spec, graph)
-            except ModuleNotFoundError as e:
-                rospy.logwarn(f'Bridge implementation "{bridge_id} not added: {e}')
+            # Add default bridge_config parameters
+            spec._initialize_bridge_config(bridge_id, copy.deepcopy(bridge_config))
+            # Initialize engine graph
+            graph = spec._initialize_object_graph()
+            # Modify bridge_config with user-defined bridge implementation
+            func(spec, graph)
+            # Add graph to spec & remove redundant states
+            spec._add_graph(bridge_id, graph)
 
-        return bridge_fn
+        # Register bridge implementation for object
+        from eagerx.core.entities import Object
 
-    return _bridge
+        msg = f"Cannot register bridge '{bridge_id}' for object '{entity_id}'. "
+        assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
+        assert entity_id in REGISTRY[Object], msg + "No object with this id was registered. Make sure to import the object."
+
+        # Check if spec of duplicate entity_id corresponds to same spec function
+        flag = bridge_id in REGISTRY[Object][entity_id] and _bridge == REGISTRY[Object][entity_id][bridge_id]
+        assert not flag, msg + "There is already a bridge implementation of this type registered."
+
+        # Register bridge implementation
+        REGISTRY[Object][entity_id][bridge_id] = _bridge
+        return _bridge
+
+    return _register
+
+
+def add_bridge(spec, bridge_id):
+    """Add bridge based on registered id"""
+    entity_id = spec.config.entity_id
+
+    # Register bridge implementation for object
+    from eagerx.core.entities import Object
+
+    msg = f"Cannot ad bridge implementation '{bridge_id}' for object '{entity_id}'. "
+    assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
+    assert entity_id in REGISTRY[Object], msg + "No object with this id was registered. Make sure to import the object."
+
+    _ = REGISTRY[Object][entity_id][bridge_id](spec)

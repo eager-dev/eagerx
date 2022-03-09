@@ -61,6 +61,9 @@ class Env(gym.Env):
         self.graph = graph
         nodes, objects, actions, observations, self.render_node = graph.register()
 
+        # Add bridge implementation
+        [o.add_bridge(self._bridge_name) for o in objects]
+
         # Initialize supervisor node
         self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(bridge, nodes, objects)
         self._is_initialized = self.supervisor_node.is_initialized
