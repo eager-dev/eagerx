@@ -129,6 +129,7 @@ jobs:
           git config user.email github-actions@github.com
           semantic-release publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
           REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
