@@ -119,15 +119,20 @@ jobs:
           python-version: 3.8
       - name: Checkout code
         uses: actions/checkout@v2
-      #----------------------------------------------
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+      #-----------------------------------------------
       #   Publish to PYPI in case of a new version
-      #----------------------------------------------
+      #-----------------------------------------------
       - name: Semantic Release
         run: |
           pip install python-semantic-release
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+          git config --global user.name "github-actions"
+          git config --global user.email "action@github.com"
           semantic-release publish -D commit_author="github-actions <action@github.com>"
         env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
           REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}

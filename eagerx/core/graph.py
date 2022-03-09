@@ -1,5 +1,4 @@
 import yaml
-from tabulate import tabulate
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -913,7 +912,7 @@ class Graph:
         Graph.check_msg_types_are_consistent(state)
         Graph.check_inputs_have_address(state)
         Graph.check_graph_is_acyclic(state, plot=plot)
-        Graph.check_exists_compatible_bridge(state)
+        # Graph.check_exists_compatible_bridge(state)
         return True
 
     @staticmethod
@@ -1188,78 +1187,81 @@ class Graph:
 
     @staticmethod
     def check_exists_compatible_bridge(state, tablefmt="fancy_grid"):
-        # Bridges are headers
-        bridges = []
-        objects = []
-        for node, params in state["nodes"].items():
-            default = params["config"]
-            # todo: only check bridge if it concerns one of the selected components
-            if "node_type" not in state["nodes"][node]:  # Object
-                params = state["nodes"][node]
-                entity_id = params["config"]["entity_id"]
-                obj_name = params["config"]["name"]
-                entry = [obj_name, entity_id]
-
-                # Add all (unknown) bridges to the list
-                for key, _value in params.items():
-                    if key in [
-                        "entity_type",
-                        "config",
-                        "sensors",
-                        "actuators",
-                        "states",
-                    ]:
-                        continue
-                    if key not in bridges:
-                        bridges.append(key)
-
-                # See what bridges support all object components
-                for b in bridges:
-                    if b in params:
-                        for component in ["sensors", "actuators", "states"]:
-                            if component in default:
-                                for cname in default[component]:
-                                    if component in params[b] and cname in params[b][component]:
-                                        e_str = "x"  # Component entry is supported
-                                    else:
-                                        e_str = " "  # Component entry is not supported
-                                        break  # Break if entry in component is not supported
-                    else:  # Bridge name not even mentioned in object config
-                        e_str = " "
-                    entry.append(e_str)
-                objects.append(entry)
-
-        # Fill up incompatible bridges that were added after object entries
-        for entry in objects:
-            for _ in bridges[len(entry) - 2 :]:
-                entry.append(" ")
-
-        # Get compatible bridges
-        compatible = []
-        for idx, b in enumerate(bridges):
-            idx = idx + 2
-            for entry in objects:
-                c = [True if entry[idx] == "x" else False for entry in objects]
-            if len(c) == len(objects):
-                compatible.append(b)
-
-        # Objects are entries
-        headers = ["name", "object"]
-        for b in bridges:
-            headers.append(b.replace("/", "/\n"))
-
-        # Assert if there are compatible bridges
-        tabulate_str = tabulate(
-            objects,
-            headers=headers,
-            tablefmt=tablefmt,
-            colalign=["center"] * len(headers),
-        )
-        assert len(compatible), (
-            "No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s"
-            % tabulate_str
-        )
-        return tabulate_str
+        msg = "Bridge implementations are not part of the engine graph anymore."
+        raise NotImplementedError(msg)
+        # # Bridges are headers
+        # from tabulate import tabulate
+        # bridges = []
+        # objects = []
+        # for node, params in state["nodes"].items():
+        #     default = params["config"]
+        #     # todo: only check bridge if it concerns one of the selected components
+        #     if "node_type" not in state["nodes"][node]:  # Object
+        #         params = state["nodes"][node]
+        #         entity_id = params["config"]["entity_id"]
+        #         obj_name = params["config"]["name"]
+        #         entry = [obj_name, entity_id]
+        #
+        #         # Add all (unknown) bridges to the list
+        #         for key, _value in params.items():
+        #             if key in [
+        #                 "entity_type",
+        #                 "config",
+        #                 "sensors",
+        #                 "actuators",
+        #                 "states",
+        #             ]:
+        #                 continue
+        #             if key not in bridges:
+        #                 bridges.append(key)
+        #
+        #         # See what bridges support all object components
+        #         for b in bridges:
+        #             if b in params:
+        #                 for component in ["sensors", "actuators", "states"]:
+        #                     if component in default:
+        #                         for cname in default[component]:
+        #                             if component in params[b] and cname in params[b][component]:
+        #                                 e_str = "x"  # Component entry is supported
+        #                             else:
+        #                                 e_str = " "  # Component entry is not supported
+        #                                 break  # Break if entry in component is not supported
+        #             else:  # Bridge name not even mentioned in object config
+        #                 e_str = " "
+        #             entry.append(e_str)
+        #         objects.append(entry)
+        #
+        # # Fill up incompatible bridges that were added after object entries
+        # for entry in objects:
+        #     for _ in bridges[len(entry) - 2 :]:
+        #         entry.append(" ")
+        #
+        # # Get compatible bridges
+        # compatible = []
+        # for idx, b in enumerate(bridges):
+        #     idx = idx + 2
+        #     for entry in objects:
+        #         c = [True if entry[idx] == "x" else False for entry in objects]
+        #     if len(c) == len(objects):
+        #         compatible.append(b)
+        #
+        # # Objects are entries
+        # headers = ["name", "object"]
+        # for b in bridges:
+        #     headers.append(b.replace("/", "/\n"))
+        #
+        # # Assert if there are compatible bridges
+        # tabulate_str = tabulate(
+        #     objects,
+        #     headers=headers,
+        #     tablefmt=tablefmt,
+        #     colalign=["center"] * len(headers),
+        # )
+        # assert len(compatible), (
+        #     "No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s"
+        #     % tabulate_str
+        # )
+        # return tabulate_str
 
     @staticmethod
     @supported_types(str, int, list, float, bool, dict, EntitySpec, GraphView, None)

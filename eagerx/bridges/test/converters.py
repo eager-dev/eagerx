@@ -1,4 +1,4 @@
-from eagerx.core.entities import SpaceConverter, Converter
+from eagerx.core.entities import SpaceConverter, Converter, Processor
 import eagerx.core.register as register
 
 # Converter specific
@@ -22,7 +22,7 @@ class Space_RosUInt64(SpaceConverter):
     @register.spec("Space_RosUInt64", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
         # Initialize converter
-        spec.initialize(Space_RosUInt64)
+        Space_RosUInt64.initialize_spec(spec)
 
         spec.config.low = low
         spec.config.high = high
@@ -69,7 +69,7 @@ class Space_RosString(SpaceConverter):
     @register.spec("Space_RosString", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
         # Initialize converter
-        spec.initialize(Space_RosString)
+        Space_RosString.initialize_spec(spec)
 
         spec.config.low = low
         spec.config.high = high
@@ -97,7 +97,7 @@ class RosImage_RosUInt64(Converter):
     @register.spec("RosImage_RosUInt64", Converter)
     def spec(spec, test_arg):
         # Initialize converter
-        spec.initialize(RosImage_RosUInt64)
+        RosImage_RosUInt64.initialize_spec(spec)
 
         spec.config.test_arg = test_arg
 
@@ -128,3 +128,18 @@ class RosString_RosUInt64(Converter):
 
     def B_to_A(self, msg):
         return String(data="string: %s" % msg.data)
+
+
+class IdentityProcessor(Processor):
+    MSG_TYPE = UInt64
+
+    @staticmethod
+    @register.spec("IdentityProcessor", Processor)
+    def spec(spec):
+        IdentityProcessor.initialize_spec(spec)
+
+    def initialize(self):
+        pass
+
+    def convert(self, msg):
+        return msg

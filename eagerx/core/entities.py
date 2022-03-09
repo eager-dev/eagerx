@@ -64,6 +64,10 @@ class Entity(object):
     def check_spec(cls, spec):
         pass
 
+    @classmethod
+    def initialize_spec(cls, spec):
+        spec.initialize(cls)
+
 
 class BaseNode(Entity):
     def __init__(
@@ -180,15 +184,23 @@ class BaseNode(Entity):
             name, str
         ), f'A node with entity_id "{entity_id}" has an invalid name {name}. Please provide a unique name of type string.'
 
-        # Check that there is at least a single input & output defined. # todo: needed?
-        # assert len(spec._params['default']['outputs']) > 0, f'Node "{name}" does not have any outputs selected. Please select at least one output when making the spec, or check the spec defined for "{entity_id}".'
-
         # Check that all selected cnames have a corresponding implementation
         for component in ["inputs", "outputs", "states"]:
-            for cname in spec._params["config"][component]:
-                assert (
-                    cname in spec._params[component]
-                ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
+            for cname in spec.config[component]:
+                c = getattr(spec, component)
+
+                assert cname in c, (
+                    f'Cname "{cname}" was selected for node "{name}", '
+                    f'but it has no implementation. Check the spec of "{entity_id}".'
+                )
+
+        # Check that all states have a space_converter
+        for cname in spec.config.states:
+            sc = getattr(spec.states, cname).space_converter
+            assert sc is not None, (
+                f'State "{cname}" was selected for node "{name}", '
+                f'but it has no space_converter. Check the spec of "{entity_id}".'
+            )
 
     @abc.abstractmethod
     def initialize(self, *args, **kwargs):
@@ -807,13 +819,7 @@ class Bridge(BaseNode):
 
     @abc.abstractmethod
     def add_object(
-        self,
-        agnostic_params: Dict,
-        bridge_params: Dict,
-        node_params: List[Dict],
-        state_params: List[Dict],
-        *args,
-        **kwargs,
+        self, config: Dict, bridge_config: Dict, node_params: List[Dict], state_params: List[Dict], *args, **kwargs
     ) -> None:
         """
         Adds an object to the bridge's simulator object.
@@ -822,8 +828,8 @@ class Bridge(BaseNode):
 
         This method is called in .register_object(...).
 
-        :param agnostic_params: A dict with all agnostic object params.
-        :param bridge_params: A dict with all engine specific params, defined in the engine agnostic definition of the object.
+        :param config: A dict with all agnostic object params.
+        :param bridge_config: A dict with all engine specific params, defined in the engine agnostic definition of the object.
 
         :param node_params: A list containing the parameters of all the nodes that represent the object's simulated
         sensors & actuators.
@@ -919,6 +925,16 @@ class Object(Entity):
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
+        entity_id = spec.config.entity_id
+        name = spec.config.name
+
+        # Check that all selected states have a space_converter
+        for cname in spec.config.states:
+            sc = getattr(spec.states, cname).space_converter
+            assert sc is not None, (
+                f'State "{cname}" was selected for node "{name}", '
+                f'but it has no space_converter. Check the spec of "{entity_id}".'
+            )
 
 
 class BaseConverter(Entity):

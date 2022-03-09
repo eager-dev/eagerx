@@ -74,6 +74,23 @@ def get_opposite_msg_cls(msg_type, converter_cls):
     return converter_cls.get_opposite_msg_type(converter_cls, msg_type)
 
 
+def get_opposite_msg_cls_v2(msg_type, converter_cls):
+    if isinstance(msg_type, str):
+        msg_type_cls = get_attribute_from_module(msg_type)
+    else:
+        msg_type_cls = msg_type
+    if isinstance(converter_cls, dict):
+        converter_cls = get_attribute_from_module(converter_cls["converter_type"])
+    else:  # It is a View object
+        converter_cls = converter_cls.to_dict()
+        converter_cls = get_attribute_from_module(converter_cls["converter_type"])
+    opposite_msg_type = converter_cls.get_opposite_msg_type(converter_cls, msg_type_cls)
+    if isinstance(msg_type, str):
+        return get_module_type_string(opposite_msg_type)
+    else:
+        return opposite_msg_type
+
+
 def get_module_type_string(cls):
     module = inspect.getmodule(cls).__name__
     return "%s/%s" % (module, cls.__name__)
@@ -129,11 +146,17 @@ def substitute_args(
     if isinstance(param, dict):
         for key in param:
             # If the value is of type `(Ordered)dict`, then recurse with the value
-            if isinstance(param[key], dict):
+            if isinstance(param[key], (dict, list)):
                 substitute_args(param[key], context, only=only)
             # Otherwise, add the element to the result
             elif isinstance(param[key], str):
                 param[key] = resolve_args(param[key], context, only=only)
+    elif isinstance(param, list):
+        for idx, i in enumerate(param):
+            if isinstance(i, (dict, list)):
+                substitute_args(i, context, only=only)
+            elif isinstance(i, str):
+                param[idx] = resolve_args(i, context, only=only)
     return param
 
 

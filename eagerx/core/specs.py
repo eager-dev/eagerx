@@ -110,8 +110,8 @@ class BaseNodeSpec(EntitySpec):
         with self.config as d:
             d.update(defaults)
 
-        if "bridge_params" in params:
-            params.pop("bridge_params")
+        if "bridge_config" in params:
+            params.pop("bridge_config")
 
         if "targets" in params:
             from eagerx.core.entities import ResetNode
@@ -395,6 +395,15 @@ class ObjectSpec(EntitySpec):
 
         super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
 
+    def __getattr__(self, name):
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            if name in self._params:
+                return SpecView(self, depth=[name], name=self._params["config"]["name"])
+            else:
+                raise
+
     def _lookup(self, depth):
         name = self._params["config"]["name"]
         if self.has_graph:
@@ -423,10 +432,9 @@ class ObjectSpec(EntitySpec):
 
         # Set default agnostic params
         with self.config as d:
-            d.update(agnostic.pop("agnostic_params"))
+            d.update(agnostic.pop("config"))
 
         # Set default components
-        agnostic_spec = AgnosticSpec(dict())
         for component, cnames in agnostic.items():
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
@@ -455,69 +463,34 @@ class ObjectSpec(EntitySpec):
                         converter=self.identity.params,
                         space_converter=None,
                     )
-                with getattr(agnostic_spec, component) as d:
+                with getattr(self, component) as d:
                     d[cname] = mapping
-        spec_cls.agnostic(agnostic_spec)
-        for component in agnostic.keys():
-            with getattr(self, component) as d:
-                d.update(getattr(agnostic_spec, component))
 
-    def _initialize_engine_spec(self, bridge_params):
-        # Create param mapping
-        spec = SpecificSpec(bridge_params)
-        graph = self._initialize_object_graph()
+    def _initialize_bridge_config(self, bridge_id, bridge_config):
+        # Add default config
+        with getattr(self, bridge_id) as d:
+            d.update(bridge_config)
+            d["states"] = {}
+            # Add all states to engine-specific params
+            with d.states as s:
+                for cname in self.states.keys():
+                    s[cname] = None
 
-        # Add all states to engine-specific params
-        # Try, except AssertionError: continue needed? used to be here.
-        with spec.states as d:
-            for cname in self.states.keys():
-                d[cname] = None
-        return spec, graph
-
-    def _add_engine_spec(self, bridge_id, engine_spec, graph):
+    def _add_graph(self, bridge_id, graph):
         # Register EngineGraph
         nodes, actuators, sensors = graph.register()
 
-        # Check that there is no parameter clash between node and object
-        obj_name = self.config.name
-        agnostic_params = self.config
-        engine_params = engine_spec.params
-        for _node, params in nodes.items():
-            default = params["config"]
-            node_name = default["name"]
-            for key in default.keys():
-                if key in ["name", "states", "entity_id"]:
-                    continue
-                assert (
-                    key not in agnostic_params
-                ), f'Possible parameter clash detected. "{key}" is a parameter defined both as an agnostic parameter for object "{obj_name}" and as a parameter of enginenode "{node_name}" in bridge implementation "{bridge_id}".'
-                assert (
-                    key not in engine_params
-                ), f'Possible parameter clash detected. "{key}" is a parameter defined both in the registered object_params of bridge "{bridge_id}" for a bridge implementation of object "{obj_name}" and as a parameter of enginenode "{node_name}".'
-
-        # Check that there is no parameter clash between bridge registered object_params and agnostic object params
-        for key in engine_params.keys():
-            if key in ["states"]:
-                continue
-            assert (
-                key not in agnostic_params
-            ), f'Possible parameter clash detected. "{key}" is a parameter defined both as an agnostic parameter for object "{obj_name}" and as a registered object_params of bridge "{bridge_id}" for a bridge implementation of the object.'
-
-        # Substitute engine_specific object_params (registered in the bridge implementation)
-        engine_params.pop("states")
-        substitute_args(nodes, context={"config": engine_params}, only=["config"])
-
         # Pop states that were not implemented.
-        for cname in list(engine_spec.states.keys()):
-            if engine_spec.states[cname] is None:
-                engine_spec.states.pop(cname)
+        with getattr(self, bridge_id).states as d:
+            for cname in list(getattr(self, bridge_id).states.keys()):
+                if d[cname] is None:
+                    d.pop(cname)
 
         # Set engine_spec
-        with engine_spec.config as d:
+        with getattr(self, bridge_id) as d:
             d.actuators = actuators
             d.sensors = sensors
             d.nodes = nodes
-        self._params[bridge_id] = engine_spec.params
 
     def _initialize_object_graph(self):
         mapping = dict()
@@ -532,15 +505,25 @@ class ObjectSpec(EntitySpec):
         graph = EngineGraph.create(**mapping)
         return graph
 
+    def add_bridge(self, bridge_id):
+        # Construct context & replace placeholders
+        context = {"config": self.config.to_dict()}
+        substitute_args(self._params["config"], context, only=["config"])  # First resolve args within the context
+        substitute_args(self._params, context, only=["config"])  # Resolve rest of params
+
+        # Add bridge entry
+        self._params[bridge_id] = {}
+        register.add_bridge(self, bridge_id)
+
     def build(self, ns, bridge_id):
         params = self.params  # Creates a deepcopy
         default = copy.deepcopy(self.config.to_dict())  # Creates a deepcopy
         name = default["name"]
 
         # Construct context
-        context = {"ns": {"env_name": ns, "obj_name": name}, "config": default}
-        substitute_args(default, context, only=["config", "ns"])  # First resolve args within the context
-        substitute_args(params, context, only=["config", "ns"])  # Resolve rest of params
+        context = {"ns": {"env_name": ns, "obj_name": name}}
+        substitute_args(default, context, only=["ns"])  # First resolve args within the context
+        substitute_args(params, context, only=["ns"])  # Resolve rest of params
 
         # Get agnostic definition
         agnostic = dict()
@@ -567,67 +550,62 @@ class ObjectSpec(EntitySpec):
 
         # Sensors & actuators
         sensor_addresses = dict()
-        rates = dict()
         dependencies = []
-        for obj_comp in ["sensors", "actuators"]:
+        for obj_comp in ["actuators", "sensors"]:
             for obj_cname in default[obj_comp]:
                 try:
-                    entry = specific[obj_comp][obj_cname]
+                    entry_lst = specific[obj_comp][obj_cname]
                 except KeyError:
                     raise KeyError(
                         f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in bridge "{bridge_id}".'
                     )
-                node_name, node_comp, node_cname = (
-                    entry["name"],
-                    entry["component"],
-                    entry["cname"],
-                )
-                obj_comp_params = agnostic[obj_comp][obj_cname]
-                node_params = nodes[node_name]
+                # todo: here we assume a single node implements the actuator --> could be multiple
 
-                # Determine node dependency
-                dependencies += entry["dependency"]
+                # entry = entry_lst
+                for entry in reversed(entry_lst):
+                    node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
+                    obj_comp_params = agnostic[obj_comp][obj_cname]
+                    node_params = nodes[node_name]
 
-                # Set rate
-                rate = obj_comp_params["rate"]
-                if node_name in rates:
-                    assert (
-                        rates[node_name] == rate
-                    ), f'Cannot specify different rates ({rates[node_name]} vs {rate}) for a enginenode "{node_name}". If this enginenode is used for multiple sensors/components, then their specified rates must be equal.'
-                else:
-                    rates[node_name] = rate
-                node_params["config"]["rate"] = rate
-                for o in node_params["config"]["outputs"]:
-                    node_params["outputs"][o]["rate"] = rate
+                    # Determine node dependency
+                    dependencies += entry["dependency"]
 
-                # Set component params
-                node_comp_params = nodes[node_name][node_comp][node_cname]
+                    # Set rate
+                    rate = obj_comp_params["rate"]
+                    msg_start = f'Different rate specified for {obj_comp[:-1]} "{obj_cname}" and enginenode "{node_name}": '
+                    msg_end = "If an enginenode implements a sensor/actuator, their specified rates must be equal."
+                    msg_mid = f'{node_params["config"]["rate"]} vs {rate}. '
+                    assert node_params["config"]["rate"] == rate, msg_start + msg_mid + msg_end
+                    for o in node_params["config"]["outputs"]:
+                        msg_mid = f'{node_params["outputs"][o]["rate"]} vs {rate}. '
+                        assert node_params["outputs"][o]["rate"] == rate, msg_start + msg_mid + msg_end
 
-                if obj_comp == "sensors":
-                    node_comp_params.update(obj_comp_params)
-                    node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
-                    sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
-                else:  # Actuators
-                    node_comp_params.update(obj_comp_params)
-                    node_comp_params.pop("rate")
+                    # Set component params
+                    node_comp_params = nodes[node_name][node_comp][node_cname]
+                    if obj_comp == "sensors":
+                        node_comp_params.update(obj_comp_params)
+                        node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
+                        sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
+                    else:  # Actuators
+                        node_comp_params.update(obj_comp_params)
+                        node_comp_params.pop("rate")
 
         # Get set of node we are required to launch
         dependencies = list(set(dependencies))
-        dependencies = [substitute_args(node_name, context, only=["ns"]) for node_name in dependencies]
 
         # Verify that no dependency is an unlisted actuator node.
         not_selected = [cname for cname in agnostic["actuators"] if cname not in default["actuators"]]
         for cname in not_selected:
             try:
-                entry = specific["actuators"][cname]
-                node_name, node_comp, node_cname = (
-                    entry["name"],
-                    entry["component"],
-                    entry["cname"],
-                )
-                assert (
-                    node_name not in dependencies
-                ), f'There appears to be a dependency on enginenode "{node_name}" for the implementation of bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is directly tied to an unselected actuator "{cname}".'
+                for entry in specific["actuators"][cname]:
+                    node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
+                    msg = (
+                        f'There appears to be a dependency on enginenode "{node_name}" for the implementation of '
+                        f'bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is '
+                        f'directly tied to an unselected actuator "{cname}". '
+                        "The actuator must be selected to resolve the graph."
+                    )
+                    assert node_name not in dependencies, msg
             except KeyError:
                 # We pass here, because if cname is not selected, but also not implemented,
                 # we are sure that there is no dependency.
