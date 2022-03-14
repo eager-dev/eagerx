@@ -4,6 +4,7 @@ from std_msgs.msg import UInt64, Bool, String
 # RX IMPORTS
 import rx
 from rx import operators as ops
+from rx.disposable import CompositeDisposable
 from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
 
@@ -57,6 +58,7 @@ def init_node_pipeline(
     is_reactive,
     real_time_factor,
     simulate_delays,
+    disposables,
     event_scheduler=None,
 ):
     # Node ticks
@@ -175,8 +177,10 @@ def init_node_pipeline(
     )
 
     # Dispose
-    dispose = [Rn, Nc, Ns, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr
-    return {"Rn": Rn, "dispose": dispose}
+    disposables.clear()
+    d = CompositeDisposable([Rn, Nc, Ns, d_Rn, d_Nc, d_Ns, d_flag] + d_msg + d_rr)
+    disposables.add(d)
+    return {"Rn": Rn, "dispose": d}
 
 
 def init_node(
@@ -191,6 +195,8 @@ def init_node(
 ):
     # Initialize scheduler
     event_scheduler = EventLoopScheduler()
+    eps_disp = CompositeDisposable()
+    reset_disp = CompositeDisposable(eps_disp)
 
     # Gather reactive properties
     is_reactive = node.is_reactive
@@ -312,7 +318,8 @@ def init_node(
 
     # Send output flags
     for i in outputs:
-        RrRn.pipe(ops.map(lambda x: UInt64(data=x))).subscribe(i["reset"])
+        d = RrRn.pipe(ops.map(lambda x: UInt64(data=x))).subscribe(i["reset"])
+        reset_disp.add(d)
 
     # Reset node pipeline
     reset_trigger = rx.zip(RrRn, f.pipe(spy("F", node)), SS.pipe(spy("SS", node))).pipe(
@@ -345,19 +352,20 @@ def init_node(
                 is_reactive,
                 real_time_factor,
                 simulate_delays,
+                eps_disp,
                 event_scheduler=event_scheduler,
             )
         ),
         trace_observable("init_node_pipeline", node),
         ops.share(),
     )
-    reset_obs.pipe(ops.pluck("Rn")).subscribe(Rn_ho)
+    d = reset_obs.pipe(ops.pluck("Rn")).subscribe(Rn_ho)
+    reset_disp.add(d)
 
     # Dispose old pipeline, run reset callback
     reset_msg = reset_obs.pipe(
         ops.pluck("dispose"),
         ops.buffer_with_count(2, skip=1),
-        ops.map(lambda x: [d.dispose() for d in x[0]]),
         ops.start_with(None),
         # zipped with Rn_ho so that Rn has switched before sending "reset topic"
         ops.zip(reset_trigger, Rn_ho.pipe(ops.skip(1)), check_SS, check_SS_CL),
@@ -370,7 +378,8 @@ def init_node(
     )
 
     # Send node reset message
-    reset_msg.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset["msg"])
+    d = reset_msg.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset["msg"])
+    reset_disp.add(d)
 
     rx_objects = dict(
         inputs=inputs,
@@ -381,6 +390,7 @@ def init_node(
         targets=targets,
         node_inputs=node_inputs,
         node_outputs=node_outputs,
+        disposable=reset_disp,
     )
     return rx_objects
 
@@ -401,6 +411,7 @@ def init_bridge_pipeline(
     real_time_factor,
     simulate_delays,
     E,
+    disposables,
     event_scheduler=None,
 ):
     # Node ticks
@@ -478,9 +489,10 @@ def init_bridge_pipeline(
     SS_CL_ho.on_next(ss_flags.pipe(ops.start_with(None)))
 
     # Dispose
-    # todo: output CompositeDisposable
-    dispose = [RRn, Nc, Ns, d_RRn, d_Nc, d_Ns] + d_msg
-    return {"dispose": dispose}
+    disposables.clear()
+    d = CompositeDisposable([RRn, Nc, Ns, d_RRn, d_Nc, d_Ns] + d_msg)
+    disposables.add(d)
+    return {"dispose": d}
 
 
 def init_bridge(
@@ -499,6 +511,8 @@ def init_bridge(
     ###########################################################################
     # Prepare scheduler
     event_scheduler = EventLoopScheduler()
+    eps_disp = CompositeDisposable()
+    reset_disp = CompositeDisposable(eps_disp)
 
     # Gather reactive properties
     is_reactive = node.is_reactive
@@ -663,19 +677,21 @@ def init_bridge(
     # Zip initial input flags
     check_F_init, F_init, F_init_ho = switch_with_check_pipeline()
     F_init = F_init.pipe(ops.first(), ops.merge(rx.never()))
-    inputs.pipe(
+    d = inputs.pipe(
         ops.map(
             lambda inputs: rx.zip(*[i["reset"].pipe(flag_dict(i["name"])) for i in inputs]).pipe(
                 ops.map(lambda x: merge_dicts({}, x)), ops.start_with(None)
             )
         )
     ).subscribe(F_init_ho)
+    reset_disp.add(d)
     F = Subject()
     f = rx.merge(F, F_init)
 
     # Zip node flags
     check_NF, NF, NF_ho = switch_with_check_pipeline()
-    node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node))).subscribe(NF_ho)
+    d = node_flags.pipe(ops.map(lambda node_flags: node_reset_flags(ns, node_flags, node))).subscribe(NF_ho)
+    reset_disp.add(d)
 
     # Dynamically initialize new state pipeline
     ResetTrigger = Subject()
@@ -684,7 +700,8 @@ def init_bridge(
         ops.share(),
     )
     check_simSS, simSS, simSS_ho = switch_with_check_pipeline()
-    ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
+    d = ss_flags.pipe(ops.map(lambda obs: obs.pipe(ops.start_with(None)))).subscribe(simSS_ho)
+    reset_disp.add(d)
 
     # Before starting real_reset procedure, wait for EngineState pipeline to be initialized.
     # This, so that the first time, the engine states are run.
@@ -694,9 +711,12 @@ def init_bridge(
     node_outputs.append(end_register)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS).pipe(
-        ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64())
-    ).subscribe(ER)
+    d = (
+        rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS)
+        .pipe(ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64()))
+        .subscribe(ER)
+    )
+    reset_disp.add(d)
 
     ###########################################################################
     # Real reset ##############################################################
@@ -706,9 +726,14 @@ def init_bridge(
     node_inputs.append(real_reset_input)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    rx.zip(check_F_init, check_reactive_proxy, check_NF).pipe(
-        ops.map(lambda i: message_broker.connect_io()),
-    ).subscribe(RR)
+    d = (
+        rx.zip(check_F_init, check_reactive_proxy, check_NF)
+        .pipe(
+            ops.map(lambda i: message_broker.connect_io()),
+        )
+        .subscribe(RR)
+    )
+    reset_disp.add(d)
 
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
@@ -722,11 +747,12 @@ def init_bridge(
         ops.share(),
     )
 
-    pre_reset_trigger.pipe(
+    d = pre_reset_trigger.pipe(
         ops.map(lambda x: x[0][0]),
         ops.map(lambda x: UInt64(data=x[0] + 1)),
         ops.share(),  # x[0][0]=Nc
     ).subscribe(RM)
+    reset_disp.add(d)
     ss_cl = pre_reset_trigger.pipe(ops.map(lambda x: x[0][-1]))  # x[0][-1]=ss_cl
 
     ###########################################################################
@@ -738,12 +764,14 @@ def init_bridge(
     node_outputs.append(reset_output)
 
     # Send reset message
-    RM.subscribe(R)
+    d = RM.subscribe(R)
+    reset_disp.add(d)
     Rr = R.pipe(ops.map(lambda x: True))
-    rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(ops.share()).subscribe(ResetTrigger)
+    d = rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(ops.share()).subscribe(ResetTrigger)
+    reset_disp.add(d)
 
     # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
-    [RM.subscribe(o["reset"]) for o in outputs]
+    [reset_disp.add(RM.subscribe(o["reset"])) for o in outputs]
 
     ###########################################################################
     # Reset: initialize episode pipeline ######################################
@@ -776,12 +804,15 @@ def init_bridge(
 
     # Switch to latest zipped inputs pipeline
     check_z_inputs, z_inputs, z_inputs_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(z_inputs_ho, scheduler=event_scheduler)
+    d = inputs_flags.pipe(ops.map(lambda i: i[0].pipe(ops.start_with(None)))).subscribe(z_inputs_ho, scheduler=event_scheduler)
+    reset_disp.add(d)
 
     # Switch to latest zipped flags pipeline
     check_z_flags, z_flags, z_flags_ho = switch_with_check_pipeline()
-    inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(z_flags_ho, scheduler=event_scheduler)
-    z_flags.subscribe(F)
+    d = inputs_flags.pipe(ops.map(lambda i: i[1].pipe(ops.start_with(None)))).subscribe(z_flags_ho, scheduler=event_scheduler)
+    reset_disp.add(d)
+    d = z_flags.subscribe(F)
+    reset_disp.add(d)
 
     # Initialize rest of episode pipeline
     pipeline_trigger = rx.zip(check_z_flags, check_z_inputs)
@@ -803,6 +834,7 @@ def init_bridge(
                 real_time_factor,
                 simulate_delays,
                 end_reset["msg"],
+                eps_disp,
                 event_scheduler=event_scheduler,
             )
         ),
@@ -814,10 +846,10 @@ def init_bridge(
     # End reset ###############################################################
     ###########################################################################
     # Send '/end_reset' after reset has finished
-    reset_obs.pipe(
+    d = reset_obs.pipe(
         ops.pluck("dispose"),
         ops.buffer_with_count(2, skip=1),
-        ops.map(lambda x: [d.dispose() for d in x[0]]),
+        # ops.map(lambda x: x[0].dispose()),
         ops.start_with(None),
         ops.zip(
             ss_cl,
@@ -833,6 +865,7 @@ def init_bridge(
         ops.map(lambda x: UInt64(data=0)),
         ops.share(),
     ).subscribe(end_reset["msg"])
+    reset_disp.add(d)
 
     rx_objects = dict(
         inputs=inputs_init,
@@ -840,6 +873,7 @@ def init_bridge(
         node_inputs=node_inputs,
         node_outputs=node_outputs,
         state_inputs=list(state_inputs) + df_inputs,
+        disposable=reset_disp,
     )
     return rx_objects
 
@@ -847,6 +881,7 @@ def init_bridge(
 def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # Initialize schedulers
     tp_scheduler = ThreadPoolScheduler(max_workers=5)
+    reset_disp = CompositeDisposable()
 
     # Prepare states
     done_outputs = []
@@ -871,7 +906,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
     start_reset = dict(name="start_reset", address=ns + "/start_reset", msg=Subject(), msg_type=UInt64)
-    SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
+    d = SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
+    reset_disp.add(d)
 
     ###########################################################################
     # End register ############################################################
@@ -879,24 +915,27 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ER = Subject()
     end_register = dict(name="reset", address=ns + "/end_register", msg_type=UInt64, msg=ER)
     real_reset = dict(name="real_reset", address=ns + "/real_reset", msg=Subject(), msg_type=UInt64)
-    ER.subscribe(real_reset["msg"])
+    d = ER.subscribe(real_reset["msg"])
+    reset_disp.add(d)
 
     # Publish state msgs
     # msgs = SR.pipe(ops.skip(1), ops.map(node._get_states), ops.share())
     msgs = ER.pipe(ops.map(node._get_states), ops.share())
     for s in state_outputs:
-        msgs.pipe(
+        d = msgs.pipe(
             ops.pluck(s["name"] + "/done"),
             trace_observable("done", node),
             ops.share(),
         ).subscribe(s["done"])
+        reset_disp.add(d)
 
-        msgs.pipe(
+        d = msgs.pipe(
             filter_dict_on_key(s["name"]),
             ops.filter(lambda msg: msg is not None),
             ops.map(s["converter"].convert),
             ops.share(),
         ).subscribe(s["msg"])
+        reset_disp.add(d)
 
     ###########################################################################
     # Reset ###################################################################
@@ -913,7 +952,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     )
 
     # Reset pipeline
-    R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset["msg"], scheduler=tp_scheduler)
+    d = R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset["msg"], scheduler=tp_scheduler)
+    reset_disp.add(d)
 
     ###########################################################################
     # Register ################################################################
@@ -934,15 +974,18 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     )
 
     # Register pipeline
-    REG_OBJECT.subscribe(register_object["msg"], scheduler=tp_scheduler)
-    REG_NODE.subscribe(register_node["msg"], scheduler=tp_scheduler)
+    d = REG_OBJECT.subscribe(register_object["msg"], scheduler=tp_scheduler)
+    reset_disp.add(d)
+    d = REG_NODE.subscribe(register_node["msg"], scheduler=tp_scheduler)
+    reset_disp.add(d)
 
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
     tick = dict(name="tick", address=ns + "/bridge/outputs/tick", msg=Subject(), msg_type=UInt64)
     end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
-    end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
+    d = end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
+    reset_disp.add(d)
 
     # Create node inputs & outputs
     node_inputs = [reset, end_reset, end_register]
@@ -956,5 +999,6 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         node_outputs=node_outputs,
         outputs=outputs,
         state_outputs=state_outputs + tuple(done_outputs),
+        disposable=reset_disp,
     )
     return rx_objects, env_subjects

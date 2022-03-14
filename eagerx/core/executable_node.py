@@ -139,12 +139,13 @@ class RxNode(object):
         self.init_pub.unregister()
 
     def node_shutdown(self):
-        rospy.logdebug(f"[{self.name}] RxNode.node_shutdown() called.")
-        rospy.loginfo(f"[{self.name}] Shutting down.")
-        self._shutdown()
-        self.node.shutdown()
-        self.mb.shutdown()
-        self.has_shutdown = True
+        if not self.has_shutdown:
+            rospy.logdebug(f"[{self.name}] RxNode.node_shutdown() called.")
+            rospy.loginfo(f"[{self.name}] Shutting down.")
+            self._shutdown()
+            self.node.shutdown()
+            self.mb.shutdown()
+            self.has_shutdown = True
 
 
 if __name__ == "__main__":
