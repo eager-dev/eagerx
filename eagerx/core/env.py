@@ -366,10 +366,13 @@ class Env(gym.Env):
                 # node.terminate(f"[{self.name}] Terminating '{address}'")
             for _, rxnode in self.supervisor_node.sp_nodes.items():
                 rxnode: RxNode
-                rospy.loginfo(f"[{self.name}][{rxnode.name}] Shutting down.")
-                rxnode.node_shutdown()
-            self.supervisor.node_shutdown()
-            self.env.node_shutdown()
+                if not rxnode.has_shutdown:
+                    rospy.loginfo(f"[{self.name}][{rxnode.name}] Shutting down.")
+                    rxnode.node_shutdown()
+            if not self.supervisor.has_shutdown:
+                self.supervisor.node_shutdown()
+            if not self.env.has_shutdown:
+                self.env.node_shutdown()
             self.mb.shutdown()
             try:
                 rosparam.delete_param(f"/{self.name}")

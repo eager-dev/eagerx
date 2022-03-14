@@ -148,17 +148,32 @@ class SupervisorNode(BaseNode):
         self.env_node.action_event.set()
         self.subjects["start_reset"].on_next(UInt64(data=self.cum_registered))
         self._step_counter = 0
-        self.env_node.obs_event.wait()
+        try:
+            # flag = self.env_node.obs_event.wait()
+            flag = self.env_node.obs_event.wait()
+            if not flag: raise KeyboardInterrupt
+        except (KeyboardInterrupt, SystemExit):
+            print("[reset] KEYBOARD INTERRUPT")
+            raise
         rospy.logdebug("FIRST OBS RECEIVED!")
 
     def step(self):
         self.env_node.obs_event.clear()
         self.env_node.action_event.set()
         self._step_counter += 1
-        self.env_node.obs_event.wait()
+        try:
+            # flag = self.env_node.obs_event.wait(5)
+            # print("[pre] STEP COUNTER: ", self._step_counter)
+            flag = self.env_node.obs_event.wait()
+            # print("[post] STEP COUNTER: ", self._step_counter)
+            if not flag: raise KeyboardInterrupt
+        except (KeyboardInterrupt, SystemExit):
+            print("[step] KEYBOARD INTERRUPT")
+            raise
         rospy.logdebug("STEP END")
 
     def shutdown(self):
+        self.env_node.action_event.set()
         self.pub_get_last_image.unregister()
         self.sub_set_last_image.unregister()
         self.render_toggle_pub.unregister()
@@ -225,9 +240,10 @@ class Supervisor(object):
         self.init_pub.unregister()
 
     def node_shutdown(self):
-        rospy.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
-        rospy.loginfo(f"[{self.name}] Shutting down.")
-        self._shutdown()
-        self.node.shutdown()
-        self.mb.shutdown()
-        self.has_shutdown = True
+        if not self.has_shutdown:
+            rospy.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
+            rospy.loginfo(f"[{self.name}] Shutting down.")
+            self._shutdown()
+            self.node.shutdown()
+            self.mb.shutdown()
+            self.has_shutdown = True

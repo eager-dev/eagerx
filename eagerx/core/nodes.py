@@ -1,5 +1,7 @@
 from typing import Optional
 from threading import Event
+import signal
+import sys
 
 import numpy as np
 import rospy
@@ -55,9 +57,18 @@ class EnvNode(Node):
                 "window": window,
             }
 
+        # Synchronization event
         self.obs_event = Event()
         self.action_event = Event()
         self.must_reset = False
+
+        # Graceful signal handler
+        def signal_handler(sig, frame):
+            print("SIGINT caught!")
+            self.obs_event.set()
+            self.action_event.set()
+            sys.exit(0)
+        signal.signal(signal.SIGINT, signal_handler)
 
         # Define action buffers
         self.action_buffer = dict()
@@ -99,7 +110,13 @@ class EnvNode(Node):
         if not self.must_reset:
             self.action_event.clear()  # Clear action event, so that we can block after setting obs
             self.obs_event.set()  # Signal environment that observations have been set.
-            self.action_event.wait()  # Wait for actions to be set.
+            try:
+                # flag = self.action_event.wait(5)  # Wait for actions to be set.
+                flag = self.action_event.wait()  # Wait for actions to be set.
+                if not flag: raise KeyboardInterrupt
+            except (KeyboardInterrupt, SystemExit):
+                print("[env] KEYBOARD INTERRUPT")
+                raise
 
         if self.must_reset:
             return None
@@ -109,6 +126,9 @@ class EnvNode(Node):
             for name, buffer in self.action_buffer.items():
                 output_msgs[name] = buffer["msg"]
             return output_msgs
+
+    def shutdown(self):
+        self.obs_event.set()
 
 
 class ObservationsNode(Node):

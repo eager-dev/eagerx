@@ -2,6 +2,7 @@
 from typing import Any
 
 import rospy
+import rx.disposable
 from rx import Observable, create
 from rx.disposable import Disposable
 from std_msgs.msg import UInt64, Bool
@@ -48,6 +49,7 @@ class RxMessageBroker(object):
         # All publishers and subscribers (grouped to unregister when shutting down)
         self._publishers = []
         self.subscribers = []
+        self.disposables = []
 
     # Every method is wrapped in a 'with Condition' block in order to be threadsafe
     def __getattribute__(self, name):
@@ -69,7 +71,12 @@ class RxMessageBroker(object):
         node_inputs=tuple(),
         node_outputs=tuple(),
         reactive_proxy=tuple(),
+        disposable: rx.disposable.CompositeDisposable = None,
     ):
+        # Add disposable
+        if disposable:
+            self.disposables.append(disposable)
+
         # Determine tick address
         if node:
             ns = node.ns
@@ -161,16 +168,18 @@ class RxMessageBroker(object):
 
             # Create publisher
             i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
-            i["msg"].subscribe(
+            d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self.disposables.append(d)
             self._publishers.append(i["msg_pub"])
             i["reset_pub"] = rospy.Publisher(i["address"] + "/reset", UInt64, queue_size=0, latch=True)
-            i["reset"].subscribe(
+            d = i["reset"].subscribe(
                 on_next=i["reset_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self.disposables.append(d)
             self._publishers.append(i["reset_pub"])
         for i in feedthrough:
             address = i["address"]
@@ -210,10 +219,11 @@ class RxMessageBroker(object):
 
             # Create publisher
             i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
-            i["msg"].subscribe(
+            d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self.disposables.append(d)
             self._publishers.append(i["msg_pub"])
         for i in state_inputs:
             address = i["address"]
@@ -283,10 +293,11 @@ class RxMessageBroker(object):
 
             # Create publisher: (latched: register, node_reset, start_reset, reset, real_reset)
             i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
-            i["msg"].subscribe(
+            d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self.disposables.append(d)
             self._publishers.append(i["msg_pub"])
         for i in reactive_proxy:
             address = i["address"]
@@ -304,10 +315,11 @@ class RxMessageBroker(object):
 
             # Create publisher
             i["reset_pub"] = rospy.Publisher(i["address"] + "/reset", UInt64, queue_size=0, latch=True)
-            i["reset"].subscribe(
+            d = i["reset"].subscribe(
                 on_next=i["reset_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
+            self.disposables.append(d)
             self._publishers.append(i["reset_pub"])
 
         # Add new addresses to already registered I/Os
@@ -443,6 +455,7 @@ class RxMessageBroker(object):
 
                     # Subscribe and change status
                     entry["disposable"] = T.subscribe(entry["rx"])
+                    self.disposables.append(entry["disposable"])
                     entry["status"] = status
 
                     # Print status
@@ -483,6 +496,7 @@ class RxMessageBroker(object):
         rospy.logdebug(f"[{self.owner}] RxMessageBroker.shutdown() called.")
         [pub.unregister() for pub in self._publishers]
         [sub.unregister() for sub in self.subscribers]
+        [d.dispose() for d in self.disposables]
 
 
 def from_topic(topic_type: Any, topic_name: str, node_name, subscribers: list) -> Observable:
