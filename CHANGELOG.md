@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.8 (2022-03-14)
+### Fix
+* Shutdown on sigint, dispose disposables, no duplicate shutdown msg ([#123](https://github.com/eager-dev/eagerx/issues/123)) ([`1bb6910`](https://github.com/eager-dev/eagerx/commit/1bb6910766c0987d6335cffba104512f5f3f9829))
+
 ## v0.1.7 (2022-03-09)
 ### Fix
 * Test release ([#122](https://github.com/eager-dev/eagerx/issues/122)) ([`dcf00dc`](https://github.com/eager-dev/eagerx/commit/dcf00dc13f8caee63fd35f0a65029b62b2d9c160))
