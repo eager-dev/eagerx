@@ -711,9 +711,11 @@ def init_bridge(
     node_outputs.append(end_register)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    d = rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS).pipe(
-        ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64())
-    ).subscribe(ER)
+    d = (
+        rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS)
+        .pipe(ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64()))
+        .subscribe(ER)
+    )
     reset_disp.add(d)
 
     ###########################################################################
@@ -724,9 +726,13 @@ def init_bridge(
     node_inputs.append(real_reset_input)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    d = rx.zip(check_F_init, check_reactive_proxy, check_NF).pipe(
-        ops.map(lambda i: message_broker.connect_io()),
-    ).subscribe(RR)
+    d = (
+        rx.zip(check_F_init, check_reactive_proxy, check_NF)
+        .pipe(
+            ops.map(lambda i: message_broker.connect_io()),
+        )
+        .subscribe(RR)
+    )
     reset_disp.add(d)
 
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
@@ -867,7 +873,7 @@ def init_bridge(
         node_inputs=node_inputs,
         node_outputs=node_outputs,
         state_inputs=list(state_inputs) + df_inputs,
-        disposable=reset_disp
+        disposable=reset_disp,
     )
     return rx_objects
 

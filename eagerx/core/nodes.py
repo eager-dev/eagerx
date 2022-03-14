@@ -68,6 +68,7 @@ class EnvNode(Node):
             self.obs_event.set()
             self.action_event.set()
             sys.exit(0)
+
         signal.signal(signal.SIGINT, signal_handler)
 
         # Define action buffers
@@ -113,7 +114,8 @@ class EnvNode(Node):
             try:
                 # flag = self.action_event.wait(5)  # Wait for actions to be set.
                 flag = self.action_event.wait()  # Wait for actions to be set.
-                if not flag: raise KeyboardInterrupt
+                if not flag:
+                    raise KeyboardInterrupt
             except (KeyboardInterrupt, SystemExit):
                 print("[env] KEYBOARD INTERRUPT")
                 raise

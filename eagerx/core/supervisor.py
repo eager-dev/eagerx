@@ -149,9 +149,9 @@ class SupervisorNode(BaseNode):
         self.subjects["start_reset"].on_next(UInt64(data=self.cum_registered))
         self._step_counter = 0
         try:
-            # flag = self.env_node.obs_event.wait()
             flag = self.env_node.obs_event.wait()
-            if not flag: raise KeyboardInterrupt
+            if not flag:
+                raise KeyboardInterrupt
         except (KeyboardInterrupt, SystemExit):
             print("[reset] KEYBOARD INTERRUPT")
             raise
@@ -162,11 +162,9 @@ class SupervisorNode(BaseNode):
         self.env_node.action_event.set()
         self._step_counter += 1
         try:
-            # flag = self.env_node.obs_event.wait(5)
-            # print("[pre] STEP COUNTER: ", self._step_counter)
             flag = self.env_node.obs_event.wait()
-            # print("[post] STEP COUNTER: ", self._step_counter)
-            if not flag: raise KeyboardInterrupt
+            if not flag:
+                raise KeyboardInterrupt
         except (KeyboardInterrupt, SystemExit):
             print("[step] KEYBOARD INTERRUPT")
             raise
