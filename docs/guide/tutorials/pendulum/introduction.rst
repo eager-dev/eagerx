@@ -4,13 +4,13 @@ Introduction
 In this tutorial we will go through the process of learning a pendulum to swing up using EAGERx.
 We will touch upon the following subjects in this tutorial:
 
-* How to create an EAGERx bridge
-* How to create an EAGERx object
-* How to create an EAGERx converter
-* How to create an EAGERx process node
+* How to create a bridge
+* How to create an object
+* How to create a converter
+* How to create a process node
 * How to use the GUI
-* How to create an EAGERx Graph
-* How to learn a policy using your EAGERx environment
+* How to create a Graph
+* How to learn a policy using your environment
 
 Objectives
 **********

@@ -1,2 +1,4 @@
+.. _processor:
+
 Processor
 =========
