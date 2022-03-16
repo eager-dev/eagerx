@@ -25,14 +25,8 @@ if __name__ == "__main__":
     # todo: Important!!! For this demo to work, make sure to set the env reset state is the same every time.
     gym_id = "Pendulum-v1"  # 'Pendulum-v1', 'Acrobot-v1', 'CartPole-v1', 'MountainCarContinuous-v0'
     name = gym_id.split("-")[0]
-    obj = Object.make(
-        "GymObject",
-        name,
-        gym_env_id=gym_id,
-        gym_rate=rate,
-        default_action=[0.0],
-        render_shape=[300, 300],
-    )
+    obj = Object.make("GymObject", name, gym_env_id=gym_id, gym_rate=rate, default_action=[0.0],
+                      render_shape=[300, 300])
 
     # Define graph
     graph = Graph.create(objects=[obj])
@@ -53,13 +47,8 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make(
-        "GymBridge",
-        rate=rate,
-        is_reactive=is_reactive,
-        real_time_factor=real_time_factor,
-        process=process.NEW_PROCESS,
-    )
+    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=real_time_factor,
+                         process=process.NEW_PROCESS)
 
     # Define step function
     def step_fn(prev_obs, obs, action, steps):

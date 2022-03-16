@@ -18,56 +18,16 @@ def test_graph():
     rate = 7
 
     # Define nodes
-    N0 = Node.make(
-        "Process",
-        "N0",
-        rate=rate,
-        process=process.ENVIRONMENT,
-        inputs=["in_1"],
-        outputs=["out_1"],
-    )
-    N1 = Node.make(
-        "Process",
-        "N1",
-        rate=rate,
-        process=process.ENVIRONMENT,
-        inputs=["in_1"],
-        outputs=["out_1"],
-    )
-    N2 = Node.make(
-        "Process",
-        "N2",
-        rate=rate,
-        process=process.ENVIRONMENT,
-        inputs=["in_1"],
-        outputs=["out_1"],
-    )
-    KF = Node.make(
-        "KalmanFilter",
-        "KF",
-        rate=rate,
-        process=process.NEW_PROCESS,
-        inputs=["in_1", "in_2"],
-        outputs=["out_1", "out_2"],
-    )
-    N3 = ResetNode.make(
-        "RealReset",
-        "N3",
-        rate=rate,
-        process=process.NEW_PROCESS,
-        inputs=["in_1", "in_2"],
-        targets=["target_1"],
-    )
+    N0 = Node.make("Process", "N0", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N1 = Node.make("Process", "N1", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N2 = Node.make("Process", "N2", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    KF = Node.make("KalmanFilter", "KF", rate=rate, process=process.NEW_PROCESS, inputs=["in_1", "in_2"],
+                   outputs=["out_1", "out_2"])
+    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=process.NEW_PROCESS, inputs=["in_1", "in_2"],
+                        targets=["target_1"])
 
     # Define object
-    viper = Object.make(
-        "Viper",
-        "obj",
-        position=[1.0, 1.0, 1.0],
-        actuators=["N8"],
-        sensors=["N6"],
-        states=["N9"],
-    )
+    viper = Object.make("Viper", "obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Test SpecView
     with N3.inputs.unlocked:
