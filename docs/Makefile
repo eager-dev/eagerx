@@ -3,7 +3,9 @@
 
 # You can set these variables from the command line.
 # For debug: SPHINXOPTS = -nWT --keep-going -vvv
-SPHINXOPTS    = -W  # make warnings fatal
+#SPHINXOPTS    = -W  # make warnings fatal
+#SPHINXOPTS    = -nWT --keep-going -vvv
+SPHINXOPTS 	  = -n --keep-going -vvv
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = EAGERx
 SOURCEDIR     = .

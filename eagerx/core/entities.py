@@ -24,23 +24,42 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from eagerx.core.specs import (  # noqa: F401
+        EntitySpec,
         BridgeSpec,
         NodeSpec,
-        EngineNodeSpec,
         ConverterSpec,
         EngineStateSpec,
         ResetNodeSpec,
         ObjectSpec,
-        AgnosticSpec,
     )
 
 
 class Entity(object):
+    #: The unique id provided to the :func:`~eagerx.core.register.spec` decorator that decorates the
+    #: :func:`~eagerx.core.entities.Node.spec` method.
+    entity_id: str
+
     @classmethod
-    def make(cls, id, *args, **kwargs):
+    def make(cls, entity_id: str, *args: Any, **kwargs: Any):
+        """Makes the spec for this entity.
+
+        The subclass must have registered its spec with the :func:`~eagerx.core.register.spec` decorator.
+        Then, you can make the specification of a subclass with the :func:`~eagerx.core.entities.Entity.make` method.
+        Call :func:`~eagerx.core.entities.Entity.make` with :attr:`~eagerx.core.entities.Entity.entity_id`
+        (used to register the spec) as the first argument,
+        followed by the *`args` and **`kwargs` of the subclass' :func:`~eagerx.core.entities.Node.spec` method.
+
+        .. note:: In order for this method to find the registered :attr:`~eagerx.core.entities.Entity.entity_id`,
+                  the subclass must have previously been imported somewhere at least once.
+
+        :param entity_id: Name used to register the spec with the :func:`~eagerx.core.register.spec` decorator by the subclass.
+        :param args: Additional arguments to the subclass' spec function.
+        :param kwargs: Additional optional arguments to the subclass' spec function.
+        :return: A spec that can be used to build and subsequently initialize the entity (e.g. node, object, converter, ...).
+        """
         from eagerx.core import register
 
-        spec = register.make(cls, id, *args, **kwargs)
+        spec = register.make(cls, entity_id, *args, **kwargs)
         try:
             cls.check_spec(spec)
         except AssertionError as e:
@@ -49,10 +68,20 @@ class Entity(object):
         return spec
 
     @classmethod
-    def get_spec(cls, id, verbose=True):
+    def get_spec(cls, entity_id: str, verbose: bool = True) -> inspect.Signature:
+        """A helper method to print info on the spec signature of a subclass.
+
+        :param entity_id: Name used to register the spec with the :func:`~eagerx.core.register.spec` decorator by the subclass.
+        :param verbose: Flag to print the signature output.
+        :return: Signature of the subclass' spec. By passing the :attr:`~eagerx.core.entities.Entity.entity_id`
+                 as the first argument to :func:`~eagerx.core.entities.Entity.make`,
+                 together with the arguments specified by this signature, the entity can be build.
+        """
+
+        # """A helper method to get info on the signature of the subclass' spec method."""
         from eagerx.core import register
 
-        return register.get_spec(cls, id, verbose=verbose)
+        return register.get_spec(cls, entity_id, verbose=verbose)
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
@@ -65,7 +94,14 @@ class Entity(object):
         pass
 
     @classmethod
-    def initialize_spec(cls, spec):
+    def initialize_spec(cls, spec: "EntitySpec") -> None:
+        """Initializes the spec with the default config, and registered I/O (inputs, outputs, states, etc...).
+
+        Must be called from within the subclass' spec function.
+
+        :param spec: The spec that is to be initialized (i.e. filled) with the info registered with the various decorators from
+                     :mod:`~eagerx.core.register` in the subclass' class definition.
+        """
         spec.initialize(cls)
 
 
@@ -98,53 +134,72 @@ class BaseNode(Entity):
         """
         The base class from which all (simulation) nodes and bridges inherit.
 
-        All parameters that were uploaded via RxNodeParams.get_params(ns=..) to the rosparam server are stored in this object.
+        All parameters that were uploaded to the rosparam server are stored in this object.
 
         Optional arguments are added, and may not necessarily be uploaded to the rosparam server.
-
-        :param ns: Namespace of the environment. Corresponds to argument "name" provided to eagerx_core.rxenv.RxEnv.
-        :param message_broker: Responsible for all I/O communication within this process. Node possibly share the same message broker.
-        :param name: User specified node name.
-        :param id: Registered entity id. Relates to the registered name on top of the node's spec.
-        :param node_type: The python implementation used by this node. Follows naming convention <module>/<NodeClassName>
-        :param rate: Rate at which this node's callback is run.
-        :param process: Process in which this node is launched. See :func:`~eagerx_core.constants.process` for all options.
-        :param inputs: List of dicts containing the parameters of each input as specified in the <package_name>/config/../<config_name>.yaml.
-        :param outputs: List of dicts containing the parameters of each output as specified in the <package_name>/config/../<config_name>.yaml.
-        :param states: List of dicts containing the parameters of each state as specified in the <package_name>/config/../<config_name>.yaml.
-        :param feedthroughs: List of dicts containing the parameters of each feedthrough.
-        :param targets: List of dicts containing the parameters of each target as specified in the <package_name>/config/../<config_name>.yaml.
-        :param is_reactive: Boolean flag. Specifies whether we run reactive or asynchronous.
-        :param real_time_factor: Sets an upper bound of real_time factor. Wall-clock rate=real_time_factor*rate. If real_time_factor < 1 the simulation is slower than real time.
-        :param simulate_delays: Simulate delays. You probably want to set this to False if running in the real-world.
-        :param executable:
-        :param color: A color specifying the color of logged messages & node color in the GUI.
-        :param print_mode: Specifies the different methods for printing. See :func:`~eagerx_core.constants` for all print modes.
-        :param log_level: Overall log level of this node. See :func:`~eagerx_core.constants` for all log levels.
-        :param log_level_memory: Log level of memory diagnostics. See :func:`~eagerx_core.constants` for all log levels.
         """
-        self.ns = ns
-        self.name = name
-        self.ns_name = "%s/%s" % (ns, name)
-        self.message_broker = message_broker
-        self.entity_id = entity_id
-        self.node_type = node_type
-        self.rate = rate
-        self.process = process
-        self.executable = executable
-        self.inputs = inputs
-        self.outputs = outputs
-        self.states = states
-        self.feedthroughs = feedthroughs
-        self.targets = targets
-        self.is_reactive = is_reactive
-        self.real_time_factor = real_time_factor
-        self.simulate_delays = simulate_delays
-        self.color = color
-        self.print_mode = print_mode
-        self.log_level = log_level
+        #: **read only** - Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.EagerEnv`.
+        self.ns: str = ns
+        #: **read only** - User specified node name. Can be set in :func:`~eagerx.core.entities.Node.spec`.
+        self.name: str = name
+        #: **read only** - User specified node name with the namespace prepended. Cannot be modified directly.
+        self.ns_name: str = "%s/%s" % (ns, name)
+        #: **read only** - Responsible for all I/O communication within this process.
+        #: Nodes inside the same process share the same message broker. Cannot be modified.
+        self.message_broker: RxMessageBroker = message_broker
+        #: **read only** - A unique id with which the node is registered with the :func:`~eagerx.core.register.spec` decorator by the subclass.
+        #: Can be set in :func:`~eagerx.core.register.spec` that decorates the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.entity_id: str = entity_id
+        #: **read only** - The class definition of the subclass. Follows naming convention *<module>/<NodeClassName>*.
+        #: Cannot be modified.
+        self.node_type: str = node_type
+        #: **read only** - Rate (Hz) at which the callback is called.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.rate: float = rate
+        #: **read only** - Process in which this node is launched. See :class:`~eagerx.core.constants.process` for all options.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.process: int = process
+        #: **read only** - Executable script that is used to launch the node (if launched in a separate process).
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.executable: str = executable
+        #: **read only** - Parameters for all selected inputs.
+        self.inputs: List[Dict] = inputs
+        #: **read only** - Parameters for all selected outputs.
+        self.outputs: List[Dict] = outputs
+        #: **read only** - Parameters for all selected states.
+        self.states: List[Dict] = states
+        #: **read only** - Parameters for all feedthroughs corresponding to the selected outputs.
+        self.feedthroughs: List[Dict] = feedthroughs
+        #: **read only** - Parameters for all selected targets.
+        self.targets: List[Dict] = targets
+        #: **read only** - Flag that specifies whether we run reactive or asynchronous.
+        #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        self.is_reactive: bool = is_reactive
+        #: **read only** - A specified upper bound on the real_time factor. Wall-clock rate=real_time_factor*rate.
+        #: If real_time_factor < 1 the simulation is slower than real time.
+        #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        self.real_time_factor: float = real_time_factor
+        #: **read only** - Flag that specifies whether input delays are simulated.
+        #: You probably want to set this to False when running in the real-world.
+        #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        self.simulate_delays: bool = simulate_delays
+        #: **read only** - Specifies the color of logged messages & node color in the GUI.
+        #: Check-out the termcolor documentation for the supported colors.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.color: str = color
+        #: **read only** - Specifies the different modes for printing: {1: TERMCOLOR, 2: ROS}.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.print_mode: int = print_mode
+        #: **read only** - Specifies the log level for this node:
+        #: {0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.log_level: int = log_level
         effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
-        self.log_memory = effective_log_level >= log_level and log_level_memory >= effective_log_level
+        #: **read only** - Specifies the log level for logging memory usage over time for this node:
+        #: {0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}.
+        #: Note that `log_level` has precedent over the memory level set here.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.log_memory: int = effective_log_level >= log_level and log_level_memory >= effective_log_level
         self.initialize(*args, **kwargs)
 
     @staticmethod
@@ -203,25 +258,49 @@ class BaseNode(Entity):
             )
 
     @abc.abstractmethod
-    def initialize(self, *args, **kwargs):
-        """A method to initialize this node."""
+    def initialize(
+        self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]
+    ) -> None:
+        """
+        An abstract method that initializes the node at run-time.
+
+        :param args: Arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        :param kwargs: Optional arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        """
         pass
 
-    def shutdown(self):
+    def shutdown(self) -> None:
+        """A method that can be overwritten to cleanly shutdown (e.g. release resources)."""
         pass
 
 
 class Node(BaseNode):
+    """Baseclass for nodes.
+
+    Use this baseclass to implement nodes that will be added to the agnostic :class:`~eagerx.core.graph.Graph`.
+
+    Users must call :func:`~eagerx.core.entities.Node.make` to make the registered node subclass'
+    :func:`~eagerx.core.entities.Node.spec`. See :func:`~eagerx.core.entities.Node.make` for more info.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.Node.spec`
+
+    - :func:`~eagerx.core.entities.Node.initialize`
+
+    - :func:`~eagerx.core.entities.Node.reset`
+
+    - :func:`~eagerx.core.entities.Node.callback`
+
+    - :func:`~eagerx.core.entities.Node.shutdown` (optional)
+
+    Use baseclass :class:`~eagerx.core.entities.EngineNode` instead, for nodes that will be added to
+    :class:`~eagerx.core.graph_engine.EngineGraph` when specifying a bridge implementation for an :class:`~eagerx.core.entities.Object`.
+
+    Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
+    """
+
     def __init__(self, **kwargs):
-        """
-        The node base class from which all nodes must inherit.
-
-        Users are only expected to interact with the constructor & abstract methods of this class.
-
-        Note that all node subclasses must:
-        - Implement the abstract methods
-        :param kwargs: Arguments that are to be passed down to the baseclass. See NodeBase for this.
-        """
         # Message counter
         self.num_ticks = 0
 
@@ -360,7 +439,14 @@ class Node(BaseNode):
         self.num_ticks += 1
         return output
 
-    def set_delay(self, delay: float, component: str, cname: str):
+    def set_delay(self, delay: float, component: str, cname: str) -> None:
+        """
+        A method to vary the delay of an input or feedthrough.
+
+        :param delay: A non-negative delay that can be varied at the beginning of an episode (during the reset procedure).
+        :param component: Either "inputs" or "feedthroughs".
+        :param cname: name of the component.
+        """
         assert delay >= 0, "Delay must be non-negative."
         for i in getattr(self, component):
             if i["name"] == cname:
@@ -368,33 +454,41 @@ class Node(BaseNode):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: "NodeSpec", *args, **kwargs):
+    def spec(spec: "NodeSpec", *args: Any, **kwargs: Any) -> None:
+        """
+        An abstract method that creates the node's specification that is used to initialize the node at run-time.
+
+        The subclass' implementation must call :func:`~eagerx.core.entities.Node.initialize_spec` to initialize
+        the spec with the default config, and registered I/O (inputs, outputs, states, etc...).
+
+        .. note:: Users should not directly call :func:`~eagerx.core.entities.Node.spec` to make the node's spec.
+                  Instead, users should call :func:`~eagerx.core.entities.Node.make`.
+
+        :param spec: A (mutable) specification.
+        :param args: Additional arguments as specified by the subclass.
+        :param kwargs: Additional optional arguments as specified by the subclass.
+        """
         pass
 
     @abc.abstractmethod
-    def reset(self, **kwargs: Optional[Message]):
+    def reset(self, **states: Any) -> None:
         """
-        A method to reset this simulation node.
+        An abstract method that resets the node to its initial state before the start of an episode.
 
-        Could be used to:
-        - reset the internal state of this node if it has one.
-
-        :param kwargs: Optionally the node states if any are defined in the node_ros_package/config/<node>.yaml.
-        :return None
+        :param states: States that were registered (& selected) with the :func:`~eagerx.core.register.states` decorator by the subclass.
+                       The state messages are send by the environment and can be used to reset the node at the start of an episode.
+                       This can be anything from an estimator's initial state to a hyper-parameter (e.g. delay, control gains).
         """
         pass
 
     @abc.abstractmethod
-    def callback(self, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Union[Message, Bool]]:
+    def callback(self, t_n: float, **inputs: Msg) -> Dict[str, Any]:
         """
-        The node callback that is performed at the specified node rate.
+        An abstract method that is called at the specified node rate.
 
-        All inputs specified in the package/config/<node>.yaml must be defined as optional arguments to this callback method.
-
-        :param node_tick: The number of times this callback has run since the last reset.
-        :param t_n: Time passed since last reset according to the provided rate (t_n = node_tick * 1/self.rate).
-        :param kwargs: All selected inputs specified in package/config/<object>.yaml under <bridge>/<component>/<cname>.
-        :return: A dict containing output messages.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Node.rate`.
+        :param inputs: Inputs that were registered (& selected) with the :func:`~eagerx.core.register.inputs` decorator by the subclass.
+        :return: Dictionary with outputs that were registered (& selected) with the :func:`~eagerx.core.register.outputs` decorator by the subclass.
         """
         pass
 
@@ -420,11 +514,77 @@ class Node(BaseNode):
 
 
 class ResetNode(Node):
-    """Reset node baseclass from which all nodes that perform a real reset routine inherit"""
+    """Baseclass for nodes that perform a reset routine.
+
+    Use this baseclass to implement reset nodes that will be added to the agnostic :class:`~eagerx.core.graph.Graph`.
+
+    Users must call :func:`~eagerx.core.entities.ResetNode.make` to make the registered reset node subclass'
+    :func:`~eagerx.core.entities.ResetNode.spec`. See :func:`~eagerx.core.entities.ResetNode.make` for more info.
+
+    .. note:: Subclasses must always have at least one target registered with the :func:`~eagerx.core.register.targets` decorator.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.ResetNode.spec`
+
+    - :func:`~eagerx.core.entities.ResetNode.initialize`
+
+    - :func:`~eagerx.core.entities.ResetNode.reset`
+
+    - :func:`~eagerx.core.entities.ResetNode.callback`
+
+    - :func:`~eagerx.core.entities.ResetNode.shutdown` (optional)
+
+    Use baseclass :class:`~eagerx.core.entities.EngineNode` instead, for nodes that will be added to
+    :class:`~eagerx.core.graph_engine.EngineGraph` when specifying a bridge implementation for an :class:`~eagerx.core.entities.Object`.
+
+    Use baseclass :class:`~eagerx.core.entities.Node` instead, for regular nodes that will be added to the
+    agnostic :class:`~eagerx.core.graph.Graph`.
+    """
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: "ResetNodeSpec", *args, **kwargs):
+    def spec(spec: "ResetNodeSpec", *args: Any, **kwargs: Any) -> None:
+        """
+        An abstract method that creates the engine node's specification that is used to initialize the node at run-time.
+
+        The subclass' implementation must call :func:`~eagerx.core.entities.ResetNode.initialize_spec` to initialize
+        the spec with the default config, and registered I/O (inputs, outputs, states, etc...).
+
+        :param spec: A (mutable) specification.
+        :param args: Additional arguments as specified by the subclass.
+        :param kwargs: Additional optional arguments as specified by the subclass.
+        """
+        pass
+
+    @abc.abstractmethod
+    def reset(self, **states: Any) -> None:
+        """
+        An abstract method that resets the node to its initial state before the start of an episode.
+
+        :param states: States that were registered (& selected) with the :func:`~eagerx.core.register.states` decorator by the subclass.
+                       The state messages are send by the environment and can be used to reset the node at the start of an episode.
+                       This can be anything from an estimator's initial state to a hyper-parameter (e.g. delay, control gains).
+        """
+        pass
+
+    @abc.abstractmethod
+    def callback(self, t_n: float, **inputs_and_targets: Msg) -> Dict[str, Any]:
+        """
+        An abstract method that is called at the specified node rate during the environment reset.
+
+        .. note:: This callback is skipped until the user calls :func:`~eagerx.core.env.EagerEnv.reset`.
+                  Until then, the messages coming in via the connected *feedthroughs* are fed through as
+                  the outputs instead. For every registered output that was registered (& selected) with the
+                  :func:`~eagerx.core.register.outputs` decorator by the subclass, there must be a connected *feedthrough*.
+
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.ResetNode.rate`.
+        :param inputs_and_targets: Inputs and targets that were registered (& selected) with the :func:`~eagerx.core.register.inputs`
+                                   and :func:`~eagerx.core.register.targets` decorators by the subclass.
+        :return: Dictionary with outputs that were registered (& selected) with the :func:`~eagerx.core.register.outputs`
+                 decorator by the subclass. In addition, the dictionary must contain a :class:`~std_msgs.msg.Bool` message
+                 that states whether the request *target* was reached.
+        """
         pass
 
     @classmethod
@@ -462,97 +622,95 @@ class ResetNode(Node):
 
 
 class EngineNode(Node):
+    """Baseclass for nodes that must be synchronized with respect to the simulator.
+
+    Use this baseclass to implement nodes that will be added to an :class:`~eagerx.core.graph_engine.EngineGraph`
+    when specifying a bridge implementation for an :class:`~eagerx.core.entities.Object`.
+
+    Users must call :func:`~eagerx.core.entities.EngineNode.make` to make the registered engine node subclass'
+    :func:`~eagerx.core.entities.EngineNode.spec`. See :func:`~eagerx.core.entities.EngineNode.make` for more info.
+
+    .. note:: Engine nodes only receive a reference to the *simulator* and the :class:`~eagerx.core.entities.Object`'s
+              *config* and *bridge_config* when the engine nodes are launched within the same process as the bridge.
+              See :class:`~eagerx.core.constants.process` for more info.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.EngineNode.spec`
+
+    - :func:`~eagerx.core.entities.EngineNode.initialize`
+
+    - :func:`~eagerx.core.entities.EngineNode.reset`
+
+    - :func:`~eagerx.core.entities.EngineNode.callback`
+
+    - :func:`~eagerx.core.entities.EngineNode.shutdown` (optional)
+
+    Use baseclass :class:`~eagerx.core.entities.Node` instead, for nodes that will be added to the
+    agnostic :class:`~eagerx.core.graph.Graph`.
+
+    Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
     """
-    The simulation node baseclass from which all nodes, used to simulate sensors/actuators, must inherit.
 
-    Users are only expected to interact with the constructor & abstract methods of this class.
-
-    Note that all simulation node subclasses must:
-     - Implement the abstract methods
-     - Create a (placeholder) simulator object, that is passed down to the baseclass' constructor.
-     - Pass down all arguments (possibly inside kwargs), that are required by the node baseclasses' constructor (see Node, NodeBase).
-     - Define a static property that specifies the msg_type for every input, output, state and/or target.
-
-    Example of such a static property:
-    msg_types = {'inputs': {'in_1': UInt64,
-                            'in_2': UInt64,
-                            'in_3': String,
-                            'tick': UInt64},
-                 'outputs': {'out_1': UInt64,
-                             'out_2': UInt64},
-                 'states': {'state_1': UInt64,
-                            'state_2': UInt64}}
-
-    For more info see baseclasses Node and NodeBase.
-    """
-
-    def __init__(
-        self,
-        simulator: Any = None,
-        agnostic_params: Dict = None,
-        bridge_params: Dict = None,
-        **kwargs,
-    ):
-        """
-        Simulation node class constructor.
-
-        Note: This node only has access to the object_params & simulator if the node is launched inside the same
-        process as the bridge.
-
-        :param simulator: Simulator object. Passed along by the bridge if the node is launched inside the bridge process.
-        :param object_params: A dictionary containing the following: First, all the parameters defined under "config"
-        in the package/config/<object>.yaml. Secondly, it contains all object parameters that are specific for this bridge
-        implementation under the keyword 'bridge". These are the parameters defined under "<bridge>" in the object_package/config/<object>.yaml.
-        :param kwargs: Arguments that are to be passed down to the baseclass. See Node & NodeBase for this.
-        """
-        self.simulator = simulator
-        self.agnostic_params = agnostic_params
-        self.bridge_params = bridge_params
+    def __init__(self, simulator: Any = None, config: Dict = None, bridge_config: Dict = None, **kwargs: Any):
+        #: A reference to the *simulator*. The simulator type depends on the bridge.
+        #: Oftentimes, engine nodes require this reference in :func:`~eagerx.core.entities.EngineNode.callback` and/or
+        #: :func:`~eagerx.core.entities.EngineNode.reset` to simulate (e.g. apply an action, extract a sensor measurement).
+        #: Only available if the node was launched inside the bridge process.
+        #: See :class:`~eagerx.core.constants.process` for more info.
+        #: The simulator is initialized in the bridge's :func:`~eagerx.core.entities.Bridge.initialize` method.
+        self.simulator: Any = simulator
+        #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that corresponds to a specific bridge
+        #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
+        #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.
+        #: Only available if the node was launched inside the bridge process.
+        #: See :class:`~eagerx.core.constants.process` for more info.
+        #: The parameters in :attr:`~eagerx.core.entities.Object.config` can be modified in the
+        #: :class:`~eagerx.core.entities.Object`'s :func:`~eagerx.core.entities.Object.spec` method.
+        self.config: Dict = config
+        #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that corresponds to a specific bridge
+        #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
+        #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.":attr:`~eagerx.core.entities.bridge.entity_id`".
+        #: Only available if the node was launched inside the bridge process.
+        #: See :class:`~eagerx.core.constants.process` for more info.
+        #: The parameters in `bridge_config` can be modified in the bridge-specific implementation of an :class:`~eagerx.core.entities.Object`.
+        self.bridge_config: Dict = bridge_config
 
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
 
-    @staticmethod
     @abc.abstractmethod
-    def spec(spec: "EngineNodeSpec", *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def reset(self, **kwargs: Optional[Message]) -> Optional[Dict[str, Message]]:
+    def reset(self, **states: Any) -> None:
         """
-        A method to reset this simulation node.
+        An abstract method that resets the node to its initial state before the start of an episode.
 
-        Could be used to:
-        - reset the internal state of a sensor/actuator.
+        .. warning:: Avoid defining states for engine nodes, as you risk making your :class:`~eagerx.core.entities.Object`
+                     non-agnostic to the environment. Instead, try to implement object states as an :class:`~eagerx.core.entities.EngineState`
+                     of an :class:`~eagerx.core.entities.Object`.
 
-        Important: Be careful to define states for simulation nodes, as you risk making your environment non-agnostic.
-        Instead, always try to implement states of the environment as states of objects (i.e. inside the object's .yaml).
-
-        :param kwargs: Optionally the node states if any are defined in the node_ros_package/config/<node>.yaml.
-        :return None
+        :param states: States that were registered (& selected) with the :func:`~eagerx.core.register.states` decorator by the subclass.
+                       The state messages are send by the environment and can be used to reset the node at the start of an episode.
+                       This can be anything from an estimator's initial state to a hyper-parameter (e.g. delay, control gains).
         """
         pass
 
     @abc.abstractmethod
-    def callback(self, t_n: float, **kwargs: Optional[Msg]) -> Dict[str, Message]:
+    def callback(self, t_n: float, **inputs: Msg) -> Dict[str, Any]:
         """
-        The simulation node callback that is performed at the specified node rate.
+        An abstract method that is called at the specified node rate.
 
-        All inputs specified in the package/config/<enginenode>.yaml must be defined as optional arguments to this callback method.
-
-        :param node_tick: The number of times this callback has run since the last reset.
-        :param t_n: Time passed since last reset according to the provided rate (t_n = node_tick * 1/self.rate).
-        :param kwargs: All selected inputs specified in package/config/<object>.yaml under <bridge>/<component>/<cname>.
-        :return: A dict containing output messages.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.EngineNode.rate`.
+        :param inputs: Inputs that were registered (& selected) with the :func:`~eagerx.core.register.inputs` decorator by the subclass.
+        :return: Dictionary with outputs that were registered (& selected) with the :func:`~eagerx.core.register.outputs` decorator by the subclass.
         """
         pass
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        from eagerx.core.specs import EngineNodeSpec  # noqa: F811
+        from eagerx.core.specs import NodeSpec  # noqa: F811
 
-        return EngineNodeSpec(spec.params)
+        return NodeSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -560,21 +718,28 @@ class EngineNode(Node):
 
 
 class Bridge(BaseNode):
-    """
-    The bridge baseclass from which all bridges must inherit.
+    """Baseclass for bridges.
 
-    Users are only expected to interact with the constructor & abstract methods of this class.
+    Use this baseclass to implement a bridge that interfaces the simulator.
 
-    Note that all bridge subclasses must:
-     - Implement the abstract methods
-     - Create a (placeholder) simulator object, that is passed down to the baseclass' constructor.
-     - Pass down all arguments (possibly inside kwargs), that are required by the baseclass' constructor (NodeBase).
-     - Define a static property that specifies the msg_type for every output and/or state.
+    Users must call :func:`~eagerx.core.entities.Bridge.make` to make the registered bridge subclass'
+    :func:`~eagerx.core.entities.Bridge.spec`. See :func:`~eagerx.core.entities.Bridge.make` for more info.
 
-        Example of such a static property:
-        msg_types = {'outputs': {'tick': UInt64},
-                     'states': {'state_1': UInt64}}
-    For more info see baseclass NodeBase.
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.Bridge.spec`
+
+    - :func:`~eagerx.core.entities.Bridge.initialize`
+
+    - :func:`~eagerx.core.entities.Bridge.add_object`
+
+    - :func:`~eagerx.core.entities.Bridge.pre_reset`
+
+    - :func:`~eagerx.core.entities.Bridge.reset`
+
+    - :func:`~eagerx.core.entities.Bridge.callback`
+
+    - :func:`~eagerx.core.entities.Bridge.shutdown` (optional)
     """
 
     def __init__(self, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
@@ -592,7 +757,13 @@ class Bridge(BaseNode):
          If real_time_factor < 1 the simulation is slower than real time.
         :param kwargs: Arguments that are to be passed down to the node baseclass. See NodeBase for this.
         """
-        self.simulator = None
+        #: The simulator object. The simulator depends on the bridge and should be initialized in the
+        #: :func:`~eagerx.core.entities.Bridge.initialize` method. Oftentimes, engine nodes require a reference in
+        #: :func:`~eagerx.core.entities.EngineNode.callback` and/or :func:`~eagerx.core.entities.EngineNode.reset`
+        #: to this simulator object to simulate (e.g. apply an action, extract a sensor measurement).
+        #: Engine nodes only have this reference if the node was launched inside the bridge process.
+        #: See :class:`~eagerx.core.constants.process` for more info.
+        self.simulator: Any = None
         self.target_addresses = target_addresses
         self.node_names = node_names
 
@@ -681,8 +852,8 @@ class Bridge(BaseNode):
         sp_nodes = dict()
         launch_nodes = dict()
         node_args = dict(
-            agnostic_params=object_params,
-            bridge_params=bridge_params,
+            config=object_params,
+            bridge_config=bridge_params,
             simulator=self.simulator,
         )
         initialize_nodes(
@@ -814,81 +985,92 @@ class Bridge(BaseNode):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: "BridgeSpec", *args, **kwargs):
-        pass
+    def spec(spec: "BridgeSpec", *args: Any, **kwargs: Any):
+        """An abstract method that creates the bridge's specification that is used to initialize the bridge at run-time.
 
-    @abc.abstractmethod
-    def add_object(
-        self, config: Dict, bridge_config: Dict, node_params: List[Dict], state_params: List[Dict], *args, **kwargs
-    ) -> None:
-        """
-        Adds an object to the bridge's simulator object.
+        The subclass' implementation must call :func:`~eagerx.core.entities.Bridge.initialize_spec` to initialize
+        the spec with the default config, and registered I/O (inputs, outputs, states, etc...).
 
-        This method varies for each simulator and how the simulator object is structured in the bridge uses.
-
-        This method is called in .register_object(...).
-
-        :param config: A dict with all agnostic object params.
-        :param bridge_config: A dict with all engine specific params, defined in the engine agnostic definition of the object.
-
-        :param node_params: A list containing the parameters of all the nodes that represent the object's simulated
-        sensors & actuators.
-        :param state_params: A list containing the parameters of all the simulated object states.
-        :return: None
+        :param spec: A (mutable) specification.
+        :param args: Additional arguments as specified by the subclass.
+        :param kwargs: Additional optional arguments as specified by the subclass.
         """
         pass
 
     @abc.abstractmethod
-    def pre_reset(self, **kwargs: Optional[Msg]) -> None:
+    def add_object(self, config: Dict, bridge_config: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
         """
-        A pre-reset method that is performed *before* all other (simulation) nodes are resetting.
+        Adds an object to the simulator that is interfaced by the bridge.
 
-        Could be useful to:
-        - Perform some preliminary logic on the simulator such as pausing before resetting all states & nodes.
-        - Reset the simulator states so that this state can be used in the simulation node reset procedures that follow.
+        :param config: The (agnostic) config of the :class:`~eagerx.core.entities.Object` that is to be added.
+        :param bridge_config: The bridge-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
 
-        This method is called in .pre_reset_cb(...).
-
-        :param kwargs: Optionally the bridge states if any are defined in the bridge_ros_package/config/<bridge>.yaml.
-        :return: None
-        """
-        pass
-
-    @abc.abstractmethod
-    def reset(self, **kwargs: Optional[Msg]) -> None:
-        """
-        A reset method that is performed *after* all other (simulation) nodes have finished resetting.
-
-        Could be useful to:
-        - Perform some final logic on the simulator such as unpausing the simulator.
-
-        This method is called in .reset_cb(...).
-
-        :param kwargs: Optionally the bridge states if any are defined in the bridge_ros_package/config/<bridge>.yaml.
-        :return: None
+        :param node_params: A list containing the config of every :class:`~eagerx.core.entities.EngineNode` that represents
+                            an :class:`~eagerx.core.entities.Object`'s sensor or actuator that is to be added.
+        :param state_params: A list containing the parameters of every the :class:`~eagerx.core.entities.Object`'s
+                             :class:`~eagerx.core.entities.EngineState` that is to be added.
         """
         pass
 
     @abc.abstractmethod
-    def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]) -> None:
+    def pre_reset(self, **states: Any) -> None:
+        """
+        An abstract method that resets the bridge to its initial state before the start of an episode.
+
+        .. note:: This method is called **before** every :class:`~eagerx.core.entities.EngineNode` and
+                  :class:`~eagerx.core.entities.EngineState` has performed its reset,
+                  but after all reset routines, implemented with :class:`~eagerx.core.entities.ResetNode`,
+                  have reached their target.
+
+                  - Can be useful for performing some preliminary actions on the simulator such as pausing before resetting
+                    every :class:`~eagerx.core.entities.EngineNode` and :class:`~eagerx.core.entities.EngineState`.
+
+                  - Reset the simulator state so that this state can be used in the reset of every
+                    :class:`~eagerx.core.entities.EngineNode` and :class:`~eagerx.core.entities.EngineState`.
+
+        :param states: States that were registered (& selected) with the :func:`~eagerx.core.register.states` decorator by the subclass.
+                       The state messages are send by the environment and can be used to reset the bridge at the start of an episode.
+                       This can be anything, such as the dynamical properties of the simulator (e.g. friction coefficients).
+        """
+        pass
+
+    @abc.abstractmethod
+    def reset(self, **states: Any) -> None:
+        """
+        An abstract method that resets the bridge to its initial state before the start of an episode.
+
+        .. note:: This method is called **after** every :class:`~eagerx.core.entities.EngineNode` and
+                  :class:`~eagerx.core.entities.EngineState` has finished its reset.
+
+                  - Can be useful for performing some final actions on the simulator such as unpausing after every
+                    :class:`~eagerx.core.entities.EngineNode` and :class:`~eagerx.core.entities.EngineState` have reset.
+
+        :param states: States that were registered (& selected) with the :func:`~eagerx.core.register.states` decorator by the subclass.
+                       The state messages are send by the environment and can be used to reset the bridge at the start of an episode.
+                       This can be anything, such as the dynamical properties of the simulator (e.g. friction coefficients).
+        """
+        pass
+
+    @abc.abstractmethod
+    def callback(self, t_n: float, **engine_node_outputs: Msg) -> None:
         """
         The bridge callback that is performed at the specified rate.
 
-        Note: The bridge *only* outputs the 'bridge/outputs/tick' after each callback. However, the user is not responsible
-        for creating this message. This is taken care of outside of this method. Users cannot make the bridge output any
-         other message. If you wish to broadcast output messages using info of the simulator, a simulation sensor node
-         should be created.
+        This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Bridge.rate`.
 
-        In this callback you could:
-        - Step the simulator according to the specified rate.
+        .. note:: The bridge **only** outputs the registered 'tick' message after each callback. However, the user is not responsible
+                  for creating this message. This is taken care of outside this method. Subclasses cannot register any
+                  other output for this callback with the :func:`~eagerx.core.register.outputs` decorator.
+                  If you wish to broadcast other output messages based on properties of the simulator,
+                  a separate :class:`~eagerx.core.entities.EngineNode` should be created.
 
-        This method is called in .callback_cb(...).
+        .. note:: The outputs of every :class:`~eagerx.core.entities.EngineNode` for every registered
+                  :class:`~eagerx.core.entities.Object` are automatically added as input to the bridge to ensure
+                  input-output synchronization.
 
-        :param node_tick: The number of times this callback has run since the last reset.
-        :param t_n: Time passed since last reset according to the provided rate (t_n = node_tick * 1/self.rate).
-        :param kwargs: All outputs produced by the simulation nodes are defined as inputs to the bridge callback.
-        Could be useful to inspect when debugging.
-        :return: None
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Bridge.rate`.
+        :param engine_node_outputs: The outputs of every :class:`~eagerx.core.entities.EngineNode` for every registered
+                                    :class:`~eagerx.core.entities.Object`.
         """
         pass
 
@@ -896,7 +1078,7 @@ class Bridge(BaseNode):
 class Object(Entity):
     @staticmethod
     @abc.abstractmethod
-    def agnostic(spec: "AgnosticSpec"):
+    def agnostic(spec: "ObjectSpec"):
         pass
 
     @staticmethod
@@ -938,14 +1120,11 @@ class Object(Entity):
 
 
 class BaseConverter(Entity):
-    """
-    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
-    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
-    """
+    """Baseclass for converters and processors."""
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]):
         self.yaml_args = kwargs
         argspec = inspect.getfullargspec(self.__init__).args
         argspec.remove("self")
@@ -954,33 +1133,44 @@ class BaseConverter(Entity):
         check_valid_rosparam_type(self.yaml_args)
         self.initialize(*args, **kwargs)
 
-    def get_yaml_definition(self):
+    def get_yaml_definition(self) -> Dict:
         converter_type = self.__module__ + "/" + self.__class__.__name__
         yaml_dict = dict(converter_type=converter_type)
         yaml_dict.update(deepcopy(self.yaml_args))
         return yaml_dict
 
     @abc.abstractmethod
-    def initialize(self, *args, **kwargs):
-        """An abstract method to initialize the converter."""
+    def initialize(
+        self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]
+    ) -> None:
+        """An abstract method to initialize the converter.
+
+        :param args: Arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        :param kwargs: Optional arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        """
         pass
 
     @abc.abstractmethod
-    def convert(self, msg):
+    def convert(self, msg: Any) -> Any:
+        """An abstract method to convert (or process) messages.
+
+        :param msg: Message to convert.
+        :return: Converter message.
+        """
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: "ConverterSpec", *args, **kwargs):
+    def spec(spec: "ConverterSpec", *args: Any, **kwargs: Any) -> None:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def get_opposite_msg_type(cls, msg_type):
+    def get_opposite_msg_type(cls, msg_type: Any) -> Any:
         pass
 
     @classmethod
-    def pre_make(cls, entity_id, entity_type):
+    def pre_make(cls, entity_id: str, entity_type: "Entity"):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
         params["converter_type"] = params.pop("entity_type")
@@ -995,12 +1185,35 @@ class BaseConverter(Entity):
 
 
 class Processor(BaseConverter):
+    """Baseclass for processors.
+
+    Use this baseclass to implement processor that do **not** change the message type.
+    This baseclass only supports one-way processing.
+
+    Users must call :func:`~eagerx.core.entities.Processor.make` to make the registered subclass'
+    :func:`~eagerx.core.entities.Processor.spec`. See :func:`~eagerx.core.entities.Processor.make` for more info.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.Processor.spec`
+
+    - :func:`~eagerx.core.entities.Processor.initialize`
+
+    - :func:`~eagerx.core.entities.Processor.convert`
+
+    Subclasses must set the following static class properties:
+
+    - :attr:`~eagerx.core.entities.Processor.MSG_TYPE`
+
+    Use baseclass :class:`~eagerx.core.entities.SpaceConverter` instead, for converters that are used for
+    actions/observations/states and change the message type.
+
+    Use baseclass :class:`~eagerx.core.entities.Converter` instead, for message conversion
+    where the message type changes. This baseclass supports two-way conversion.
     """
-    Use this processor if the converted msg type is one-way and the msg_type after conversion is equal to
-    the msg_type before conversion. In addition, make sure to specify the static attribute "MSG_TYPE".
-    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
-    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
-    """
+
+    #: Supported message type
+    MSG_TYPE: Any
 
     __metaclass__ = abc.ABCMeta
 
@@ -1017,19 +1230,6 @@ class Processor(BaseConverter):
                 % (msg_type, cls.MSG_TYPE)
             )
 
-    def convert(self, msg):
-        if isinstance(msg, self.MSG_TYPE):
-            return self._convert(msg)
-        else:
-            raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_type "%s" is supported.'
-                % (type(msg), self.MSG_TYPE)
-            )
-
-    @abc.abstractmethod
-    def _convert(self, msg):
-        pass
-
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
@@ -1044,12 +1244,43 @@ class Processor(BaseConverter):
 
 
 class Converter(BaseConverter):
+    """Baseclass for converters.
+
+    Use this baseclass to implement converters that change the message type.
+    This baseclass supports two-way conversion.
+
+    Users must call :func:`~eagerx.core.entities.Converter.make` to make the registered subclass'
+    :func:`~eagerx.core.entities.Converter.spec`. See :func:`~eagerx.core.entities.Converter.make` for more info.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.Converter.spec`
+
+    - :func:`~eagerx.core.entities.Converter.initialize`
+
+    - :func:`~eagerx.core.entities.Converter.A_to_B`
+
+    - :func:`~eagerx.core.entities.Converter.B_to_A`
+
+    Subclasses must set the following static class properties:
+
+    - :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`
+
+    - :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`
+
+    .. note:: :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A` != :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
+
+    Use baseclass :class:`~eagerx.core.entities.SpaceConverter` instead, for converters that are used for
+    actions/observations/states and change the message type.
+
+    Use baseclass :class:`~eagerx.core.entities.Processor` instead, for message conversion
+    where the message type remains the same. This baseclass only supports one-way conversion.
     """
-    Inherit your converter from this baseclass and implement the abstract methods. In addition, make sure to specify the
-    static attributes "MSG_TYPE_A" and "MSG_TYPE_B", such that the correct conversion method can be inferred.
-    Make sure to pass all arguments of the subclass' constructor through (**IMPORTANT**in the same order) to this
-    baseclass' constructor and that it is of valid type: (str, int, list, float, bool, dict, NoneType).
-    """
+
+    #: Supported message type
+    MSG_TYPE_A: Any
+    #: Supported message type
+    MSG_TYPE_B: Any
 
     __metaclass__ = abc.ABCMeta
 
@@ -1080,11 +1311,23 @@ class Converter(BaseConverter):
             )
 
     @abc.abstractmethod
-    def A_to_B(self, msg):
+    def A_to_B(self, msg: Any):
+        """An abstract method to convert
+        :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A` -> :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
+
+        :param msg: Message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`.
+        :return: Converter message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
+        """
         pass
 
     @abc.abstractmethod
     def B_to_A(self, msg):
+        """An abstract method to convert
+        :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B` -> :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`.
+
+        :param msg: Message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
+        :return: Converter message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`.
+        """
         pass
 
     @classmethod
@@ -1101,10 +1344,44 @@ class Converter(BaseConverter):
 
 
 class SpaceConverter(Converter):
+    """Baseclass for space converters.
+
+    Use this baseclass to implement converters that are used for actions/observations/states and change the message type.
+
+    Users must call :func:`~eagerx.core.entities.Converter.make` to make the registered subclass'
+    :func:`~eagerx.core.entities.Converter.spec`. See :func:`~eagerx.core.entities.Converter.make` for more info.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.SpaceConverter.spec`
+
+    - :func:`~eagerx.core.entities.SpaceConverter.initialize`
+
+    - :func:`~eagerx.core.entities.SpaceConverter.A_to_B`
+
+    - :func:`~eagerx.core.entities.SpaceConverter.B_to_A`
+
+    - :func:`~eagerx.core.entities.SpaceConverter.get_space`
+
+    Subclasses must set the following static class properties:
+
+    - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_A`
+
+    - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_B`
+
+    .. note:: :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A` != :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
+
+    Use baseclass :class:`~eagerx.core.entities.Converter` instead, for message conversion
+    where the message type changes without requiring gym space support. This baseclass supports two-way conversion.
+
+    Use baseclass :class:`~eagerx.core.entities.Processor` instead, for message conversion
+    where the message type remains the same. This baseclass only supports one-way conversion.
     """
-    Inherit your converter from this baseclass if the converter is used for actions/observations/states,
-    such that the space can be inferred. See Converter for other abstract methods that must be implemented.
-    """
+
+    #: Supported message type
+    MSG_TYPE_A: Any
+    #: Supported message type
+    MSG_TYPE_B: Any
 
     @abc.abstractmethod
     def get_space(self):
@@ -1149,7 +1426,7 @@ class EngineState(Entity):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: "EngineNodeSpec", *args, **kwargs):
+    def spec(spec: "EngineStateSpec", *args, **kwargs):
         pass
 
     @classmethod

@@ -26,33 +26,12 @@ if __name__ == "__main__":
     #  - Pause environment
 
     # Define nodes
-    N3 = ResetNode.make(
-        "RealReset",
-        "N3",
-        rate=rate,
-        process=node_p,
-        inputs=["in_1", "in_2"],
-        targets=["target_1"],
-    )
+    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1", "in_2"], targets=["target_1"])
     N1 = Node.make("Process", "N1", rate=1.0, process=node_p)
-    KF = Node.make(
-        "KalmanFilter",
-        "KF",
-        rate=rate,
-        process=node_p,
-        inputs=["in_1", "in_2"],
-        outputs=["out_1", "out_2"],
-    )
+    KF = Node.make("KalmanFilter", "KF", rate=rate, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
 
     # Define object
-    viper = Object.make(
-        "Viper",
-        "obj",
-        position=[1, 1, 1],
-        actuators=["N8"],
-        sensors=["N6"],
-        states=["N9"],
-    )
+    viper = Object.make("Viper", "obj", position=[1, 1, 1], actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")

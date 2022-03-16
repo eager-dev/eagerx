@@ -370,10 +370,6 @@ class NodeSpec(BaseNodeSpec):
     pass
 
 
-class EngineNodeSpec(BaseNodeSpec):
-    pass
-
-
 class ResetNodeSpec(BaseNodeSpec):
     @property
     def targets(self):
@@ -654,45 +650,8 @@ class ObjectSpec(EntitySpec):
 
         # Add states
         obj_params["states"] = [s.build(ns) for s in states]
-        nodes = [EngineNodeSpec(params) for name, params in nodes.items() if name in dependencies]
+        nodes = [NodeSpec(params) for name, params in nodes.items() if name in dependencies]
         return {name: replace_None(obj_params)}, nodes
-
-
-class AgnosticSpec(EntitySpec):
-    def __init__(self, params):
-        params["sensors"] = dict()
-        params["actuators"] = dict()
-        params["states"] = dict()
-        super().__init__(params)
-
-    def _lookup(self, depth):
-        return SpecView(self, depth=[depth])
-
-    @property
-    def sensors(self):
-        return self._lookup("sensors")
-
-    @property
-    def actuators(self):
-        return self._lookup("actuators")
-
-    @property
-    def states(self):
-        return self._lookup("states")
-
-
-class SpecificSpec(EntitySpec):
-    def __init__(self, params):
-        params["states"] = dict()
-        super().__init__(params)
-
-    @property
-    def config(self):
-        return SpecView(self, depth=[])
-
-    @property
-    def states(self):
-        return SpecView(self, depth=["states"])
 
 
 # REQUIRED FOR BUILDING SPECS

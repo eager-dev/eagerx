@@ -31,39 +31,12 @@ def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
     rate = 17
 
     # Define nodes
-    N1 = Node.make(
-        "Process",
-        "N1",
-        rate=rate,
-        process=node_p,
-        inputs=["in_1"],
-        outputs=["out_1"],
-    )
-    KF = Node.make(
-        "KalmanFilter",
-        "KF",
-        rate=rate,
-        process=node_p,
-        inputs=["in_1", "in_2"],
-        outputs=["out_1", "out_2"],
-    )
-    N3 = ResetNode.make(
-        "RealReset",
-        "N3",
-        rate=rate,
-        process=node_p,
-        inputs=["in_1"],
-        targets=["target_1"],
-    )
+    N1 = Node.make("Process", "N1", rate=rate, process=node_p, inputs=["in_1"], outputs=["out_1"])
+    KF = Node.make("KalmanFilter", "KF", rate=rate, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
+    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
 
     # Define object
-    viper = Object.make(
-        "Viper",
-        "obj",
-        actuators=["N8"],
-        sensors=["N6"],
-        states=["N9"],
-    )
+    viper = Object.make("Viper", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define converter (optional)
     RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")

@@ -20,7 +20,7 @@ from eagerx.utils.network_utils import (
     is_stale,
 )
 from eagerx.core.graph import merge
-from eagerx.core.specs import EngineNodeSpec, ConverterSpec, EntitySpec
+from eagerx.core.specs import NodeSpec, ConverterSpec, EntitySpec
 from eagerx.core.view import GraphView
 
 yaml.Dumper.ignore_aliases = lambda *args: True
@@ -82,7 +82,7 @@ class EngineGraph:
         graph.add(nodes)
         return graph
 
-    def add(self, nodes: Union[EngineNodeSpec, List[EngineNodeSpec]]):
+    def add(self, nodes: Union[NodeSpec, List[NodeSpec]]):
         """
         Add a node/object to the provided state.
         """
@@ -604,7 +604,7 @@ class EngineGraph:
 
         # Initialize param objects
         nodes = dict()
-        from eagerx.core.specs import EngineNodeSpec
+        from eagerx.core.specs import NodeSpec
 
         for name, params in state["nodes"].items():
             if "node_type" in params:
@@ -614,7 +614,7 @@ class EngineGraph:
                     pass
                 else:
                     # Put node name into object namespace
-                    spec = EngineNodeSpec(params)
+                    spec = NodeSpec(params)
                     name = f"$(ns obj_name)/{spec.config.name}"
                     spec.config.name = name
                     params = spec.params

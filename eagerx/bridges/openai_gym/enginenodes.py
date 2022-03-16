@@ -44,8 +44,8 @@ class ObservationSensor(EngineNode):
         assert (
             self.process == process.BRIDGE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.id = self.bridge_params["env_id"]
-        self.obj_name = self.agnostic_params["name"]
+        self.id = self.bridge_config["env_id"]
+        self.obj_name = self.config["name"]
         self.last_obs = None
 
     @register.states()
@@ -97,8 +97,8 @@ class RewardSensor(EngineNode):
         assert (
             self.process == process.BRIDGE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.id = self.bridge_params["env_id"]
-        self.obj_name = self.agnostic_params["name"]
+        self.id = self.bridge_config["env_id"]
+        self.obj_name = self.config["name"]
         self.last_reward = None
 
     @register.states()
@@ -150,8 +150,8 @@ class DoneSensor(EngineNode):
         assert (
             self.process == process.BRIDGE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.id = self.bridge_params["env_id"]
-        self.obj_name = self.agnostic_params["name"]
+        self.id = self.bridge_config["env_id"]
+        self.obj_name = self.config["name"]
         self.last_done = None
 
     @register.states()
@@ -207,7 +207,7 @@ class ActionActuator(EngineNode):
         assert (
             self.process == process.BRIDGE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.obj_name = self.agnostic_params["name"]
+        self.obj_name = self.config["name"]
         self.simulator[self.obj_name]["env"]: gym.Env
         self.is_discrete = (
             True if isinstance(self.simulator[self.obj_name]["env"].action_space, gym.spaces.Discrete) else False
@@ -294,8 +294,8 @@ class GymImage(EngineNode):
         self.shape = tuple(shape)
         self.always_render = always_render
         self.render_toggle = False
-        self.id = self.bridge_params["env_id"]
-        self.obj_name = self.agnostic_params["name"]
+        self.id = self.bridge_config["env_id"]
+        self.obj_name = self.config["name"]
         self.render_toggle_pub = rospy.Subscriber("%s/env/render/toggle" % self.ns, Bool, self._set_render_toggle)
 
     @register.states()
