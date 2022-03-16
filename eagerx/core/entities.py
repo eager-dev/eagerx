@@ -35,16 +35,21 @@ if TYPE_CHECKING:
 
 
 class Entity(object):
+    #: The unique id provided to the :func:`~eagerx.core.register.spec` decorator that decorates the
+    #: :func:`~eagerx.core.entities.Node.spec` method.
+    entity_id: str
+
     @classmethod
     def make(cls, entity_id: str, *args: Any, **kwargs: Any):
         """Makes the spec for this entity.
 
         The subclass must have registered its spec with the :func:`~eagerx.core.register.spec` decorator.
         Then, you can make the specification of a subclass with the :func:`~eagerx.core.entities.Entity.make` method.
-        Call :func:`~eagerx.core.entities.Entity.make` with `entity_id` (used to register the spec) as the first argument,
+        Call :func:`~eagerx.core.entities.Entity.make` with :attr:`~eagerx.core.entities.Entity.entity_id`
+        (used to register the spec) as the first argument,
         followed by the *`args` and **`kwargs` of the subclass' :func:`~eagerx.core.entities.Node.spec` method.
 
-        .. note:: In order for this method to find the registered *entity_id*,
+        .. note:: In order for this method to find the registered :attr:`~eagerx.core.entities.Entity.entity_id`,
                   the subclass must have previously been imported somewhere at least once.
 
         :param entity_id: Name used to register the spec with the :func:`~eagerx.core.register.spec` decorator by the subclass.
@@ -68,9 +73,9 @@ class Entity(object):
 
         :param entity_id: Name used to register the spec with the :func:`~eagerx.core.register.spec` decorator by the subclass.
         :param verbose: Flag to print the signature output.
-        :return: Signature of the subclass' spec. By passing the *entity_id* as the first argument to
-                 :func:`~eagerx.core.entities.Entity.make`, together with the arguments specified by
-                 this signature, the entity can be build.
+        :return: Signature of the subclass' spec. By passing the :attr:`~eagerx.core.entities.Entity.entity_id`
+                 as the first argument to :func:`~eagerx.core.entities.Entity.make`,
+                 together with the arguments specified by this signature, the entity can be build.
         """
 
         # """A helper method to get info on the signature of the subclass' spec method."""
@@ -481,7 +486,7 @@ class Node(BaseNode):
         """
         An abstract method that is called at the specified node rate.
 
-        :param t_n: Time passed (seconds) since last reset. Increments with 1/ `self.rate`.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Node.rate`.
         :param inputs: Inputs that were registered (& selected) with the :func:`~eagerx.core.register.inputs` decorator by the subclass.
         :return: Dictionary with outputs that were registered (& selected) with the :func:`~eagerx.core.register.outputs` decorator by the subclass.
         """
@@ -573,7 +578,7 @@ class ResetNode(Node):
                   the outputs instead. For every registered output that was registered (& selected) with the
                   :func:`~eagerx.core.register.outputs` decorator by the subclass, there must be a connected *feedthrough*.
 
-        :param t_n: Time passed (seconds) since last reset. Increments with 1/ `self.rate`.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.ResetNode.rate`.
         :param inputs_and_targets: Inputs and targets that were registered (& selected) with the :func:`~eagerx.core.register.inputs`
                                    and :func:`~eagerx.core.register.targets` decorators by the subclass.
         :return: Dictionary with outputs that were registered (& selected) with the :func:`~eagerx.core.register.outputs`
@@ -657,14 +662,15 @@ class EngineNode(Node):
         self.simulator: Any = simulator
         #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that corresponds to a specific bridge
         #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
-        #: :class:`~eagerx.core.entities.Object`'s *config*. It contains general (i.e. agnostic) info to initialize
-        #: the object. Only available if the node was launched inside the bridge process.
+        #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.
+        #: Only available if the node was launched inside the bridge process.
         #: See :class:`~eagerx.core.constants.process` for more info.
-        #: The parameters in `config` can be modified in the :class:`~eagerx.core.entities.Object`'s config.
+        #: The parameters in :attr:`~eagerx.core.entities.Object.config` can be modified in the
+        #: :class:`~eagerx.core.entities.Object`'s :func:`~eagerx.core.entities.Object.spec` method.
         self.config: Dict = config
         #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that corresponds to a specific bridge
         #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
-        #: :class:`~eagerx.core.entities.Object`'s *bridge_config*. It contains bridge specific info to initialize the object.
+        #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.":attr:`~eagerx.core.entities.bridge.entity_id`".
         #: Only available if the node was launched inside the bridge process.
         #: See :class:`~eagerx.core.constants.process` for more info.
         #: The parameters in `bridge_config` can be modified in the bridge-specific implementation of an :class:`~eagerx.core.entities.Object`.
@@ -693,7 +699,7 @@ class EngineNode(Node):
         """
         An abstract method that is called at the specified node rate.
 
-        :param t_n: Time passed (seconds) since last reset. Increments with 1/ `self.rate`.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.EngineNode.rate`.
         :param inputs: Inputs that were registered (& selected) with the :func:`~eagerx.core.register.inputs` decorator by the subclass.
         :return: Dictionary with outputs that were registered (& selected) with the :func:`~eagerx.core.register.outputs` decorator by the subclass.
         """
@@ -1050,7 +1056,7 @@ class Bridge(BaseNode):
         """
         The bridge callback that is performed at the specified rate.
 
-        This callback is often used to step the simulator by 1/`self.rate`.
+        This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Bridge.rate`.
 
         .. note:: The bridge **only** outputs the registered 'tick' message after each callback. However, the user is not responsible
                   for creating this message. This is taken care of outside this method. Subclasses cannot register any
@@ -1062,7 +1068,7 @@ class Bridge(BaseNode):
                   :class:`~eagerx.core.entities.Object` are automatically added as input to the bridge to ensure
                   input-output synchronization.
 
-        :param t_n: Time passed (seconds) since last reset. Increments with 1/`self.rate`.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Bridge.rate`.
         :param engine_node_outputs: The outputs of every :class:`~eagerx.core.entities.EngineNode` for every registered
                                     :class:`~eagerx.core.entities.Object`.
         """
@@ -1134,7 +1140,9 @@ class BaseConverter(Entity):
         return yaml_dict
 
     @abc.abstractmethod
-    def initialize(self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]) -> None:
+    def initialize(
+        self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]
+    ) -> None:
         """An abstract method to initialize the converter.
 
         :param args: Arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
