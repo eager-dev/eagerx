@@ -7,7 +7,6 @@ This package will contain the OdeBridge for simulating systems based on Ordinary
 Since the OdeBridge will be a generic bridge that can be useful for others, we will create a public repository for the OdeBridge.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    ./package_creation
-   ./bridge_creation

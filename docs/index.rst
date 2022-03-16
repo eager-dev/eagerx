@@ -49,11 +49,11 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
    guide/getting_started/index
 
+   guide/tutorials/index
+
    guide/developer_guide/index
 
    guide/api_reference/index
-
-   guide/tutorials/index
 
    guide/examples/index
 

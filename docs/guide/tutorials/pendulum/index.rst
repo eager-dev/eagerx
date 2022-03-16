@@ -7,5 +7,5 @@ Tutorial: Real and Simulated Pendulum Swing-Up Learning
    :caption: Table of Contents
 
    ./introduction
-   ./simulation/index
-   ./reality/index
+   ./simulation/simulation
+   ./reality/reality

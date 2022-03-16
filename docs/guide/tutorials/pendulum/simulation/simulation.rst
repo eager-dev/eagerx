@@ -22,5 +22,5 @@ The following section describes how this is done:
 .. toctree::
    :maxdepth: 1
 
-   ../../../contributing/package_creation/index
-   ../../../developer_guide/bridge/index
+   ./package_creation
+   ./bridge
