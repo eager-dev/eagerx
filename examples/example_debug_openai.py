@@ -31,13 +31,7 @@ def graph_engine(idx):
     Object.get_spec("GymObject")
 
     # Create object
-    obj = Object.make(
-        "GymObject",
-        name,
-        env_id=gym_id,
-        rate=rate,
-        default_action=za,
-    )
+    obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
 
     # Define graph
     graph = Graph.create(objects=[obj])
@@ -57,13 +51,7 @@ def graph_engine(idx):
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
     # Define bridge
-    bridge = Bridge.make(
-        "GymBridge",
-        rate=rate,
-        is_reactive=is_reactive,
-        real_time_factor=rtf,
-        process=p,
-    )
+    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=rtf, process=p)
 
     # Initialize Environment
     name = str(time.time()).replace('.', '_')

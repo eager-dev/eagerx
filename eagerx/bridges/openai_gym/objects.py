@@ -28,18 +28,12 @@ class GymObject(Object):
 
         # Set observation space_converters
         spec.sensors.observation.space_converter = SpaceConverter.make(
-            "GymSpace_Float32MultiArray",
-            gym_id=spec.config.env_id,
-            space="observation",
+            "GymSpace_Float32MultiArray", gym_id=spec.config.env_id, space="observation"
         )
         spec.sensors.reward.space_converter = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
         spec.sensors.done.space_converter = SpaceConverter.make("Space_Bool")
         spec.sensors.image.space_converter = SpaceConverter.make(
-            "Space_Image",
-            low=0,
-            high=1,
-            shape=spec.config.render_shape,
-            dtype="float32",
+            "Space_Image", low=0, high=1, shape=spec.config.render_shape, dtype="float32"
         )
         spec.actuators.action.space_converter = SpaceConverter.make(
             "GymSpace_Float32MultiArray", gym_id=spec.config.env_id, space="action"
@@ -105,11 +99,7 @@ class GymObject(Object):
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
         action = EngineNode.make(
-            "ActionActuator",
-            "action",
-            rate=spec.actuators.action.rate,
-            process=2,
-            zero_action=spec.config.default_action,
+            "ActionActuator", "action", rate=spec.actuators.action.rate, process=2, zero_action=spec.config.default_action
         )
 
         # Connect all engine nodes

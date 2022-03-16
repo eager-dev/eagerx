@@ -17,13 +17,7 @@ def graph_engine(idx):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
     # Define object
-    arm = Object.make(
-        "Arm",
-        "obj",
-        actuators=["N8"],
-        sensors=["N6"],
-        states=["N9"],
-    )
+    arm = Object.make("Arm", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define graph
     graph = Graph.create(objects=[arm])

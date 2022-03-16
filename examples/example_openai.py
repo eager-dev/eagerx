@@ -17,14 +17,7 @@ if __name__ == "__main__":
     # Define object
     gym_id = "Acrobot-v1"  # 'Pendulum-v0', 'Acrobot-v1', 'CartPole-v1', 'MountainCarContinuous-v0'
     name = gym_id.split("-")[0]
-    obj = Object.make(
-        "GymObject",
-        name,
-        env_id=gym_id,
-        rate=rate,
-        default_action=0,
-        render_shape=[300, 300],
-    )
+    obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=0, render_shape=[300, 300])
 
     # Define graph
     graph = Graph.create(objects=[obj])
@@ -45,13 +38,7 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make(
-        "GymBridge",
-        rate=rate,
-        is_reactive=True,
-        real_time_factor=1,
-        process=process.NEW_PROCESS,
-    )
+    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=True, real_time_factor=1, process=process.NEW_PROCESS)
 
     # todo: Test shutdown
     # todo: close node initialization_topic.

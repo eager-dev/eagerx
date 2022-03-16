@@ -33,13 +33,7 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     Object.get_spec("GymObject")
 
     # Create object
-    obj = Object.make(
-        "GymObject",
-        name,
-        env_id=gym_id,
-        rate=rate,
-        default_action=za,
-    )
+    obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
 
     # Define graph
     graph = Graph.create(objects=[obj])
@@ -61,13 +55,7 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     name = f"{name}_{eps}_{is_reactive}_{p}"
 
     # Define bridge
-    bridge = Bridge.make(
-        "GymBridge",
-        rate=rate,
-        is_reactive=is_reactive,
-        real_time_factor=rtf,
-        process=p,
-    )
+    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=rtf, process=p)
 
     # Initialize Environment
     env = eagerx_gym.EagerGym(name=name, rate=rate, graph=graph, bridge=bridge)
