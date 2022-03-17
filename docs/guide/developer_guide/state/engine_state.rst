@@ -15,12 +15,12 @@ OdeEngineState
 
 The first engine state will will create is the *OdeEngineState*.
 This engine state will be responsible for resetting the states of objects in the *OdeBridge* during a reset of the environment.
-Creating engine states can be done by inheriting from :mod:`eagerx.core.entities.EngineState`.
+Engine states can be created using the :mod:`~eagerx.core.entities.EngineState` base class.
 For creating an engine node, we need to implement three abstract methods:
 
-* :meth:`eagerx.core.entities.EngineState.spec`
-* :meth:`eagerx.core.entities.EngineState.initialize`
-* :meth:`eagerx.core.entities.EngineState.reset`
+* :func:`~eagerx.core.entities.EngineState.spec`
+* :func:`~eagerx.core.entities.EngineState.initialize`
+* :func:`~eagerx.core.entities.EngineState.reset`
 
 spec
 ****
@@ -42,9 +42,40 @@ In our case, we do not need to specify parameters, so the implementation is fair
     def spec(spec):
         spec.initialize(OdeEngineState)
 
-.. note::  Mind the usage of the :meth:`eagerx.core.register.spec` decorator.
+.. note::
+  Mind the usage of the :func:`~eagerx.core.register.spec` decorator.
   This decorator is required to register the *OdeEngineState*.
   All entities within EAGERx have to be registered, such that they can be used based on their unique id.
-  In this decorator we provide a unique id for the engine state (*"OdeSimState"*) and specify the type (:mod:`eagerx.core.entities.EngineState`).
-  Another thing that is worth noting, is that we need to call :meth:`eagerx.core.register.spec.initialize` with a reference to the class, in this case *OdeEngineState*.
+  In this decorator we provide a unique id for the engine state (*"OdeSimState"*) and specify the type (:mod:`~eagerx.core.entities.EngineState`).
+  Another thing that is worth noting, is that we need to call :func:`~eagerx.core.specs.EngineStateSpec.initialize` with a reference to the class, in this case *OdeEngineState*.
   This will initialize the *spec* object and set default values.
+
+
+initialize
+**********
+
+The :func:`~eagerx.core.entities.EngineState.initialize` method allows to initialize the engine state.
+In our case, the only thing we need to do during initialization is to store the object name.
+
+::
+
+  def initialize(self):
+    self.obj_name = self.agnostic_params["name"]
+
+.. note::
+  Note that we have access to the :attr:`~eagerx.core.entities.EngineState.config` attribute.
+  See :attr:`~eagerx.core.entities.EngineState.config` for more information.
+
+reset
+*****
+
+Finally, we will implement the :func:`~eagerx.core.entities.EngineState.reset` method.
+This method will be called during a reset and will reset the state of the object.
+
+::
+
+  def reset(self, state, done):
+    self.simulator[self.obj_name]["state"] = np.squeeze(state.data)
+
+.. note::
+  Note that we have access to the *simulator* attribute, which is created in the *OdeBridge* class.

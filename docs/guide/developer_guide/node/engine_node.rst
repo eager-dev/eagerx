@@ -16,18 +16,19 @@ OdeInput
 ########
 
 First we will define an engine_node for sending inputs to the *OdeBridge*.
-For the *EngineNode*, there are four abstract classes:
+These engine nodes can be created using the :mod:`~eagerx.core.entities.EngineNode` base class.
+For the :mod:`~eagerx.core.entities.EngineNode` base class, there are four abstract methods:
 
-* *spec*, here we will specify the OdeInput's parameters.
-* *initialize*, here we will specify how the OdeInput node is initialized.
-* *reset*, here we will specify how to reset the OdeInput node.
-* *callback*, here we will define what this node will do every clock tick.
+* :func:`~eagerx.core.entities.EngineNode.spec`, here we will specify the parameters of *OdeInput*.
+* :func:`~eagerx.core.entities.EngineNode.initialize`, here we will specify how the *OdeInput* node is initialized.
+* :func:`~eagerx.core.entities.EngineNode.reset`, here we will specify how to reset the state of the *OdeInput* node.
+* :func:`~eagerx.core.entities.EngineNode.callback`, here we will define what this node will do every clock tick.
   In this case, it will send the last input/action to the *OdeBridge* node.
 
 spec
 ****
 
-The spec method can be used to specify default parameters for engine nodes and to assign an id to the node.
+The :func:`~eagerx.core.entities.EngineNode.spec` method can be used to specify default parameters for engine nodes and to assign an id to the node.
 Since we need a reference to the simulator (the *OdeBridge*), we will also specify here that we run this node in the bridge process per default.
 If this node is run in another process, we won't have a reference to the *OdeBridge* and will not be able to pass inputs easily to the *OdeBridge* node.
 We also specify that this node has two input and one output, which respectively are "tick", "action" and "action_applied".
@@ -73,13 +74,14 @@ The spec method now looks as follows:
         # Set custom node params
         spec.config.default_action = default_action
 
-Note the use of the *register.spec* decorator to register the id of this *EngineNode*.
-This basically allows to use this node in objects based by referencing to this id.
+.. note::
+  Note the use of the :func:`~eagerx.core.register.spec` decorator to register the id of this :mod:`~eagerx.core.entities.EngineNode`.
+  This basically allows to use this node in objects using the id.
 
 initialize
 **********
 
-Next, we will implement the *initialize* method.
+Next, we will implement the :func:`~eagerx.core.entities.EngineNode.initialize` method.
 In this method we will set the object name, the default action and check whether the node is launched in the correct process:
 
 ::
@@ -91,10 +93,13 @@ In this method we will set the object name, the default action and check whether
     self.obj_name = self.agnostic_params["name"]
     self.default_action = np.array(default_action)
 
+.. note::
+  Note that the parameter *default_action*, which we added to the *spec* object of type :mod:`~eagerx.core.specs.NodeSpec` becomes an argument to the :func:`~eagerx.core.entities.EngineNode.initialize` method.
+
 reset
 *****
 
-We will use the reset method to reset the object's input to the default input:
+We will use the :func:`~eagerx.core.entities.EngineNode.reset` method to reset the object's input to the default input:
 
 ::
 
@@ -102,16 +107,17 @@ We will use the reset method to reset the object's input to the default input:
     def reset(self):
         self.simulator[self.obj_name]["input"] = np.squeeze(np.array(self.default_action))
 
-Since we do not have any states that we want to reset, the *register.states* decorator is used without any arguments.
+.. note::
+  Since we do not want the *OdeInput* to have any states to reset, the :func:`~eagerx.core.register.states` decorator is used without any arguments.
 
 callback
 ********
 
-Every tick of this node, the callback function will be called.
+At the specified :attr:`~eagerx.core.entities.EngineNode.rate` of the *OdeInput* node, the :func:`~eagerx.core.entities.EngineNode.callback` function will be called.
 In this callback we want to update the action that will be applied by the *OdeBridge* based on the latest action we have received.
 Here, we will also define the inputs and outputs of the *OdeInput* node and their message types.
-This is necessary in order to create publishers and subscribers in the background for sending and receiving these messages.
-In our case, the inputs are the bridge tick "tick" with message type *UInt64* and the action "action" which will be a *Float32MultiArray*.
+This is necessary in order to set up communication pipelines in the background.
+In our case, the inputs are the bridge tick "tick" with message type :mod:`~std_msgs.msg.UInt64` and the action "action" which will be a :mod:`~std_msgs.msg.Float32MultiArray`.
 In code, this is implemented as follows:
 
 ::
@@ -130,6 +136,10 @@ In code, this is implemented as follows:
         # Send action that has been applied.
         return dict(action_applied=action.msgs[-1])
 
+.. note::
+  Note that the message type as provided using the :func:`~eagerx.core.register.inputs` and :func:`~eagerx.core.register.outputs` decorators, should be ROS message types.
+  For more information, see the documentation on :func:`~eagerx.core.entities.EngineNode.callback` 
+
 Similarly, we can create the engine nodes *OdeOutput* and *ActionApplied* for obtaining the output from the *OdeBridge* simulator and obtaining the value for the action that is applied.
 The *ActionApplied* will allow other nodes to listen to the action that is applied in the simulator.
-This can be useful for example when some form of preprocessing is applied on the actions and the action that is applied is could be an observation of the environment in that case. 
+This can be useful for example when some form of preprocessing is applied on the actions and the action that is applied is could be an observation of the environment in that case.
