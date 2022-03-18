@@ -58,7 +58,7 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=rtf, process=p)
 
     # Initialize Environment
-    env = eagerx_gym.EagerGym(name=name, rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, bridge=bridge)
 
     # First reset
     done = False

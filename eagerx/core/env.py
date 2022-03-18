@@ -1,9 +1,8 @@
 # ROS packages required
 import rospy
 import rosparam
-from rosgraph.masterapi import ROSMasterException
+import rosgraph
 from std_msgs.msg import UInt64
-from rosgraph.masterapi import Error
 from sensor_msgs.msg import Image
 
 # EAGERX
@@ -27,7 +26,7 @@ import abc
 import cv2
 import numpy as np
 from copy import deepcopy
-from typing import List, Union, Dict, Tuple, Callable
+from typing import List, Union, Dict, Tuple, Callable, Optional
 import gym
 import logging
 
@@ -145,7 +144,7 @@ class Env(gym.Env):
         try:
             rosparam.delete_param(f"/{self.name}")
             rospy.loginfo(f'Pre-existing parameters under namespace "/{self.name}" deleted.')
-        except Error:
+        except rosgraph.masterapi.Error:
             pass
 
         # Upload log_level
@@ -261,6 +260,17 @@ class Env(gym.Env):
 
     @property
     def observation_space(self) -> gym.spaces.Dict:
+        """Infers the observation space from the :class:`~eagerx.core.entities.SpaceConverter` of every observation.
+
+        This space defines the format of valid observations.
+
+        .. note:: Observations with :attr:`~eagerx.core.specs.RxInput.window` = 0 are excluded from the observation space.
+                  For observations with :attr:`~eagerx.core.specs.RxInput.window` > 1,
+                  the observation space is duplicated :attr:`~window` times.
+
+        :returns: A dictionary with *key* = *observation* and *value* = :class:`Space` obtained with
+                  :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        """
         assert not self.has_shutdown, "This environment has been shutdown."
         observation_space = dict()
         for name, buffer in self.env_node.observation_buffer.items():
@@ -275,6 +285,13 @@ class Env(gym.Env):
 
     @property
     def action_space(self) -> gym.spaces.Dict:
+        """Infers the action space from the :class:`~eagerx.core.entities.SpaceConverter` of every observation.
+
+        This space defines the format of valid actions.
+
+        :returns: A dictionary with *key* = *action* and *value* = :class:`Space`
+                  obtained with :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        """
         assert not self.has_shutdown, "This environment has been shutdown."
         action_space = dict()
         for name, buffer in self.env_node.action_buffer.items():
@@ -283,6 +300,13 @@ class Env(gym.Env):
 
     @property
     def state_space(self) -> gym.spaces.Dict:
+        """Infers the state space from the :class:`~eagerx.core.entities.SpaceConverter` of every state.
+
+        This space defines the format of valid states that can be set before the start of an episode.
+
+        :returns: A dictionary with *key* = *state* and *value* = :class:`Space`
+                  obtained with :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        """
         state_space = dict()
         for name, buffer in self.supervisor_node.state_buffer.items():
             state_space[name] = buffer["converter"].get_space()
@@ -333,6 +357,12 @@ class Env(gym.Env):
         rospy.loginfo("Pipelines initialized.")
 
     def _reset(self, states: Dict) -> Dict:
+        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.reset()`.
+
+        :param states: The desired states to be set before the start an episode.
+                       May also be an empty dict if no states need to be reset.
+        :returns: The initial observation.
+        """
         assert not self.has_shutdown, "This environment has been shutdown."
         # Initialize environment
         if not self.initialized:
@@ -347,6 +377,12 @@ class Env(gym.Env):
         return obs
 
     def _step(self, action: Dict) -> Dict:
+        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.step()`.
+
+        :param action: The actions to be applied in the next timestep.
+                       Should include all registered actions.
+        :returns: The observation of the current timestep.
+        """
         # Check that nodes were previously initialized.
         assert self.initialized, "Not yet initialized. Call .reset() before calling .step()."
         assert not self.has_shutdown, "This environment has been shutdown."
@@ -377,7 +413,7 @@ class Env(gym.Env):
             try:
                 rosparam.delete_param(f"/{self.name}")
                 rospy.loginfo(f'Parameters under namespace "/{self.name}" deleted.')
-            except ROSMasterException as e:
+            except rosgraph.masterapi.ROSMasterException as e:
                 rospy.logwarn(e)
             self.has_shutdown = True
 
@@ -399,7 +435,18 @@ class Env(gym.Env):
         # Register objects
         [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
 
-    def render(self, mode="human"):
+    def render(self, mode: str = "human") -> Optional[np.ndarray]:
+        """A method to start rendering (i.e. open the render window).
+
+        A message of type :class:`std_msgs.msg.Bool` is sent to topic address
+        ":attr:`~eagerx.core.env.EagerxEnv.name` */env/render/toggle*", which toggles the rendering on/off.
+
+        :param mode: - human: render and return nothing. Usually for human consumption.
+                     - rgb_array: Return a numpy.ndarray with shape (x, y, 3),
+                       representing RGB values for an x-by-y pixel image, suitable
+                       for turning into a video.
+        :returns: Optionally, a rgb_array if mode=rgb_array.
+        """
         assert not self.has_shutdown, "This environment has been shutdown."
         if self.render_node:
             if mode == "human":
@@ -430,21 +477,77 @@ class Env(gym.Env):
 
     @abc.abstractmethod
     def reset(self) -> Dict:
+        """An abstract method that resets the environment to an initial state and returns an initial observation.
+
+        :returns: The initial observation.
+        """
         pass
 
     @abc.abstractmethod
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
+        """An abstract method that runs one timestep of the environment's dynamics.
+
+        When the end of an episode is reached, you are responsible for calling :func:`~eagerx.core.Env.reset`
+        to reset this environment's state.
+
+        :params action: A dictionary of actions provided by the agent. Should include all registered actions.
+
+        :returns: A tuple (observation, reward, done, info).
+
+                  - observation: Dictionary of observations of the current timestep.
+
+                  - reward: amount of reward returned after previous action
+
+                  - done: whether the episode has ended, in which case further step() calls will return undefined results
+
+                  - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
+        """
         pass
 
     def close(self):
+        """A method to stop rendering (i.e. close the render window).
+
+        A message of type :class:`std_msgs.msg.Bool` is sent to topic address
+        ":attr:`~eagerx.core.env.EagerxEnv.name` */env/render/toggle*", which toggles the rendering on/off.
+
+        .. note:: Depending on the source node that is producing the images that are rendered,
+                  images may still be produced, even when the render window is not visible.
+                  This may add computational overhead and influence the run speed.
+
+                  Optionally, users may subscribe to topic address ":attr:`~eagerx.core.env.EagerxEnv.name` */env/render/toggle*"
+                  in the node that is producing the images to stop the production and output empty
+                  :class:`sensor_msgs.msg.Image` messages instead.
+        """
         assert not self.has_shutdown, "This environment has been shutdown."
         self.supervisor_node.stop_render()
 
     def shutdown(self):
+        """A method to shutdown the environment.
+
+        - Clear the parameters on the ROS parameter under the namespace /:attr:`~eagerx.core.env.EagerxEnv.name`.
+
+        - Close nodes (i.e. release resources and perform :class:`~eagerx.core.entities.Node.close` procedure).
+
+        - Unregister topics that supplied the I/O communication between nodes.
+        """
         self._shutdown()
 
 
-class EagerEnv(Env):
+class EagerxEnv(Env):
+    """The main EAGERx environment class that follows the OpenAI gym's Env API.
+
+    Users can directly use this class, but may also choose to subclass it and inline the environment construction
+    (e.g. node creation, graph connecting, bridge selection, etc...) into :func:`~eagerx.core.env.EagerxEnv.__init__`.
+
+     A subclass may implement/overwrite the following methods:
+
+    - :func:`~eagerx.core.env.EagerxEnv.__init__`: Be sure to call :func:`super().__init__` inside this method with the required arguments.
+
+    - :func:`~eagerx.core.env.EagerxEnv.step`: Be sure to call :func:`~eagerx.core.env.EagerxEnv._step` inside this method to perform the step.
+
+    - :func:`~eagerx.core.env.EagerxEnv.reset`: Be sure to call :func:`~eagerx.core.env.EagerxEnv._reset` inside this method to perform the reset.
+    """
+
     def __init__(
         self,
         name: str,
@@ -454,14 +557,59 @@ class EagerEnv(Env):
         step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
         reset_fn: Callable = lambda env: env.state_space.sample(),
     ) -> None:
+        """Initializes an environment with EAGERx dynamics.
+
+        :param name: The name of the environment. Everything related to this environment
+                     (parameters, topics, nodes, etc...) will be registered under namespace: "`/name`".
+        :param rate: The rate (Hz) at which the environment will run.
+        :param graph: The graph consisting of nodes and objects that describe the environment's dynamics.
+        :param bridge: The physics engine that will govern the environment's dynamics.
+                       For every :class:`~eagerx.core.entities.Object` in the graph,
+                       the corresponding bridge implementations is chosen.
+        :param step_fn: A callable that provides the tuple (observation, reward, done, info) after the environment has run one timestep.
+                        As arguments, the provided callable receives the previous observation, current observation, applied action,
+                        and number of timesteps since the last reset.
+        :param reset_fn: A callable that returns a dictionary with the desired states to be set before the start an episode.
+                         Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
+        """
         self.steps = None
         self.prev_observation = None
+        #: A callable that provides the tuple (observation, reward, done, info) after the environment has run one timestep.
+        #: As arguments, the provided callable receives the previous observation, current observation, applied action,
+        #: and number of timesteps since the last reset.
         self.step_fn = step_fn
+        #: A callable that returns a dictionary with the desired states to be set before the start an episode.
+        #: Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
+        #: May also be an empty dictionary if no states need to be reset.
         self.reset_fn = reset_fn
-        super(EagerEnv, self).__init__(name, rate, graph, bridge)
+        super(EagerxEnv, self).__init__(name, rate, graph, bridge)
         self.excl_obs = [name for name, buffer in self.env_node.observation_buffer.items() if buffer["window"] == 0]
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
+        """A method that runs one timestep of the environment's dynamics.
+
+        When the end of an episode is reached, you are responsible for calling :func:`~eagerx.core.EagerxEnv.reset`
+        to reset this environment's state.
+
+        After the action is applied and the environment's dynamics have run one timestep,
+        :attr:`~eagerx.core.env.EagerxEnv.step_fn` is called that returns the tuple (observation, reward, done, info).
+
+        .. note:: Observations with :attr:`~eagerx.core.specs.RxInput.window` = 0 are excluded from the observation
+                  dictionary returned to the agent.
+                  However, they are nonetheless available in :attr:`~eagerx.core.env.EagerxEnv.step_fn` to,
+                  for example, calculate the reward or the episode termination condition.
+
+        :params action: A dictionary of actions provided by the agent.
+        :returns: A tuple (observation, reward, done, info).
+
+                  - observation: Dictionary of observations of the current timestep.
+
+                  - reward: amount of reward returned after previous action
+
+                  - done: whether the episode has ended, in which case further step() calls will return undefined results
+
+                  - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
+        """
         # Send actions and wait for observations
         observation = self._step(action)
         self.steps += 1
@@ -484,6 +632,13 @@ class EagerEnv(Env):
         return observation, reward, is_done, info
 
     def reset(self) -> Dict:
+        """Resets the environment to an initial state and returns an initial
+        observation.
+
+        The initial state is set with the return value of :attr:`~eagerx.core.env.EagerxEnv.reset_fn`.
+
+        :returns: The initial observation.
+        """
         # Determine reset states
         states = self.reset_fn(self)
 

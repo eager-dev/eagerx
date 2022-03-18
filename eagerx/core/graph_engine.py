@@ -45,7 +45,7 @@ class EngineGraph:
         nodes.append(spec)
         for cname, params in actuators.items():
             # Determine converted msg_type, based on user-defined input converter
-            # If input_conv != id but EngineNode connection also requires a converter --> raise error.
+            # If input_conv != entity_id but EngineNode connection also requires a converter --> raise error.
             conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
             spec.add_output(
                 cname,
@@ -82,9 +82,10 @@ class EngineGraph:
         graph.add(nodes)
         return graph
 
-    def add(self, nodes: Union[NodeSpec, List[NodeSpec]]):
-        """
-        Add a node/object to the provided state.
+    def add(self, nodes: Union[NodeSpec, List[NodeSpec]]) -> None:
+        """Add nodes to the graph.
+
+        :param nodes: Nodes/objects to add.
         """
         if not isinstance(nodes, list):
             nodes = [nodes]
@@ -103,11 +104,14 @@ class EngineGraph:
             # Add graph reference to spec
             node.set_graph(self)
 
-    def remove(self, names: Union[Union[str, EntitySpec], List[Union[str, EntitySpec]]]):
-        """
-        Removes a node.
-        First removes all associated connects from self._state.
-        Then, removes node/object from self._state.
+    def remove(self, names: Union[Union[str, EntitySpec], List[Union[str, EntitySpec]]]) -> None:
+        """Removes a node from the graph.
+
+        - First, all associated connections are disconnected.
+
+        - Then, removes the nodes/objects.
+
+        :param names: Either the name or spec of the node/object that is to be removed.
         """
         if not isinstance(names, list):
             names = [names]
@@ -132,9 +136,10 @@ class EngineGraph:
                     self.disconnect(source, target, actuator, sensor)
             self._state["nodes"].pop(name)
 
-    def add_component(self, entry: GraphView):
-        """
-        Adds a component entry to the selection list.
+    def add_component(self, entry: GraphView) -> None:
+        """Selects an available component entry (e.g. input, output, etc...) that was not already selected.
+
+        :param entry: Selects the entry, so that it can be connected.
         """
         name, component, cname = entry()
         # Add cname to selection list if it is not already selected
@@ -142,9 +147,14 @@ class EngineGraph:
         assert cname not in params["config"][component], f'"{cname}" already selected in "{name}" under {component}.'
         params["config"][component].append(cname)
 
-    def remove_component(self, entry: GraphView):
-        """
-        Removes a component entry from the selection list. It will first disconnect all connections in connect.
+    def remove_component(self, entry: GraphView) -> None:
+        """Deselects a component entry (e.g. input, output, etc...) that was selected.
+
+                - First, all associated connections are disconnected.
+
+                - Then, deselects the component entry.
+
+        :param entry: Deselects the entry.
         """
         self._is_selected(self._state, entry)
 
@@ -168,7 +178,45 @@ class EngineGraph:
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
         external_rate: Optional[float] = None,
-    ):
+    ) -> None:
+        """Connect an actuator/source to a sensor/target/external topic.
+
+        :param source: Compatible source type is :attr:`~eagerx.core.specs.NodeSpec.outputs`.
+        :param target: Compatible target type is :attr:`~eagerx.core.specs.NodeSpec.inputs`.
+        :param actuator: String name of the actuator.
+        :param sensor: String name of the sensor.
+        :param address: A string address of an external ROS topic.
+
+                        .. note:: If an external address is provided,
+                            you must also specify the *external_rate* with which messages are published on that topic.
+        :param converter: An input converter that converts the received input message before passing it
+                          to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
+
+                          .. note:: Output converters can only be set by manipulating the :class:`~eagerx.core.specs.NodeSpec`.
+        :param window: A non-negative number that specifies the number of messages to pass to the
+                       node's :func:`~eagerx.core.entities.EngineNode.callback`.
+
+                       - *window* = 1: Only the last received input message.
+
+                       - *window* = *x* > 1: The trailing last *x* received input messages.
+
+                       - *window* = 0: All input messages received since the last call to the
+                         node's :func:`~eagerx.core.entities.EngineNode.callback`.
+
+                       .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
+        :param delay: A non-negative simulated delay (seconds). This delay is ignored if
+                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
+                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
+                     May be necessary to ensure that the connected graph is directed and acyclic.
+        :param external_rate: The rate (Hz) with which messages are published to the topic specified by
+                              *address*.
+
+                              .. warning:: Only add external inputs if you are sure that they are synchronized with respect
+                                           to the provided rate and their respective inputs.
+                                           Asynchronous external inputs can easily lead to deadlocks if running in synchronized mode
+                                           (i.e. :attr:`~eagerx.core.entities.Bridge.is_reactive` = True).
+        """
         flag = not address or (source is None and actuator is None and sensor is None)
         assert flag, f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
         flag = not source or not actuator
@@ -295,7 +343,6 @@ class EngineGraph:
         # Add properties to target params
         if converter is not None:
             self._set_converter(target, converter)
-            # self.set({"converter": converter}, target)
         if window is not None:
             self.set({"window": window}, target)
         if delay is not None:
@@ -314,9 +361,13 @@ class EngineGraph:
         target: Optional[GraphView] = None,
         actuator: str = None,
         sensor: str = None,
-    ):
-        """
-        Disconnects a source from a target. The target is reset in self._state to its disconnected state.
+    ) -> None:
+        """Disconnect an actuator/source from a sensor/target/external topic.
+
+        :param source: Compatible source type is :attr:`~eagerx.core.specs.NodeSpec.outputs`.
+        :param target: Compatible target type is :attr:`~eagerx.core.specs.NodeSpec.inputs`.
+        :param actuator: String name of the actuator.
+        :param sensor: String name of the sensor.
         """
         assert not source or not actuator, (
             "You cannot specify a source if you wish to disconnect actuator ",
@@ -394,14 +445,21 @@ class EngineGraph:
                 was_connected = True
         return was_connected
 
-    def set(self, mapping: Any, entry: Optional[GraphView], parameter: Optional[str] = None):
+    def set(self, mapping: Any, entry: Optional[GraphView], parameter: Optional[str] = None) -> None:
+        """Sets the parameters of a node.
+
+        :param mapping: Either a mapping with *key* = *parameter*,
+                        or a single value that corresponds to the optional *parameter* argument.
+        :param entry: The entry whose parameters are mutated.
+        :param parameter: If only a single value needs to be set. See documentation for *mapping*.
         """
-        Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-        parameter will be set there. Else, the parameter is set under the "config" key.
-        For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
-        If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
-        disconnected. See _set_converter for more info.
-        """
+        # """
+        # Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
+        # parameter will be set there. Else, the parameter is set under the "config" key.
+        # For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
+        # If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
+        # disconnected. See _set_converter for more info.
+        # """
         assert not entry()[0] == "actuators", (
             "Cannot change the actuator parameters here, "
             "in a bridge specific implementation. That is only possible in the "
@@ -489,7 +547,15 @@ class EngineGraph:
         actuator: Optional[str] = None,
         sensor: Optional[str] = None,
         parameter: Optional[str] = None,
-    ):
+    ) -> Any:
+        """Fetches the parameters of a node/actuator/sensor.
+
+        :param entry: The entry whose parameters are fetched.
+        :param actuator: Actuator name whose parameters are fetched.
+        :param sensor: Sensor name whose parameters are fetched.
+        :param parameter: If only a single parameter needs to be fetched.
+        :return: Parameters
+        """
         if isinstance(entry, EntitySpec):
             name = entry.params["config"]["name"]
             assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
@@ -555,10 +621,10 @@ class EngineGraph:
         return dependencies
 
     def register(self):
-        """Set the addresses in all incoming components.
-        Validate the graph.
-        Create params that can be uploaded to the ROS param server.
-        """
+        # """Set the addresses in all incoming components.
+        # Validate the graph.
+        # Create params that can be uploaded to the ROS param server.
+        # """
 
         # Check if valid graph.
         assert self.is_valid(plot=False), "Graph not valid."
@@ -628,7 +694,12 @@ class EngineGraph:
         assert len(sensors) > 0, "No sensors node defined in the graph."
         return nodes, actuators, sensors
 
-    def gui(self):
+    def gui(self) -> None:
+        """Opens a graphical user interface of the engine graph.
+
+        .. note:: Currently, a gui is not yet support for engine graphs.
+                  This feature will be added in the near future.
+        """
         raise NotImplementedError("Gui is not yet supported for engine graphs.")
 
     @staticmethod
@@ -677,7 +748,17 @@ class EngineGraph:
             assert actuator is None, "If sensor is specified, action must be None."
             assert entry is None, "If actuator is specified, the 'entry' argument cannot be specified."
 
-    def is_valid(self, plot=True):
+    def is_valid(self, plot=True) -> bool:
+        """Checks the validity of the graph.
+
+        - Checks if all selected
+          :attr:`~eagerx.core.specs.NodeSpec.inputs` are connected.
+
+        - Checks if the graph is directed and acyclic.
+
+        :param plot: Flag to plot the graph. Can be helpful to identify cycles in the graph that break the required acyclic property.
+        :returns: flag that specifies the validity of the graph.
+        """
         return self._is_valid(self._state, plot=plot)
 
     @staticmethod

@@ -18,7 +18,7 @@ class Arm(Object):
     @staticmethod
     @register.sensors(N6=UInt64, N7=UInt64)
     @register.actuators(N8=String, ref_vel=UInt64, N12=UInt64)
-    @register.simstates(N9=UInt64, N10=UInt64)
+    @register.engine_states(N9=UInt64, N10=UInt64)
     @register.config(position=[0, 0, 0], orientation=[0, 0, 0], low=None, string=None, test_string=None, test_list=None)
     def agnostic(spec: ObjectSpec, rate):
         """Agnostic definition of the Arm object"""
@@ -94,7 +94,7 @@ class Arm(Object):
         spec.TestBridge.req_arg = "TEST"
         spec.TestBridge.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
 
-        # Create simstates
+        # Create engine_states
         spec.TestBridge.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
 
         # Create sensor engine nodes
@@ -311,7 +311,7 @@ class Viper(Arm):
         spec.TestBridge.req_arg = "TEST ARGUMENT"
         spec.TestBridge.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
 
-        # Create simstates
+        # Create engine_states
         spec.TestBridge.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
         spec.TestBridge.states.N10 = EngineState.make("TestEngineState", test_arg="arg_N10")
 
