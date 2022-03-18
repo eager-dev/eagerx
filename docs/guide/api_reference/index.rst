@@ -5,18 +5,20 @@ API Reference
 .. toctree::
     :maxdepth: 2
 
-   bridge/index
+    bridge/index
 
-   converter/index
+    converter/index
 
-   engine_state/index
+    engine_state/index
 
-   node/index
+    node/index
 
-   object/index
+    object/index
 
-   graph/index
+    spec/index
 
-   env/index
+    graph/index
 
-   utilities/index
+    env/index
+
+    utilities/index

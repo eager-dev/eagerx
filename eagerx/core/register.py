@@ -165,9 +165,9 @@ def actuators(**actuators):
     return functools.partial(_register_types, TYPE_REGISTER, "actuators", actuators)
 
 
-def simstates(**simstates):
-    """Register simstates msg_type"""
-    return functools.partial(_register_types, TYPE_REGISTER, "states", simstates)
+def engine_states(**engine_states):
+    """Register engine_states msg_type"""
+    return functools.partial(_register_types, TYPE_REGISTER, "states", engine_states)
 
 
 def bridge_config(**bridge_config):

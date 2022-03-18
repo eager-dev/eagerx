@@ -131,7 +131,19 @@ GUI_NODE_IDS_TO_IGNORE = {
 
 # PROCESS
 class process:
-    NEW_PROCESS = 0
-    ENVIRONMENT = 1
-    BRIDGE = 2
-    EXTERNAL = 3
+    #: Spawn the node/bridge in a separate process.
+    #: Allows parallelization, but increases communication overhead due to the (de)serialization of messages.
+    NEW_PROCESS: int = 0
+    #: Spawn the node/bridge in the process of the environment.
+    ENVIRONMENT: int = 1
+    #: Spawn a node in the process of the bridge.
+    #: If an :class:`~eagerx.core.entities.EngineNode` requires direct access to the
+    #: :attr:`~eagerx.core.entities.Bridge.simulator`,
+    #: :attr:`~eagerx.core.entities.EngineNode.config`, and
+    #: :attr:`~eagerx.core.entities.EngineNode.bridge_config`,
+    #: it must be spawned in the same process as the bridge.
+    BRIDGE: int = 2
+    #: Spawn the node/bridge in a separate process. This process is not spawned by the environment.
+    #: Instead, the user is responsible for running the executable script with the appropriate arguments.
+    #: This allows nodes to run distributed.
+    EXTERNAL: int = 3

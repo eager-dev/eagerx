@@ -309,21 +309,48 @@ def _ns(resolved, a, args, context):
             raise
 
 
-Stamp = NamedTuple("Stamp", [("seq", int), ("sim_stamp", float), ("wc_stamp", float)])
+class Stamp(NamedTuple):
+    """A dataclass for timestamping received messages."""
+
+    #: Sequence number of received message since the last reset.
+    seq: int
+    #: Timestamp according to the simulated clock (seconds).
+    sim_stamp: float
+    #: Timestamp according to the wall clock (seconds).
+    wc_stamp: float
+
+
+class Info(NamedTuple):
+    """A dataclass that contains info about the received messages in :attr:`~eagerx.utils.utils.Msg.msgs`."""
+
+    #: name of the registered input.
+    name: str
+    #: Number of times :func:`~eagerx.core.entities.Node.callback` has been called since the last reset.
+    node_tick: int
+    #: Rate (Hz) of the input.
+    rate_in: float
+    #: Simulated timestamp that states during which cycle the message was received since the last reset according
+    #: to :attr:`~eagerx.core.entities.Node.rate` and :attr:`~eagerx.utils.utils.Info.node_tick`.
+    t_node: List[Stamp]
+    #: Simulated timestamp that states at what time the message was received
+    #: according to :attr:`~eagerx.utils.utils.Info.rate_in` and :attr:`~eagerx.utils.utils.Stamp.seq`.
+    t_in: List[Stamp]
+    #: Only concerns states. A flag that states if it must be reset.
+    done: bool
+
+
+class Msg(NamedTuple):
+    """A dataclass that contains the (windowed) inputs for a call to :func:`~eagerx.core.entities.Node.callback`."""
+
+    #: Info on the received messages in :attr:`~eagerx.utils.utils.Msg.msgs`.
+    info: Info
+    #: The received messages with indexing `msgs[-1]` being the most recent message and `msgs[0]` the oldest.
+    msgs: List[Any]
+
+
+# Set default values
 Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
-Info = NamedTuple(
-    "Info",
-    [
-        ("name", str),
-        ("node_tick", int),
-        ("rate_in", float),
-        ("t_node", List[Stamp]),
-        ("t_in", List[Stamp]),
-        ("done", bool),
-    ],
-)
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
-Msg = NamedTuple("Msg", [("info", Info), ("msgs", List[Any])])
 
 
 def check_valid_rosparam_type(param):

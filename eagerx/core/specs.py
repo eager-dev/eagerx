@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import inspect
 from yaml import dump
 import copy
@@ -43,6 +43,8 @@ class EntitySpec(object):
 
 
 class ConverterSpec(EntitySpec):
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the converter."""
+
     def initialize(self, spec_cls):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
@@ -50,11 +52,21 @@ class ConverterSpec(EntitySpec):
             d.update(defaults)
 
     @property
-    def config(self):
+    def config(self) -> SpecView:
+        """Provides an API to get/set the parameters to initialize.
+
+        The mutable parameters are:
+
+        - The arguments of the subclass' :func:`~eagerx.core.entities.Converter.initialize` method.
+
+        :return: (mutable) API to get/set parameters.
+        """
         return SpecView(self, depth=[])
 
 
 class EngineStateSpec(EntitySpec):
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the engine state."""
+
     def initialize(self, spec_cls):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
@@ -62,7 +74,15 @@ class EngineStateSpec(EntitySpec):
             d.update(defaults)
 
     @property
-    def config(self):
+    def config(self) -> SpecView:
+        """Provides an API to get/set the parameters to initialize.
+
+        The mutable parameters are:
+
+        - The arguments of the subclass' :func:`~eagerx.core.entities.EngineState.initialize` method.
+
+        :return: API to get/set parameters.
+        """
         return SpecView(self, depth=[])
 
 
@@ -81,20 +101,126 @@ class BaseNodeSpec(EntitySpec):
             return SpecView(self, depth=[depth], name=name)
 
     @property
-    def inputs(self):
+    def config(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters to initialize.
+
+        The mutable parameters are:
+
+        - Arguments of the subclass' :func:`~eagerx.core.entities.Node.initialize` method.
+
+        - .. py:attribute:: Spec.config.name: str
+
+            User specified unique node name.
+
+        - .. py:attribute:: Spec.config.rate: float
+
+            Rate (Hz) at which the :func:`~eagerx.core.entities.Node.callback` is called.
+
+        - .. py:attribute:: Spec.config.process: int
+
+            Process in which the node is launched. See :class:`~eagerx.core.constants.process` for all options.
+
+        - .. py:attribute:: Spec.config.color: str
+
+            Specifies the color of logged messages & node color in the GUI.
+            Check-out the termcolor documentation for the supported colors.
+
+        - .. py:attribute:: Spec.config.print_mode: int
+
+            Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
+
+        - .. py:attribute:: Spec.config.log_level: int
+
+            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("config")
+
+    @property
+    def inputs(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.inputs`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.inputs.<name>.window: int = 1
+
+           A non-negative number that specifies the number of messages to pass to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+           - *window* = 1: Only the last received input message.
+
+           - *window* = *x* > 1: The trailing last *x* received input messages.
+
+           - *window* = 0: All input messages received since the last call to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+           .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
+
+        - .. py:attribute:: Spec.inputs.<name>.converter: ConverterSpec = None
+
+            An input converter that converts the received input message before passing it
+            to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+        - .. py:attribute:: Spec.inputs.<name>.space_converter: ConverterSpec = None
+
+            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+            Only used when this input is used as an action.
+
+        - .. py:attribute:: Spec.inputs.<name>.delay: float = 0.0
+
+            A non-negative simulated delay (seconds). This delay is ignored if
+            :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
+            in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+
+        - .. py:attribute:: Spec.inputs.<name>.skip: bool = False
+
+            Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
+            May be necessary to ensure that the connected graph is directed and acyclic.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("inputs")
 
     @property
-    def outputs(self):
+    def outputs(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.outputs`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.outputs.<name>.converter: ConverterSpec = None
+
+            An output converter that converts the output message, returned by :func:`~eagerx.core.entities.Node.callback`,
+            before publishing it.
+
+        - .. py:attribute:: Spec.outputs.<name>.space_converter: ConverterSpec = None
+
+            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+            Only used when this output is used as an action.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("outputs")
 
     @property
-    def states(self):
-        return self._lookup("states")
+    def states(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.states`.
 
-    @property
-    def config(self):
-        return self._lookup("config")
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.states.<name>.space_converter: ConverterSpec = None
+
+            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+
+            .. note:: Every state must have a valid `space_converter`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("states")
 
     def initialize(self, spec_cls):
         try:
@@ -367,24 +493,115 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node."""
+
     pass
 
 
 class ResetNodeSpec(BaseNodeSpec):
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node."""
+
     @property
-    def targets(self):
+    def targets(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.targets`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.targets.<name>.converter: ConverterSpec = None
+
+            A converter that converts the received state message before passing it
+            to the node's :func:`~eagerx.core.entities.ResetNode.callback`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("targets")
 
     @property
-    def feedthroughs(self):
+    def feedthroughs(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of a feedthrough corresponding to registered :func:`eagerx.core.register.outputs`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.feedthroughs.<name>.converter: ConverterSpec = None
+
+            An input converter that converts the received input message before passing it
+            to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+        - .. py:attribute:: Spec.feedthroughs.<name>.space_converter: ConverterSpec = None
+
+            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+            Only used when this feedthrough is used as an action.
+
+        - .. py:attribute:: Spec.feedthroughs.<name>.delay: float = 0.0
+
+            A non-negative simulated delay (seconds). This delay is ignored if
+            :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
+            in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("feedthroughs")
 
 
 class BridgeSpec(BaseNodeSpec):
-    pass
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the bridge."""
+
+    @property
+    def config(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters to initialize.
+
+        The mutable parameters are:
+
+        - Arguments of the subclass' :func:`~eagerx.core.entities.Node.initialize` method.
+
+        - .. py:attribute:: Spec.config.rate: float
+
+            Rate (Hz) at which the :func:`~eagerx.core.entities.Bridge.callback` is called.
+
+        - .. py:attribute:: Spec.config.process: int
+
+            Process in which the bridge is launched. See :class:`~eagerx.core.constants.process` for all options.
+
+        - .. py:attribute:: Spec.config.is_reactive: bool
+
+            Flag that specifies whether we run reactive or asynchronous.
+
+        - .. py:attribute:: Spec.config.real_time_factor: float
+
+            A specified upper bound on the real-time factor. `Wall-clock-rate`=`real_time_factor`*`rate`.
+            If `real_time_factor` < 1 the simulation is slower than real time.
+
+        - .. py:attribute:: Spec.config.simulate_delays: bool
+
+            Flag that specifies whether input delays are simulated.
+            You probably want to set this to `False` when running in the real-world.
+
+        - .. py:attribute:: Spec.config.color: str
+
+            Specifies the color of logged messages. Check-out the termcolor documentation for the supported colors.
+
+        - .. py:attribute:: Spec.config.print_mode: int
+
+            Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
+
+        - .. py:attribute:: Spec.config.log_level: int
+
+            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("config")
 
 
 class ObjectSpec(EntitySpec):
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the object."""
+
     def __init__(self, params):
         super().__init__(params)
         from eagerx.core.converters import BaseConverter
@@ -408,20 +625,150 @@ class ObjectSpec(EntitySpec):
             return SpecView(self, depth=[depth], name=name)
 
     @property
-    def sensors(self):
+    def sensors(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.sensors`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.sensors.<name>.rate: float = 1.0
+
+            Rate (Hz) at which the sensor's :func:`~eagerx.core.entities.EngineNode.callback` is called.
+
+        - .. py:attribute:: Spec.sensors.<name>.converter: ConverterSpec = None
+
+            An sensor's converter converts the output message, returned by :func:`~eagerx.core.entities.EngineNode.callback`,
+            before publishing it.
+
+        - .. py:attribute:: Spec.sensors.<name>.space_converter: ConverterSpec = None
+
+            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+            Only used when this actuator is used as an action.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("sensors")
 
     @property
-    def actuators(self):
+    def actuators(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.actuators`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.actuators.<name>.rate: float = 1.0
+
+            Rate (Hz) at which the actuator's :func:`~eagerx.core.entities.EngineNode.callback` is called.
+
+        - .. py:attribute:: Spec.actuators.<name>.window: int = 1
+
+           A non-negative number that specifies the number of messages to pass to the node's
+           :func:`~eagerx.core.entities.EngineNode.callback`.
+
+           - *window* = 1: Only the last received input message.
+
+           - *window* = *x* > 1: The trailing last *x* received input messages.
+
+           - *window* = 0: All input messages received since the last call to the node's
+             :func:`~eagerx.core.entities.EngineNode.callback`.
+
+           .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
+
+        - .. py:attribute:: Spec.actuators.<name>.converter: ConverterSpec = None
+
+            An actuator's converter converts the received message before passing it
+            to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
+
+        - .. py:attribute:: Spec.actuators.<name>.space_converter: ConverterSpec = None
+
+            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+            Only used when this actuator is used as an action.
+
+        - .. py:attribute:: Spec.actuators.<name>.delay: float = 0.0
+
+            A non-negative simulated delay (seconds). This delay is ignored if
+            :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
+            in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+
+        - .. py:attribute:: Spec.actuators.<name>.skip: bool = False
+
+            Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
+            May be necessary to ensure that the connected graph is directed and acyclic.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("actuators")
 
     @property
-    def states(self):
+    def states(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.engine_states`.
+
+        The mutable parameters are:
+
+        - .. py:attribute:: Spec.states.<name>.space_converter: ConverterSpec = None
+
+            Convert state messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
+
+            .. note:: Every engine state must have a valid `space_converter`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("states")
 
     @property
-    def config(self):
+    def config(self) -> Union[SpecView, GraphView]:
+        """Provides an API to set/get the parameters to initialize.
+
+        The mutable parameters are:
+
+        - Additional parameters registered with the :func:`eagerx.core.register.config` decorator.
+
+        - .. py:attribute:: Spec.config.name: str
+
+            User specified unique object name.
+
+        - .. py:attribute:: Spec.config.actuators: list
+
+            List with selected actuators. Must be a subset of the registered :func:`eagerx.core.register.actuators`.
+
+        - .. py:attribute:: Spec.config.sensors: list
+
+            List with selected sensors. Must be a subset of the registered :func:`eagerx.core.register.sensors`.
+
+        - .. py:attribute:: Spec.config.states: list
+
+            List with selected engine_states. Must be a subset of the registered :func:`eagerx.core.register.engine_states`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
         return self._lookup("config")
+
+    @property
+    def example_bridge(self) -> Union[SpecView, GraphView]:
+        """An example API for a bridge-specific implementation with `<bridge_id>` = "example_bridge".
+
+        .. note:: This is an example method for documentation purposes only.
+
+        The mutable parameters are:
+
+        - Additional parameters registered with :func:`eagerx.core.register.bridge_config` that
+          decorates :class:`eagerx.core.entities.add_object` in the bridge subclass definition.
+
+        - .. py:attribute:: Spec.<bridge_id>.states.<name>: EngineState
+
+            Link an :class:`~eagerx.core.specs.EngineState` to a registered state with :func:`eagerx.core.register.states`.
+
+        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
+
+        :return: API to get/set parameters.
+        """
+        raise NotImplementedError("This is a mock bridge implementation for documentation purposes.")
 
     def initialize(self, spec_cls):
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
