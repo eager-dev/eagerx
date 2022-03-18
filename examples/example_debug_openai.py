@@ -55,7 +55,7 @@ def graph_engine(idx):
 
     # Initialize Environment
     name = str(time.time()).replace('.', '_')
-    env = eagerx_gym.EagerGym(name=f"rx_{name}", rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name=f"rx_{name}", rate=rate, graph=graph, bridge=bridge)
 
     # First reset
     env.reset()

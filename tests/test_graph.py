@@ -2,7 +2,7 @@ from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
 # Environment imports
-from eagerx.core.env import EagerEnv
+from eagerx.core.env import EagerxEnv
 from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
@@ -217,7 +217,7 @@ def test_graph():
     bridge = Bridge.make("TestBridge", rate=20, is_reactive=False, real_time_factor=5.5, process=process.NEW_PROCESS)
 
     # Initialize Environment
-    env = EagerEnv(
+    env = EagerxEnv(
         name="graph",
         rate=rate,
         graph=graph,

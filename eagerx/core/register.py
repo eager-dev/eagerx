@@ -2,6 +2,7 @@ import functools
 import inspect
 import rospy
 import copy
+from unittest.mock import MagicMock
 from eagerx.utils.utils import deepcopy
 
 
@@ -87,7 +88,7 @@ def make(entity, id, *args, **kwargs):
     assert entity in REGISTRY, f'No entities of type "{entity.__name__}" registered.'
     assert (
         id in REGISTRY[entity]
-    ), f'No entities of type "{entity.__name__}" registered under id "{id}". Available entities "{[s for s in list(REGISTRY[entity].keys())]}".'
+    ), f'No entities of type "{entity.__name__}" registered under entity_id "{id}". Available entities "{[s for s in list(REGISTRY[entity].keys())]}".'
     return REGISTRY[entity][id]["spec"](*args, **kwargs)
 
 
@@ -108,8 +109,9 @@ def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
     entry = func.__module__ + "/" + func.__qualname__
     if cls_only:
         for key, cls in cnames.items():
-            assert inspect.isclass(
-                cls
+            flag = inspect.isclass(cls) or isinstance(cls, MagicMock)
+            assert (
+                flag
             ), f'TYPE REGISTRATION ERROR: [{cls_name}][{fn_name}][{component}]: An instance "{cls}" of class "{cls.__class__}" was provided for "{key}". Please provide the class instead.'
     rospy.logdebug(f"[{cls_name}][{fn_name}]: {component}={cnames}, entry={entry}")
 
@@ -215,7 +217,9 @@ def bridge(entity_id, bridge_cls):
 
         msg = f"Cannot register bridge '{bridge_id}' for object '{entity_id}'. "
         assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
-        assert entity_id in REGISTRY[Object], msg + "No object with this id was registered. Make sure to import the object."
+        assert entity_id in REGISTRY[Object], (
+            msg + "No object with this entity_id was registered. Make sure to import the object."
+        )
 
         # Check if spec of duplicate entity_id corresponds to same spec function
         flag = bridge_id in REGISTRY[Object][entity_id] and _bridge == REGISTRY[Object][entity_id][bridge_id]
@@ -229,7 +233,7 @@ def bridge(entity_id, bridge_cls):
 
 
 def add_bridge(spec, bridge_id):
-    """Add bridge based on registered id"""
+    """Add bridge based on registered entity_id"""
     entity_id = spec.config.entity_id
 
     # Register bridge implementation for object
@@ -237,6 +241,6 @@ def add_bridge(spec, bridge_id):
 
     msg = f"Cannot ad bridge implementation '{bridge_id}' for object '{entity_id}'. "
     assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
-    assert entity_id in REGISTRY[Object], msg + "No object with this id was registered. Make sure to import the object."
+    assert entity_id in REGISTRY[Object], msg + "No object with this entity_id was registered. Make sure to import the object."
 
     _ = REGISTRY[Object][entity_id][bridge_id](spec)

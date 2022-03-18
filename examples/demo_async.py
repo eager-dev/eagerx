@@ -55,7 +55,7 @@ if __name__ == "__main__":
         return obs, obs["reward"][0], steps >= 200, dict()
 
     # Initialize Environment
-    env = eagerx_gym.EagerGym(name="rx", rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
+    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
 
     # Turn on rendering
     env.render(mode="human")

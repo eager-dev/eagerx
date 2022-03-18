@@ -2,7 +2,7 @@ from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
 # Environment imports
-from eagerx.core.env import EagerEnv
+from eagerx.core.env import EagerxEnv
 from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
@@ -75,7 +75,7 @@ def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
     bridge = Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
 
     # Initialize Environment
-    env = EagerEnv(
+    env = EagerxEnv(
         name=name,
         rate=rate,
         graph=graph,

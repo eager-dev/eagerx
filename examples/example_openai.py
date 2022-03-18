@@ -42,13 +42,13 @@ if __name__ == "__main__":
 
     # todo: Test shutdown
     # todo: close node initialization_topic.
-    env = eagerx_gym.EagerGym(name="rx", rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
     env.render(mode="human")
     done, obs = False, env.reset()
     env.shutdown()
 
     # Initialize Environment
-    env = eagerx_gym.EagerGym(name="rx", rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
 
     # Turn on rendering
     env.render(mode="human")
