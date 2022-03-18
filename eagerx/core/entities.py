@@ -456,8 +456,12 @@ class Node(BaseNode):
     @staticmethod
     @abc.abstractmethod
     def spec(spec: "NodeSpec", *args: Any, **kwargs: Any) -> None:
-        """
-        An abstract method that creates the node's specification that is used to initialize the node at run-time.
+        """An abstract method that creates the node's specification that is used to initialize the node at run-time.
+
+        See :class:`~eagerx.core.specs.NodeSpec` for all default config parameters and how
+        input/output/state parameters can be modified.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
         The subclass' implementation must call :func:`~eagerx.core.entities.Node.initialize_spec` to initialize
         the spec with the default :attr:`~eagerx.core.specs.NodeSpec.config`
@@ -477,6 +481,8 @@ class Node(BaseNode):
         """
         An abstract method that resets the node to its initial state before the start of an episode.
 
+        This method should be decorated with :func:`eagerx.core.register.states` to register the states.
+
         :param states: States that were registered (& selected) with the :func:`eagerx.core.register.states` decorator by the subclass.
                        The state messages are send by the environment and can be used to reset the node at the start of an episode.
                        This can be anything from an estimator's initial state to a hyper-parameter (e.g. delay, control gains).
@@ -485,8 +491,13 @@ class Node(BaseNode):
 
     @abc.abstractmethod
     def callback(self, t_n: float, **inputs: Msg) -> Dict[str, Any]:
-        """
-        An abstract method that is called at the specified node rate.
+        """An abstract method that is called at the specified node rate.
+
+        This method should be decorated with:
+
+        - :func:`eagerx.core.register.inputs` to register the inputs.
+
+        - :func:`eagerx.core.register.outputs` to register the outputs.
 
         :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Node.rate`.
         :param inputs: Inputs that were registered (& selected) with the :func:`eagerx.core.register.inputs` decorator by the subclass.
@@ -547,8 +558,12 @@ class ResetNode(Node):
     @staticmethod
     @abc.abstractmethod
     def spec(spec: "ResetNodeSpec", *args: Any, **kwargs: Any) -> None:
-        """
-        An abstract method that creates the engine node's specification that is used to initialize the node at run-time.
+        """An abstract method that creates the engine node's specification that is used to initialize the node at run-time.
+
+        See :class:`~eagerx.core.specs.ResetNodeSpec` for all default config parameters and how
+        input/output/target/state parameters can be modified.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
         The subclass' implementation must call :func:`~eagerx.core.entities.ResetNode.initialize_spec` to initialize
         the spec with the default :attr:`~eagerx.core.specs.ResetNodeSpec.config`
@@ -562,8 +577,9 @@ class ResetNode(Node):
 
     @abc.abstractmethod
     def reset(self, **states: Any) -> None:
-        """
-        An abstract method that resets the node to its initial state before the start of an episode.
+        """An abstract method that resets the node to its initial state before the start of an episode.
+
+        This method should be decorated with :func:`eagerx.core.register.states` to register the states.
 
         :param states: States that were registered (& selected) with the :func:`eagerx.core.register.states` decorator by the subclass.
                        The state messages are send by the environment and can be used to reset the node at the start of an episode.
@@ -573,8 +589,15 @@ class ResetNode(Node):
 
     @abc.abstractmethod
     def callback(self, t_n: float, **inputs_and_targets: Msg) -> Dict[str, Any]:
-        """
-        An abstract method that is called at the specified node rate during the environment reset.
+        """An abstract method that is called at the specified node rate during the environment reset.
+
+        This method should be decorated with:
+
+        - :func:`eagerx.core.register.inputs` to register the inputs.
+
+        - :func:`eagerx.core.register.outputs` to register the outputs.
+
+        - :func:`eagerx.core.register.targets` to register the targets.
 
         .. note:: This callback is skipped until the user calls :func:`~eagerx.core.env.EagerxEnv.reset`.
                   Until then, the messages coming in via the connected *feedthroughs* are fed through as
@@ -688,8 +711,9 @@ class EngineNode(Node):
 
     @abc.abstractmethod
     def reset(self, **states: Any) -> None:
-        """
-        An abstract method that resets the node to its initial state before the start of an episode.
+        """An abstract method that resets the node to its initial state before the start of an episode.
+
+        This method should be decorated with :func:`eagerx.core.register.states` to register the states.
 
         .. warning:: Avoid defining states for engine nodes, as you risk making your :class:`~eagerx.core.entities.Object`
                      non-agnostic to the environment. Instead, try to implement object states as an :class:`~eagerx.core.entities.EngineState`
@@ -703,8 +727,13 @@ class EngineNode(Node):
 
     @abc.abstractmethod
     def callback(self, t_n: float, **inputs: Msg) -> Dict[str, Any]:
-        """
-        An abstract method that is called at the specified node rate.
+        """An abstract method that is called at the specified node rate.
+
+        This method should be decorated with:
+
+        - :func:`eagerx.core.register.inputs` to register the inputs.
+
+        - :func:`eagerx.core.register.outputs` to register the outputs.
 
         :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.EngineNode.rate`.
         :param inputs: Inputs that were registered (& selected) with the :func:`eagerx.core.register.inputs` decorator by the subclass.
@@ -995,6 +1024,10 @@ class Bridge(BaseNode):
     def spec(spec: "BridgeSpec", *args: Any, **kwargs: Any):
         """An abstract method that creates the bridge's specification that is used to initialize the bridge at run-time.
 
+        See :class:`~eagerx.core.specs.BridgeSpec` for all default config parameters.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
+
         The subclass' implementation must call :func:`~eagerx.core.entities.Bridge.initialize_spec` to initialize
         the spec with the default :attr:`~eagerx.core.specs.BridgeSpec.config`
         and registered I/O (inputs, outputs, states, etc...).
@@ -1009,6 +1042,10 @@ class Bridge(BaseNode):
     def add_object(self, config: Dict, bridge_config: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
         """
         Adds an object to the simulator that is interfaced by the bridge.
+
+        This method must be decorated with :func:`eagerx.core.register.bridge_config` to register bridge specific
+        parameters that are required to add an :class:`~eagerx.core.entities.Object` to
+        the bridge's :attr:`~eagerx.core.entities.Bridge.simulator`.
 
         :param config: The (agnostic) config of the :class:`~eagerx.core.entities.Object` that is to be added.
         :param bridge_config: The bridge-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
@@ -1044,8 +1081,9 @@ class Bridge(BaseNode):
 
     @abc.abstractmethod
     def reset(self, **states: Any) -> None:
-        """
-        An abstract method that resets the bridge to its initial state before the start of an episode.
+        """An abstract method that resets the bridge to its initial state before the start of an episode.
+
+        This method should be decorated with :func:`eagerx.core.register.states` to register the states.
 
         .. note:: This method is called **after** every :class:`~eagerx.core.entities.EngineNode` and
                   :class:`~eagerx.core.entities.EngineState` has finished its reset.
@@ -1064,6 +1102,9 @@ class Bridge(BaseNode):
         """
         The bridge callback that is performed at the specified rate.
 
+        This method should be decorated with :func:`eagerx.core.register.outputs` to register
+        `tick` = :class:`std_msgs.msg.UInt64` as the only output.
+
         This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Bridge.rate`.
 
         .. note:: The bridge **only** outputs the registered 'tick' message after each callback. However, the user is not responsible
@@ -1073,7 +1114,7 @@ class Bridge(BaseNode):
                   a separate :class:`~eagerx.core.entities.EngineNode` should be created.
 
         .. note:: The outputs of every :class:`~eagerx.core.entities.EngineNode` for every registered
-                  :class:`~eagerx.core.entities.Object` are automatically added as input to the bridge to ensure
+                  :class:`~eagerx.core.entities.Object` are automatically registered as input to the bridge to ensure
                   input-output synchronization.
 
         :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Bridge.rate`.
@@ -1112,6 +1153,18 @@ class Object(Entity):
     def agnostic(spec: "ObjectSpec", *args: Any, **kwargs: Any) -> None:
         """An abstract method that defines the agnostic interface of the object's sensors, actuators and/or engine states.
 
+        See :class:`~eagerx.core.specs.ObjectSpec` how sensor/actuator/engine state parameters can be set.
+
+        This method should be decorated with:
+
+        - :func:`eagerx.core.register.config` to register the object's default config.
+
+        - :func:`eagerx.core.register.sensors` to register sensors.
+
+        - :func:`eagerx.core.register.actuators` to register actuators.
+
+        - :func:`eagerx.core.register.engine_states` to register engine states.
+
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.
         :param kwargs: Additional optional arguments as specified by the subclass.
@@ -1123,6 +1176,10 @@ class Object(Entity):
     def spec(spec: "ObjectSpec", *args: Any, **kwargs: Any) -> None:
         """An abstract method that creates the object's specification that is used to initialize the object's
         sensors, actuators, and/or engine states at run-time.
+
+        See :attr:`~eagerx.core.specs.ObjectSpec.config` for all default config parameters.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
         The subclass' implementation must call :func:`~eagerx.core.entities.Object.initialize_spec` to initialize
         the spec with the default :attr:`~eagerx.core.specs.ObjectSpec.config`.
@@ -1170,6 +1227,12 @@ class Object(Entity):
 
     def example_bridge(self, spec: "ObjectSpec", graph: "EngineGraph") -> None:
         """An example of a bridge-specific implementation of an object's registered sensors, actuators, and/or states.
+
+        See :attr:`~eagerx.core.specs.ObjectSpec.example_bridge` how bridge specific (i.e. bridge_config)
+        parameters can be set.
+
+        This method must be decorated with :func:`eagerx.core.register.bridge` to register
+        the bridge implementation of the object.
 
         .. note:: This is an example method for documentation purposes only.
 
@@ -1227,6 +1290,10 @@ class BaseConverter(Entity):
     def spec(spec: "ConverterSpec", *args: Any, **kwargs: Any) -> None:
         """An abstract method that creates the converter/processor's specification
         that is used to initialize the subclass at run-time.
+
+        See :class:`~eagerx.core.specs.ConverterSpec` how the default config parameters can be modified.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
         The subclass' implementation must call :func:`~eagerx.core.entities.BaseConverter.initialize_spec` to initialize
         the spec with the default :attr:`~eagerx.core.specs.ConverterSpec.config`.
@@ -1543,6 +1610,10 @@ class EngineState(Entity):
     @abc.abstractmethod
     def spec(spec: "EngineStateSpec", *args: Any, **kwargs: Any) -> None:
         """An abstract method that creates the engine state specification that is used to initialize it at run-time.
+
+        See :class:`~eagerx.core.specs.EngineStateSpec` how the default config parameters can be modified.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
         The subclass' implementation must call :func:`~eagerx.core.entities.EngineState.initialize_spec` to initialize
         the spec with the default :attr:`~eagerx.core.specs.EngineStateSpec.config`.

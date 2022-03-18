@@ -321,7 +321,7 @@ class Stamp(NamedTuple):
 
 
 class Info(NamedTuple):
-    """A dataclass that contains info about the received messages in :attr:`~eagerx.utils.utils.Msg.msgs`."""
+    """A dataclass containing info about the received messages in :attr:`~eagerx.utils.utils.Msg.msgs`."""
 
     #: name of the registered input.
     name: str
@@ -340,7 +340,7 @@ class Info(NamedTuple):
 
 
 class Msg(NamedTuple):
-    """A dataclass that contains the (windowed) inputs for a call to :func:`~eagerx.core.entities.Node.callback`."""
+    """A dataclass representing a (windowed) input that is passed to :func:`~eagerx.core.entities.Node.callback`."""
 
     #: Info on the received messages in :attr:`~eagerx.utils.utils.Msg.msgs`.
     info: Info

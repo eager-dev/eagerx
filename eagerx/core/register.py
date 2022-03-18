@@ -4,7 +4,14 @@ import rospy
 import copy
 from unittest.mock import MagicMock
 from eagerx.utils.utils import deepcopy
+from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict
 
+if TYPE_CHECKING:
+    from eagerx.core.graph_engine import EngineGraph  # noqa: F401
+    from eagerx.core.Entities import (  # noqa: F401
+        Entity,
+        Bridge
+    )
 
 # Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
 REGISTRY = dict()
@@ -40,8 +47,13 @@ REVERSE_REGISTRY = ReverseRegisterLookup(REGISTRY)
 LOOKUP_TYPES = LookupType(TYPE_REGISTER)
 
 
-def spec(entity_id, entity_cls):
-    """Register a spec function to make an entity"""
+def spec(entity_id: str, entity_cls: "Entity") -> Callable:
+    """A decorator to register a spec function.
+
+    :param entity_id: A unique string id.
+    :param entity_cls: The entity's baseclass.
+    """
+    # """Register a spec function to make an entity"""
 
     def _register(func):
         entry = func.__module__ + "/" + func.__qualname__
@@ -135,48 +147,94 @@ def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
     return registered_fn
 
 
-def inputs(**inputs):
-    """Register input msg_types of callback"""
+def inputs(**inputs: Any) -> Callable:
+    """A decorator to register the inputs to a :func:`~eagerx.core.entities.Node.callback`.
+
+    The :func:`~eagerx.core.entities.Node.callback` method should be decorated.
+
+    :param inputs: The input's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "inputs", inputs)
 
 
-def outputs(**outputs):
-    """Register output msg_types of callback"""
+def outputs(**outputs) -> Callable:
+    """A decorator to register the outputs of a :func:`~eagerx.core.entities.Node.callback`.
+
+    The :func:`~eagerx.core.entities.Node.callback` method should be decorated.
+
+    :param outputs: The output's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "outputs", outputs)
 
 
-def states(**states):
-    """Register state msg_types of reset"""
+def states(**states) -> Callable:
+    """A decorator to register the states for a :func:`~eagerx.core.entities.Node.reset`.
+
+    The :func:`~eagerx.core.entities.Node.reset` method should be decorated.
+
+    :param outputs: The state's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "states", states)
 
 
-def targets(**targets):
-    """Register target msg_types of callback"""
+def targets(**targets) -> Callable:
+    """A decorator to register the targets of a :func:`~eagerx.core.entities.ResetNode.callback`.
+
+    The :func:`~eagerx.core.entities.ResetNode.callback` method should be decorated.
+
+    :param targets: The target's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "targets", targets)
 
 
-def sensors(**sensors):
-    """Register sensor msg_types"""
+def sensors(**sensors) -> Callable:
+    """A decorator to register the sensors of an :class:`~eagerx.core.entities.Object`.
+
+    The :func:`~eagerx.core.entities.Object.agnostic` method should be decorated.
+
+    :param sensors: The sensor's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "sensors", sensors)
 
 
-def actuators(**actuators):
-    """Register actuator msg_types"""
+def actuators(**actuators) -> Callable:
+    """A decorator to register the actuators of an :class:`~eagerx.core.entities.Object`.
+
+    The :func:`~eagerx.core.entities.Object.agnostic` method should be decorated.
+
+    :param actuators: The actuator's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "actuators", actuators)
 
 
-def engine_states(**engine_states):
-    """Register engine_states msg_type"""
+def engine_states(**engine_states) -> Callable:
+    """A decorator to register the engine states of an :class:`~eagerx.core.entities.Object`.
+
+    The :func:`~eagerx.core.entities.Object.agnostic` method should be decorated.
+
+    :param engine_states: The engine state's msg_type class.
+    """
     return functools.partial(_register_types, TYPE_REGISTER, "states", engine_states)
 
 
-def bridge_config(**bridge_config):
-    """Register default bridge_config arguments"""
-    return functools.partial(_register_types, TYPE_REGISTER, "bridge_config", bridge_config, cls_only=False)
+def bridge_config(**params: Union[bool, int, float, str, List, Dict]) -> Callable:
+    """A decorator to register bridge specific parameters that are required to
+    add an :class:`~eagerx.core.entities.Object` to the bridge's :attr:`~eagerx.core.entities.Bridge.simulator`.
+
+    The :func:`~eagerx.core.entities.Bridge.add_object` method should be decorated.
+
+    :param params: Bridge specific parameters with default values (i.e. only optional arguments are allowed).
+    """
+    return functools.partial(_register_types, TYPE_REGISTER, "bridge_config", params, cls_only=False)
 
 
-def config(**params):
-    """Register default config arguments"""
+def config(**params: Union[bool, int, float, str, List, Dict]) -> Callable:
+    """A decorator to register an :class:`~eagerx.core.entities.Object`'s default config.
+
+    The :func:`~eagerx.core.entities.Object.agnostic` method should be decorated.
+
+    :param params: Bridge specific parameters with default values (i.e. only optional arguments are allowed).
+    """
     return functools.partial(
         _register_types,
         TYPE_REGISTER,
@@ -189,7 +247,14 @@ def config(**params):
 # BRIDGES
 
 
-def bridge(entity_id, bridge_cls):
+def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
+    """A decorator to register a bridge implementation of an :class:`~eagerx.core.entities.Object`.
+
+    .. note:: In our running example, the :func:`~eagerx.core.entities.Object.example_bridge` method would be decorated.
+
+    :param entity_id: A unique string id.
+    :param bridge_cls: The Bridge's subclass (not the baseclass :class:`~eagerx.core.entities.Bridge`).
+    """
     bridge_config = LOOKUP_TYPES[bridge_cls.add_object]["bridge_config"]
     bridge_id = REVERSE_REGISTRY[bridge_cls.spec]
 
@@ -233,7 +298,7 @@ def bridge(entity_id, bridge_cls):
 
 
 def add_bridge(spec, bridge_id):
-    """Add bridge based on registered entity_id"""
+    # """Add bridge based on registered entity_id"""
     entity_id = spec.config.entity_id
 
     # Register bridge implementation for object
