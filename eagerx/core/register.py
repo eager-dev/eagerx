@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict
 
 if TYPE_CHECKING:
     from eagerx.core.graph_engine import EngineGraph  # noqa: F401
-    from eagerx.core.Entities import (  # noqa: F401
-        Entity,
-        Bridge
-    )
+    from eagerx.core.Entities import Entity, Bridge  # noqa: F401
 
 # Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
 REGISTRY = dict()
