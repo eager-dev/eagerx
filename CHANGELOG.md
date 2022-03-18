@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.10 (2022-03-18)
+### Fix
+* Docs api ([#126](https://github.com/eager-dev/eagerx/issues/126)) ([`efa505c`](https://github.com/eager-dev/eagerx/commit/efa505cd0b788ef7ac28fb69147d006564b19cc3))
+
 ## v0.1.9 (2022-03-16)
 ### Fix
 * Refactor config, add initial docs for entities ([#125](https://github.com/eager-dev/eagerx/issues/125)) ([`34e108b`](https://github.com/eager-dev/eagerx/commit/34e108b78684cc252777196e6e2f154fcad6dc66))
