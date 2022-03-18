@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.9 (2022-03-16)
+### Fix
+* Refactor config, add initial docs for entities ([#125](https://github.com/eager-dev/eagerx/issues/125)) ([`34e108b`](https://github.com/eager-dev/eagerx/commit/34e108b78684cc252777196e6e2f154fcad6dc66))
+
+### Documentation
+* Create docs structure and begin with pendulum tutorial ([#124](https://github.com/eager-dev/eagerx/issues/124)) ([`6365b22`](https://github.com/eager-dev/eagerx/commit/6365b22dfdf434138f15d7af07249a31dd0903f9))
+
 ## v0.1.8 (2022-03-14)
 ### Fix
 * Shutdown on sigint, dispose disposables, no duplicate shutdown msg ([#123](https://github.com/eager-dev/eagerx/issues/123)) ([`1bb6910`](https://github.com/eager-dev/eagerx/commit/1bb6910766c0987d6335cffba104512f5f3f9829))
