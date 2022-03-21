@@ -285,7 +285,7 @@ class Env(gym.Env):
 
     @property
     def action_space(self) -> gym.spaces.Dict:
-        """Infers the action space from the :class:`~eagerx.core.entities.SpaceConverter` of every observation.
+        """Infers the action space from the :class:`~eagerx.core.entities.SpaceConverter` of every action.
 
         This space defines the format of valid actions.
 

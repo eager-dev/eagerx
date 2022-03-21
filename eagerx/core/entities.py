@@ -15,7 +15,7 @@ from genpy import Message
 from std_msgs.msg import Bool, UInt64
 from tabulate import tabulate
 
-from eagerx.core.constants import TERMCOLOR, ERROR, SILENT, process
+from eagerx.core.constants import TERMCOLOR, WARN, SILENT, process
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type
@@ -128,7 +128,7 @@ class BaseNode(Entity):
         executable=None,
         color: str = "grey",
         print_mode: int = TERMCOLOR,
-        log_level: int = ERROR,
+        log_level: int = WARN,
         log_level_memory: int = SILENT,
         **kwargs,
     ):
@@ -192,12 +192,12 @@ class BaseNode(Entity):
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.print_mode: int = print_mode
         #: Specifies the log level for this node:
-        #: {0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}.
+        #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.log_level: int = log_level
         effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
         #: Specifies the log level for logging memory usage over time for this node:
-        #: {0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}.
+        #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Note that `log_level` has precedent over the memory level set here.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.log_memory: int = effective_log_level >= log_level and log_level_memory >= effective_log_level
@@ -221,7 +221,7 @@ class BaseNode(Entity):
             states=[],
             color="grey",
             print_mode=TERMCOLOR,
-            log_level=ERROR,
+            log_level=WARN,
             log_level_memory=SILENT,
             executable=None,
             entity_id=params.pop("entity_id"),

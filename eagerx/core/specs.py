@@ -116,22 +116,22 @@ class BaseNodeSpec(EntitySpec):
 
             Rate (Hz) at which the :func:`~eagerx.core.entities.Node.callback` is called.
 
-        - .. py:attribute:: Spec.config.process: int
+        - .. py:attribute:: Spec.config.process: int = 0
 
             Process in which the node is launched. See :class:`~eagerx.core.constants.process` for all options.
 
-        - .. py:attribute:: Spec.config.color: str
+        - .. py:attribute:: Spec.config.color: str = grey
 
             Specifies the color of logged messages & node color in the GUI.
             Check-out the termcolor documentation for the supported colors.
 
-        - .. py:attribute:: Spec.config.print_mode: int
+        - .. py:attribute:: Spec.config.print_mode: int = 1
 
             Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
 
-        - .. py:attribute:: Spec.config.log_level: int
+        - .. py:attribute:: Spec.config.log_level: int = 30
 
-            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}`.
+            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -562,35 +562,35 @@ class BridgeSpec(BaseNodeSpec):
 
             Rate (Hz) at which the :func:`~eagerx.core.entities.Bridge.callback` is called.
 
-        - .. py:attribute:: Spec.config.process: int
+        - .. py:attribute:: Spec.config.process: int = 0
 
             Process in which the bridge is launched. See :class:`~eagerx.core.constants.process` for all options.
 
-        - .. py:attribute:: Spec.config.is_reactive: bool
+        - .. py:attribute:: Spec.config.is_reactive: bool = True
 
             Flag that specifies whether we run reactive or asynchronous.
 
-        - .. py:attribute:: Spec.config.real_time_factor: float
+        - .. py:attribute:: Spec.config.real_time_factor: float = 0
 
             A specified upper bound on the real-time factor. `Wall-clock-rate`=`real_time_factor`*`rate`.
             If `real_time_factor` < 1 the simulation is slower than real time.
 
-        - .. py:attribute:: Spec.config.simulate_delays: bool
+        - .. py:attribute:: Spec.config.simulate_delays: bool = True
 
             Flag that specifies whether input delays are simulated.
             You probably want to set this to `False` when running in the real-world.
 
-        - .. py:attribute:: Spec.config.color: str
+        - .. py:attribute:: Spec.config.color: str = grey
 
             Specifies the color of logged messages. Check-out the termcolor documentation for the supported colors.
 
-        - .. py:attribute:: Spec.config.print_mode: int
+        - .. py:attribute:: Spec.config.print_mode: int = 1
 
             Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
 
-        - .. py:attribute:: Spec.config.log_level: int
+        - .. py:attribute:: Spec.config.log_level: int = 30
 
-            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, WARN: 30, ERROR: 40, FATAL: 50}`.
+            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
