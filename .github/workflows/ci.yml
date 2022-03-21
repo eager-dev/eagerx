@@ -98,13 +98,6 @@ jobs:
         run: |
           source .venv/bin/activate
           make pytest
-      #----------------------------------------------
-      #    upload code coverage to CodeClimate
-      #----------------------------------------------
-      - name: Publish code coverage to CodeClimate
-        uses: paambaati/codeclimate-action@v2.7.5
-        env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
   release:
     needs: test
     # https://github.community/t/how-do-i-specify-job-dependency-running-in-another-workflow/16482
