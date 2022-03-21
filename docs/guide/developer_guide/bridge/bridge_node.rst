@@ -117,7 +117,7 @@ All we need to do to initialize the *OdeBridge* is to define two dictionaries:
 ::
 
   def initialize(self, rtol, atol, hmax, hmin, mxstep):
-        # Initialize any simulator here, that is passed as reference to each simnode
+        # Initialize any simulator here, that is passed as reference to each engine node
         self.odeint_args = dict(rtol=rtol, atol=atol, hmax=hmax, hmin=hmin, mxstep=mxstep)
         self.simulator = dict()
 
