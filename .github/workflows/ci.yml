@@ -141,15 +141,15 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/ci_fix_coverage' && !contains(github.event.head_commit.message, 'chore(release):')
     runs-on: ubuntu-latest
-      steps:
-        #----------------------------------------------
-        # Download coverage and publish to CodeClimate
-        #----------------------------------------------
-        - name: Checkout code
-          uses: actions/checkout@v2
-        - name: Download artifacts
-          uses: actions/download-artifact@v2
-        - name: Publish code coverage to CodeClimate
-          uses: paambaati/codeclimate-action@v2.7.5
-          env:
-            CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+    steps:
+      #----------------------------------------------
+      # Download coverage and publish to CodeClimate
+      #----------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Publish code coverage to CodeClimate
+        uses: paambaati/codeclimate-action@v2.7.5
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
