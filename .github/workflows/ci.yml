@@ -104,7 +104,9 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: coverage
-          path: coverage.xml
+          path: |
+            coverage.xml
+            htmlcov/
   release:
     needs: test
     # https://github.community/t/how-do-i-specify-job-dependency-running-in-another-workflow/16482
@@ -147,8 +149,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
       - name: Publish code coverage to CodeClimate
-        uses: paambaati/codeclimate-action@v2.7.1
+        uses: paambaati/codeclimate-action@v3
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
