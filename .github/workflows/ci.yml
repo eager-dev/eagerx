@@ -152,6 +152,6 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
       - name: Publish code coverage to CodeClimate
-        uses: paambaati/codeclimate-action@v3
+        uses: paambaati/codeclimate-action@v2.7.1
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
