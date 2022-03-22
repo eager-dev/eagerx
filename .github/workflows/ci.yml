@@ -98,7 +98,6 @@ jobs:
         run: |
           source .venv/bin/activate
           make pytest
-            - uses: actions/upload-artifact@v2
       #----------------------------------------------
       # Save code coverage
       #----------------------------------------------
