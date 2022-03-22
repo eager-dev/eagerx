@@ -98,6 +98,14 @@ jobs:
         run: |
           source .venv/bin/activate
           make pytest
+            - uses: actions/upload-artifact@v2
+      #----------------------------------------------
+      # Save code coverage
+      #----------------------------------------------
+      - uses: actions/upload-artifact@v2
+        with:
+          name: coverage
+          path: coverage.xml
   release:
     needs: test
     # https://github.community/t/how-do-i-specify-job-dependency-running-in-another-workflow/16482
@@ -129,3 +137,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
           REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+   publish_coverage:
+     needs: test
+     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+     runs-on: ubuntu-latest
+     steps:
+       #----------------------------------------------
+       # Download coverage and publish to CodeClimate
+       #----------------------------------------------
+       - name: Checkout code
+         uses: actions/checkout@v2
+       - name: Download artifacts
+         uses: actions/download-artifact@v2
+       - name: Publish code coverage to CodeClimate
+         uses: paambaati/codeclimate-action@v3.0.0
+         env:
+           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
