@@ -107,6 +107,7 @@ jobs:
           path: |
             coverage.xml
             htmlcov/
+            .coverage
   release:
     needs: test
     # https://github.community/t/how-do-i-specify-job-dependency-running-in-another-workflow/16482
