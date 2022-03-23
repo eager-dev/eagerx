@@ -139,16 +139,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
           REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-  publish_coverage:
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, 'chore(release):')
-    runs-on: ubuntu-latest
-    steps:
       #----------------------------------------------
       # Download coverage and publish to CodeClimate
       #----------------------------------------------
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Download artifacts
         uses: actions/download-artifact@v3
       - name: Publish code coverage to CodeClimate
