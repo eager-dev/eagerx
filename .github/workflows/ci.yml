@@ -141,6 +141,9 @@ jobs:
       #----------------------------------------------
       - name: Download artifacts
         uses: actions/download-artifact@v3
+        with:
+          name: 'coverage'
+          path: .
       - name: Publish code coverage to CodeClimate
         uses: paambaati/codeclimate-action@v2.7.5
         env:
