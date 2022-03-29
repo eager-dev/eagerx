@@ -679,18 +679,20 @@ class EngineNode(Node):
     Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
     """
 
-    def __init__(self, object_name: str, simulator: Any = None, **kwargs: Any):
-        config = get_param_with_blocking(object_name)
-        if config is None:
-            rospy.logwarn(
-                f"Parameters for object registry request ({object_name}) not found on parameter server. "
-                f"Timeout: object ({object_name}) not registered."
-            )
-        try:
-            bridge_config = config.pop("bridge")
-        except KeyError:
-            bridge_config = {}
-
+    def __init__(self, object_name: str = None, simulator: Any = None, **kwargs: Any):
+        if object_name:
+            config = get_param_with_blocking(object_name)
+            if config is None:
+                rospy.logwarn(
+                    f"Parameters for object registry request ({object_name}) not found on parameter server. "
+                    f"Timeout: object ({object_name}) not registered."
+                )
+            try:
+                bridge_config = config.pop("bridge")
+            except KeyError:
+                bridge_config = {}
+        else:
+            config, bridge_config = None, None
         #: A reference to the :attr:`~eagerx.core.entities.Bridge.simulator`. The simulator type depends on the bridge.
         #: Oftentimes, engine nodes require this reference in :func:`~eagerx.core.entities.EngineNode.callback` and/or
         #: :func:`~eagerx.core.entities.EngineNode.reset` to simulate (e.g. apply an action, extract a sensor measurement).
