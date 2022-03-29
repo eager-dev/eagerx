@@ -690,8 +690,8 @@ class EngineGraph:
                     substitute_args(params, context, only=["config", "ns"])
                     nodes[name] = params
 
-        assert len(actuators) > 0, "No actuators node defined in the graph."
-        assert len(sensors) > 0, "No sensors node defined in the graph."
+        # assert len(actuators) > 0, "No actuators node defined in the graph."
+        # assert len(sensors) > 0, "No sensors node defined in the graph."
         return nodes, actuators, sensors
 
     def gui(self) -> None:

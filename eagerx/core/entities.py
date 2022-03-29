@@ -18,7 +18,7 @@ from tabulate import tabulate
 from eagerx.core.constants import TERMCOLOR, WARN, SILENT, process
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type
+from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type, get_param_with_blocking
 
 from typing import TYPE_CHECKING
 
@@ -130,6 +130,7 @@ class BaseNode(Entity):
         print_mode: int = TERMCOLOR,
         log_level: int = WARN,
         log_level_memory: int = SILENT,
+        object_name: str = "",
         **kwargs,
     ):
         """
@@ -656,9 +657,8 @@ class EngineNode(Node):
     Users must call :func:`~eagerx.core.entities.EngineNode.make` to make the registered engine node subclass'
     :func:`~eagerx.core.entities.EngineNode.spec`. See :func:`~eagerx.core.entities.EngineNode.make` for more info.
 
-    .. note:: Engine nodes only receive a reference to the :attr:`~eagerx.core.entities.EngineNode.simulator` and the
-              :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.EngineNode.config` and
-              :attr:`~eagerx.core.entities.EngineNode.bridge_config` when the engine nodes are launched within
+    .. note:: Engine nodes only receive a reference to the :attr:`~eagerx.core.entities.EngineNode.simulator`
+              when the engine nodes are launched within
               the same process as the bridge. See :class:`~eagerx.core.constants.process` for more info.
 
     Subclasses must implement the following methods:
@@ -679,7 +679,18 @@ class EngineNode(Node):
     Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
     """
 
-    def __init__(self, simulator: Any = None, config: Dict = None, bridge_config: Dict = None, **kwargs: Any):
+    def __init__(self, object_name: str, simulator: Any = None, **kwargs: Any):
+        config = get_param_with_blocking(object_name)
+        if config is None:
+            rospy.logwarn(
+                f"Parameters for object registry request ({object_name}) not found on parameter server. "
+                f"Timeout: object ({object_name}) not registered."
+            )
+        try:
+            bridge_config = config.pop("bridge")
+        except KeyError:
+            bridge_config = {}
+
         #: A reference to the :attr:`~eagerx.core.entities.Bridge.simulator`. The simulator type depends on the bridge.
         #: Oftentimes, engine nodes require this reference in :func:`~eagerx.core.entities.EngineNode.callback` and/or
         #: :func:`~eagerx.core.entities.EngineNode.reset` to simulate (e.g. apply an action, extract a sensor measurement).
@@ -689,20 +700,16 @@ class EngineNode(Node):
         self.simulator: Any = simulator
         #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph`
         #: that corresponds to a specific bridge
-        #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
+        #: implementation of an :class:`~eagerx.core.entities.Object`. This a copy of that
         #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.
-        #: Only available if the node was launched inside the bridge process.
-        #: See :class:`~eagerx.core.constants.process` for more info.
         #: The parameters in :attr:`~eagerx.core.entities.Object.config` can be modified in the
         #: :class:`~eagerx.core.entities.Object`'s :func:`~eagerx.core.entities.Object.spec` method.
         self.config: Dict = config
         #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that
         #: corresponds to a specific bridge
-        #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
+        #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a copy of that
         #: :class:`~eagerx.core.entities.Object`'s
         #: :attr:`~eagerx.core.entities.Object.config`.<:class:`~eagerx.core.entities.Bridge` :attr:`~eagerx.core.entities.bridge.entity_id`>.
-        #: Only available if the node was launched inside the bridge process.
-        #: See :class:`~eagerx.core.constants.process` for more info.
         #: These parameters can be modified in the bridge-specific implementation of an :class:`~eagerx.core.entities.Object`.
         self.bridge_config: Dict = bridge_config
 
@@ -888,8 +895,7 @@ class Bridge(BaseNode):
         sp_nodes = dict()
         launch_nodes = dict()
         node_args = dict(
-            config=object_params,
-            bridge_config=bridge_params,
+            object_name=f"{self.ns}/{object_params['name']}",
             simulator=self.simulator,
         )
         initialize_nodes(
