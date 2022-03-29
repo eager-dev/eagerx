@@ -118,6 +118,11 @@ class SupervisorNode(BaseNode):
         params, nodes = object.build(ns=self.ns, bridge_id=bridge_name)
         rosparam.upload_params(self.ns, params)
 
+        # Set node args
+        node_args = dict(
+            object_name=f"{self.ns}/{obj_name}",
+        )
+
         # Upload node parameters to ROS param server
         initialize_nodes(
             nodes,
@@ -127,8 +132,10 @@ class SupervisorNode(BaseNode):
             is_initialized=self.is_initialized,
             sp_nodes=self.sp_nodes,
             launch_nodes=self.launch_nodes,
+            node_args=node_args,
+            object_name=obj_name,
         )
-        self.subjects["register_object"].on_next(String(self.ns + "/" + obj_name))
+        self.subjects["register_object"].on_next(String(f"{self.ns}/{obj_name}"))
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states

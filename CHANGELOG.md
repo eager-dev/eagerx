@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.11 (2022-03-29)
+### Fix
+* Access object configs in NP EngineNodes. Allow sens=0, act=0 ([#134](https://github.com/eager-dev/eagerx/issues/134)) ([`8f2f19e`](https://github.com/eager-dev/eagerx/commit/8f2f19e456645e4d23ea0c0a0dc4ddefef6e6790))
+
+### Documentation
+* Update logo ([`e5c6352`](https://github.com/eager-dev/eagerx/commit/e5c635261996370f7e29ef598952a6ddf78e2828))
+* Add default values in spec, thicken lines in logo, update href ([`b3d7522`](https://github.com/eager-dev/eagerx/commit/b3d75224c81a67ff8e0e02ef095aa786bd500eb1))
+* Fix cv_bridge import ([`9d13d58`](https://github.com/eager-dev/eagerx/commit/9d13d5880fc2c023b9d18d3a21678547e111ab6c))
+
 ## v0.1.10 (2022-03-18)
 ### Fix
 * Docs api ([#126](https://github.com/eager-dev/eagerx/issues/126)) ([`efa505c`](https://github.com/eager-dev/eagerx/commit/efa505cd0b788ef7ac28fb69147d006564b19cc3))

@@ -57,12 +57,12 @@ def launch_node(launch_file, args):
     return launch
 
 
-def launch_node_as_subprocess(executable, ns, name):
+def launch_node_as_subprocess(executable: str, ns: str, name: str, object_name: str):
     node_type, file = executable.split(":=")
     if "python" in node_type:
         if ".py" not in file:
             file = importlib.import_module(file).__file__
-    p = subprocess.Popen([file] + [ns, name])
+    p = subprocess.Popen([file] + [ns, name, object_name])
     return p
 
 
@@ -76,7 +76,7 @@ def initialize_nodes(
     launch_nodes: Dict,
     rxnode_cls: Any = None,
     node_args: Dict = None,
-    subscribers: List = None,
+    object_name: str = "",
 ):
     if rxnode_cls is None:
         from eagerx.core.executable_node import RxNode
@@ -136,7 +136,7 @@ def initialize_nodes(
                 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.'
                 % name
             )
-            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name)
+            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name, object_name)
         elif params["process"] == process.EXTERNAL:
             rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
         # else: node is launched in another (already launched) node's process (e.g. bridge process).

@@ -140,7 +140,7 @@ class RxBridge(object):
 
 if __name__ == "__main__":
     try:
-        executable, ns, name = sys.argv[0], sys.argv[-2], sys.argv[-1]
+        executable, ns, name, _ = sys.argv[0], sys.argv[-3], sys.argv[-2], sys.argv[-1]
 
         log_level = get_param_with_blocking(ns + "/log_level")
 
