@@ -2,7 +2,7 @@ from eagerx import Object, Bridge, Node, ResetNode, Converter, Processor
 from eagerx import initialize, log
 
 # Environment imports
-from eagerx.core.env import EagerEnv
+from eagerx.core.env import EagerxEnv
 from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
@@ -78,7 +78,7 @@ def graph_engine(idx):
 
     # Initialize Environment
     name = str(time.time()).replace('.', '_')
-    env = EagerEnv(
+    env = EagerxEnv(
         name=f"rx_{name}",
         rate=rate,
         graph=graph,

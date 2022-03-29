@@ -7,7 +7,7 @@ import numpy as np
 import rospy
 from std_msgs.msg import UInt64, Bool
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
+import cv_bridge
 import cv2
 
 
@@ -224,7 +224,7 @@ class RenderNode(Node):
         spec.inputs.image.window = 0
 
     def initialize(self, display):
-        self.cv_bridge = CvBridge()
+        self.cv_bridge = cv_bridge.CvBridge()
         self.window = None
         self.display = display
         self.last_image = Image(data=[])
@@ -277,7 +277,7 @@ class RenderNode(Node):
                         )
                     if "rgb" in self.last_image.encoding:
                         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-            except CvBridgeError as e:
+            except cv_bridge.CvBridgeError as e:
                 rospy.logwarn(e)
                 return dict(done=UInt64())
             cv2.imshow("Render", cv_image)

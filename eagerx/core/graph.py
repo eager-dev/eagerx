@@ -24,7 +24,7 @@ from eagerx.utils.network_utils import (
 from eagerx.core.entities import Node, BaseConverter, SpaceConverter
 from eagerx.core.view import GraphView
 from eagerx.core.specs import (
-    BaseNodeSpec,
+    ResetNodeSpec,
     ObjectSpec,
     ConverterSpec,
     EntitySpec,
@@ -57,6 +57,8 @@ def merge(a, b, path=None):
 
 
 class Graph:
+    """The Graph API allows users to form a graph of connected nodes and objects."""
+
     def __init__(self, state: Dict):
         self._state = state
 
@@ -66,14 +68,20 @@ class Graph:
     @classmethod
     def create(
         cls,
-        nodes: Optional[List[BaseNodeSpec]] = None,
+        nodes: Optional[List[Union[NodeSpec, ResetNodeSpec]]] = None,
         objects: Optional[List[ObjectSpec]] = None,
-    ):
+    ) -> "Graph":
+        """Create a new graph with nodes and objects.
+
+        :param nodes: Nodes to add.
+        :param objects: Objects to add.
+        :return: The graph.
+        """
         if nodes is None:
             nodes = []
         if objects is None:
             objects = []
-        if isinstance(nodes, BaseNodeSpec):
+        if isinstance(nodes, (NodeSpec, ResetNodeSpec)):
             nodes = [nodes]
         if isinstance(objects, ObjectSpec):
             objects = [objects]
@@ -94,9 +102,12 @@ class Graph:
 
     def add(
         self,
-        entities: Union[Union[BaseNodeSpec, ObjectSpec], List[Union[BaseNodeSpec, ObjectSpec]]],
-    ):
-        """Add a node/object to the provided state."""
+        entities: Union[Union[NodeSpec, ResetNodeSpec, ObjectSpec], List[Union[NodeSpec, ResetNodeSpec, ObjectSpec]]],
+    ) -> None:
+        """Add nodes/objects to the graph.
+
+        :param entities: Nodes/objects to add.
+        """
         if not isinstance(entities, list):
             entities = [entities]
 
@@ -114,12 +125,16 @@ class Graph:
             # Add graph reference to spec
             entity.set_graph(self)
 
-    def remove(self, names: Union[str, EntitySpec, List[Union[str, EntitySpec]]], remove: bool = False):
-        """Removes a node.
-        First removes all associated connects from self._state.
-        Then, removes node/object from self._state.
-        Also removes observation entries if they are disconnected when remove=True.
-        Also removes action entries if they are disconnect and the last connection when remove=True.
+    def remove(self, names: Union[str, EntitySpec, List[Union[str, EntitySpec]]], remove: bool = False) -> None:
+        """Removes nodes/objects from the graph.
+
+        - First, all associated connections are disconnected.
+
+        - Then, removes the node/object.
+
+        :param names: Either the name or spec of the node/object that is to be removed.
+        :param remove: Flag to also remove observations/actions if they are left disconnected after the node/object was removed.
+                       Actions are only removed if they are completely disconnected.
         """
         if not isinstance(names, list):
             names = [names]
@@ -149,10 +164,12 @@ class Graph:
         entry: Optional[GraphView] = None,
         action: Optional[str] = None,
         observation: Optional[str] = None,
-    ):
-        """Adds a component entry to the selection list.
-        For actions, it will also add an entry in self._state['nodes'][env/actions]['params'][outputs]
-        For observations, it will also add an entry in self._state['nodes'][env/observations]['params'][inputs]
+    ) -> None:
+        """Selects an available component entry (e.g. input, output, etc...) that was not already selected.
+
+        :param entry: Selects the entry, so that it can be connected.
+        :param action: Adds a disconnected action entry.
+        :param observation: Adds a disconnected observation entry.
         """
         # assert only action, only observation, only entry
         self._correct_signature(entry, action, observation)
@@ -207,13 +224,19 @@ class Graph:
         action: Optional[str] = None,
         observation: Optional[str] = None,
         remove: bool = False,
-    ):
-        """Removes a component entry from the selection list. It will first disconnect all connections in connect.
-        For feedthroughs, it will remove the corresponding output from the selection list.
-        For actions, it will also remove the entry in self._state['nodes'][env/actions]['params'][outputs]
-        For observations, it will also remove the entry in self._state['nodes'][env/observations]['params'][inputs]
+    ) -> None:
+        """Deselects a component entry (e.g. input, output, etc...) that was selected.
+
+        - First, all associated connections are disconnected.
+
+        - Then, deselects the component entry. For feedthroughs, it will also remove the corresponding output entry.
+
+        :param entry: Deselects the entry.
+        :param action: Removes an action entry.
+        :param observation: Removes an observation entry
+        :param remove: Flag to also remove observations/actions if they are left disconnected after the entry was removed.
+                       Actions are only removed if they are completely disconnected.
         """
-        # assert only action, only observation, only name, component, cname
         self._correct_signature(entry, action, observation)
         if entry:  # component parameter
             self._remove_component(entry, remove=remove)
@@ -282,11 +305,45 @@ class Graph:
         target: GraphView = None,
         action: str = None,
         observation: str = None,
-        converter: Optional[Dict] = None,
+        converter: Optional[ConverterSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
-    ):
+    ) -> None:
+        """Connect an action/source (i.e. node/object component) to an observation/target (i.e. node/object component).
+
+        :param source: Compatible source types are
+                       :attr:`~eagerx.core.specs.NodeSpec.outputs`,
+                       :attr:`~eagerx.core.specs.ObjectSpec.sensors`, and
+                       :attr:`~eagerx.core.specs.ObjectSpec.states`.
+        :param target: Compatible target types are
+                       :attr:`~eagerx.core.specs.NodeSpec.inputs`,
+                       :attr:`~eagerx.core.specs.ObjectSpec.actuators`,
+                       :attr:`~eagerx.core.specs.ResetNodeSpec.targets`, and
+                       :attr:`~eagerx.core.specs.ResetNodeSpec.feedthroughs`.
+        :param action: Name of the action to connect (and add).
+        :param observation: Name of the observation to connect (and add).
+        :param converter: An input converter that converts the received input message before passing it
+                          to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+                          .. note:: Output converters can only be set by manipulating the :class:`~eagerx.core.specs.NodeSpec`
+                           and :class:`~eagerx.core.specs.ObjectSpec` directly.
+        :param window: A non-negative number that specifies the number of messages to pass to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+                       - *window* = 1: Only the last received input message.
+
+                       - *window* = *x* > 1: The trailing last *x* received input messages.
+
+                       - *window* = 0: All input messages received since the last call to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+                       .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
+
+        :param delay: A non-negative simulated delay (seconds). This delay is ignored if
+                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
+                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
+                     May be necessary to ensure that the connected graph is directed and acyclic.
+        """
         assert not source or not action, (
             'You cannot specify a source if you wish to connect action "%s",' " as the action will act as the source." % action
         )
@@ -315,7 +372,7 @@ class Graph:
         self,
         source: GraphView = None,
         target: GraphView = None,
-        converter: Optional[Dict] = None,
+        converter: Optional[ConverterSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -459,11 +516,22 @@ class Graph:
         action: str = None,
         observation: str = None,
         remove: bool = False,
-    ):
-        """Disconnects a source from a target. The target is reset in self._state to its disconnected state.
-        If remove=True, remove observations and actions in the following cases:
-        In case of an observation, the complete entry is always removed.
-        In case of an action, it is removed if the action is not connected to any other target.
+    ) -> None:
+        """Disconnects a source/action from a target/observation.
+
+        :param source: Compatible source types are
+                       :attr:`~eagerx.core.specs.NodeSpec.outputs`,
+                       :attr:`~eagerx.core.specs.ObjectSpec.sensors`, and
+                       :attr:`~eagerx.core.specs.ObjectSpec.states`.
+        :param target: Compatible target types are
+                       :attr:`~eagerx.core.specs.NodeSpec.inputs`,
+                       :attr:`~eagerx.core.specs.ObjectSpec.actuators`,
+                       :attr:`~eagerx.core.specs.ResetNodeSpec.targets`, and
+                       :attr:`~eagerx.core.specs.ResetNodeSpec.feedthroughs`.
+        :param action: Name of the action to connect (and add).
+        :param observation: Name of the observation to connect (and add).
+        :param remove: Flag to also remove observations/actions if they are left disconnected after the entry was disconnected.
+                       Actions are only removed if they are completely disconnected.
         """
         self._disconnect(source, target, action, observation)
         if remove:
@@ -605,8 +673,13 @@ class Graph:
         new: str,
         action: Optional[str] = None,
         observation: Optional[str] = None,
-    ):
-        """Renames action/observation if specified."""
+    ) -> None:
+        """Renames an action/observation.
+
+        :param new: New name.
+        :param action: Old action name.
+        :param observation: Old observation name.
+        """
         if action:
             assert observation is None, "Cannot supply both an action and observation."
             entry = self.get_view("env/actions", ["outputs", action])
@@ -659,12 +732,17 @@ class Graph:
         action: Optional[str] = None,
         observation: Optional[str] = None,
         parameter: Optional[str] = None,
-    ):
-        """Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-        parameter will be set there. Else, the parameter is set under the "config" key.
-        For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
-        If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
-        disconnected. See _set_converter for more info.
+    ) -> None:
+        """Sets the parameters of a node/object/action/observation.
+
+        .. note:: If a converter is set, we check if the msg_type changes with the new converter. If so, the entry is disconnected.
+
+        :param mapping: Either a mapping with *key* = *parameter*,
+                        or a single value that corresponds to the optional *parameter* argument.
+        :param entry: The entry whose parameters are mutated.
+        :param action: Action name whose parameters are mutated.
+        :param observation: observation name whose parameters are mutated.
+        :param parameter: If only a single value needs to be set. See documentation for *mapping*.
         """
         self._correct_signature(entry, action, observation)
         if action:
@@ -756,7 +834,15 @@ class Graph:
         action: Optional[str] = None,
         observation: Optional[str] = None,
         parameter: Optional[str] = None,
-    ):
+    ) -> Any:
+        """Fetches the parameters of a node/object/action/observation.
+
+        :param entry: The entry whose parameters are fetched.
+        :param action: Action name whose parameters are fetched.
+        :param observation: observation name whose parameters are fetched.
+        :param parameter: If only a single parameter needs to be fetched.
+        :return: Parameters
+        """
         if isinstance(entry, EntitySpec):
             name = entry.params["config"]["name"]
             assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
@@ -772,9 +858,6 @@ class Graph:
             return entry
 
     def register(self):
-        """Set the addresses in all incoming components.
-        Validate the graph.
-        Create params that can be uploaded to the ROS param server."""
         # Check if valid graph.
         assert self.is_valid(plot=False), "Graph not valid."
 
@@ -828,19 +911,48 @@ class Graph:
         self,
         source: GraphView,
         rate: float,
-        converter: Optional[Dict] = None,
+        converter: Optional[ConverterSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
-        id: str = "Render",
+        entity_id: str = "Render",
         **kwargs,
     ):
+        """Render the :class:`sensor_msgs.msg.Image` messages produced by a node/sensor in the graph.
+
+        :param source: Compatible source types are :attr:`~eagerx.core.specs.NodeSpec.outputs` and
+                       :attr:`~eagerx.core.specs.ObjectSpec.sensors`.
+        :param rate: The rate (Hz) at which to render the images.
+        :param converter: An input converter that converts the received input message before passing it
+                          to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+                          .. note:: Output converters can only be set by manipulating the :class:`~eagerx.core.specs.NodeSpec`
+                           and :class:`~eagerx.core.specs.ObjectSpec` directly.
+        :param window: A non-negative number that specifies the number of messages to pass to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+                       - *window* = 1: Only the last received input message.
+
+                       - *window* = *x* > 1: The trailing last *x* received input messages.
+
+                       - *window* = 0: All input messages received since the last call to the node's :func:`~eagerx.core.entities.Node.callback`.
+
+                       .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
+
+        :param delay: A non-negative simulated delay (seconds). This delay is ignored if
+                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
+                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
+                     May be necessary to ensure that the connected graph is directed and acyclic.
+        :param entity_id: The :attr:`~eagerx.core.entities.Node.entity_id` with which the render node was registered
+                   with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard Render node.
+        :param kwargs: Optional arguments required by the render node.
+        """
         # Delete old render node from self._state['nodes'] if it exists
         if "env/render" in self._state["nodes"]:
             self.remove("env/render")
 
         # Add (new) render node to self._state['node']
-        render = Node.make(id, rate=rate, **kwargs)
+        render = Node.make(entity_id, rate=rate, **kwargs)
         self.add(render)
 
         # Create connection
@@ -854,20 +966,43 @@ class Graph:
             skip=skip,
         )
 
-    def save(self, path: str):
-        with open(path, "w") as outfile:
+    def save(self, file: str):
+        """Saves the graph state.
+
+        The state is saved in *.yaml* format and contains the state of every added node, object, action, and observation
+        and the connections between them.
+
+        :param file: A string giving the name (and the file if the file isn't in the current working directory).
+        """
+        with open(file, "w") as outfile:
             yaml.dump(self._state, outfile, default_flow_style=False)
         pass
 
-    def load(self, path: str):
-        with open(path, "r") as stream:
+    def load(self, file: str):
+        """Loads the graph state.
+
+        The state is loaded in *.yaml* format and contains the state of every added node, object, action, and observation
+        and the connections between them.
+
+        :param file: A string giving the name (and the file if the file isn't in the current working directory).
+        """
+        with open(file, "r") as stream:
             try:
                 self._state = yaml.safe_load(stream)
-                # self._state = yaml.load(path)
+                # self._state = yaml.load(file)
             except yaml.YAMLError as exc:
                 print(exc)
 
-    def gui(self):
+    def gui(self) -> None:
+        """Opens a graphical user interface of the graph.
+
+        .. note:: Requires `eagerx-gui`:
+
+                .. highlight:: python
+                .. code-block:: python
+
+                    pip3 install eagerx-gui
+        """
         try:
             from eagerx_gui import launch_gui
         except ImportError as e:
@@ -903,7 +1038,20 @@ class Graph:
             assert action is None, "If observation is specified, action must be None."
             assert entry is None, "If action is specified, the 'entry' argument cannot be specified."
 
-    def is_valid(self, plot=True):
+    def is_valid(self, plot=True) -> bool:
+        """Checks the validity of the graph.
+
+        - Checks if all selected actions, observations,
+          :attr:`~eagerx.core.specs.NodeSpec.inputs`,
+          :attr:`~eagerx.core.specs.ObjectSpec.actuators`,
+          :attr:`~eagerx.core.specs.ResetNodeSpec.targets`, and
+          :attr:`~eagerx.core.specs.ResetNodeSpec.feedthroughs` are connected.
+
+        - Checks if the graph is directed and acyclic.
+
+        :param plot: Flag to plot the graph. Can be helpful to identify cycles in the graph that break the required acyclic property.
+        :returns: flag that specifies the validity of the graph.
+        """
         return self._is_valid(self._state, plot=plot)
 
     @staticmethod

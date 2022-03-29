@@ -1,7 +1,7 @@
-Engine Graph
-============
+Object
+======
 
-.. autoclass:: eagerx.core.graph_engine.EngineGraph
+.. autoclass:: eagerx.core.specs.ObjectSpec
     :members:
     :inherited-members:
     :exclude-members:

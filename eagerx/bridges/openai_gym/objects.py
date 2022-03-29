@@ -19,7 +19,7 @@ class GymObject(Object):
     @staticmethod
     @register.sensors(observation=Float32MultiArray, reward=Float32, done=Bool, image=Image)
     @register.actuators(action=Float32MultiArray)
-    @register.simstates()
+    @register.engine_states()
     @register.config(env_id=None, always_render=False, default_action=None, render_shape=[200, 200])
     def agnostic(spec: ObjectSpec, rate):
         """Agnostic definition of the GymObject"""

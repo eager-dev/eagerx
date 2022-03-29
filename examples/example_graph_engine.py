@@ -3,7 +3,7 @@ from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
 # Environment imports
-from eagerx.core.env import EagerEnv
+from eagerx.core.env import EagerxEnv
 from eagerx.core.graph import Graph
 
 # Implementation specific
@@ -30,7 +30,7 @@ def graph_engine(idx):
     bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=1, process=process.ENVIRONMENT)
 
     # Initialize Environment
-    env = EagerEnv(name=f"rx_{idx}", rate=7, graph=graph, bridge=bridge)
+    env = EagerxEnv(name=f"rx_{idx}", rate=7, graph=graph, bridge=bridge)
 
     # First reset
     env.reset()

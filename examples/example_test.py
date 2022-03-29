@@ -3,7 +3,7 @@ from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
 # Environment imports
-from eagerx.core.env import EagerEnv
+from eagerx.core.env import EagerxEnv
 from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
-    env = EagerEnv(
+    env = EagerxEnv(
         name="rx",
         rate=rate,
         graph=graph,

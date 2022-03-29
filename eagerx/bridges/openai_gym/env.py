@@ -1,6 +1,6 @@
 from eagerx.core.specs import BridgeSpec
 from eagerx.core.graph import Graph
-from eagerx.core.env import EagerEnv
+from eagerx.core.env import EagerxEnv
 from typing import Dict, Tuple, Callable
 import numpy as np
 import gym
@@ -11,7 +11,7 @@ def step_fn(prev_obs, obs, action, steps):
     return obs, obs.pop("reward", 0.0)[0], obs.pop("done", False)[0], info
 
 
-class EagerGym(EagerEnv):
+class EagerxGym(EagerxEnv):
     def __init__(
         self,
         name: str,
@@ -22,11 +22,11 @@ class EagerGym(EagerEnv):
     ) -> None:
         super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
         # Flatten action spaces
-        self._reduced_action_space = super(EagerGym, self).action_space
+        self._reduced_action_space = super(EagerxGym, self).action_space
         self._flattened_action_space, self._actions_all_discrete = get_flattened_space(self._reduced_action_space)
 
         # Flatten & reduce observation spaces (remove 'reward' & 'done')
-        obs_space = super(EagerGym, self).observation_space.__dict__["spaces"]
+        obs_space = super(EagerxGym, self).observation_space.__dict__["spaces"]
         obs_space.pop("reward", None)
         obs_space.pop("done", None)
         self._reduced_obs_space = gym.spaces.Dict(obs_space)
@@ -57,14 +57,14 @@ class EagerGym(EagerEnv):
         action = self.unflatten_action(action)
 
         # Apply action
-        obs, reward, is_done, info = super(EagerGym, self).step(action)
+        obs, reward, is_done, info = super(EagerxGym, self).step(action)
 
         # Flatten observation
         obs = self.flatten_observation(obs)
         return obs, reward, is_done, info
 
     def reset(self):
-        obs = super(EagerGym, self).reset()
+        obs = super(EagerxGym, self).reset()
         obs = self.flatten_observation(obs)
         return obs
 

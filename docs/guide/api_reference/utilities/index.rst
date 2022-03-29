@@ -6,10 +6,8 @@ Utilities
    :maxdepth: 2
    :caption: Table of Contents
 
-   ./constants
+   ./process
 
    ./register
 
    ./msg
-
-   ./spec
