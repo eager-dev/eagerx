@@ -8,9 +8,9 @@ First, we have created an empty package using the template as described here in 
 
 We will create three Python files that together will define the OdeBridge, i.e.:
 
-* *bridge.py*: here we will define the bridge that performs integration of the ODEs.
-* *engine_nodes.py*: here we will define the engine nodes of the OdeBridge.
-* *engine_states.py*: here we will define the engine states of the OdeBridge.
+* `bridge.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/bridge.py>`_: here we will define the bridge that performs integration of the ODEs.
+* `engine_nodes.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_: here we will define the engine nodes of the OdeBridge.
+* `engine_states.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_states.py>`_: here we will define the engine states of the OdeBridge.
 
 .. toctree::
    :maxdepth: 1

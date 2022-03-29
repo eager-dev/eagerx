@@ -11,6 +11,8 @@ We will define three classes: *OdeOutput*, *OdeInput* and *ActionApplied*.
 Each of these classes will be a subclass of the *EngineNode* class.
 Here we will go into detail on how to the *OdeInput* engine node is created.
 
+`Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_
+
 
 OdeInput
 ########
@@ -90,7 +92,7 @@ In this method we will set the object name, the default action and check whether
     assert (
         self.process == process.BRIDGE
     ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-    self.obj_name = self.agnostic_params["name"]
+    self.obj_name = self.config["name"]
     self.default_action = np.array(default_action)
 
 .. note::
@@ -138,7 +140,7 @@ In code, this is implemented as follows:
 
 .. note::
   Note that the message type as provided using the :func:`~eagerx.core.register.inputs` and :func:`~eagerx.core.register.outputs` decorators, should be ROS message types.
-  For more information, see the documentation on :func:`~eagerx.core.entities.EngineNode.callback` 
+  For more information, see the documentation on :func:`~eagerx.core.entities.EngineNode.callback`
 
 Similarly, we can create the engine nodes *OdeOutput* and *ActionApplied* for obtaining the output from the *OdeBridge* simulator and obtaining the value for the action that is applied.
 The *ActionApplied* will allow other nodes to listen to the action that is applied in the simulator.

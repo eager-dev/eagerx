@@ -24,3 +24,4 @@ The following section describes how this is done:
 
    ./package_creation
    ./bridge
+   ./object

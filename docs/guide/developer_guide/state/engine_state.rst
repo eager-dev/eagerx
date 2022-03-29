@@ -9,6 +9,7 @@ The *OdeBridge* allows to simulate systems based on ordinary differential equati
 For the *OdeBridge* we will create two engine states, i.e. the *OdeEngineState* and *OdeParameters* engine states.
 These engine states will allow to reset the state of objects and reset the parameters for the ODE integration, respectively.
 
+`Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_states.py>`_
 
 OdeEngineState
 ##############
@@ -60,7 +61,7 @@ In our case, the only thing we need to do during initialization is to store the 
 ::
 
   def initialize(self):
-    self.obj_name = self.agnostic_params["name"]
+    self.obj_name = self.config["name"]
 
 .. note::
   Note that we have access to the :attr:`~eagerx.core.entities.EngineState.config` attribute.

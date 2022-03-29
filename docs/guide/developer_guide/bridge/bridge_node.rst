@@ -1,7 +1,7 @@
 OdeBridge
 #########
 
-We will start by creating a file called *bridge.py*.
+We will start by creating a file called `bridge.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/bridge.py>`_.
 Here we will define the *OdeBridge*, which will be a subclass of the :mod:`~eagerx.core.entities.Bridge` class.
 This class has six abstract methods:
 
@@ -13,6 +13,7 @@ This class has six abstract methods:
 * :func:`~eagerx.core.entities.Bridge.callback`, here we define what will happen every time step.
   In our case we will integrate the ODEs of each object.
 
+`Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/bridge.py>`_
 
 spec
 ****
@@ -142,7 +143,7 @@ Also, we allow users to specify parameters that can be used to set arguments of 
   @register.bridge_config(ode=None, ode_params=list())
   def add_object(self, config, bridge_config, node_params, state_params):
 
-      # Extract relevant agnostic_params
+      # Extract relevant agnostic params
       obj_name = config["name"]
       ode = get_attribute_from_module(bridge_config["ode"])
       Dfun = get_attribute_from_module(bridge_config["Dfun"]) if "Dfun" in config else None
@@ -224,7 +225,6 @@ The callback will be executed at the specified :attr:`~eagerx.core.entities.Brid
 .. note::
   Using the :func:`~eagerx.core.register.outputs` decorator, we specify all the outputs of the *OdeBridge* node.
   In our case, the output is a simple "tick", see :func:`~eagerx.core.entities.Bridge.callback` for more information.
-
 
 Next, we will create the engine nodes:
 
