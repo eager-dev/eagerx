@@ -79,4 +79,6 @@ This method will be called during a reset and will reset the state of the object
     self.simulator[self.obj_name]["state"] = np.squeeze(state.data)
 
 .. note::
-  Note that we have access to the *simulator* attribute, which is created in the *OdeBridge* class.
+  Note that we have access to the :attr:`~ode_bridge.OdeBridge.simulator` attribute, which is created in the *OdeBridge* class.
+
+Similarly, we can create the *OdeParameters* :mod:`~eagerx.core.entities.EngineState` by implementing the :func:`~eagerx.core.entities.EngineState.spec`, :func:`~eagerx.core.entities.EngineState.initialize` and :func:`~eagerx.core.entities.EngineState.reset` abstract methods.
