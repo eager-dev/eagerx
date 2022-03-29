@@ -150,7 +150,7 @@ class RxNode(object):
 
 if __name__ == "__main__":
     try:
-        executable, ns, name = sys.argv[0], sys.argv[-2], sys.argv[-1]
+        executable, ns, name, object_name = sys.argv[0], sys.argv[-3], sys.argv[-2], sys.argv[-1]
 
         log_level = get_param_with_blocking(ns + "/log_level")
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
         message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
-        pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker)
+        pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker, object_name=f"{ns}/{object_name}")
 
         message_broker.connect_io()
 
