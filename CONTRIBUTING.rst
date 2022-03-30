@@ -94,26 +94,26 @@ Also, when a bug fix is proposed, tests should be added to avoid regression.
 
 To run tests with *pytest*:
 
-:: code-block:: console
+.. code-block:: console
 
   make pytest
 
 Codestyle check with *black* and *flake8*:
 
-:: code-block:: console
+.. code-block:: console
 
   make check-codestyle
   make lint
 
 Build the documentation:
 
-:: code-block:: console
+.. code-block:: console
 
   make doc
 
 Check documentation spelling (you need to install *sphinxcontrib.spelling* package for that):
 
-:: code-block:: console
+.. code-block:: console
 
   make spelling
 
@@ -127,20 +127,20 @@ The docs can be built as follows.
 
 Make sure EAGERx is installed:
 
-:: code-block:: console
+.. code-block:: console
 
   cd [eagerx_root]
   poetry install
 
 Activate the Poetry environment:
 
-:: code-block:: console
+.. code-block:: console
 
   poetry shell
 
 Build the docs:
 
-:: code-block:: console
+.. code-block:: console
 
   make doc
 
