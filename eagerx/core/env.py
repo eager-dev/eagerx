@@ -556,6 +556,7 @@ class EagerxEnv(Env):
         bridge: BridgeSpec,
         step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
         reset_fn: Callable = lambda env: env.state_space.sample(),
+        exclude: Optional[List[str]] = None,
     ) -> None:
         """Initializes an environment with EAGERx dynamics.
 
@@ -571,6 +572,10 @@ class EagerxEnv(Env):
                         and number of timesteps since the last reset.
         :param reset_fn: A callable that returns a dictionary with the desired states to be set before the start an episode.
                          Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
+        :param exclude: Key names of the observations that are excluded from the observation space. In other words,
+                        the observations that will not be returned as part of the dict when the agent calls
+                        :func:`~eagerx.core.EagerxEnv.reset` and :func:`~eagerx.core.EagerxEnv.step`.
+                        Observations with `window=0` are already excluded.
         """
         self.steps = None
         self.prev_observation = None
@@ -583,7 +588,39 @@ class EagerxEnv(Env):
         #: May also be an empty dictionary if no states need to be reset.
         self.reset_fn = reset_fn
         super(EagerxEnv, self).__init__(name, rate, graph, bridge)
-        self.excl_obs = [name for name, buffer in self.env_node.observation_buffer.items() if buffer["window"] == 0]
+
+        # Determine set of observations to exclude
+        exclude = exclude if isinstance(exclude, list) else []
+        zero_window = [name for name, buffer in self.env_node.observation_buffer.items() if buffer["window"] == 0]
+        self.excl_nonzero = [name for name in exclude if name not in zero_window]
+        self.excl_obs = exclude + [name for name in zero_window if name not in exclude]
+
+        # Check if all excluded observations with window > 0 actually exist
+        space = super(EagerxEnv, self).observation_space
+        nonexistent = [name for name in self.excl_nonzero if name not in space.spaces]
+        if len(nonexistent) == 0:
+            rospy.logwarn(f"Some excluded observations with window > 0 do not exist: {nonexistent}.")
+
+    @property
+    def observation_space(self):
+        """Infers the observation space from the :class:`~eagerx.core.entities.SpaceConverter` of every observation.
+
+        This space defines the format of valid observations.
+
+        .. note:: Observations specified in the `exclude` argument in :func:`~eagerx.core.EagerxEnv.__init__` are excluded.
+                  Observations with :attr:`~eagerx.core.specs.RxInput.window` = 0 are also excluded from the observation space.
+                  For observations with :attr:`~eagerx.core.specs.RxInput.window` > 1,
+                  the observation space is duplicated :attr:`~window` times.
+
+        :returns: A dictionary with *key* = *observation* and *value* = :class:`Space` obtained with
+                  :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        """
+        if len(self.excl_nonzero) > 0:
+            obs_space = super(EagerxEnv, self).observation_space.spaces
+            [obs_space.pop(name) for name in self.excl_nonzero]
+            return gym.spaces.Dict(obs_space)
+        else:
+            return super(EagerxEnv, self).observation_space
 
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
         """A method that runs one timestep of the environment's dynamics.
@@ -610,22 +647,19 @@ class EagerxEnv(Env):
 
                   - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
-        # Send actions and wait for observations
+        # Send actions and wait for observations (i.e. apply step)
         observation = self._step(action)
         self.steps += 1
 
         # Save observation for next step
         prev_obs = deepcopy(observation)
 
-        # Process after step
+        # Process (e.g. calculate reward) after applying the action
         observation, reward, is_done, info = self.step_fn(self.prev_observation, observation, action, self.steps)
 
-        # Pop all observations with window = 0 (if present)
+        # Pop all excluded observations and the ones with window = 0 (if present)
         for name in self.excl_obs:
-            try:
-                observation.pop(name)
-            except KeyError:
-                pass
+            observation.pop(name, None)
 
         # Update previous observation with current observation (used in next step)
         self.prev_observation = prev_obs
@@ -645,6 +679,10 @@ class EagerxEnv(Env):
         # Perform reset
         observation = self._reset(states)
         self.prev_observation = deepcopy(observation)
+
+        # Pop all excluded observations and the ones with window = 0 (if present)
+        for name in self.excl_obs:
+            observation.pop(name, None)
 
         # Reset number of steps
         self.steps = 0
