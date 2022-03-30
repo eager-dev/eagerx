@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.12 (2022-03-30)
+### Fix
+* Dummy commit to trigger release (attempt 2) ([`9adf59e`](https://github.com/eager-dev/eagerx/commit/9adf59e90215ee8fe19a4a574d6e54d250f0b2b2))
+* Dummy commit to trigger release ([`232681e`](https://github.com/eager-dev/eagerx/commit/232681e26478504c20f224a9628e5f470e26ca6a))
+
 ## v0.1.11 (2022-03-29)
 ### Fix
 * Access object configs in NP EngineNodes. Allow sens=0, act=0 ([#134](https://github.com/eager-dev/eagerx/issues/134)) ([`8f2f19e`](https://github.com/eager-dev/eagerx/commit/8f2f19e456645e4d23ea0c0a0dc4ddefef6e6790))
