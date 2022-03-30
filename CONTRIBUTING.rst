@@ -58,7 +58,7 @@ Codestyle
 
 We are using `black codestyle <https://github.com/psf/black>`_ (max line length of 127 characters) together with `isort <https://github.com/timothycrosley/isort>`_ to sort the imports.
 
-**Please run *make codestyle* ** to reformat your code. You can check the codestyle using *make check-codestyle* and *make lint*.
+**Please run *make codestyle*** to reformat your code. You can check the codestyle using *make check-codestyle* and *make lint*.
 
 Please document each function/method and `type <https://google.github.io/pytype/user_guide.html>`_ them using the following template:
 
