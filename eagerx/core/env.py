@@ -626,7 +626,7 @@ class EagerxEnv(Env):
         """A method that runs one timestep of the environment's dynamics.
 
         When the end of an episode is reached, you are responsible for calling :func:`~eagerx.core.EagerxEnv.reset`
-        to reset this environment's state. 
+        to reset this environment's state.
 
         After the action is applied and the environment's dynamics have run one timestep,
         :attr:`~eagerx.core.env.EagerxEnv.step_fn` is called that returns the tuple (observation, reward, done, info).
