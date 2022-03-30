@@ -56,7 +56,7 @@ To develop EAGERx on your machine, here are some tips:
 Codestyle
 #########
 
-We are using `black codestyle <https://github.com/psf/black>`_ (max line length of 127 characters) together with `isort <https://github.com/timothycrosley/isort>`_ to sort the imports.
+We are using `black codestyle <https://github.com/psf/black>`_ (max line length of 127 characters).
 
 **Please run make codestyle** to reformat your code. You can check the codestyle using *make check-codestyle* and *make lint*.
 
@@ -78,7 +78,8 @@ Please document each function/method and `type <https://google.github.io/pytype/
 Pull Request (PR)
 #################
 
-Before proposing a PR, please open an issue, where the feature will be discussed. This prevent from duplicated PR to be proposed and also ease the code review process.
+Before proposing a PR, please open an issue, where the feature will be discussed.
+This prevent from duplicated PR to be proposed and also ease the code review process.
 
 Each PR need to be reviewed and accepted by at least one of the maintainers (@bheijden, @jelledouwe).
 A PR must pass the Continuous Integration tests to be merged with the master branch.
