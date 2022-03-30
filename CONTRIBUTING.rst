@@ -3,7 +3,7 @@ Contributing to EAGERx
 **********************
 
 If you are interested in contributing to EAGERx, your contributions will fall
-into three categories: 
+into three categories:
 
 1. You want to propose a new Feature and implement it
 
@@ -34,7 +34,7 @@ Developing EAGERx
 
 To develop EAGERx on your machine, here are some tips:
 
-1. Clone a copy of Stable-Baselines3 from source:
+1. Clone a copy of EAGERx from source:
 
 .. code-block:: bash
 
