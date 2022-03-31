@@ -27,7 +27,7 @@ A clear and concise description of any alternative solutions or features you've 
 
 Add any other context or screenshots about the feature request here.
 
-### Checklist
+### Checklist
 
 - [ ] I have checked that there is no similar [issue](https://github.com/eager-dev/eagerx/issues) in the repo (**required**)
 
