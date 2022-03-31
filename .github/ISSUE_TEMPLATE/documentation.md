@@ -8,7 +8,7 @@ labels: documentation
 
 A clear and concise description of what should be improved in the documentation.
 
-### Checklist
+### Checklist
 
 - [ ] I have read the [documentation](https://eagerx.readthedocs.io) (**required**)
 - [ ] I have checked that there is no similar [issue](https://github.com/eager-dev/eagerx/issues) in the repo (**required**)
