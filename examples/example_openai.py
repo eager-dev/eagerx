@@ -40,8 +40,6 @@ if __name__ == "__main__":
     # Define bridge
     bridge = Bridge.make("GymBridge", rate=rate, is_reactive=True, real_time_factor=1, process=process.NEW_PROCESS)
 
-    # todo: Test shutdown
-    # todo: close node initialization_topic.
     env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
     env.render(mode="human")
     done, obs = False, env.reset()

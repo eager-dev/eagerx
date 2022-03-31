@@ -8,7 +8,7 @@ import gym
 
 def step_fn(prev_obs, obs, action, steps):
     info = dict()
-    return obs, obs.pop("reward", 0.0)[0], obs.pop("done", False)[0], info
+    return obs, obs.get("reward", 0.0)[0], obs.get("done", False)[0], info
 
 
 class EagerxGym(EagerxEnv):
@@ -20,16 +20,13 @@ class EagerxGym(EagerxEnv):
         bridge: BridgeSpec,
         step_fn: Callable = step_fn,
     ) -> None:
-        super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
+        super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, step_fn=step_fn, exclude=["reward", "done"])
         # Flatten action spaces
         self._reduced_action_space = super(EagerxGym, self).action_space
         self._flattened_action_space, self._actions_all_discrete = get_flattened_space(self._reduced_action_space)
 
-        # Flatten & reduce observation spaces (remove 'reward' & 'done')
-        obs_space = super(EagerxGym, self).observation_space.__dict__["spaces"]
-        obs_space.pop("reward", None)
-        obs_space.pop("done", None)
-        self._reduced_obs_space = gym.spaces.Dict(obs_space)
+        # Flatten & reduce observation spaces
+        self._reduced_obs_space = super(EagerxGym, self).observation_space
         self._flattened_obs_space, self._obs_all_discrete = get_flattened_space(self._reduced_obs_space)
         assert not self._obs_all_discrete, "Only continuous observations are currently supported."
 

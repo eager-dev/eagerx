@@ -1,4 +1,4 @@
-__version__ = "0.1.11"
+__version__ = "0.1.12"
 
 from eagerx.core.constants import process, log  # noqa: F401
 from eagerx.core.entities import (  # noqa: F401
