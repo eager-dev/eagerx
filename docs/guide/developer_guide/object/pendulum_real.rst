@@ -11,6 +11,10 @@ real_bridge
 ##########
 
 Bridge-specific can be created by adding a method to an :mod:`~eagerx.core.entities.Object`, e.g. :func:`~eagerx.core.entities.Object.example_bridge`.
+In this case, we create an implementation for the *RealBridge*, to be able to perform experiments with the real system.
+For this, we use the `engine nodes that we have created here <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/real/engine_nodes.py>`_.
+Also, we will be using the `engine states that we have created here <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/real/engine_states.py>`_.
+Finally, we will construct an :mod:`~eagerx.core.graph_engine.EngineGraph` with the created nodes.
 
 ::
 
@@ -25,7 +29,6 @@ Bridge-specific can be created by adding a method to an :mod:`~eagerx.core.entit
       spec.RealBridge.states.model_state = EngineState.make("RandomActionAndSleep", sleep_time=1.0, repeat=1)
 
       # Create sensor engine nodes
-      # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
       obs = EngineNode.make("PendulumOutput", "pendulum_output", rate=spec.sensors.pendulum_output.rate, process=0)
       applied = EngineNode.make("ActionApplied", "applied", rate=spec.sensors.action_applied.rate, process=0)
       image = EngineNode.make(
@@ -38,7 +41,6 @@ Bridge-specific can be created by adding a method to an :mod:`~eagerx.core.entit
       )
 
       # Create actuator engine nodes
-      # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
       action = EngineNode.make("PendulumInput", "pendulum_input", rate=spec.actuators.pendulum_input.rate, process=0)
 
       # Connect all engine nodes
@@ -48,3 +50,9 @@ Bridge-specific can be created by adding a method to an :mod:`~eagerx.core.entit
       graph.connect(source=applied.outputs.action_applied, sensor="action_applied")
       graph.connect(source=image.outputs.image, sensor="image")
       graph.connect(actuator="pendulum_input", target=action.inputs.pendulum_input)
+
+.. note::
+  Mind the use of the :func:`~eagerx.core.register.bridge` decorator, which creates the link to the corresponding bridge.
+  Therefore, the name of the *real_bridge* method is irrelevant, i.e. the link to the *RealBridge* is defined by the aforementioned decorator.
+  Also note that we are importing :mod:`eagerx_dcsc_setups.pendulum.real`.
+  During the import, the engine nodes of this module are registered and therefore we can use the :func:`~eagerx.core.entities.EngineNode.make` and :func:`~eagerx.core.entities.EngineState.make` methods with the IDs to create these nodes (e.g. PendulumOutput).

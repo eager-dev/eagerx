@@ -4,9 +4,7 @@ Template
 We will start by creating a new repository for this Python package, using `the template that is available here <https://github.com/eager-dev/eagerx_template>`_.
 
 .. figure:: figures/eagerx_template.png
-    :width: 465px
     :align: center
-    :height: 338px
     :alt: alternate text
     :figclass: align-center
 

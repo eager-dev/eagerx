@@ -9,3 +9,7 @@ Tutorial: Real and Simulated Pendulum Swing-Up Learning
    ./introduction
    ./simulation/simulation
    ./reality/reality
+   ./space_converter
+   ./node
+   ./pendulum
+   ./training

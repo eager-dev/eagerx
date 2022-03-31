@@ -112,28 +112,28 @@ Per default, we will e.g. use the *model_state* :mod:`~eagerx.core.entities.Engi
 ::
 
   @staticmethod
-    @register.spec(entity_id, Object)
-    def spec(
-        spec: ObjectSpec, name: str, sensors=None, states=None, rate=30, always_render=False, render_shape=None, camera_index=2
-    ):
-        """Object spec of Pendulum"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        Pendulum.initialize_spec(spec)
+  @register.spec(entity_id, Object)
+  def spec(
+      spec: ObjectSpec, name: str, sensors=None, states=None, rate=30, always_render=False, render_shape=None, camera_index=2
+  ):
+      """Object spec of Pendulum"""
+      # Performs all the steps to fill-in the params with registered info about all functions.
+      Pendulum.initialize_spec(spec)
 
-        # Modify default agnostic params
-        # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
-        spec.config.name = name
-        spec.config.sensors = sensors if sensors else ["pendulum_output", "action_applied", "image"]
-        spec.config.actuators = ["pendulum_input"]
-        spec.config.states = states if states else ["model_state"]
+      # Modify default agnostic params
+      # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
+      spec.config.name = name
+      spec.config.sensors = sensors if sensors else ["pendulum_output", "action_applied", "image"]
+      spec.config.actuators = ["pendulum_input"]
+      spec.config.states = states if states else ["model_state"]
 
-        # Add registered agnostic params
-        spec.config.always_render = always_render
-        spec.config.render_shape = render_shape if render_shape else [480, 480]
-        spec.config.camera_index = camera_index
+      # Add registered agnostic params
+      spec.config.always_render = always_render
+      spec.config.render_shape = render_shape if render_shape else [480, 480]
+      spec.config.camera_index = camera_index
 
-        # Add bridge implementation
-        Pendulum.agnostic(spec, rate)
+      # Add bridge implementation
+      Pendulum.agnostic(spec, rate)
 
 
 .. note::
