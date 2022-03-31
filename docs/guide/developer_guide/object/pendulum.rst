@@ -1,6 +1,6 @@
-********
-Pendulum
-********
+******************
+Creating an Object
+******************
 
 In this section, we will discuss the concept of :mod:`~eagerx.core.entities.Object` within EAGERx by going through the steps of creating the :mod:`~eagerx_dcsc_setups.pendulum.objects.Pendulum` object.
 For this *Pendulum* :mod:`~eagerx.core.entities.Object` we will create two bridge implementations, i.e. for the `*OdeBridge* <https://github.com/eager-dev/eagerx_ode>`_ and for the `*RealBridge* <https://github.com/eager-dev/eagerx_reality>`_.
