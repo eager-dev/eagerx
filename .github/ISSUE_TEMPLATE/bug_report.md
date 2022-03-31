@@ -34,7 +34,7 @@ Traceback (most recent call last): File ...
 A clear and concise description of what you expected to happen.
 
 
-### System Info
+### System Info
 
 Describe the characteristic of your environment:
  * Describe how the library was installed (pip, docker, source, ...)
