@@ -79,11 +79,10 @@ Pull Request (PR)
 #################
 
 Before proposing a PR, please open an issue, where the feature will be discussed.
-This prevent from duplicated PR to be proposed and also ease the code review process.
+This will prevent the proposal of duplicate PRs and also ease the code review process.
 
-Each PR need to be reviewed and accepted by at least one of the maintainers (@bheijden, @jelledouwe).
+Each PR needs to be reviewed and accepted by at least one of the code owners (@bheijden, @jelledouwe).
 A PR must pass the Continuous Integration tests to be merged with the master branch.
-
 
 Tests
 #####
@@ -121,7 +120,7 @@ Semantic Pull Request and Documentation
 #######################################
 
 Please make sure that you use `semantic commit messages <https://github.com/zeke/semantic-pull-requests>`_ and add documentation if needed.
-For example, for committing a fix, your commit message should start with `fix: `, for features with `feat: ` and for breaking changes `BREAKING CHANGE: `.
+For example, when committing a fix, your commit message should start with `fix: `, for features with `feat: ` and for breaking changes `BREAKING CHANGE: `.
 You should add your username in the commit message for each fix, feature or breaking change.
 The docs can be built as follows.
 

@@ -5,18 +5,15 @@ labels: question
 title: "[Question] question title"
 ---
 
-**Important Note: We do not do technical support, nor consulting** and don't answer personal questions per email.
-Please post your question on the [RL Discord](https://discord.com/invite/xhfNqQv), [Reddit](https://www.reddit.com/r/reinforcementlearning/) or [Stack Overflow](https://stackoverflow.com/) in that case.
-
-
 ### Question
 
-Your question. This can be e.g. questions regarding confusing or unclear behaviour of functions or a question if X can be done. Make sure to check out the documentation first.
+Your question.
+This can be e.g. questions regarding confusing or unclear behaviour of functions or a question if X can be done.
+Make sure to check out the documentation first.
 
 ### Additional context
 
 Add any other context about the question here.
-
 
 ### Checklist
 
