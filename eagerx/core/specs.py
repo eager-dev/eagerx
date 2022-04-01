@@ -930,7 +930,16 @@ class ObjectSpec(EntitySpec):
                         node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
                         sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
                     else:  # Actuators
+                        agnostic_converter = obj_comp_params.pop("converter")
                         node_comp_params.update(obj_comp_params)
+
+                        from eagerx.core.converters import Identity
+
+                        id = Identity().get_yaml_definition()
+                        if not agnostic_converter == id:
+                            assert node_comp_params['converter'] == id, ""
+                            node_comp_params['converter'] = agnostic_converter
+
                         node_comp_params.pop("rate")
 
         # Get set of node we are required to launch

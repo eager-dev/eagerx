@@ -3,9 +3,6 @@ import rospy
 import rosgraph
 import roslaunch
 
-# from roslaunch import substitution_args
-# from roslaunch.substitution_args import _collect_args
-
 # OTHER
 from typing import List, NamedTuple, Any, Optional, Dict, Union, Tuple
 import time

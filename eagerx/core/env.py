@@ -598,7 +598,7 @@ class EagerxEnv(Env):
         # Check if all excluded observations with window > 0 actually exist
         space = super(EagerxEnv, self).observation_space
         nonexistent = [name for name in self.excl_nonzero if name not in space.spaces]
-        if len(nonexistent) == 0:
+        if len(nonexistent) != 0:
             rospy.logwarn(f"Some excluded observations with window > 0 do not exist: {nonexistent}.")
 
     @property

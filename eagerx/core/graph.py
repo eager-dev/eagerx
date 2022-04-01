@@ -425,6 +425,11 @@ class Graph:
         if component == "feedthroughs":
             component = "outputs"
             target = self.get_view(name, [component, cname])
+            # Perform checks on target
+            self._is_selected(self._state, target)
+        else:
+            # Perform checks on target
+            self._is_selected(self._state, target)
 
         # Infer source properties (converter & msg_type) from target
         sc = target.space_converter
@@ -1017,6 +1022,7 @@ class Graph:
     def _is_selected(state: Dict, entry: GraphView):
         """Check if provided entry was selected in params."""
         name, component, cname = entry()
+        assert name in state["nodes"], f'No entity with the anme "{name}" added to this graph.'
         params = state["nodes"][name]
         component = "outputs" if component == "feedthroughs" else component
         assert cname in params["config"][component], f'"{cname}" not selected in "{name}" under "config" in {component}.'
