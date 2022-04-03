@@ -247,6 +247,7 @@ class Env(gym.Env):
                 continue
             with env_spec.outputs as d:
                 d[i] = getattr(actions.outputs, i)
+                d[i].rate = self.rate
             env_spec.config.outputs.append(i)
         env_params = env_spec.build(ns=self.ns)
         rosparam.upload_params(self.ns, env_params)
