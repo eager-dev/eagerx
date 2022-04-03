@@ -33,7 +33,7 @@ def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
     # Define nodes
     N1 = Node.make("Process", "N1", rate=18, process=node_p, inputs=["in_1"], outputs=["out_1"])
     KF = Node.make("KalmanFilter", "KF", rate=19, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
-    N3 = ResetNode.make("RealReset", "N3", rate=21, process=node_p, inputs=["in_1"], targets=["target_1"])
+    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
 
     # Define object
     viper = Object.make("Viper", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
