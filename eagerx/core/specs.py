@@ -425,6 +425,8 @@ class BaseNodeSpec(EntitySpec):
         # Process outputs
         outputs = []
         for cname in default["outputs"]:
+            msg = f"The rate ({params['outputs'][cname]['rate']} Hz) set for action '{cname}' does not equal the environment rate ({self.config.rate} Hz)."
+            assert params["outputs"][cname]["rate"] == self.config.rate, msg
             assert (
                 cname in params["outputs"]
             ), f'Received unknown {"output"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
