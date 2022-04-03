@@ -247,6 +247,7 @@ class Env(gym.Env):
                 continue
             with env_spec.outputs as d:
                 d[i] = getattr(actions.outputs, i)
+                d[i].rate = self.rate
             env_spec.config.outputs.append(i)
         env_params = env_spec.build(ns=self.ns)
         rosparam.upload_params(self.ns, env_params)
@@ -555,7 +556,7 @@ class EagerxEnv(Env):
         graph: Graph,
         bridge: BridgeSpec,
         step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
-        reset_fn: Callable = lambda env: env.state_space.sample(),
+        reset_fn: Callable = lambda env: env.state_space.sample(),  # noqa: B008
         exclude: Optional[List[str]] = None,
     ) -> None:
         """Initializes an environment with EAGERx dynamics.
@@ -598,7 +599,7 @@ class EagerxEnv(Env):
         # Check if all excluded observations with window > 0 actually exist
         space = super(EagerxEnv, self).observation_space
         nonexistent = [name for name in self.excl_nonzero if name not in space.spaces]
-        if len(nonexistent) == 0:
+        if len(nonexistent) != 0:
             rospy.logwarn(f"Some excluded observations with window > 0 do not exist: {nonexistent}.")
 
     @property

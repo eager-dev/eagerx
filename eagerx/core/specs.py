@@ -425,6 +425,8 @@ class BaseNodeSpec(EntitySpec):
         # Process outputs
         outputs = []
         for cname in default["outputs"]:
+            msg = f"The rate ({params['outputs'][cname]['rate']} Hz) set for action '{cname}' does not equal the environment rate ({self.config.rate} Hz)."
+            assert params["outputs"][cname]["rate"] == self.config.rate, msg
             assert (
                 cname in params["outputs"]
             ), f'Received unknown {"output"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -930,8 +932,24 @@ class ObjectSpec(EntitySpec):
                         node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
                         sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
                     else:  # Actuators
+                        agnostic_converter = obj_comp_params.pop("converter")
                         node_comp_params.update(obj_comp_params)
+
+                        from eagerx.core.converters import Identity
+
+                        id = Identity().get_yaml_definition()
+                        if not agnostic_converter == id:
+                            msg = (
+                                f"A converter was defined for {node_name}.{node_comp}.{node_cname}, however the bridge "
+                                "implementation also has a converter defined. You can only have one converter."
+                            )
+                            assert node_comp_params["converter"] == id, msg
+                            node_comp_params["converter"] = agnostic_converter
+
+                        # Pop rate.
                         node_comp_params.pop("rate")
+                        # Reassign converter in case a node provides the implementation for multiple actuators
+                        obj_comp_params["converter"] = agnostic_converter
 
         # Get set of node we are required to launch
         dependencies = list(set(dependencies))
