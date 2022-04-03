@@ -944,7 +944,10 @@ class ObjectSpec(EntitySpec):
                             assert node_comp_params["converter"] == id, msg
                             node_comp_params["converter"] = agnostic_converter
 
+                        # Pop rate.
                         node_comp_params.pop("rate")
+                        # Reassign converter in case a node provides the implementation for multiple actuators
+                        obj_comp_params["converter"] = agnostic_converter
 
         # Get set of node we are required to launch
         dependencies = list(set(dependencies))
