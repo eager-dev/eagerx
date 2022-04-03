@@ -1,1 +1,0 @@
-../../../developer_guide/bridge/bridge.rst

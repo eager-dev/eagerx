@@ -1,5 +1,6 @@
+********
 Template
-########
+********
 
 We will start by creating a new repository for this Python package, using `the template that is available here <https://github.com/eager-dev/eagerx_template>`_.
 
@@ -17,9 +18,8 @@ Since the package is just a Python package in the end, any other Python package 
 In our case, we create a new repository called `eagerx_ode <https://github.com/eager-dev/eagerx_ode>`_ using this template.
 Since we want to create a package named *eagerx_ode* and not *eagerx_template*, we do the following:
 
-* Rename the folder eagerx_template to eagerx_ode.
+* Rename the folder *eagerx_template* to *eagerx_ode*.
 * Update the PACKAGE_NAME variable in Makefile to be eagerx_ode instead of eagerx_template.
-
 
 Poetry
 ######
@@ -41,6 +41,8 @@ After adding the source code, installing the package is simple (from the root of
 
     poetry install
 
+.. note::
+  This will install the package and its dependencies in a virtual environment, see https://python-poetry.org/docs/basic-usage/#using-your-virtual-environment.
 
 Black
 #####
@@ -89,7 +91,7 @@ pytest
 
 Also, the *eagerx_template* allows to easily add tests using `pytest <https://docs.pytest.org/>`_.
 You can add your own tests to the `tests folder <https://github.com/eager-dev/eagerx_template/tree/master/tests>`_.
-A dummy test is yet present `here <https://github.com/eager-dev/eagerx_template/blob/master/tests/test_import.py>`_.
+Only a dummy test is currently present `here <https://github.com/eager-dev/eagerx_template/blob/master/tests/test_import.py>`_.
 You can run the test as follows (from the root of the repository):
 
 First, we install the package using *Poetry* (if you haven't done so yet):
@@ -114,3 +116,7 @@ Now we run the tests:
     A number of Github workflows are present within the *eagerx_template*.
     One of them checks if the tests are passing.
     So before pushing your code, you can check whether the tests are passing locally by running *make pytest*.
+
+.. note::
+  Be aware that in order to use a :mod:`~eagerx.core.entities.Node`, :mode:`~eagerx.core.entities.EngineNode` or any other enitity from :mod:`eagerx.core.entities` you have created, that they should be imported before making them using :func:`~eagerx.core.entities.make` with the corresponding ID.
+  Therefore, we advice to import these in the *__init__.py* as is done `for example here <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/__init__.py>`_.

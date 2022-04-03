@@ -12,6 +12,8 @@ We will create three Python files that together will define the OdeBridge, i.e.:
 * `engine_nodes.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_: here we will define the engine nodes of the OdeBridge.
 * `engine_states.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_states.py>`_: here we will define the engine states of the OdeBridge.
 
+The creation of these files will be discussed in the following sections.
+
 .. toctree::
    :maxdepth: 1
 

@@ -2,14 +2,15 @@
 Engine Nodes
 ************
 
-In this section, we will show how to create engine nodes.
-Engine nodes are nodes that interact with bridge nodes and can be used to for example define the behaviour of sensors and actuators.
+In this section, we will show how to create an :mod:`~eagerx.core.entities.EngineNode`.
+Engine nodes are nodes that interact with the :mod:`~eagerx.core.entities.Bridge` node and define the behaviour of sensors and actuators.
+An :mod:`~eagerx.core.entities.EngineNode` is often bridge-specific, since here is defined how actions are applied and observations are obtained.
 We will clarify the concept of engine nodes in this section by going through the process of creating the engine nodes for the *OdeBridge*.
-This bridge allows to simulate systems based on ordinary differential equations (ODEs).
+This :mod:`~eagerx.core.entities.Bridge` allows to simulate systems based on ordinary differential equations (ODEs).
 In the engine nodes for the *OdeBridge*, we will define how inputs and outputs are send to and from the *OdeBridge*.
 We will define three classes: *OdeOutput*, *OdeInput* and *ActionApplied*.
 Each of these classes will be a subclass of the *EngineNode* class.
-Here we will go into detail on how to the *OdeInput* engine node is created.
+Here we will go into detail on how to the *OdeInput* :mod:`~eagerx.core.entities.EngineNode` is created.
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_
 
@@ -17,23 +18,24 @@ Here we will go into detail on how to the *OdeInput* engine node is created.
 OdeInput
 ########
 
-First we will define an engine_node for sending inputs to the *OdeBridge*.
-These engine nodes can be created using the :mod:`~eagerx.core.entities.EngineNode` base class.
+First we will define an :mod:`~eagerx.core.entities.EngineNode` for setting the input for the *OdeBridge*.
+We can do this by using the :mod:`~eagerx.core.entities.EngineNode` base class.
 For the :mod:`~eagerx.core.entities.EngineNode` base class, there are four abstract methods:
 
 * :func:`~eagerx.core.entities.EngineNode.spec`, here we will specify the parameters of *OdeInput*.
 * :func:`~eagerx.core.entities.EngineNode.initialize`, here we will specify how the *OdeInput* node is initialized.
 * :func:`~eagerx.core.entities.EngineNode.reset`, here we will specify how to reset the state of the *OdeInput* node.
 * :func:`~eagerx.core.entities.EngineNode.callback`, here we will define what this node will do every clock tick.
-  In this case, it will send the last input/action to the *OdeBridge* node.
+  In this case, it will use the last input/action in the *OdeBridge* node.
 
 spec
 ****
 
 The :func:`~eagerx.core.entities.EngineNode.spec` method can be used to specify default parameters for engine nodes and to assign an id to the node.
 Since we need a reference to the simulator (the *OdeBridge*), we will also specify here that we run this node in the bridge process per default.
-If this node is run in another process, we won't have a reference to the *OdeBridge* and will not be able to pass inputs easily to the *OdeBridge* node.
+If this node is run in another process, we won't have a reference to the *simulator* attribute from the *OdeBridge* and will not be able to pass inputs easily to the *OdeBridge* node.
 We also specify that this node has two input and one output, which respectively are "tick", "action" and "action_applied".
+The "tick" input is required, since it ensures that the *OdeInput* :mod:`~eagerx.core.entities.EngineNode` is synchronized with the *OdeBridge* :mod:`~eagerx.core.entities.Bridge`.
 Also, we add a custom parameter called *default_action*, which will allow to specify a default action that will be applied in case it is not overwritten.
 The spec method now looks as follows:
 
@@ -60,7 +62,6 @@ The spec method now looks as follows:
         name: str,
         rate: float,
         default_action: List,
-        process: Optional[int] = process.BRIDGE,
         color: Optional[str] = "green",
     ):
         # Performs all the steps to fill-in the params with registered info about all functions.
@@ -68,10 +69,10 @@ The spec method now looks as follows:
 
         # Modify default node params
         spec.config.name = name
-        spec.config.rate = rate
-        spec.config.process = process
-        spec.config.inputs = ["tick", "action"]
-        spec.config.outputs = ["action_applied"]
+        spec.config.rate = rate  # Rate at which the callback is called
+        spec.config.process = process  # This should always be the process of the Bridge
+        spec.config.inputs = ["tick", "action"]  # Set default inputs
+        spec.config.outputs = ["action_applied"]  # Set default outputs
 
         # Set custom node params
         spec.config.default_action = default_action
@@ -140,8 +141,10 @@ In code, this is implemented as follows:
 
 .. note::
   Note that the message type as provided using the :func:`~eagerx.core.register.inputs` and :func:`~eagerx.core.register.outputs` decorators, should be ROS message types.
-  For more information, see the documentation on :func:`~eagerx.core.entities.EngineNode.callback`
+  For more information, see the documentation on :func:`~eagerx.core.entities.EngineNode.callback`.
+  Also, the "tick" input ensures that this :func:`~eagerx.core.entities.EngineNode.callback` is synchronized with the :mod:`~eagerx.core.entities.Bridge`.
 
 Similarly, we can create the engine nodes *OdeOutput* and *ActionApplied* for obtaining the output from the *OdeBridge* simulator and obtaining the value for the action that is applied.
 The *ActionApplied* will allow other nodes to listen to the action that is applied in the simulator.
-This can be useful for example when some form of preprocessing is applied on the actions and the action that is applied is could be an observation of the environment in that case.
+This can be useful for example when some form of preprocessing is applied on the action before it is applied to the environment.
+Then, this node can be used to feedback the applied action as an observation to the environment.

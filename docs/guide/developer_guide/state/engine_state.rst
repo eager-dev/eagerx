@@ -46,7 +46,7 @@ In our case, we do not need to specify parameters, so the implementation is fair
 .. note::
   Mind the usage of the :func:`~eagerx.core.register.spec` decorator.
   This decorator is required to register the *OdeEngineState*.
-  All entities within EAGERx have to be registered, such that they can be used based on their unique id.
+  All entities within EAGERx have to be registered, such that their specification can be created based on their unique id.
   In this decorator we provide a unique id for the engine state (*"OdeSimState"*) and specify the type (:mod:`~eagerx.core.entities.EngineState`).
   Another thing that is worth noting, is that we need to call :func:`~eagerx.core.specs.EngineStateSpec.initialize` with a reference to the class, in this case *OdeEngineState*.
   This will initialize the *spec* object and set default values.

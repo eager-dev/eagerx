@@ -7,8 +7,10 @@ Tutorial: Real and Simulated Pendulum Swing-Up Learning
    :caption: Table of Contents
 
    ./introduction
-   ./simulation/simulation
-   ./reality/reality
+   ./simulation
+   ./package_creation
+   ./bridge
+   ./reality
    ./space_converter
    ./node
    ./pendulum

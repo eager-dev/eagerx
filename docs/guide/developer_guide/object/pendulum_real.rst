@@ -3,7 +3,7 @@ Bridge-Specific (RealBridge)
 ****************************
 
 Having defined the agnostic parameters of the *Pendulum*, we can now specify the bridge-specific implementations.
-In this case, we will create an implementation for the `*RealBridge* <https://github.com/eager-dev/eagerx_reality>`_.
+In this case, we will create an implementation for the `RealBridge <https://github.com/eager-dev/eagerx_reality>`_.
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_
 

@@ -5,11 +5,11 @@ We will start by creating a file called `bridge.py <https://github.com/eager-dev
 Here we will define the *OdeBridge*, which will be a subclass of the :mod:`~eagerx.core.entities.Bridge` class.
 This class has six abstract methods:
 
-* :func:`~eagerx.core.entities.Bridge.spec`, here we will specify the OdeBridge's parameters.
-* :func:`~eagerx.core.entities.Bridge.initialize`, here we will specify how the OdeBridge is initialized.
+* :func:`~eagerx.core.entities.Bridge.spec`, here we will specify the *OdeBridge*'s parameters in a configuration :mod:`~eagerx.core.specs.BridgeSpec` object.
+* :func:`~eagerx.core.entities.Bridge.initialize`, here we determine how the *OdeBridge* initializes using the specification that is created in the :func:`~eagerx.core.entities.Bridge.spec` function..
 * :func:`~eagerx.core.entities.Bridge.add_object`, here we will specify how objects are added.
-* :func:`~eagerx.core.entities.Bridge.pre_reset`, here we prepare a reset of the OdeBridge.
-* :func:`~eagerx.core.entities.Bridge.reset`, here we perform the reset.
+* :func:`~eagerx.core.entities.Bridge.pre_reset`, here we prepare a reset of the *OdeBridge*.
+* :func:`~eagerx.core.entities.Bridge.reset`, here we perform the reset routine before the start of an episode.
 * :func:`~eagerx.core.entities.Bridge.callback`, here we define what will happen every time step.
   In our case we will integrate the ODEs of each object.
 
@@ -18,7 +18,7 @@ This class has six abstract methods:
 spec
 ****
 
-First we will define the *spec* method.
+First we will define the :func:`~eagerx.core.entities.Bridge.spec` method.
 In this method we will "specify" a number of parameters of the *OdeBridge*.
 
 We can make a distinction between standard parameters and custom parameters.
@@ -100,11 +100,10 @@ We can define the default values for all of these parameters using the spec func
   You are probably familiar with the first one, but the second might need some explanation.
   We use the :func:`~eagerx.core.register.spec` decorator to create an identifier for this bridge, i.e. "OdeBridge".
   Also, it will allow us to directly modify default bridge parameters that are stored in the *spec* object of type :mod:`~eagerx.core.specs.BridgeSpec`.
-  Note that we first need to run :func:`~eagerx.core.specs.BridgeSpec.initialize`.
+  Note that we first need to run :func:`~eagerx.core.specs.BridgeSpec.initialize` to set the default arguments.
+  Custom arguments correspond to the arguments of the :func:`~eagerx.core.entities.Bridge.initialize` method as we will see later on.
 
-  Also worth noting, is that the custom parameters are set differently, i.e. using the :func:`~eagerx.core.view.update` method.
-  This is necessary, because only the standard parameters from :mod:`~eagerx.core.entities.Bridge` can be set directly.
-  Any custom parameter has to be added using the :func:`~eagerx.core.view.update` method.
+  Also worth noting, is that we can see that there are two ways to set parameters, i.e. by setting them directly or by using the :func:`~eagerx.core.view.update` method.
 
 initialize
 **********
@@ -113,7 +112,9 @@ Next, we will define the :func:`~eagerx.core.entities.Bridge.initialize` method.
 This method is called with the custom parameters we have just specified (rtol, atol, hmax, hmin, mxstep).
 This function will be executed before the first time the :func:`~eagerx.core.entities.Bridge.callback`, :func:`~eagerx.core.entities.Bridge.add_object`, :func:`~eagerx.core.entities.Bridge.reset` and :func:`~eagerx.core.entities.Bridge.pre_reset` methods are run.
 So all attributes that are defined here, are accessible in those methods.
-All we need to do to initialize the *OdeBridge* is to define two dictionaries:
+The logic in this routine depends on the physics engine/simulator you would like to interface.
+In this case, the simulator is particularly simple, i.e. we will only integrate ODEs.
+Therefore, all we need to do to initialize the *OdeBridge* is to define two dictionaries:
 
 ::
 
@@ -123,9 +124,11 @@ All we need to do to initialize the *OdeBridge* is to define two dictionaries:
         self.simulator = dict()
 
 .. note::
-  Note that the custom parameters we have added to the *spec* of type :mod:`~eagerx.core.specs.BridgeSpec` using the :func:`~eagerx.core.view.update` method are now arguments to the :func:`~eagerx.core.entities.Bridge.initialize` method.
+  Note that the parameters under "custom params" correspond to the signature of the :func:`~eagerx.core.entities.Bridge.initialize` method.
   In this way, we can easily use these parameters to initialize the *OdeBridge* node.
   We will use the *simulator* attribute to keep track of the objects and their ODEs, states and inputs.
+  This *simulator* object is a special object, since it will be shared among all the engine nodes of type :mod:`~eagerx.core.entities.EnigneNode`.
+  In this way, we create a reference simulator attribute in the :mod:`~eagerx.core.entities.Bridge`.
 
 add_object
 **********
@@ -159,14 +162,17 @@ Also, we allow users to specify parameters that can be used to set arguments of 
 
 .. note::
   Here the :func:`~eagerx.utils.utils.get_attribute_from_module` function is just a helper function to import an attribute from a module based on a string that is defined as "[module_name]/[attribute]".
-  Again, note the :func:`~eagerx.core.register.bridge_config` decorator in which the *ode* and *ode_params* parameters are added to the *bridge_config* object.
-  The *bridge_config* object is meant to be used for all parameters that are bridge specific.
-  The agnostic params should be defined in the *config* object.
+  Again, note the :func:`~eagerx.core.register.bridge_config` decorator in which the *ode* and *ode_params* parameters are registered.
+  Every :mod:`~eagerx.core.entities.Object` interfaced with this :mod:`~eagerx.core.entities.Bridge` will have to specify these parameters.
+  The bridge receives these parameters via the :param:`~eagerx.core.entities.Bridge.add_object.bridge_config` argument.
+  The :param:`~eagerx.core.entities.Bridge.add_object.bridge_config` object is meant to be used for all parameters that are bridge specific.
+  The agnostic params should be defined in the :param:`~eagerx.core.entities.Bridge.add_object.config` object.
 
 pre_reset
 *********
 
 The :func:`~eagerx.core.entities.Bridge.pre_reset` method allows to define procedures that will be run before starting a reset.
+This could for example be useful when some routine should be performed in order to be able to reset, e.g. switching controllers or pausing/starting a simulator.
 In our case, we do not need to do this, so this will be a simple pass:
 
 ::
@@ -177,7 +183,7 @@ In our case, we do not need to do this, so this will be a simple pass:
 reset
 *****
 
-The :func:`~eagerx.core.entities.Bridge.reset` method is called every time a reset is performed.
+The :func:`~eagerx.core.entities.Bridge.reset` method is called by the user before the start of an episode.
 This allows to reset the state of the *OdeBridge*.
 In our case, we are not adding a state to the *OdeBridge*.
 However, this could be done, for example to vary the integration parameters over episodes as a form of domain randomization.
@@ -207,11 +213,16 @@ The callback will be executed at the specified :attr:`~eagerx.core.entities.Brid
   @register.outputs(tick=UInt64)
   def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
       for _obj_name, sim in self.simulator.items():
+          # Get the input, set by engine nodes as we will see later on.
           input = sim["input"]
           ode = sim["ode"]
           Dfun = sim["Dfun"]
           x = sim["state"]
+
+          # Get the ode_params that are set by engine states as we will see later on.
           ode_params = sim["ode_params"]
+
+          # Integrate the ODE
           if x is not None and input is not None:
               sim["state"] = odeint(
                   ode,
@@ -226,9 +237,4 @@ The callback will be executed at the specified :attr:`~eagerx.core.entities.Brid
   Using the :func:`~eagerx.core.register.outputs` decorator, we specify all the outputs of the *OdeBridge* node.
   In our case, the output is a simple "tick", see :func:`~eagerx.core.entities.Bridge.callback` for more information.
 
-Next, we will create the engine nodes:
-
-.. toctree::
-   :maxdepth: 1
-
-   ./engine_node
+Next, we will create the engine nodes.

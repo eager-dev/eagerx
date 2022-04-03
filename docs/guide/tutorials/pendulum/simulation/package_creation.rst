@@ -1,1 +1,0 @@
-../../../contributing/package_creation/package_creation.rst

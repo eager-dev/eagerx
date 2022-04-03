@@ -8,7 +8,7 @@ In this section we will go through the process of creating the *Space_AngleDecom
 At the same time, we will decompose one of the entries of the *Float32MultiArray* into a sine and cosine component.
 This space converter can be used when dealing with angular positions, since learning on the sine and cosine is often more efficient due to the discontinuities in the angular position.
 
-The :mod:`~eagerx.core.entities.SpaceConverter` base class has two class variable:
+The :mod:`~eagerx.core.entities.SpaceConverter` base class has two class variables:
 
 - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_A`
 - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_B`

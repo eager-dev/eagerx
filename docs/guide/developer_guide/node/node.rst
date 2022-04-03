@@ -17,12 +17,11 @@ The :mod:`~eagerx.core.entities.Node` base class has four abstract methods we ne
 
 `Full code is available here. <https://github.com/eager-dev/eagerx/blob/master/eagerx/nodes/butterworth_filter.py>`_
 
-.. autoclass:: eagerx.nodes.butterworth_filter.ButterworthFilter
-    :members:
-
-
 spec
 ####
+
+Here we define the specification of the *ButterworthFilter*.
+Since we will make use of the 
 
 ::
 
