@@ -937,8 +937,12 @@ class ObjectSpec(EntitySpec):
 
                         id = Identity().get_yaml_definition()
                         if not agnostic_converter == id:
-                            assert node_comp_params['converter'] == id, ""
-                            node_comp_params['converter'] = agnostic_converter
+                            msg = (
+                                f"A converter was defined for {node_name}.{node_comp}.{node_cname}, however the bridge "
+                                "implementation also has a converter defined. You can only have one converter."
+                            )
+                            assert node_comp_params["converter"] == id, msg
+                            node_comp_params["converter"] = agnostic_converter
 
                         node_comp_params.pop("rate")
 

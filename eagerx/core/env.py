@@ -555,7 +555,7 @@ class EagerxEnv(Env):
         graph: Graph,
         bridge: BridgeSpec,
         step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
-        reset_fn: Callable = lambda env: env.state_space.sample(),
+        reset_fn: Callable = lambda env: env.state_space.sample(),  # noqa: B008
         exclude: Optional[List[str]] = None,
     ) -> None:
         """Initializes an environment with EAGERx dynamics.
