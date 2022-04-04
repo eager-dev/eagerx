@@ -11,6 +11,14 @@ These engine states will allow to reset the state of objects and reset the param
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_states.py>`_
 
+.. figure:: figures/engine_state.svg
+  :align: center
+  :alt: alternate text
+  :figclass: align-center
+
+  In this section we will discuss the concept of an :mod:`~eagerx.core.entities.EngineState`.
+  In an engine state, we create an implementation of a state for a specific :mod:`~eagerx.core.entities.Bridge`.
+
 OdeEngineState
 ##############
 

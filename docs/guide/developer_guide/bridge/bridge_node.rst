@@ -1,5 +1,6 @@
+*********
 OdeBridge
-#########
+*********
 
 We will start by creating a file called `bridge.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/bridge.py>`_.
 Here we will define the *OdeBridge*, which will be a subclass of the :mod:`~eagerx.core.entities.Bridge` class.
@@ -15,8 +16,16 @@ This class has six abstract methods:
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/bridge.py>`_
 
+.. figure:: figures/bridge.svg
+  :align: center
+  :alt: alternate text
+  :figclass: align-center
+
+  In this section we will discuss the concept of a :mod:`~eagerx.core.entities.Bridge`.
+  The :mod:`~eagerx.core.entities.Bridge` connects the :mod:`~eagerx.core.env.EagerxEnv`, :mod:`~eagerx.core.graph_engine.EngineGraph` and :mod:`~eagerx.core.entities.EngineState` to the physics engine/real world.
+
 spec
-****
+####
 
 First we will define the :func:`~eagerx.core.entities.Bridge.spec` method.
 In this method we will "specify" a number of parameters of the *OdeBridge*.
@@ -106,7 +115,7 @@ We can define the default values for all of these parameters using the spec func
   Also worth noting, is that we can see that there are two ways to set parameters, i.e. by setting them directly or by using the :func:`~eagerx.core.view.update` method.
 
 initialize
-**********
+##########
 
 Next, we will define the :func:`~eagerx.core.entities.Bridge.initialize` method.
 This method is called with the custom parameters we have just specified (rtol, atol, hmax, hmin, mxstep).
@@ -131,7 +140,7 @@ Therefore, all we need to do to initialize the *OdeBridge* is to define two dict
   In this way, we create a reference simulator attribute in the :mod:`~eagerx.core.entities.Bridge`.
 
 add_object
-**********
+##########
 
 The :func:`~eagerx.core.entities.Bridge.add_object` method initializes each object in the bridge.
 In our case, this means that we will add a dictionary to the *simulator* attribute with the object's name as key.
@@ -164,12 +173,12 @@ Also, we allow users to specify parameters that can be used to set arguments of 
   Here the :func:`~eagerx.utils.utils.get_attribute_from_module` function is just a helper function to import an attribute from a module based on a string that is defined as "[module_name]/[attribute]".
   Again, note the :func:`~eagerx.core.register.bridge_config` decorator in which the *ode* and *ode_params* parameters are registered.
   Every :mod:`~eagerx.core.entities.Object` interfaced with this :mod:`~eagerx.core.entities.Bridge` will have to specify these parameters.
-  The bridge receives these parameters via the :param:`~eagerx.core.entities.Bridge.add_object.bridge_config` argument.
-  The :param:`~eagerx.core.entities.Bridge.add_object.bridge_config` object is meant to be used for all parameters that are bridge specific.
-  The agnostic params should be defined in the :param:`~eagerx.core.entities.Bridge.add_object.config` object.
+  The bridge receives these parameters via the ``bridge_config`` argument.
+  The ``bridge_config`` object is meant to be used for all parameters that are bridge specific.
+  The agnostic params should be defined in the ``config`` object.
 
 pre_reset
-*********
+#########
 
 The :func:`~eagerx.core.entities.Bridge.pre_reset` method allows to define procedures that will be run before starting a reset.
 This could for example be useful when some routine should be performed in order to be able to reset, e.g. switching controllers or pausing/starting a simulator.
@@ -181,7 +190,7 @@ In our case, we do not need to do this, so this will be a simple pass:
         pass
 
 reset
-*****
+#####
 
 The :func:`~eagerx.core.entities.Bridge.reset` method is called by the user before the start of an episode.
 This allows to reset the state of the *OdeBridge*.
@@ -201,7 +210,7 @@ Therefore, the reset method will also be a simple pass:
   If we wanted the *OdeBridge* to have a state, we could add it using this decorator.
 
 callback
-********
+########
 
 Finally, we will specify how we integrate the ODEs every time step.
 This will be done in the :func:`~eagerx.core.entities.Bridge.callback` method.

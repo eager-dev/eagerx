@@ -14,15 +14,17 @@ An :mod:`~eagerx.core.entities.Object` has two abstract classes:
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_
 
 agnostic
-========
+########
 
 The :func:`~eagerx.core.entities.Object.agnostic` method should be used for defining the information that is agnostic of the bridge that is being used.
 Here we specify what :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states` the :mod:`~eagerx.core.entities.Object` has.
 An actuator can be used to apply an action in the environment, a sensor can obtain observations, while a state is something that can be reset before starting an episode.
 In our case, we have three sensors (*pendulum_output*, *action_applied* and *image*), one actuator (*pendulum_input*) and two states (*model_state*, *model_parameters*).
 We use the *model_state* to reset the angle and angular velocity of the pendulum during a reset, while we use the *model_parameters* state to randomize the model parameters over the episodes in order to improve robustness against model inaccuracies.
-For each of these :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`, we will specify rates, windows and space converters.
-The rates define at which rate the callback of that entity is called, window sizes determines the window size for incoming messages, while space converters define how to convert the messages to an Openai Gym space.
+Furthermore, the :func:`~eagerx.core.entities.Object.agnostic` method should be used to define all agnostic :attr:`~eagerx.core.specs.ObjectSpec.config` parameters.
+These are the parameters that are independent of the :mod:`~eagerx.core.entities.Bridge` that is used.
+We will set the agnostic parameters for each of the :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`, i.e. rates, windows and space converters.
+The rates define at which rate the callback of that entity is called, window sizes determine the window size for incoming messages, while space converters define how to convert the messages to an `OpenAI Gym space <https://gym.openai.com/docs/#spaces>`_.
 More information on these parameters is available at the API Reference sections on :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`.
 
 ::
@@ -93,8 +95,10 @@ More information on these parameters is available at the API Reference sections 
         )
 
 .. note::
-  Mind the use of the :func:`~eagerx.core.register.sensors`, :func:`~eagerx.core.register.actuators`, :func:`~eagerx.core.register.engine_states` and :func:`~eagerx.core.register.config` decorators.
-  Registration is required to be able to set the :mod:`~eagerx.core.specs.ObjectSpec`.
+  Mind the use of the :func:`~eagerx.core.register.sensors`, :func:`~eagerx.core.register.actuators` and :func:`~eagerx.core.register.engine_states` decorators.
+  Registration is required to be able to set the parameters within the :mod:`~eagerx.core.specs.ObjectSpec`.
+  The :func:`~eagerx.core.register.config` decorator registers the agnostic configuration parameters of the :mod:`~eagerx.core.entities.Object`.
+  These agnostic configuration parameters define the signature of the :func:`~eagerx.core.entities.Object.spec` method, which we will see in the next subsection.
   Also, note that we import :mod:`eagerx.converters`.
   While it might look like this import is unused, it actually registers the converters from that module, such that we can use them.
   The :mod:`~eagerx.converters.space_ros_converters.Space_Float32MultiArray` and :mod:`~eagerx.converters.space_ros_converters.Space_Image` can therefore be used.
@@ -103,7 +107,7 @@ More information on these parameters is available at the API Reference sections 
 
 
 spec
-========
+####
 
 The :func:`~eagerx.core.specs.ObjectSpec` specifies how :mod:`~eagerx.core.env.EagerxEnv` should initialize the object.
 Here we can for example specify what :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states` should be used by default, because this does not necessarily have to be all of them.

@@ -11,6 +11,15 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/examples/example_ode.py>`_
 
+.. figure:: figures/graph.svg
+  :align: center
+  :alt: alternate text
+  :figclass: align-center
+
+  In this section we will discuss the concept of a :mod:`~eagerx.core.graph.Graph`.
+  A :mod:`~eagerx.core.graph.Graph` consists of a collection of entities of type :mod:`~eagerx.core.entities.Node` and :mod:`~eagerx.core.entities.Object`.
+  The graph is engine-agnostic and should be provided to the :mod:`~eagerx.core.env.EagerxEnv`, such that communication pipelines can be set up correctly.
+
 ::
 
   # ROS packages required
@@ -26,7 +35,7 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
   # Implementation specific
   import eagerx.nodes  # Registers butterworth_filter
   import eagerx_ode  # Registers OdeBridge
-  import eagerx_dcsc_setups.pendulum
+  import eagerx_dcsc_setups.pendulum  # Registers Pendulum
 
 
   if __name__ == "__main__":
@@ -64,6 +73,8 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
   This starts a roscore and allows to initialize the communication pipelines.
   Also can be seen here that nodes and objects can be added to the :mod:`~eagerx.core.graph.Graph` using the :func:`~eagerx.core.graph.Graph.add` method.
   Furthermore, nodes and objects can be connected using the :mod:`~eagerx.core.graph.connect` method.
+  For this method it is worth mentioning that if the *action* or *observation* argument is specified, the agent's action or obeservation space will be extended with that action or observation.
+  The appropriate agent's `action and observation spaces <https://gym.openai.com/docs/#spaces>`_ can be created if a :mod:`~eagerx.core.entities.SpaceConverter` is defined for the connected :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors`, :attr:`~eagerx.core.specs.NodeSpec.inputs` or :attr:`~eagerx.core.specs.ObjectSpec.outputs`.
 
 GUI
 ###

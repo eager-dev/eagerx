@@ -14,6 +14,14 @@ Here we will go into detail on how to the *OdeInput* :mod:`~eagerx.core.entities
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_
 
+.. figure:: figures/engine_node.svg
+  :align: center
+  :alt: alternate text
+  :figclass: align-center
+
+  In this section we will discuss the concept of a :mod:`~eagerx.core.entities.EngineNode`.
+  In the engine nodes, we create an implementation of actuators and sensors for a specific :mod:`~eagerx.core.entities.Bridge`.
+  The :mod:`~eagerx.core.entities.EngineNode` can be added to an :mod:`~eagerx.core.graph_engine.EngineGraph`.
 
 OdeInput
 ########

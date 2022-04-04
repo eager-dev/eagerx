@@ -10,7 +10,7 @@ First we will train in simulation and afterwards we will fine tune the policy on
 Initialize the Bridges
 ######################
 
-After creating the :mod:`~eagerx.core.graph.Graph`, we will also initialize the *OdeBridge* :mod:`~eagerx.core.entities.Bridge` and the *RealBridge* :mod:`~eagerx.core.entities.Bridge`.
+After creating the :mod:`~eagerx.core.graph.Graph`, we will also :func:`~eagerx.core.entities.Bridge.make` the *OdeBridge* and *RealBridge*.
 
 ::
 
@@ -19,7 +19,7 @@ After creating the :mod:`~eagerx.core.graph.Graph`, we will also initialize the 
   bridge_real = Bridge.make('RealBridge', rate=rate, is_reactive=True, process=process.NEW_PROCESS)
 
 EagerxEnv
-#######
+#########
 
 Next, we will create a :attr:`~eagerx.core.env.EagerxEnv.step_fn` function.
 Here we will calculate the reward and check for termination conditions.
@@ -39,6 +39,11 @@ We terminate the episode if the number of steps is larger than 500.
     # Set info:
     info = dict()
     return obs, -cost, done, info
+
+.. note::
+  We can obtain the angular position and angular velocity from the *obs* dictionary.
+  Remember that we used the :func:`~eagerx.core.graph.Graph.connect` method with value for the argument *observation* set to "observation".
+  Therefore, we this data is stored under the key "observation".
 
 
 We will then initialize two times a :mod:`~eagerx.core.env.EagerxEnv`: one with the *OdeBridge* and one with the *RealBridge*.
@@ -78,7 +83,7 @@ We will do this for 450 seconds and save the resulting model.
   model.save('simulation')
   simulation_env.shutdown()
 
-Fine tuning in reality
+Fine Tuning in Reality
 ######################
 
 We can load the saved model and fine tune it on the real system in order to successfully swing up the real pendulum.

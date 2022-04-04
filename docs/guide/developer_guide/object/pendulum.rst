@@ -10,6 +10,15 @@ Next, we will implement everything related to the *OdeBridge* and finally we cre
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_
 
+.. figure:: figures/object.svg
+  :align: center
+  :alt: alternate text
+  :figclass: align-center
+
+  In this section we will discuss the concept of a :mod:`~eagerx.core.entities.Object`.
+  An :mod:`~eagerx.core.entities.Object` consists of a collection of :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`.
+  Within the :mod:`~eagerx.core.entities.Object`, we also define the :mod:`~eagerx.core.graph_engine.EngineGraph` by creating a graph of nodes of type :mod:`~eagerx.core.entities.EngineNode` for each physics engine.
+
 .. toctree::
    :maxdepth: 2
    :caption: Table of Contents

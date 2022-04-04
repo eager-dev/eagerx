@@ -19,7 +19,7 @@ In our case, we create a new repository called `eagerx_ode <https://github.com/e
 Since we want to create a package named *eagerx_ode* and not *eagerx_template*, we do the following:
 
 * Rename the folder *eagerx_template* to *eagerx_ode*.
-* Update the PACKAGE_NAME variable in Makefile to be eagerx_ode instead of eagerx_template.
+* Update the PACKAGE_NAME variable in Makefile to be *eagerx_ode* instead of *eagerx_template*.
 
 Poetry
 ######

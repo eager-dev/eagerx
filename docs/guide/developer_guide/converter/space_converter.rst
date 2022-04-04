@@ -112,3 +112,8 @@ In our case, we also decompose the angle here, which will be the first entry of 
   def B_to_A(self, msg):
       angle = msg.data[0]
       return np.concatenate(([np.sin(angle), np.cos(angle)], msg.data[1:]), axis=0)
+
+make
+####
+
+In order to use this :mod:`~eagerx.core.entities.SpaceConverter`, the user should call the :func:`~eagerx.core.entities.SpaceConverter.make` method with the arguments of the :func:`~eagerx.core.entities.SpaceConverter.spec` method.
