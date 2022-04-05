@@ -737,8 +737,8 @@ def init_real_reset(
             rate_in = get_param_with_blocking(rate_str)
             if not rate_in == rate_node:
                 raise ValueError(
-                    "Rate of the switch node (%s) must be exactly the same as the feedthrough node rate (%s)."
-                    % (rate_node, rate_node)
+                    "Rate of the reset node (%s) must be exactly the same as the feedthrough node rate (%s)."
+                    % (rate_node, rate_in)
                 )
 
         # Create zipped action channel

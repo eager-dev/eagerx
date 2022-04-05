@@ -253,15 +253,16 @@ class EngineGraph:
 
         if actuator:  # source = actuator
             source = self.get_view("actuators", ["outputs", actuator])
-            if converter:
+            from eagerx.core.converters import Identity
+
+            id = Identity().get_yaml_definition()
+            if converter or target.converter.to_dict() != id:
                 msg = (
                     f'Cannot specify an input converter for actuator "{actuator}", '
                     "because one has already been specified in the agnostic graph definition. "
                     "You can only have one input converter."
                 )
-                from eagerx.core.converters import Identity
-
-                assert source.converter.to_dict() == Identity().get_yaml_definition(), msg
+                assert source.converter.to_dict() == id, msg
             assert window is None, (
                 f'Cannot specify a window when connecting actuator "{actuator}". '
                 f"You can only do that in the agnostic object definition."
