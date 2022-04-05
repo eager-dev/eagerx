@@ -232,8 +232,8 @@ def init_node(
     state_outputs = []
     real_reset = len(feedthrough) > 0
     assert not real_reset or (
-        real_reset and len(state_inputs) > 0
-    ), "Cannot initialize real reset node (%s). If len(feedthrough) is provided, then len(states) > 0. must hold."
+        real_reset and len(targets) > 0
+    ), "Cannot initialize real reset node (%s). If len(feedthroughs) is provided, then len(targets) > 0. must hold."
 
     # Prepare input topics
     flags = []

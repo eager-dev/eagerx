@@ -5,7 +5,7 @@ from typing import Optional, List
 from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
-from eagerx.bridges.test.bridge import TestBridgeNode
+from tests.test.bridge import TestBridgeNode
 from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, BaseConverter, Converter, Processor
 from eagerx.core.specs import ObjectSpec
 from eagerx.core.graph_engine import EngineGraph
@@ -67,13 +67,13 @@ class Arm(Object):
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         spec.config.name = name
-        spec.config.sensors = sensors if sensors else ["N6", "N7"]
-        spec.config.actuators = actuators if actuators else ["ref_vel"]
-        spec.config.states = states if states else ["N9", "N10"]
+        spec.config.sensors = sensors if isinstance(sensors, list) else ["N6", "N7"]
+        spec.config.actuators = actuators if isinstance(actuators, list) else ["ref_vel"]
+        spec.config.states = states if isinstance(states, list) else ["N9", "N10"]
 
         # Change custom params
-        spec.config.position = position if position else [0, 0, 0]
-        spec.config.orientation = orientation if orientation else [0, 0, 0]
+        spec.config.position = position if isinstance(position, list) else [0, 0, 0]
+        spec.config.orientation = orientation if isinstance(orientation, list) else [0, 0, 0]
         spec.config.string = string
         spec.config.test_string = test_string
         spec.config.test_list = test_list
@@ -288,13 +288,13 @@ class Viper(Arm):
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         spec.config.name = name
-        spec.config.sensors = sensors if sensors else ["N6", "N7"]
-        spec.config.actuators = actuators if actuators else ["ref_vel"]
-        spec.config.states = states if states else ["N9", "N10"]
+        spec.config.sensors = sensors if isinstance(sensors, list) else ["N6", "N7"]
+        spec.config.actuators = actuators if isinstance(actuators, list) else ["ref_vel"]
+        spec.config.states = states if isinstance(states, list) else ["N9", "N10"]
 
         # Change custom params
-        spec.config.position = position if position else [0, 0, 0]
-        spec.config.orientation = orientation if orientation else [0, 0, 0]
+        spec.config.position = position if isinstance(position, list) else [0, 0, 0]
+        spec.config.orientation = orientation if isinstance(orientation, list) else [0, 0, 0]
         spec.config.string = string
         spec.config.test_string = test_string
         spec.config.test_list = test_list

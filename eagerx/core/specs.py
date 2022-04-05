@@ -460,6 +460,8 @@ class BaseNodeSpec(EntitySpec):
 
         feedthroughs = []
         if "feedthroughs" in params:
+            assert "targets" in default, f'No targets defined for ResetNode "{name}".'
+            assert len(default["targets"]) > 0, f'No targets selected for ResetNode "{name}".'
             for cname in default["outputs"]:
                 # Add output details (msg_type, space_converter) to feedthroughs
                 assert (

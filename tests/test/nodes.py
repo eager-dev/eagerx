@@ -40,10 +40,10 @@ class RealResetNode(ResetNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["in_1"]
-        spec.config.outputs = outputs if outputs else ["out_1"]
-        spec.config.states = states if states else ["state_1"]
-        spec.config.targets = targets if targets else ["target_1"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["in_1"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["out_1"]
+        spec.config.states = states if isinstance(states, list) else ["state_1"]
+        spec.config.targets = targets if isinstance(targets, list) else ["target_1"]
 
         # Modify extra params
         spec.config.test_arg = test_arg
@@ -190,8 +190,8 @@ class ProcessNode(TestNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["in_1"]
-        spec.config.outputs = outputs if outputs else ["out_1"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["in_1"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["out_1"]
         spec.config.states = states if states else ["state_1"]
 
         # Modify extra params
@@ -239,9 +239,9 @@ class KalmanNode(TestNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["in_1"]
-        spec.config.outputs = outputs if outputs else ["out_1"]
-        spec.config.states = states if states else ["state_1"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["in_1"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["out_1"]
+        spec.config.states = states if isinstance(states, list) else ["state_1"]
 
         # Modify extra params
         spec.config.test_arg = test_arg
@@ -305,8 +305,8 @@ class TestActuator(TestNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick", "in_1", "in_2", "in_3"]
-        spec.config.outputs = outputs if outputs else ["out_1"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick", "in_1", "in_2", "in_3"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["out_1"]
 
         # Modify extra params
         spec.config.test_arg = test_arg
@@ -340,9 +340,9 @@ class TestSensor(TestNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick_1", "in_1"]
-        spec.config.outputs = outputs if outputs else ["out_1"]
-        spec.config.states = states if states else ["state_1"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick_1", "in_1"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["out_1"]
+        spec.config.states = states if isinstance(states, list) else ["state_1"]
 
         # Modify extra params
         spec.config.test_arg = test_arg

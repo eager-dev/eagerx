@@ -8,7 +8,7 @@ from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
 # Implementation specific
-import eagerx.bridges.test  # noqa # pylint: disable=unused-import
+import tests.test  # noqa # pylint: disable=unused-import
 
 if __name__ == "__main__":
     initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     #  - Pause environment
 
     # Define nodes
-    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1", "in_2"], targets=["target_1"])
+    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1", "in_2"], targets=["target_1"], states=[])
     N1 = Node.make("Process", "N1", rate=1.0, process=node_p)
     KF = Node.make("KalmanFilter", "KF", rate=rate, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
 

@@ -1,4 +1,4 @@
-from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
+from eagerx import Object, Bridge
 from eagerx import initialize, log, process
 
 # Environment imports
@@ -6,7 +6,7 @@ from eagerx.core.env import EagerxEnv
 from eagerx.core.graph import Graph
 
 # Implementation specific
-import eagerx.bridges.test  # noqa # pylint: disable=unused-import
+import tests.test  # noqa # pylint: disable=unused-import
 
 import pytest
 
