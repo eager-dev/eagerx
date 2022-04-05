@@ -1,3 +1,4 @@
+.. _space_converter_guide:
 ***************
 Space Converter
 ***************
