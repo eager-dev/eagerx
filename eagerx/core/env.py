@@ -472,7 +472,7 @@ class Env(gym.Env):
         else:
             rospy.logwarn_once("No render node active, so not rendering.")
             if mode == "rgb_array":
-                return np.empty((0, 0, 3), dtype='uint8')
+                return np.empty((0, 0, 3), dtype="uint8")
             else:
                 return
 
