@@ -231,16 +231,19 @@ The callback will be executed at the specified :attr:`~eagerx.core.entities.Brid
           # Get the ode_params that are set by engine states as we will see later on.
           ode_params = sim["ode_params"]
 
+          # If no input was set, return without stepping the simulator.
+          if input is None
+            return
+
           # Integrate the ODE
-          if x is not None and input is not None:
-              sim["state"] = odeint(
-                  ode,
-                  x,
-                  [0, 1.0 / self.rate],
-                  args=(input, *ode_params),
-                  Dfun=Dfun,
-                  **self.odeint_args,
-              )[-1]
+          sim["state"] = odeint(
+              ode,
+              x,
+              [0, 1.0 / self.rate],
+              args=(input, *ode_params),
+              Dfun=Dfun,
+              **self.odeint_args,
+          )[-1]
 
 .. note::
   Using the :func:`~eagerx.core.register.outputs` decorator, we specify all the outputs of the *OdeBridge* node.

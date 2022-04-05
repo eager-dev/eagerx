@@ -1,3 +1,4 @@
+.. _bridge_specific_real_bridge:
 ****************************
 Bridge-Specific (RealBridge)
 ****************************
