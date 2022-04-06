@@ -1,4 +1,4 @@
-from eagerx import Object, Bridge, Node, ResetNode, Converter, Processor
+from eagerx import Object, Bridge, Node, ResetNode, Converter
 from eagerx import initialize, log
 
 # Environment imports
@@ -7,7 +7,7 @@ from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
 # Implementation specific
-import eagerx.bridges.test  # noqa # pylint: disable=unused-import
+import tests.test  # noqa # pylint: disable=unused-import
 
 import time
 

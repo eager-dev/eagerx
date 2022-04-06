@@ -36,8 +36,8 @@ class ObservationSensor(EngineNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick"]
-        spec.config.outputs = outputs if outputs else ["observation"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["observation"]
 
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -89,8 +89,8 @@ class RewardSensor(EngineNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick"]
-        spec.config.outputs = outputs if outputs else ["reward"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["reward"]
 
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -142,8 +142,8 @@ class DoneSensor(EngineNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick"]
-        spec.config.outputs = outputs if outputs else ["done"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["done"]
 
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -196,8 +196,8 @@ class ActionActuator(EngineNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick", "action"]
-        spec.config.outputs = outputs if outputs else ["action_applied"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick", "action"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["action_applied"]
 
         # Modify custom node params
         spec.config.zero_action = zero_action
@@ -279,11 +279,11 @@ class GymImage(EngineNode):
         spec.config.rate = rate
         spec.config.process = process
         spec.config.color = color
-        spec.config.inputs = inputs if inputs else ["tick"]
-        spec.config.outputs = outputs if outputs else ["image"]
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["image"]
 
         # Modify custom node params
-        spec.config.shape = shape if shape else [200, 200]
+        spec.config.shape = shape if isinstance(shape, list) else [200, 200]
         spec.config.always_render = always_render
 
     def initialize(self, shape, always_render):

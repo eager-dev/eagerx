@@ -3,7 +3,6 @@ import rospy
 import rosparam
 import rosgraph
 from std_msgs.msg import UInt64
-from sensor_msgs.msg import Image
 
 # EAGERX
 from eagerx.core.specs import NodeSpec, ObjectSpec, BridgeSpec

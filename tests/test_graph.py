@@ -7,7 +7,7 @@ from eagerx.core.graph import Graph
 from eagerx.wrappers import Flatten
 
 # Implementation specific
-import eagerx.bridges.test  # noqa # pylint: disable=unused-import
+import tests.test  # noqa # pylint: disable=unused-import
 
 import pytest
 

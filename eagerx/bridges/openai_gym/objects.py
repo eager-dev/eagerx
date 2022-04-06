@@ -64,7 +64,7 @@ class GymObject(Object):
 
         # Set default node params
         spec.config.name = name
-        spec.config.sensors = sensors if sensors else ["observation", "reward", "done"]
+        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "done"]
         spec.config.actuators = ["action"]
 
         # Set custom node params
