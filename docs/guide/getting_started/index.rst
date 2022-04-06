@@ -52,6 +52,8 @@ By replacing ``<DISTRO>`` with the supported ROS distributions (``noetic``, ``me
 and ``<PACKAGE>`` with the installation type (``ros-base``, ``desktop``, ``desktop-full``),
 a minimal ros installation can be installed with:
 
+.. warning:: Currently, eagerx only supports ROS1. ROS2 support will be added in future versions.
+
 .. code:: shell
 
     sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
@@ -77,3 +79,16 @@ this line:
 .. code:: shell
 
       echo "source /opt/ros/<DISTRO>/setup.bash" >> .venv/bin/activate
+
+Known issues
+============
+
+- Using eagerx with anaconda can produce warnings (see below) when rendering or when using the GUI. This is a known issue that
+  is caused by the interaction of pyqtgraph (used in the GUI) and opencv (used for rendering) with Qt libraries. Code seems not
+  to break, so as a temporary fix, you are advised to suppress this error. Please file a bug report if eagerx/opencv/gui
+  functionality actually breaks.
+
+.. code:: shell
+
+    QObject::moveToThread: Current thread (0x7fb6c4009eb0) is not the object's thread (0x7fb6c407cf40). Cannot move to
+    target thread (0x7fb6c4009eb0).
