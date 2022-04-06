@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.13 (2022-04-06)
+### Fix
+* Bug with len(targets) > 0, refactor test_bridge to tests dir ([#144](https://github.com/eager-dev/eagerx/issues/144)) ([`8d1062e`](https://github.com/eager-dev/eagerx/commit/8d1062efa6e7d56447c512c3b3d49f55e51efacb))
+
+### Documentation
+* Pendulum tutorial ([#140](https://github.com/eager-dev/eagerx/issues/140)) ([`b1d668c`](https://github.com/eager-dev/eagerx/commit/b1d668cdea24250dabec9092c2913075f57f26db))
+
 ## v0.1.12 (2022-03-30)
 ### Fix
 * Dummy commit to trigger release (attempt 2) ([`9adf59e`](https://github.com/eager-dev/eagerx/commit/9adf59e90215ee8fe19a4a574d6e54d250f0b2b2))
