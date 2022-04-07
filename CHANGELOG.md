@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.14 (2022-04-07)
+### Fix
+* Update tests ([`7af6699`](https://github.com/eager-dev/eagerx/commit/7af66995542413e85e10caeb6e0f79e8ebff8beb))
+* Bump gym to 0.21.0 and resolve flake8 dependency clash ([`ea1299c`](https://github.com/eager-dev/eagerx/commit/ea1299cad53e45c1b763efd290f7e88382321a0a))
+* Add Object API to EngineGraph.gui() ([`351bfc1`](https://github.com/eager-dev/eagerx/commit/351bfc1f50d7c82937cc5b9caf0e712978388ab6))
+
+### Documentation
+* Add link to github repo in readthedocs ([`725e734`](https://github.com/eager-dev/eagerx/commit/725e734eb4bb7587015b80840cd5765637c600be))
+* Add ros2 warning & known issue for anaconda with Qt ([`060b78c`](https://github.com/eager-dev/eagerx/commit/060b78ccc3b16bbc2a8bd1bb3c5304a91d3fa482))
+
 ## v0.1.13 (2022-04-06)
 ### Fix
 * Bug with len(targets) > 0, refactor test_bridge to tests dir ([#144](https://github.com/eager-dev/eagerx/issues/144)) ([`8d1062e`](https://github.com/eager-dev/eagerx/commit/8d1062efa6e7d56447c512c3b3d49f55e51efacb))
