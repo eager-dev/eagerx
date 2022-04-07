@@ -11,7 +11,7 @@ import eagerx.converters  # noqa: F401
 
 import pytest
 
-zero_action = {"Pendulum-v0": [0.0], "Acrobot-v1": 0}
+zero_action = {"Pendulum-v0": [0.0], "Pendulum-v1": [0.0], "Acrobot-v1": 0}
 NP = process.NEW_PROCESS
 ENV = process.ENVIRONMENT
 
@@ -19,7 +19,7 @@ ENV = process.ENVIRONMENT
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
     "gym_id, eps, is_reactive, rtf, p",
-    [("Pendulum-v0", 2, True, 0, ENV), ("Pendulum-v0", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
+    [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
 def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
@@ -55,6 +55,7 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     name = f"{name}_{eps}_{is_reactive}_{p}"
 
     # Define bridge
+    obj.gui("GymBridge")
     bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=rtf, process=p)
 
     # Initialize Environment
