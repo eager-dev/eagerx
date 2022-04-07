@@ -88,12 +88,13 @@ GUI_WIDGETS = {
             "feedthroughs": ["space_converter"],
         },
         "hide": {
-            "all": [],
+            "all": ["address"],
             "states": ["converter"],
             "targets": ["space_converter"],
             "sensors": ["start_with_msg"],
-            "actions": ["start_with_msg", "space_converter"],
+            "actions": ["start_with_msg", "space_converter", "external_rate"],
             "observations": ["is_reactive", "rate", "space_converter"],
+            "outputs": ["rate"],
         },
     },
 }
