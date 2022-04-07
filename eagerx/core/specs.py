@@ -628,6 +628,25 @@ class ObjectSpec(EntitySpec):
         else:
             return SpecView(self, depth=[depth], name=name)
 
+    def gui(self, bridge_id: str) -> None:
+        """Opens a graphical user interface of the object's bridge implementation.
+
+        .. note:: Requires `eagerx-gui`:
+
+        .. highlight:: python
+        .. code-block:: python
+
+            pip3 install eagerx-gui
+
+        :param bridge_id: The `entity_id` with which the object's bridge implementation was registered (e.g. "PybulletBridge").
+        """
+        import eagerx.core.register as register
+
+        spec_copy = ObjectSpec(self.params)
+        spec_copy._params[bridge_id] = {}
+        graph = register.add_bridge(spec_copy, bridge_id)
+        graph.gui()
+
     @property
     def sensors(self) -> Union[SpecView, GraphView]:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.sensors`.

@@ -77,7 +77,7 @@ class EngineGraph:
             )
 
         # Create a state
-        state = dict(nodes=dict(), connects=list(), backup=dict())
+        state = dict(nodes=dict(), connects=list(), backup=dict(), gui_state=dict())
         graph = cls(state)
         graph.add(nodes)
         return graph
@@ -701,7 +701,14 @@ class EngineGraph:
         .. note:: Currently, a gui is not yet support for engine graphs.
                   This feature will be added in the near future.
         """
-        raise NotImplementedError("Gui is not yet supported for engine graphs.")
+        try:
+            from eagerx_gui import launch_engine_gui
+        except ImportError as e:
+            rospy.logwarn(
+                f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
+            )
+            return
+        self._state = launch_engine_gui(deepcopy(self._state))
 
     @staticmethod
     def _get_address(source: Tuple[str, str, str], target: Tuple[str, str, str]):

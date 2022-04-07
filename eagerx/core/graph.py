@@ -1012,7 +1012,7 @@ class Graph:
             from eagerx_gui import launch_gui
         except ImportError as e:
             rospy.logwarn(
-                f"{e}. You will likely have to install eagerx-gui. Please visit the eagerx_packages repository for installation instructions."
+                f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
             )
             return
 

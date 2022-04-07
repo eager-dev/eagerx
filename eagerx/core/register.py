@@ -273,6 +273,7 @@ def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
             func(spec, graph)
             # Add graph to spec & remove redundant states
             spec._add_graph(bridge_id, graph)
+            return graph
 
         # Register bridge implementation for object
         from eagerx.core.entities import Object
@@ -305,4 +306,5 @@ def add_bridge(spec, bridge_id):
     assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
     assert entity_id in REGISTRY[Object], msg + "No object with this entity_id was registered. Make sure to import the object."
 
-    _ = REGISTRY[Object][entity_id][bridge_id](spec)
+    graph = REGISTRY[Object][entity_id][bridge_id](spec)
+    return graph
