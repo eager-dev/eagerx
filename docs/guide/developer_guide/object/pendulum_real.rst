@@ -11,11 +11,11 @@ In this case, we will create an implementation for the `RealBridge <https://gith
 real_bridge
 ##########
 
-Bridge-specific can be created by adding a method to an :mod:`~eagerx.core.entities.Object`, e.g. :func:`~eagerx.core.entities.Object.example_bridge`.
+Bridge-specific can be created by adding a method to an :class:`~eagerx.core.entities.Object`, e.g. :func:`~eagerx.core.entities.Object.example_bridge`.
 In this case, we create an implementation for the *RealBridge*, to be able to perform experiments with the real system.
 For this, we use the `engine nodes that we have created here <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/real/engine_nodes.py>`_.
 Also, we will be using the `engine states that we have created here <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/real/engine_states.py>`_.
-Finally, we will construct an :mod:`~eagerx.core.graph_engine.EngineGraph` with the created nodes.
+Finally, we will construct an :class:`~eagerx.core.graph_engine.EngineGraph` with the created nodes.
 
 ::
 
@@ -55,5 +55,5 @@ Finally, we will construct an :mod:`~eagerx.core.graph_engine.EngineGraph` with 
 .. note::
   Mind the use of the :func:`~eagerx.core.register.bridge` decorator, which creates the link to the corresponding bridge.
   Therefore, the name of the *real_bridge* method is irrelevant, i.e. the link to the *RealBridge* is defined by the aforementioned decorator.
-  Also note that we are importing :mod:`eagerx_dcsc_setups.pendulum.real`.
+  Also note that we are importing :class:`eagerx_dcsc_setups.pendulum.real`.
   During the import, the engine nodes of this module are registered and therefore we can use the :func:`~eagerx.core.entities.EngineNode.make` and :func:`~eagerx.core.entities.EngineState.make` methods with the IDs to create these nodes (e.g. PendulumOutput).

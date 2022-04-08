@@ -3,13 +3,13 @@
 Space Converter
 ***************
 
-In this section we will discuss the concept of a :mod:`~eagerx.core.entities.SpaceConverter`.
+In this section we will discuss the concept of a :class:`~eagerx.core.entities.SpaceConverter`.
 A space converter can be used to create `Openai Gym Spaces <https://gym.openai.com/docs/#spaces>`_ for messages and define how we can convert them from and to a *numpy.ndarray*, which is the default data type in OpenAI Gym.
 In this section we will go through the process of creating the *Space_AngleDecomposition*, which will allow to convert a *Float32MultiArray* to a *numpy.ndarray*.
 At the same time, we will decompose one of the entries of the *Float32MultiArray* into a sine and cosine component.
 This space converter can be used when dealing with angular positions, since learning on the sine and cosine is often more efficient due to the discontinuities in the angular position.
 
-The :mod:`~eagerx.core.entities.SpaceConverter` base class has two class variables:
+The :class:`~eagerx.core.entities.SpaceConverter` base class has two class variables:
 
 - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_A`
 - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_B`
@@ -52,7 +52,7 @@ The second message type will be a `Float32MultiArray <http://docs.ros.org/en/noe
 spec
 ####
 
-The :func:`~eagerx.core.entities.SpaceConverter.spec` method can be used to specify with which arguments the :mod:`~eagerx.core.entities.SpaceConverter` will be initialized.
+The :func:`~eagerx.core.entities.SpaceConverter.spec` method can be used to specify with which arguments the :class:`~eagerx.core.entities.SpaceConverter` will be initialized.
 In our case, we add *low*, *high* and *dtype* to the :attr:`~eagerx.core.specs.ConverterSpec.config`.
 
 ::
