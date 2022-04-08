@@ -3,10 +3,10 @@ OdeBridge
 *********
 
 We will start by creating a file called `bridge.py <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/bridge.py>`_.
-Here we will define the *OdeBridge*, which will be a subclass of the :mod:`~eagerx.core.entities.Bridge` class.
+Here we will define the *OdeBridge*, which will be a subclass of the :class:`~eagerx.core.entities.Bridge` class.
 This class has six abstract methods:
 
-* :func:`~eagerx.core.entities.Bridge.spec`, here we will specify the *OdeBridge*'s parameters in a configuration :mod:`~eagerx.core.specs.BridgeSpec` object.
+* :func:`~eagerx.core.entities.Bridge.spec`, here we will specify the *OdeBridge*'s parameters in a configuration :class:`~eagerx.core.specs.BridgeSpec` object.
 * :func:`~eagerx.core.entities.Bridge.initialize`, here we determine how the *OdeBridge* initializes using the specification that is created in the :func:`~eagerx.core.entities.Bridge.spec` function..
 * :func:`~eagerx.core.entities.Bridge.add_object`, here we will specify how objects are added.
 * :func:`~eagerx.core.entities.Bridge.pre_reset`, here we prepare a reset of the *OdeBridge*.
@@ -21,8 +21,8 @@ This class has six abstract methods:
   :alt: alternate text
   :figclass: align-center
 
-  In this section we will discuss the concept of a :mod:`~eagerx.core.entities.Bridge`.
-  The :mod:`~eagerx.core.entities.Bridge` connects the :mod:`~eagerx.core.env.EagerxEnv`, :mod:`~eagerx.core.graph_engine.EngineGraph` and :mod:`~eagerx.core.entities.EngineState` to the physics engine/real world.
+  In this section we will discuss the concept of a :class:`~eagerx.core.entities.Bridge`.
+  The :class:`~eagerx.core.entities.Bridge` connects the :class:`~eagerx.core.env.EagerxEnv`, :class:`~eagerx.core.graph_engine.EngineGraph` and :class:`~eagerx.core.entities.EngineState` to the physics engine/real world.
 
 spec
 ####
@@ -31,7 +31,7 @@ First we will define the :func:`~eagerx.core.entities.Bridge.spec` method.
 In this method we will "specify" a number of parameters of the *OdeBridge*.
 
 We can make a distinction between standard parameters and custom parameters.
-First of all, there are the standard parameters for the :mod:`~eagerx.core.entities.Bridge` class:
+First of all, there are the standard parameters for the :class:`~eagerx.core.entities.Bridge` class:
 
 * :attr:`~eagerx.core.entities.Bridge.rate`
 * :attr:`~eagerx.core.entities.Bridge.process`
@@ -41,7 +41,7 @@ First of all, there are the standard parameters for the :mod:`~eagerx.core.entit
 * :attr:`~eagerx.core.entities.Bridge.log_level`
 
 Secondly, we will define some parameters that are custom for the OdeBridge.
-We will use these to set some of the parameters of the `odeint <https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html>`_ method from :mod:`scipy.integrate` which we will use to integrate the ODEs.
+We will use these to set some of the parameters of the `odeint <https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.odeint.html>`_ method from :class:`scipy.integrate` which we will use to integrate the ODEs.
 These custom parameters are:
 
 * **rtol**: *float*, The input parameters rtol and atol determine the error control performed by the solver.
@@ -108,7 +108,7 @@ We can define the default values for all of these parameters using the spec func
   First of all, we see the *staticmethod* and :func:`~eagerx.core.register.spec` decorators.
   You are probably familiar with the first one, but the second might need some explanation.
   We use the :func:`~eagerx.core.register.spec` decorator to create an identifier for this bridge, i.e. "OdeBridge".
-  Also, it will allow us to directly modify default bridge parameters that are stored in the *spec* object of type :mod:`~eagerx.core.specs.BridgeSpec`.
+  Also, it will allow us to directly modify default bridge parameters that are stored in the *spec* object of type :class:`~eagerx.core.specs.BridgeSpec`.
   Note that we first need to run :func:`~eagerx.core.specs.BridgeSpec.initialize` to set the default arguments.
   Custom arguments correspond to the arguments of the :func:`~eagerx.core.entities.Bridge.initialize` method as we will see later on.
 
@@ -136,8 +136,8 @@ Therefore, all we need to do to initialize the *OdeBridge* is to define two dict
   Note that the parameters under "custom params" correspond to the signature of the :func:`~eagerx.core.entities.Bridge.initialize` method.
   In this way, we can easily use these parameters to initialize the *OdeBridge* node.
   We will use the *simulator* attribute to keep track of the objects and their ODEs, states and inputs.
-  This *simulator* object is a special object, since it will be shared among all the engine nodes of type :mod:`~eagerx.core.entities.EnigneNode`.
-  In this way, we create a reference simulator attribute in the :mod:`~eagerx.core.entities.Bridge`.
+  This *simulator* object is a special object, since it will be shared among all the engine nodes of type :class:`~eagerx.core.entities.EnigneNode`.
+  In this way, we create a reference simulator attribute in the :class:`~eagerx.core.entities.Bridge`.
 
 add_object
 ##########
@@ -172,7 +172,7 @@ Also, we allow users to specify parameters that can be used to set arguments of 
 .. note::
   Here the :func:`~eagerx.utils.utils.get_attribute_from_module` function is just a helper function to import an attribute from a module based on a string that is defined as "[module_name]/[attribute]".
   Again, note the :func:`~eagerx.core.register.bridge_config` decorator in which the *ode* and *ode_params* parameters are registered.
-  Every :mod:`~eagerx.core.entities.Object` interfaced with this :mod:`~eagerx.core.entities.Bridge` will have to specify these parameters.
+  Every :class:`~eagerx.core.entities.Object` interfaced with this :class:`~eagerx.core.entities.Bridge` will have to specify these parameters.
   The bridge receives these parameters via the ``bridge_config`` argument.
   The ``bridge_config`` object is meant to be used for all parameters that are bridge specific.
   The agnostic params should be defined in the ``config`` object.

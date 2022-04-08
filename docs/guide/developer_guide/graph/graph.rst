@@ -2,11 +2,11 @@
 Graph
 *****
 
-In this section we will discuss the concept of a :mod:`~eagerx.core.graph.Graph`.
-A :mod:`~eagerx.core.graph.Graph` object can be created to connect inputs and outputs of different entities of types :mod:`~eagerx.core.entities.Node`, :mod:`~eagerx.core.entities.ResetNode` and :mod:`~eagerx.core.entities.Object`.
-This :mod:`~eagerx.core.graph.Graph` can be used to initialize an :mod:`~eagerx.core.env.EagerxEnv`.
-Here, we will show an example of how to create such a :mod:`~eagerx.core.graph.Graph`.
-We will connect a `Pendulum <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_ :mod:`~eagerx.core.entities.Object` and `ButterworthFilter <https://github.com/eager-dev/eagerx/blob/master/eagerx/nodes/butterworth_filter.py>`_ :mod:`~eagerx.core.entities.Node`.
+In this section we will discuss the concept of a :class:`~eagerx.core.graph.Graph`.
+A :class:`~eagerx.core.graph.Graph` object can be created to connect inputs and outputs of different entities of types :class:`~eagerx.core.entities.Node`, :class:`~eagerx.core.entities.ResetNode` and :class:`~eagerx.core.entities.Object`.
+This :class:`~eagerx.core.graph.Graph` can be used to initialize an :class:`~eagerx.core.env.EagerxEnv`.
+Here, we will show an example of how to create such a :class:`~eagerx.core.graph.Graph`.
+We will connect a `Pendulum <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_ :class:`~eagerx.core.entities.Object` and `ButterworthFilter <https://github.com/eager-dev/eagerx/blob/master/eagerx/nodes/butterworth_filter.py>`_ :class:`~eagerx.core.entities.Node`.
 Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.Graph.render` method.
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/examples/example_ode.py>`_
@@ -16,9 +16,9 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
   :alt: alternate text
   :figclass: align-center
 
-  In this section we will discuss the concept of a :mod:`~eagerx.core.graph.Graph`.
-  A :mod:`~eagerx.core.graph.Graph` consists of a collection of entities of type :mod:`~eagerx.core.entities.Node` and :mod:`~eagerx.core.entities.Object`.
-  The graph is engine-agnostic and should be provided to the :mod:`~eagerx.core.env.EagerxEnv`, such that communication pipelines can be set up correctly.
+  In this section we will discuss the concept of a :class:`~eagerx.core.graph.Graph`.
+  A :class:`~eagerx.core.graph.Graph` consists of a collection of entities of type :class:`~eagerx.core.entities.Node` and :class:`~eagerx.core.entities.Object`.
+  The graph is engine-agnostic and should be provided to the :class:`~eagerx.core.env.EagerxEnv`, such that communication pipelines can be set up correctly.
 
 ::
 
@@ -66,20 +66,20 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
 
 
 .. note::
-  An :mod:`~eagerx.core.entities.Object` can be created using the :func:`~eagerx.core.entities.make` method.
-  Note that in order to be able to make the *Pendulum* :mod:`~eagerx.core.entities.Object`, we need to import it: *import eagerx_dcsc_setups.pendulum*.
-  This also holds for creating a :mod:`~eagerx.core.entities.Node` using :func:`~eagerx.core.entities.Node.make` method: *import eagerx.nodes  # Registers butterworth_filter*.
+  An :class:`~eagerx.core.entities.Object` can be created using the :func:`~eagerx.core.entities.make` method.
+  Note that in order to be able to make the *Pendulum* :class:`~eagerx.core.entities.Object`, we need to import it: *import eagerx_dcsc_setups.pendulum*.
+  This also holds for creating a :class:`~eagerx.core.entities.Node` using :func:`~eagerx.core.entities.Node.make` method: *import eagerx.nodes  # Registers butterworth_filter*.
   Furthermore, note that we first call the :func:`~eagerx.initialize` function.
   This starts a roscore and allows to initialize the communication pipelines.
-  Also can be seen here that nodes and objects can be added to the :mod:`~eagerx.core.graph.Graph` using the :func:`~eagerx.core.graph.Graph.add` method.
-  Furthermore, nodes and objects can be connected using the :mod:`~eagerx.core.graph.connect` method.
+  Also can be seen here that nodes and objects can be added to the :class:`~eagerx.core.graph.Graph` using the :func:`~eagerx.core.graph.Graph.add` method.
+  Furthermore, nodes and objects can be connected using the :class:`~eagerx.core.graph.connect` method.
   For this method it is worth mentioning that if the *action* or *observation* argument is specified, the agent's action or obeservation space will be extended with that action or observation.
-  The appropriate agent's `action and observation spaces <https://gym.openai.com/docs/#spaces>`_ can be created if a :mod:`~eagerx.core.entities.SpaceConverter` is defined for the connected :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors`, :attr:`~eagerx.core.specs.NodeSpec.inputs` or :attr:`~eagerx.core.specs.ObjectSpec.outputs`.
+  The appropriate agent's `action and observation spaces <https://gym.openai.com/docs/#spaces>`_ can be created if a :class:`~eagerx.core.entities.SpaceConverter` is defined for the connected :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors`, :attr:`~eagerx.core.specs.NodeSpec.inputs` or :attr:`~eagerx.core.specs.ObjectSpec.outputs`.
 
 GUI
 ###
 
-Having created the :mod:`~eagerx.core.graph.Graph`, we can inspect it using the `GUI <https://github.com/eager-dev/eagerx_gui>`_.
+Having created the :class:`~eagerx.core.graph.Graph`, we can inspect it using the `GUI <https://github.com/eager-dev/eagerx_gui>`_.
 Note that we need to install it first if you haven't done so yet:
 
 .. code-block:: console
@@ -103,5 +103,5 @@ The output you will see should look something like this:
     Screenshot of the EAGERx GUI.
 
 .. note::
-  The GUI also provides functionalities for constructing a :mod:`~eagerx.core.graph.Graph`.
-  So we could also have created the exact same :mod:`~eagerx.core.graph.Graph` from scratch using the GUI.
+  The GUI also provides functionalities for constructing a :class:`~eagerx.core.graph.Graph`.
+  So we could also have created the exact same :class:`~eagerx.core.graph.Graph` from scratch using the GUI.

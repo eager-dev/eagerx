@@ -2,15 +2,15 @@
 Engine Nodes
 ************
 
-In this section, we will show how to create an :mod:`~eagerx.core.entities.EngineNode`.
-Engine nodes are nodes that interact with the :mod:`~eagerx.core.entities.Bridge` node and define the behaviour of sensors and actuators.
-An :mod:`~eagerx.core.entities.EngineNode` is often bridge-specific, since here is defined how actions are applied and observations are obtained.
+In this section, we will show how to create an :class:`~eagerx.core.entities.EngineNode`.
+Engine nodes are nodes that interact with the :class:`~eagerx.core.entities.Bridge` node and define the behaviour of sensors and actuators.
+An :class:`~eagerx.core.entities.EngineNode` is often bridge-specific, since here is defined how actions are applied and observations are obtained.
 We will clarify the concept of engine nodes in this section by going through the process of creating the engine nodes for the *OdeBridge*.
-This :mod:`~eagerx.core.entities.Bridge` allows to simulate systems based on ordinary differential equations (ODEs).
+This :class:`~eagerx.core.entities.Bridge` allows to simulate systems based on ordinary differential equations (ODEs).
 In the engine nodes for the *OdeBridge*, we will define how inputs and outputs are send to and from the *OdeBridge*.
 We will define three classes: *OdeOutput*, *OdeInput* and *ActionApplied*.
 Each of these classes will be a subclass of the *EngineNode* class.
-Here we will go into detail on how to the *OdeInput* :mod:`~eagerx.core.entities.EngineNode` is created.
+Here we will go into detail on how to the *OdeInput* :class:`~eagerx.core.entities.EngineNode` is created.
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_
 
@@ -19,16 +19,16 @@ Here we will go into detail on how to the *OdeInput* :mod:`~eagerx.core.entities
   :alt: alternate text
   :figclass: align-center
 
-  In this section we will discuss the concept of a :mod:`~eagerx.core.entities.EngineNode`.
-  In the engine nodes, we create an implementation of actuators and sensors for a specific :mod:`~eagerx.core.entities.Bridge`.
-  The :mod:`~eagerx.core.entities.EngineNode` can be added to an :mod:`~eagerx.core.graph_engine.EngineGraph`.
+  In this section we will discuss the concept of a :class:`~eagerx.core.entities.EngineNode`.
+  In the engine nodes, we create an implementation of actuators and sensors for a specific :class:`~eagerx.core.entities.Bridge`.
+  The :class:`~eagerx.core.entities.EngineNode` can be added to an :class:`~eagerx.core.graph_engine.EngineGraph`.
 
 OdeInput
 ########
 
-First we will define an :mod:`~eagerx.core.entities.EngineNode` for setting the input for the *OdeBridge*.
-We can do this by using the :mod:`~eagerx.core.entities.EngineNode` base class.
-For the :mod:`~eagerx.core.entities.EngineNode` base class, there are four abstract methods:
+First we will define an :class:`~eagerx.core.entities.EngineNode` for setting the input for the *OdeBridge*.
+We can do this by using the :class:`~eagerx.core.entities.EngineNode` base class.
+For the :class:`~eagerx.core.entities.EngineNode` base class, there are four abstract methods:
 
 * :func:`~eagerx.core.entities.EngineNode.spec`, here we will specify the parameters of *OdeInput*.
 * :func:`~eagerx.core.entities.EngineNode.initialize`, here we will specify how the *OdeInput* node is initialized.
@@ -43,7 +43,7 @@ The :func:`~eagerx.core.entities.EngineNode.spec` method can be used to specify 
 Since we need a reference to the simulator (the *OdeBridge*), we will also specify here that we run this node in the bridge process per default.
 If this node is run in another process, we won't have a reference to the *simulator* attribute from the *OdeBridge* and will not be able to pass inputs easily to the *OdeBridge* node.
 We also specify that this node has two input and one output, which respectively are "tick", "action" and "action_applied".
-The "tick" input is required, since it ensures that the *OdeInput* :mod:`~eagerx.core.entities.EngineNode` is synchronized with the *OdeBridge* :mod:`~eagerx.core.entities.Bridge`.
+The "tick" input is required, since it ensures that the *OdeInput* :class:`~eagerx.core.entities.EngineNode` is synchronized with the *OdeBridge* :class:`~eagerx.core.entities.Bridge`.
 Also, we add a custom parameter called *default_action*, which will allow to specify a default action that will be applied in case it is not overwritten.
 The spec method now looks as follows:
 
@@ -86,7 +86,7 @@ The spec method now looks as follows:
         spec.config.default_action = default_action
 
 .. note::
-  Note the use of the :func:`~eagerx.core.register.spec` decorator to register the id of this :mod:`~eagerx.core.entities.EngineNode`.
+  Note the use of the :func:`~eagerx.core.register.spec` decorator to register the id of this :class:`~eagerx.core.entities.EngineNode`.
   This basically allows to use this node in objects using the id.
 
 initialize
@@ -105,7 +105,7 @@ In this method we will set the object name, the default action and check whether
     self.default_action = np.array(default_action)
 
 .. note::
-  Note that the parameter *default_action*, which we added to the *spec* object of type :mod:`~eagerx.core.specs.NodeSpec` becomes an argument to the :func:`~eagerx.core.entities.EngineNode.initialize` method.
+  Note that the parameter *default_action*, which we added to the *spec* object of type :class:`~eagerx.core.specs.NodeSpec` becomes an argument to the :func:`~eagerx.core.entities.EngineNode.initialize` method.
 
 reset
 *****
@@ -128,7 +128,7 @@ At the specified :attr:`~eagerx.core.entities.EngineNode.rate` of the *OdeInput*
 In this callback we want to update the action that will be applied by the *OdeBridge* based on the latest action we have received.
 Here, we will also define the inputs and outputs of the *OdeInput* node and their message types.
 This is necessary in order to set up communication pipelines in the background.
-In our case, the inputs are the bridge tick "tick" with message type :mod:`~std_msgs.msg.UInt64` and the action "action" which will be a :mod:`~std_msgs.msg.Float32MultiArray`.
+In our case, the inputs are the bridge tick "tick" with message type :class:`~std_msgs.msg.UInt64` and the action "action" which will be a :class:`~std_msgs.msg.Float32MultiArray`.
 In code, this is implemented as follows:
 
 ::
@@ -150,7 +150,7 @@ In code, this is implemented as follows:
 .. note::
   Note that the message type as provided using the :func:`~eagerx.core.register.inputs` and :func:`~eagerx.core.register.outputs` decorators, should be ROS message types.
   For more information, see the documentation on :func:`~eagerx.core.entities.EngineNode.callback`.
-  Also, the "tick" input ensures that this :func:`~eagerx.core.entities.EngineNode.callback` is synchronized with the :mod:`~eagerx.core.entities.Bridge`.
+  Also, the "tick" input ensures that this :func:`~eagerx.core.entities.EngineNode.callback` is synchronized with the :class:`~eagerx.core.entities.Bridge`.
 
 Similarly, we can create the engine nodes *OdeOutput* and *ActionApplied* for obtaining the output from the *OdeBridge* simulator and obtaining the value for the action that is applied.
 The *ActionApplied* will allow other nodes to listen to the action that is applied in the simulator.

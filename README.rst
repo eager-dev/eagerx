@@ -71,8 +71,7 @@ You can install everything by running:
 
     pip3 install eagerx-gui
 
-..
-  TODO: Add example and gif of GUI
+.. image:: docs/gifs/gui.GIF
 
 Extras: training visualization
 ------------------------------

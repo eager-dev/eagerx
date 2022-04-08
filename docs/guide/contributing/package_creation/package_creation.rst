@@ -118,5 +118,5 @@ Now we run the tests:
     So before pushing your code, you can check whether the tests are passing locally by running *make pytest*.
 
 .. note::
-  Be aware that in order to use a :mod:`~eagerx.core.entities.Node`, :mode:`~eagerx.core.entities.EngineNode` or any other enitity from :mod:`eagerx.core.entities` you have created, that they should be imported before making them using :func:`~eagerx.core.entities.make` with the corresponding ID.
+  Be aware that in order to use a :class:`~eagerx.core.entities.Node`, :class:`~eagerx.core.entities.EngineNode` or any other enitity from :class:`eagerx.core.entities` you have created, that they should be imported before making them using :func:`~eagerx.core.entities.make` with the corresponding ID.
   Therefore, we advice to import these in the *__init__.py* as is done `for example here <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/__init__.py>`_.

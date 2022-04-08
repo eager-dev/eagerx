@@ -20,14 +20,15 @@ Extras: GUI
 -----------
 
 To install the whole set of features, you will need additional packages.
-You can install everything by running:
+There is for example a package available for visualizing the :class:`~eagerx.core.graph.Graph` and the :class:`~eagerx.core.graph_engine.EngineGraph`.
+This `gui <https://github.com/eager-dev/eagerx_gui>`_ also allows to construct and modify a :class:`~eagerx.core.graph.Graph`.
+You can install the gui by running:
 
 .. code:: shell
 
     pip3 install eagerx-gui
 
-..
-  TODO: Add example and gif of GUI
+.. image:: ../../gifs/gui.GIF
 
 Extras: training visualization
 ------------------------------
