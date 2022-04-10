@@ -17,6 +17,15 @@ log_levels_ROS = {
     FATAL: rospy.FATAL,
 }
 
+ros_log_fns = {
+    SILENT: lambda print_str: None,
+    DEBUG: rospy.logdebug,
+    INFO: rospy.loginfo,
+    WARN: rospy.logwarn,
+    ERROR: rospy.logerr,
+    FATAL: rospy.logfatal,
+}
+
 
 class log:
     SILENT = SILENT
