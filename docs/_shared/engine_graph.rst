@@ -70,7 +70,7 @@ In this case, we will construct an :class:`~eagerx.core.graph_engine.EngineGraph
   Mind the usage of the :func:`~eagerx.core.register.bridge` decorator.
   Also, we want to point out that the API for creating the :class:`~eagerx.core.graph_engine.EngineGraph` is similar to the one from :class:`~eagerx.core.graph.Graph`.
 
-Visualisation and Validation
+Visualization and Validation
 ############################
 
 We can use the `GUI <https://github.com/eager-dev/eagerx_gui>`_ to inspect the :class:`~eagerx.core.graph_engine.EngineGraph`.
