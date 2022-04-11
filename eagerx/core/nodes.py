@@ -262,24 +262,24 @@ class RenderNode(Node):
         empty = self.last_image.height == 0 or self.last_image.width == 0
         if not empty and self.display and self.render_toggle:
             try:
-                try:
-                    cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, "bgr8")
-                except ImportError as e:
-                    rospy.logwarn_once("[%s] %s. Using numpy instead." % (self.ns_name, e))
+                cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, "bgr8")
+            except ImportError as e:
+                rospy.logwarn_once("[%s] %s. Using numpy instead." % (self.ns_name, e))
 
-                    if isinstance(self.last_image.data, bytes):
-                        cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(
-                            self.last_image.height, self.last_image.width, -1
-                        )
-                    else:
-                        cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(
-                            self.last_image.height, self.last_image.width, -1
-                        )
-                    if "rgb" in self.last_image.encoding:
-                        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+                if isinstance(self.last_image.data, bytes):
+                    cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(
+                        self.last_image.height, self.last_image.width, -1
+                    )
+                else:
+                    cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(
+                        self.last_image.height, self.last_image.width, -1
+                    )
+                if "rgb" in self.last_image.encoding:
+                    cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
             except cv_bridge.CvBridgeError as e:
                 rospy.logwarn(e)
                 return dict(done=UInt64())
+
             cv2.imshow("Render", cv_image)
             cv2.waitKey(1)
             self.window_closed = False

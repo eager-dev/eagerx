@@ -71,7 +71,12 @@ You can install everything by running:
 
     pip3 install eagerx-gui
 
-.. image:: docs/gifs/gui.GIF
+.. figure:: docs/_static/gif/gui.GIF
+    :align: center
+    :alt: alternate text
+    :figclass: align-center
+
+    The construction of an environment via the GUI.
 
 Extras: training visualization
 ------------------------------

@@ -1,1 +1,1 @@
-../../developer_guide/object/pendulum_sim.rst
+.. include:: /_shared/pendulum_sim.rst

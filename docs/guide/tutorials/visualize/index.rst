@@ -50,7 +50,7 @@ So we could also have created the exact same :class:`~eagerx.core.graph.Graph` f
 
 This is demonstrated in the video below:
 
-.. figure:: /gifs/gui.GIF
+.. figure:: /_static/gif/gui.GIF
     :align: center
     :alt: alternate text
     :figclass: align-center
@@ -85,7 +85,7 @@ environment is running:
 
 This will open a live-plot of the x, y, and z coordinate of the end effector similar to the one below.
 
-.. figure:: /gifs/rqt_plot.GIF
+.. figure:: /_static/gif/rqt_plot.GIF
     :align: center
     :alt: alternate text
     :figclass: align-center
@@ -129,6 +129,3 @@ what to visualize:
 -   `Nodes/Topics (active)`: This will show all communication (i.e. topics) that are currently active.
 
 -   `Nodes/Topics (all)`: This will show all communication (i.e. topics).
-
-
-
