@@ -1,10 +1,11 @@
-********************
-EAGERx visualization
-********************
+****************************
+Visualizing your environment
+****************************
 In this tutorial we will demonstrate how you can use EAGERx to visualize parts of your environment.
 
-EAGERx has a built-in GUI to visualize the environment. In addition, many tools from ROS can be used, as EAGERx
-is build on top of ROS. These tools can give valuable insights on the workings of your environment.
+EAGERx has a built-in GUI to visualize your environment. Moreover, as EAGERx
+is build on top of ROS you can use many of the support ROS tools. These tools can give valuable insights on the workings of
+your environment.
 
 .. note::
     The ROS tools we cover in this tutorial (e.g. ``rqt_plot``) are per default included in the ``desktop`` and
@@ -17,6 +18,44 @@ is build on top of ROS. These tools can give valuable insights on the workings o
 
         sudo apt-get install ros-<DISTRO>-rqt
         sudo apt-get install ros-<DISTRO>-rqt-common-plugins
+
+Graphical user interface
+************************
+
+After creating the :class:`~eagerx.core.graph.Graph` for our environment, we can inspect it using the `GUI <https://github
+.com/eager-dev/eagerx_gui>`_. Note that we need to install it first if you haven't done so yet:
+
+.. code-block:: console
+
+   pip install eagerx-gui
+
+Next, we can open it by calling :func:`~eagerx.core.graph.Graph.gui`:
+
+::
+
+  graph.gui()
+
+By clicking on *Show Graph*, we can inspect the graph in the GUI.
+The output you will see should look something like this:
+
+.. figure:: /_static/img/example_gui.png
+    :align: center
+    :alt: alternate text
+    :figclass: align-center
+
+    Screenshot of the EAGERx GUI.
+
+The GUI also provides functionalities for constructing a :class:`~eagerx.core.graph.Graph`.
+So we could also have created the exact same :class:`~eagerx.core.graph.Graph` from scratch using the GUI.
+
+This is demonstrated in the video below:
+
+.. figure:: /gifs/gui.GIF
+    :align: center
+    :alt: alternate text
+    :figclass: align-center
+
+    The construction of an environment via the GUI.
 
 Live-plotting
 *************
@@ -46,12 +85,17 @@ environment is running:
 
 This will open a live-plot of the x, y, and z coordinate of the end effector similar to the one below.
 
-.. image:: rqt_plot.png
+.. figure:: /gifs/rqt_plot.GIF
+    :align: center
+    :alt: alternate text
+    :figclass: align-center
+
+    Live plot of the x, y, and z coordinate of the end effector using ``rqt_plot``.
 
 .. note::
-    The computational overhead of publishing of all node outputs as topics is minimal when there are no
-    subscribers. In other words, computational overhead is only introduced when external sources are actually listening to
-    the externally advertised topics.
+    The computational overhead of publishing all node outputs as topics is minimal when there are no
+    subscribers. In other words, there is only computational overhead when external source (e.g. rqt_plot) is
+    listening to the advertised topics. Once the external source unsubscribes, the overhead is again reduced.
 
 Computation graph
 *****************
@@ -69,7 +113,7 @@ environment is running:
 
 This will provide you with an overview similar to the one below:
 
-.. figure:: rqt_graph.png
+.. figure:: /_static/img/rqt_graph.png
     :align: center
     :alt: alternate text
     :figclass: align-center

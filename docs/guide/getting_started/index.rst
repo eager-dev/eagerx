@@ -29,7 +29,7 @@ You can install the gui by running:
 
     pip3 install eagerx-gui
 
-.. image:: ../../gifs/gui.GIF
+.. image:: /gifs/gui.GIF
 
 Extras: training visualization
 ------------------------------
