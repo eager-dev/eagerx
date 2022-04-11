@@ -8,4 +8,7 @@ A set of tutorials is created to showcase some of the key features of EAGERx and
 .. toctree::
     :maxdepth: 2
 
+    visualize/index
+
     pendulum/index
+
