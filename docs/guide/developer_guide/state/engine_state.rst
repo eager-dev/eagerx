@@ -16,15 +16,15 @@ These engine states will allow to reset the state of objects and reset the param
   :alt: alternate text
   :figclass: align-center
 
-  In this section we will discuss the concept of an :mod:`~eagerx.core.entities.EngineState`.
-  In an engine state, we create an implementation of a state for a specific :mod:`~eagerx.core.entities.Bridge`.
+  In this section we will discuss the concept of an :class:`~eagerx.core.entities.EngineState`.
+  In an engine state, we create an implementation of a state for a specific :class:`~eagerx.core.entities.Bridge`.
 
 OdeEngineState
 ##############
 
 The first engine state will will create is the *OdeEngineState*.
 This engine state will be responsible for resetting the states of objects in the *OdeBridge* during a reset of the environment.
-Engine states can be created using the :mod:`~eagerx.core.entities.EngineState` base class.
+Engine states can be created using the :class:`~eagerx.core.entities.EngineState` base class.
 For creating an engine node, we need to implement three abstract methods:
 
 * :func:`~eagerx.core.entities.EngineState.spec`
@@ -55,7 +55,7 @@ In our case, we do not need to specify parameters, so the implementation is fair
   Mind the usage of the :func:`~eagerx.core.register.spec` decorator.
   This decorator is required to register the *OdeEngineState*.
   All entities within EAGERx have to be registered, such that their specification can be created based on their unique id.
-  In this decorator we provide a unique id for the engine state (*"OdeSimState"*) and specify the type (:mod:`~eagerx.core.entities.EngineState`).
+  In this decorator we provide a unique id for the engine state (*"OdeSimState"*) and specify the type (:class:`~eagerx.core.entities.EngineState`).
   Another thing that is worth noting, is that we need to call :func:`~eagerx.core.specs.EngineStateSpec.initialize` with a reference to the class, in this case *OdeEngineState*.
   This will initialize the *spec* object and set default values.
 
@@ -89,4 +89,4 @@ This method will be called during a reset and will reset the state of the object
 .. note::
   Note that we have access to the :attr:`~ode_bridge.OdeBridge.simulator` attribute, which is created in the *OdeBridge* class.
 
-Similarly, we can create the *OdeParameters* :mod:`~eagerx.core.entities.EngineState` by implementing the :func:`~eagerx.core.entities.EngineState.spec`, :func:`~eagerx.core.entities.EngineState.initialize` and :func:`~eagerx.core.entities.EngineState.reset` abstract methods.
+Similarly, we can create the *OdeParameters* :class:`~eagerx.core.entities.EngineState` by implementing the :func:`~eagerx.core.entities.EngineState.spec`, :func:`~eagerx.core.entities.EngineState.initialize` and :func:`~eagerx.core.entities.EngineState.reset` abstract methods.
