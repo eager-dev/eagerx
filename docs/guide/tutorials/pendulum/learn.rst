@@ -118,3 +118,6 @@ We can load the saved model and fine tune it on the real system in order to succ
      real_env.render()
      if done:
          obs = real_env.reset()
+
+And that is it!
+We have trained a policy in simulation and fine tuned it on the real system.

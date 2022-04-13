@@ -497,13 +497,35 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node."""
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node.
+
+    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
+              in the spec. This may be useful when there must exist a coupling between
+              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
+              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+
+              For example, setting `spec.inputs.in_1.space_converter.low = "$(config low)"` will set the value of
+              `spec.inputs.in_1.space_converter.low=spec.config.low` when the node is initialized. Hence, any change to
+              `low` will also be reflected in the space_converter parameter `low`.
+
+    """
 
     pass
 
 
 class ResetNodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node."""
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node.
+
+    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
+              in the spec. This may be useful when there must exist a coupling between
+              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
+              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+
+              For example, setting `spec.inputs.in_1.space_converter.low = "$(config low)"` will set the value of
+              `spec.inputs.in_1.space_converter.low=spec.config.low` when the node is initialized. Hence, any change to
+              `low` will also be reflected in the space_converter parameter `low`.
+
+    """
 
     @property
     def targets(self) -> Union[SpecView, GraphView]:
@@ -604,7 +626,18 @@ class BridgeSpec(BaseNodeSpec):
 
 
 class ObjectSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the object."""
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the object.
+
+    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
+              in the spec. This may be useful when there must exist a coupling between
+              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
+              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+
+              For example, setting `spec.sensors.sens_1.space_converter.low = "$(config low)"` will set the value of
+              `spec.sensors.sens_1.space_converter.low=spec.config.low` when the object is initialized. Hence, any change to
+              `low` will also be reflected in the space_converter parameter `low`.
+
+    """
 
     def __init__(self, params):
         super().__init__(params)

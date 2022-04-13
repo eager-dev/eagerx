@@ -6,8 +6,7 @@ We will touch upon the following subjects in this tutorial:
 
 * How to create a bridge
 * How to create an object
-* How to create a converter
-* How to create a process node
+* How to create a space converter
 * How to use the GUI
 * How to create a Graph
 * How to learn a policy using your environment

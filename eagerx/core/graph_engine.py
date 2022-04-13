@@ -696,11 +696,7 @@ class EngineGraph:
         return nodes, actuators, sensors
 
     def gui(self) -> None:
-        """Opens a graphical user interface of the engine graph.
-
-        .. note:: Currently, a gui is not yet support for engine graphs.
-                  This feature will be added in the near future.
-        """
+        """Opens a graphical user interface of the engine graph."""
         try:
             from eagerx_gui import launch_engine_gui
         except ImportError as e:

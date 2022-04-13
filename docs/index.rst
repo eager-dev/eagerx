@@ -56,6 +56,8 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
    guide/examples/index
 
+   guide/troubleshooting/index
+
    guide/contributing/index
 
 Cite EAGERx

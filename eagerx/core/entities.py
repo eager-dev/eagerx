@@ -15,6 +15,7 @@ from genpy import Message
 from std_msgs.msg import Bool, UInt64
 from tabulate import tabulate
 
+import eagerx.core.constants
 from eagerx.core.constants import TERMCOLOR, WARN, SILENT, process
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
@@ -201,7 +202,7 @@ class BaseNode(Entity):
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Note that `log_level` has precedent over the memory level set here.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
-        self.log_memory: int = effective_log_level >= log_level and log_level_memory >= effective_log_level
+        self.log_memory: int = log_level >= effective_log_level and log_level_memory >= effective_log_level
         self.initialize(*args, **kwargs)
 
     @staticmethod
@@ -999,7 +1000,8 @@ class Bridge(BaseNode):
                             0,
                         ]
                     )
-                rospy.loginfo("\n" + tabulate(self.history, headers=self.headers))
+                eagerx.core.constants.ros_log_fns[self.log_level]("\n" + tabulate(self.history, headers=self.headers))
+                # rospy.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.

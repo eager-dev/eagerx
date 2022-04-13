@@ -1,3 +1,4 @@
+.. _getting_started:
 ***************
 Getting Started
 ***************
@@ -28,7 +29,12 @@ You can install the gui by running:
 
     pip3 install eagerx-gui
 
-.. image:: ../../gifs/gui.GIF
+.. figure:: /_static/gif/gui.GIF
+    :align: center
+    :alt: alternate text
+    :figclass: align-center
+
+    The construction of an environment via the GUI.
 
 Extras: training visualization
 ------------------------------
