@@ -26,12 +26,12 @@ fi
 echo "docker build --build-arg PARENT_IMAGE=${PARENT} --build-arg PYTORCH_DEPS=${PYTORCH_DEPS} \
  --build-arg POETRY_VERSION=${POETRY_VERSION} --build-arg ADD_SB=${ADD_SB} \
  --build-arg PYTHON_VERSION="${PYTHON_VERSION}" -t ${TAG}:${VERSION} ."
-docker build --build-arg PARENT_IMAGE=${PARENT} --build-arg PYTORCH_DEPS=${PYTORCH_DEPS} \
+sudo docker build --build-arg PARENT_IMAGE=${PARENT} --build-arg PYTORCH_DEPS=${PYTORCH_DEPS} \
 --build-arg POETRY_VERSION=${POETRY_VERSION} --build-arg ADD_SB=${ADD_SB} \
 --build-arg PYTHON_VERSION=${PYTHON_VERSION} -t ${TAG}:${VERSION} .
-docker tag ${TAG}:${VERSION} ${TAG}:latest
+sudo docker tag ${TAG}:${VERSION} ${TAG}:latest
 
 if [ ${RELEASE} ]; then
-  docker push ${TAG}:${VERSION}
-  docker push ${TAG}:latest
+  sudo docker push eagerx/${TAG}:${VERSION}
+  sudo docker push eagerx/${TAG}:latest
 fi
