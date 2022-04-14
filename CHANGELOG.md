@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.16 (2022-04-14)
+### Fix
+* Clean eagerx imports ([#154](https://github.com/eager-dev/eagerx/issues/154)) ([`999c449`](https://github.com/eager-dev/eagerx/commit/999c4496a9d4be6c1047a546798c5b07bde7e3d7))
+
 ## v0.1.15 (2022-04-14)
 ### Fix
 * Reloading specs and add informative info. ([#153](https://github.com/eager-dev/eagerx/issues/153)) ([`0775715`](https://github.com/eager-dev/eagerx/commit/0775715af86929fc1f41309b8b35b14c18bdb8c4))
