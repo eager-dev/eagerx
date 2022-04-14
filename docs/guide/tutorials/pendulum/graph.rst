@@ -1,1 +1,1 @@
-.. include:: /_shared/graph.rst
+../../developer_guide/graph/graph.rst
