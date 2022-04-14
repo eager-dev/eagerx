@@ -30,7 +30,7 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     za = zero_action[gym_id]
 
     # Get signature of object
-    Object.get_spec("GymObject")
+    Object.info("GymObject")
 
     # Create object
     obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)

@@ -27,8 +27,8 @@ def graph_engine(idx):
     name = gym_id.split("-")[0]
     za = zero_action[gym_id]
 
-    # Get signature of object
-    Object.get_spec("GymObject")
+    # Get info on object
+    Object.info("GymObject")
 
     # Create object
     obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)

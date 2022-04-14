@@ -70,20 +70,21 @@ class Entity(object):
         return spec
 
     @classmethod
-    def get_spec(cls, entity_id: str, verbose: bool = True) -> inspect.Signature:
-        """A helper method to print info on the spec signature of a subclass.
+    def info(cls, entity_id: str, method: Optional[Union[List[str], str]] = None) -> None:
+        """A helper method to get info on a registered method of the specified subclass.
 
         :param entity_id: Name used to register the spec with the :func:`eagerx.core.register.spec` decorator by the subclass.
-        :param verbose: Flag to print the signature output.
-        :return: Signature of the subclass' spec. By passing the :attr:`~eagerx.core.entities.Entity.entity_id`
+        :param method: The registered method we would like to receive info on. If no method is specified, it provides info on
+                       the class itself.
+        :return: Signature of the subclass' method. By passing the :attr:`~eagerx.core.entities.Entity.entity_id`
                  as the first argument to :func:`~eagerx.core.entities.Entity.make`,
                  together with the arguments specified by this signature, the entity can be build.
         """
 
         # """A helper method to get info on the signature of the subclass' spec method."""
-        from eagerx.core import register
+        from eagerx.core import info
 
-        return register.get_spec(cls, entity_id, verbose=verbose)
+        return info.get_info(cls, entity_id, method)
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
@@ -302,6 +303,13 @@ class Node(BaseNode):
 
     Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
     """
+
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "reset": ["states"],
+        "callback": ["inputs", "outputs"],
+    }
 
     def __init__(self, **kwargs):
         # Message counter
@@ -557,6 +565,13 @@ class ResetNode(Node):
     agnostic :class:`~eagerx.core.graph.Graph`.
     """
 
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "reset": ["states"],
+        "callback": ["inputs", "outputs", "targets"],
+    }
+
     @staticmethod
     @abc.abstractmethod
     def spec(spec: "ResetNodeSpec", *args: Any, **kwargs: Any) -> None:
@@ -787,6 +802,15 @@ class Bridge(BaseNode):
 
     - :func:`~eagerx.core.entities.Bridge.shutdown` (optional)
     """
+
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "add_object": ["bridge_config"],
+        "pre_reset": ["states"],
+        "reset": ["states"],
+        "callback": ["outputs"],
+    }
 
     def __init__(self, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
         """
@@ -1158,6 +1182,11 @@ class Object(Entity):
     - ...
     """
 
+    INFO = {
+        "spec": [],
+        "agnostic": ["config", "sensors", "actuators", "engine_states"],
+    }
+
     @staticmethod
     @abc.abstractmethod
     def agnostic(spec: "ObjectSpec", *args: Any, **kwargs: Any) -> None:
@@ -1365,6 +1394,12 @@ class Processor(BaseConverter):
     where the message type changes. This baseclass supports two-way conversion.
     """
 
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "convert": [],
+    }
+
     #: Supported message type
     MSG_TYPE: Any
 
@@ -1429,6 +1464,13 @@ class Converter(BaseConverter):
     Use baseclass :class:`~eagerx.core.entities.Processor` instead, for message conversion
     where the message type remains the same. This baseclass only supports one-way conversion.
     """
+
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "A_to_B": [],
+        "B_to_A": [],
+    }
 
     #: Supported message type
     MSG_TYPE_A: Any
@@ -1531,6 +1573,14 @@ class SpaceConverter(Converter):
     where the message type remains the same. This baseclass only supports one-way conversion.
     """
 
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "get_space": [],
+        "A_to_B": [],
+        "B_to_A": [],
+    }
+
     #: Supported message type
     MSG_TYPE_A: Any
     #: Supported message type
@@ -1571,6 +1621,12 @@ class EngineState(Entity):
     - :func:`~eagerx.core.entities.EngineState.reset`
 
     """
+
+    INFO = {
+        "spec": [],
+        "initialize": [],
+        "reset": [],
+    }
 
     def __init__(
         self,

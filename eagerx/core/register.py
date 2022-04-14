@@ -56,7 +56,7 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
         entry = func.__module__ + "/" + func.__qualname__
         rospy.logdebug("[register]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entry))
 
-        @functools.wraps(functools.partial(func, None))
+        @functools.wraps(func)
         def _spec(*args, **kwargs):
             """Make an entity with the registered spec function"""
             entity_type = func.__module__ + "/" + func.__qualname__[:-5]
@@ -67,11 +67,13 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
                 func(spec, *args, **kwargs)
             except TypeError as e:
                 if "spec()" in e.args[0]:
-                    signature = entity_cls.get_spec(entity_id, verbose=False)
+                    from eagerx.core.info import get_info
+
+                    sig_msg = get_info(entity_cls, entity_id, no_cls=True, return_msg=True)
                     err = (
                         f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
                     )
-                    err += f"The signature for this spec looks like: \n\n{signature}"
+                    err += sig_msg
                     raise TypeError(err) from e
                 else:
                     raise
