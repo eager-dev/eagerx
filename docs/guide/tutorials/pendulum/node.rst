@@ -1,1 +1,1 @@
-../../developer_guide/node/node.rst
+.. include:: /_shared/node.rst
