@@ -1,18 +1,15 @@
 # OTHER IMPORTS
 from typing import Optional, List
-
-# ROS IMPORTS
 from std_msgs.msg import UInt64, String
 
 # EAGERx IMPORTS
+import eagerx
+from eagerx import register
+from eagerx import specs
 from tests.test.bridge import TestBridgeNode
-from eagerx.core.entities import Object, EngineNode, SpaceConverter, EngineState, BaseConverter, Converter, Processor
-from eagerx.core.specs import ObjectSpec
-from eagerx.core.graph_engine import EngineGraph
-import eagerx.core.register as register
 
 
-class Arm(Object):
+class Arm(eagerx.Object):
     entity_id = "Arm"
 
     @staticmethod
@@ -20,34 +17,34 @@ class Arm(Object):
     @register.actuators(N8=String, ref_vel=UInt64, N12=UInt64)
     @register.engine_states(N9=UInt64, N10=UInt64)
     @register.config(position=[0, 0, 0], orientation=[0, 0, 0], low=None, string=None, test_string=None, test_list=None)
-    def agnostic(spec: ObjectSpec, rate):
+    def agnostic(spec: specs.ObjectSpec, rate):
         """Agnostic definition of the Arm object"""
         # Set state properties: space_converters
-        spec.sensors.N6.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.sensors.N7.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.sensors.N6.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.sensors.N7.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.sensors.N6.rate = rate
         spec.sensors.N7.rate = 2
 
         # Set actuator properties: space_converters
-        spec.actuators.N8.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
-        spec.actuators.N12.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.actuators.ref_vel.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.actuators.N8.space_converter = eagerx.SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
+        spec.actuators.N12.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.actuators.ref_vel.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.actuators.N8.rate = rate
         spec.actuators.N12.rate = rate
         spec.actuators.ref_vel.rate = 1
 
         # Set state properties: space_converters
-        spec.states.N9.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.states.N10.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.states.N9.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        spec.states.N10.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
 
         # Test AgnosticSpec
         spec.actuators.N8.rate = spec.actuators.N8.rate
         spec.actuators.N8 = spec.actuators.N8
 
     @staticmethod
-    @register.spec(entity_id, Object)
+    @register.spec(entity_id, eagerx.Object)
     def spec(
-        spec: ObjectSpec,
+        spec: specs.ObjectSpec,
         name: str = None,
         sensors: Optional[List[str]] = None,
         actuators: Optional[List[str]] = None,
@@ -87,17 +84,17 @@ class Arm(Object):
 
     @staticmethod
     @register.bridge(entity_id, TestBridgeNode)
-    def test_bridge(spec: ObjectSpec, graph: EngineGraph):
+    def test_bridge(spec: specs.ObjectSpec, graph: eagerx.EngineGraph):
         """Engine-specific implementation of the Arm with the test bridge."""
         # Set bridge_config
         spec.TestBridge.req_arg = "TEST"
         spec.TestBridge.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
 
         # Create engine_states
-        spec.TestBridge.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
+        spec.TestBridge.states.N9 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N9")
 
         # Create sensor engine nodes
-        N6 = EngineNode.make(
+        N6 = eagerx.EngineNode.make(
             "TestSensor",
             "N6",
             rate=spec.sensors.N6.rate,
@@ -107,7 +104,7 @@ class Arm(Object):
             states=["state_1"],
             test_arg=spec.TestBridge.req_arg,
         )
-        N7 = EngineNode.make(
+        N7 = eagerx.EngineNode.make(
             "TestSensor",
             "N7",
             rate=spec.sensors.N7.rate,
@@ -119,7 +116,7 @@ class Arm(Object):
         )
 
         # Create actuator engine nodes
-        N8 = EngineNode.make(
+        N8 = eagerx.EngineNode.make(
             "TestActuator",
             "N8",
             rate=spec.actuators.N8.rate,
@@ -129,7 +126,7 @@ class Arm(Object):
             test_arg=spec.config.test_string,
             color="green",
         )
-        ref_vel = EngineNode.make(
+        ref_vel = eagerx.EngineNode.make(
             "TestActuator",
             "ref_vel",
             rate=spec.actuators.ref_vel.rate,
@@ -204,7 +201,7 @@ class Arm(Object):
         graph.connect(actuator="ref_vel", target=ref_vel.inputs.in_1)
 
         # Interconnect engine nodes
-        id = BaseConverter.make("Identity")
+        id = eagerx.BaseConverter.make("Identity")
         graph.connect(
             source=N8.outputs.out_1,
             target=N7.inputs.in_1,
@@ -248,7 +245,7 @@ class Arm(Object):
         graph.connect(source=N8.outputs.out_1, target=N7.inputs.in_1, skip=True)
 
         # Connect multiple engine nodes to same actuator
-        N11 = EngineNode.make(
+        N11 = eagerx.EngineNode.make(
             "TestActuator",
             "N11",
             rate=spec.actuators.N8.rate,
@@ -266,9 +263,9 @@ class Viper(Arm):
     entity_id = "Viper"
 
     @staticmethod
-    @register.spec(entity_id, Object)
+    @register.spec(entity_id, eagerx.Object)
     def spec(
-        spec: ObjectSpec,
+        spec: specs.ObjectSpec,
         name: str,
         sensors: Optional[List[str]] = None,
         actuators: Optional[List[str]] = None,
@@ -304,18 +301,18 @@ class Viper(Arm):
 
     @staticmethod
     @register.bridge(entity_id, TestBridgeNode)
-    def test_bridge(spec: ObjectSpec, graph: EngineGraph):
+    def test_bridge(spec: specs.ObjectSpec, graph: eagerx.EngineGraph):
         """Engine-specific implementation of the Viper with the test bridge."""
         # Set object arguments
         spec.TestBridge.req_arg = "TEST ARGUMENT"
         spec.TestBridge.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
 
         # Create engine_states
-        spec.TestBridge.states.N9 = EngineState.make("TestEngineState", test_arg="arg_N9")
-        spec.TestBridge.states.N10 = EngineState.make("TestEngineState", test_arg="arg_N10")
+        spec.TestBridge.states.N9 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N9")
+        spec.TestBridge.states.N10 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N10")
 
         # Create sensor engine nodes
-        N6 = EngineNode.make(
+        N6 = eagerx.EngineNode.make(
             "TestSensor",
             "N6",
             rate=spec.sensors.N6.rate,
@@ -325,7 +322,7 @@ class Viper(Arm):
             states=["state_1"],
             test_arg=spec.TestBridge.req_arg,
         )
-        N7 = EngineNode.make(
+        N7 = eagerx.EngineNode.make(
             "TestSensor",
             "N7",
             rate=spec.sensors.N7.rate,
@@ -337,7 +334,7 @@ class Viper(Arm):
         )
 
         # Create actuator engine nodes
-        N8 = EngineNode.make(
+        N8 = eagerx.EngineNode.make(
             "TestActuator",
             "N8",
             rate=spec.actuators.N8.rate,
@@ -347,7 +344,7 @@ class Viper(Arm):
             test_arg=spec.config.test_string,
             color="green",
         )
-        ref_vel = EngineNode.make(
+        ref_vel = eagerx.EngineNode.make(
             "TestActuator",
             "ref_vel",
             rate=spec.actuators.ref_vel.rate,
@@ -359,7 +356,7 @@ class Viper(Arm):
         )
 
         # Add IdentityProcessor to N6
-        IdentityProcessor = Processor.make("IdentityProcessor")
+        IdentityProcessor = eagerx.Processor.make("IdentityProcessor")
         N6.outputs.out_1.converter = IdentityProcessor
 
         # Add nodes to graph and connect them to actuators/sensors
@@ -396,7 +393,7 @@ class Viper(Arm):
         )
 
         # Test Adding converters to actuators
-        N12 = EngineNode.make(
+        N12 = eagerx.EngineNode.make(
             "TestActuator",
             "N12",
             rate=spec.actuators.N12.rate,
@@ -407,5 +404,5 @@ class Viper(Arm):
             color="green",
         )
         graph.add(N12)
-        RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
+        RosString_RosUInt64 = eagerx.Converter.make("RosString_RosUInt64", test_arg="test")
         graph.connect(actuator="N12", target=N12.inputs.in_3, converter=RosString_RosUInt64)
