@@ -50,6 +50,10 @@ def get_attribute_from_module(attribute, module=None):
     return attribute
 
 
+def load(mod_attr: str):
+    return get_attribute_from_module(mod_attr)
+
+
 def initialize_converter(args):
     converter_args = copy.deepcopy(args)
     converter_args.pop("converter_type")

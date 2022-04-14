@@ -5,6 +5,8 @@ import copy
 from unittest.mock import MagicMock
 from eagerx.utils.utils import deepcopy
 from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict, Optional
+import os
+
 
 if TYPE_CHECKING:
     from eagerx.core.graph_engine import EngineGraph  # noqa: F401
@@ -35,7 +37,6 @@ class LookupType:
     def __getitem__(self, func_lookup):
         name_split = func_lookup.__qualname__.split(".")
         cls_name = name_split[0]
-        # fn_name = name_split[1]
         return self._dict[cls_name]
 
 
@@ -56,7 +57,7 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
         entry = func.__module__ + "/" + func.__qualname__
         rospy.logdebug("[register]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entry))
 
-        @functools.wraps(functools.partial(func, None))
+        @functools.wraps(func)
         def _spec(*args, **kwargs):
             """Make an entity with the registered spec function"""
             entity_type = func.__module__ + "/" + func.__qualname__[:-5]
@@ -67,11 +68,13 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
                 func(spec, *args, **kwargs)
             except TypeError as e:
                 if "spec()" in e.args[0]:
-                    signature = entity_cls.get_spec(entity_id, verbose=False)
+                    from eagerx.core.info import get_info
+
+                    sig_msg = get_info(entity_cls, entity_id, no_cls=True, return_msg=True)
                     err = (
                         f'You can only specify arguments according to the signature of the spec function of "{entity_id}".\n\n'
                     )
-                    err += f"The signature for this spec looks like: \n\n{signature}"
+                    err += sig_msg
                     raise TypeError(err) from e
                 else:
                     raise
@@ -82,9 +85,8 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
             REGISTRY[entity_cls] = dict()
         if entity_id in REGISTRY[entity_cls]:
             """Check if spec of duplicate entity_id corresponds to same spec function"""
-            assert (
-                _spec == REGISTRY[entity_cls][entity_id]["spec"]
-            ), f'There is already a {entity_cls.__name__} with entity_id "{entity_id}" registered.'
+            flag = _spec == REGISTRY[entity_cls][entity_id]["spec"] or bool(eval(os.environ.get("EAGERX_RELOAD", "0")))
+            assert flag, f'There is already a {entity_cls.__name__} with entity_id "{entity_id}" registered.'
         cls = f"{func.__module__}/{func.__qualname__[:-5]}"
         REGISTRY[entity_cls][entity_id] = {"spec": _spec, "cls": cls}
         return _spec
@@ -127,7 +129,6 @@ def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
     @functools.wraps(func)
     def registered_fn(*args, **kwargs):
         """Call the registered function"""
-        # todo: perform type checking in I/O using TYPE_REGISTER
         return func(*args, **kwargs)
 
     if cls_name not in TYPE_REGISTER:
@@ -137,8 +138,9 @@ def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
     if component in TYPE_REGISTER[cls_name]:
         """Check if already registered component of duplicate function matches."""
         rospy.logdebug(f"[{cls_name}][{component}]: {component}={cnames}, entry={entry}")
+        flag = cnames == TYPE_REGISTER[cls_name][component] or bool(eval(os.environ.get("EAGERX_RELOAD", "0")))
         assert (
-            cnames == TYPE_REGISTER[cls_name][component]
+            flag
         ), f'There is already a [{cls_name}][{component}] registered with cnames "{TYPE_REGISTER[cls_name][component]}", and they do not match the cnames of this function: "{cnames}".'
     TYPE_REGISTER[cls_name][component] = cnames
     return registered_fn
@@ -286,7 +288,8 @@ def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
 
         # Check if spec of duplicate entity_id corresponds to same spec function
         flag = bridge_id in REGISTRY[Object][entity_id] and _bridge == REGISTRY[Object][entity_id][bridge_id]
-        assert not flag, msg + "There is already a bridge implementation of this type registered."
+        flag = not flag or bool(eval(os.environ.get("EAGERX_RELOAD", "0")))
+        assert flag, msg + "There is already a bridge implementation of this type registered."
 
         # Register bridge implementation
         REGISTRY[Object][entity_id][bridge_id] = _bridge

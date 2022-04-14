@@ -30,7 +30,6 @@ class Arm(Object):
 
         # Set actuator properties: space_converters
         spec.actuators.N8.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
-        # spec.actuators.N12.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
         spec.actuators.N12.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.actuators.ref_vel.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.actuators.N8.rate = rate

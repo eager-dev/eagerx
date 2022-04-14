@@ -17,6 +17,14 @@ def test_graph():
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
     rate = 7
 
+    # Get info on various specs.
+    import eagerx.converters
+    eagerx.Processor.info("GetIndex_Float32MultiArray")
+    eagerx.SpaceConverter.info("Space_Float32MultiArray")
+    eagerx.Object.info("Viper")
+    eagerx.Object.info("Viper", method="spec")
+    eagerx.Object.info("Viper", method=["spec"])
+
     # Define nodes
     N0 = Node.make("Process", "N0", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
     N1 = Node.make("Process", "N1", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
