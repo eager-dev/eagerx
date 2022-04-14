@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.15 (2022-04-14)
+### Fix
+* Reloading specs and add informative info. ([#153](https://github.com/eager-dev/eagerx/issues/153)) ([`0775715`](https://github.com/eager-dev/eagerx/commit/0775715af86929fc1f41309b8b35b14c18bdb8c4))
+
+### Documentation
+* Add missing sections (visualization, processor, converter, engine graph) + restructure + minor changes ([`fceaf90`](https://github.com/eager-dev/eagerx/commit/fceaf9001cd732aa80c2eec7a0858642414e4133))
+
 ## v0.1.14 (2022-04-07)
 ### Fix
 * Update tests ([`7af6699`](https://github.com/eager-dev/eagerx/commit/7af66995542413e85e10caeb6e0f79e8ebff8beb))
