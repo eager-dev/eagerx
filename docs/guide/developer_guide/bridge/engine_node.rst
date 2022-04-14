@@ -1,1 +1,1 @@
-.. include:: /_shared/engine_node.rst
+../node/engine_node.rst

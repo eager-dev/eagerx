@@ -1,1 +1,1 @@
-.. include:: /_shared/bridge_node.rst
+../../developer_guide/bridge/bridge_node.rst

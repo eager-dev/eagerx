@@ -1,1 +1,1 @@
-.. include:: /_shared/pendulum_agnostic.rst
+../../developer_guide/object/pendulum_agnostic.rst
