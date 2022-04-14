@@ -1,10 +1,5 @@
-from eagerx import Object, Bridge, Node, ResetNode, Converter
-from eagerx import initialize, log
-
 # Environment imports
-from eagerx.core.env import EagerxEnv
-from eagerx.core.graph import Graph
-from eagerx.wrappers import Flatten
+import eagerx
 
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
@@ -16,7 +11,7 @@ zero_action = {"Pendulum-v0": [0.0], "Acrobot-v1": 0}
 
 def graph_engine(idx):
     # Start roscore
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
+    roscore = eagerx.initialize("eagerx_core", anonymous=True, log_level=eagerx.log.DEBUG)
 
     is_reactive = True
     rtf = 0
@@ -28,23 +23,23 @@ def graph_engine(idx):
     rate = 17
 
     # Define nodes
-    N1 = Node.make("Process", "N1", rate=rate, process=node_p, inputs=["in_1"], outputs=["out_1"])
-    KF = Node.make("KalmanFilter", "KF", rate=rate, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
-    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
+    N1 = eagerx.Node.make("Process", "N1", rate=rate, process=node_p, inputs=["in_1"], outputs=["out_1"])
+    KF = eagerx.Node.make("KalmanFilter", "KF", rate=rate, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
+    N3 = eagerx.ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
 
     # Define object
-    viper = Object.make("Viper", "obj", actuators=["N8", "N12"], sensors=["N6"], states=["N9"])
+    viper = eagerx.Object.make("Viper", "obj", actuators=["N8", "N12"], sensors=["N6"], states=["N9"])
 
     # Define converter (optional)
-    RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
-    RosImage_RosUInt64 = Converter.make("RosImage_RosUInt64", test_arg="test")
+    RosString_RosUInt64 = eagerx.Converter.make("RosString_RosUInt64", test_arg="test")
+    RosImage_RosUInt64 = eagerx.Converter.make("RosImage_RosUInt64", test_arg="test")
 
     # Add simple identity processor
     # IdentityProcessor = Processor.make("IdentityProcessor")
     # viper.sensors.N6.converter = IdentityProcessor
 
     # Define graph
-    graph = Graph.create(nodes=[N1, N3, KF], objects=[viper])
+    graph = eagerx.Graph.create(nodes=[N1, N3, KF], objects=[viper])
 
     # Connect outputs KF
     graph.connect(source=KF.outputs.out_1, observation="obs_2")
@@ -74,11 +69,11 @@ def graph_engine(idx):
     graph.gui()
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
+    bridge = eagerx.Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
 
     # Initialize Environment
-    name = str(time.time()).replace('.', '_')
-    env = EagerxEnv(
+    name = str(time.time()).replace(".", "_")
+    env = eagerx.EagerxEnv(
         name=f"rx_{name}",
         rate=rate,
         graph=graph,
@@ -88,7 +83,7 @@ def graph_engine(idx):
             "bridge/param_1": env.state_space.sample()["bridge/param_1"],
         },
     )
-    env = Flatten(env)
+    env = eagerx.wrappers.Flatten(env)
 
     # First reset
     env.reset()
@@ -101,5 +96,4 @@ def graph_engine(idx):
 
 
 if __name__ == "__main__":
-    graph_engine(str(time.time()).replace('.', '_'))
-
+    graph_engine(str(time.time()).replace(".", "_"))

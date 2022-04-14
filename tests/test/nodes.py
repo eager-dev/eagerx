@@ -1,16 +1,13 @@
-# OTHER IMPORTS
-from typing import Optional, List
-from math import isclose
+from eagerx import register
+from eagerx import Node, ResetNode, EngineNode, SpaceConverter
+from eagerx.utils.utils import Msg
+from eagerx import process
 
-# ROS IMPORTS
+# OTHER IMPORTS
 import rospy
 from std_msgs.msg import UInt64, String, Bool
-
-# EAGERx IMPORTS
-from eagerx.core.constants import process
-from eagerx.utils.utils import Msg
-from eagerx.core.entities import Node, ResetNode, EngineNode, SpaceConverter
-import eagerx.core.register as register
+from typing import Optional, List
+from math import isclose
 
 
 class RealResetNode(ResetNode):
