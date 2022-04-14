@@ -1,1 +1,1 @@
-../../contributing/package_creation/package_creation.rst
+.. include:: /_shared/package_creation.rst
