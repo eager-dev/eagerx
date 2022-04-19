@@ -2,14 +2,14 @@ from typing import Optional
 from threading import Event
 import signal
 import sys
+import os
+import cv2
 
 import numpy as np
 import rospy
 from std_msgs.msg import UInt64, Bool
 from sensor_msgs.msg import Image
 import cv_bridge
-import cv2
-
 
 import eagerx.core.register as register
 from eagerx.core.constants import process, WARN
@@ -230,6 +230,8 @@ class RenderNode(Node):
         self.last_image = Image(data=[])
         self.render_toggle = False
         self.window_closed = True
+        self.show_image = self.__get_imshow_function()
+
         rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
         rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
         self.pub_set_last_image = rospy.Publisher(
@@ -279,18 +281,31 @@ class RenderNode(Node):
             except cv_bridge.CvBridgeError as e:
                 rospy.logwarn(e)
                 return dict(done=UInt64())
-
-            cv2.imshow("Render", cv_image)
-            cv2.waitKey(1)
+            self.show_image(cv_image)
             self.window_closed = False
         elif not self.window_closed:
-            cv2.destroyWindow("Render")
+            if not bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
+                cv2.destroyWindow("Render")
             self.window_closed = True
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64())
         return output_msgs
 
+    @staticmethod
+    def __get_imshow_function():
+        if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
+            # cv2.imshow doesn't work in colab
+            from google.colab.patches import cv2_imshow
+            def show_image(cv_image):
+                cv2_imshow("Render", cv_image)
+        else:
+            def show_image(cv_image):
+                cv2.imshow("Render", cv_image)
+                cv2.waitKey(1)
+        return show_image
+
     def shutdown(self):
         rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
-        cv2.destroyAllWindows()
+        if not bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
+            cv2.destroyAllWindows()
