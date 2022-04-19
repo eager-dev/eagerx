@@ -297,12 +297,16 @@ class RenderNode(Node):
         if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
             # cv2.imshow doesn't work in colab
             from google.colab.patches import cv2_imshow
+
             def show_image(cv_image):
                 cv2_imshow("Render", cv_image)
+
         else:
+
             def show_image(cv_image):
                 cv2.imshow("Render", cv_image)
                 cv2.waitKey(1)
+
         return show_image
 
     def shutdown(self):
