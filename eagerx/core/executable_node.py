@@ -2,8 +2,10 @@
 
 # source ROS if in colab
 import os
+
 if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
     import site
+
     site.addsitedir("/opt/ros/melodic/lib/python2.7/dist-packages")
     site.addsitedir("/usr/lib/python2.7/dist-packages")
 

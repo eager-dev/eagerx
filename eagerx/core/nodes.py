@@ -103,6 +103,11 @@ class EnvNode(Node):
 
             extra = window - len(i.msgs)
             if extra > 0:
+                # Only happens when skip=True && window > 0
+                if len(i.msgs) == 0:
+                    initial_obs = buffer["converter"].initial_obs
+                    i.msgs.append(initial_obs)
+                    extra -= 1  # Subtract, because we appended the initial_obs
                 msgs = extra * [i.msgs[0]] + i.msgs
             else:
                 msgs = i.msgs

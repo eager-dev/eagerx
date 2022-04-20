@@ -1586,6 +1586,34 @@ class SpaceConverter(Converter):
     #: Supported message type
     MSG_TYPE_B: Any
 
+    def __init__(self, *args, initial_obs=None, **kwargs):
+        self._initial_obs = initial_obs
+        super().__init__(*args, **kwargs)
+        if self._initial_obs is not None:
+            self._initial_obs = np.array(self._initial_obs, dtype=self.get_space().dtype)
+            assert self._initial_obs.shape == self.get_space().shape, (
+                "The shape of the initial observation does not match the "
+                f"space of a SpaceConverter of type {self.__qualname__}"
+            )
+
+    @property
+    def initial_obs(self) -> np.ndarray:
+        """An observation that is used on t=0 if this space converter corresponds to an observation that is skipped at t=0
+        with `window` > 0.
+
+        The provided initial observation must comply with the space returned by
+        :func:`~eagerx.core.entities.SpaceConverter.get_space`. This ensures that at t=0, the observation to the agent
+        complies with the environment's observation space when the corresponding connected output (providing the observation)
+        is skipped at t=0.
+
+        .. note:: An initial observation (default=`None`) is added to :func:`~eagerx.core.entities.SpaceConverter.spec` for
+                  users to set. In addition, users can also set/overwrite the observation when connecting the observation with
+                  :func:`~eagerx.core.graph.Graph.connect`.
+
+        :return: The initial observation.
+        """
+        return self._initial_obs
+
     @abc.abstractmethod
     def get_space(self) -> gym.Space:
         """An abstract method that returns the OpenAI's gym space related to converted message."""

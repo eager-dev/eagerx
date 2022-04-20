@@ -49,6 +49,9 @@ class ConverterSpec(EntitySpec):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
         with self.config as d:
+            if hasattr(spec_cls, "initial_obs"):
+                assert "initial_obs" not in defaults, "Argument clash! `initial_obs` is a reserved argument name."
+                defaults["initial_obs"] = None
             d.update(defaults)
 
     @property
@@ -58,6 +61,13 @@ class ConverterSpec(EntitySpec):
         The mutable parameters are:
 
         - The arguments of the subclass' :func:`~eagerx.core.entities.Converter.initialize` method.
+
+        - .. py:attribute:: Spec.config.initial_obs: Union[List, float, int, bool]
+
+            An observation that is used on t=0 if this space converter corresponds to an observation that is skipped at t=0
+            with `window` > 0.
+
+            .. note:: Can only be set for :class:`~eagerx.core.entities.SpaceConverter`.
 
         :return: (mutable) API to get/set parameters.
         """
