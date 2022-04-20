@@ -126,8 +126,10 @@ class View(object):
     def _unlock(self):
         super(View, self).__setattr__("_unlocked", True)
 
-    def update(self, mapping):
+    def update(self, mapping, **kwargs):
         for key, value in mapping.items():
+            setattr(self, key, value)
+        for key, value in kwargs.items():
             setattr(self, key, value)
         return self
 
