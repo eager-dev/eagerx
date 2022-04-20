@@ -235,9 +235,9 @@ class RenderNode(Node):
         self.last_image = Image(data=[])
         self.render_toggle = False
         self.window_closed = True
-        rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
-        rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
-        self.pub_set_last_image = rospy.Publisher(
+        self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
+        self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
+        self.pub_set = rospy.Publisher(
             "%s/%s/set_last_image" % (self.ns, self.name),
             Image,
             queue_size=0,
@@ -246,14 +246,13 @@ class RenderNode(Node):
 
     def _set_render_toggle(self, msg):
         if msg.data:
-
             rospy.loginfo("START RENDERING!")
         else:
             rospy.loginfo("STOP RENDERING!")
         self.render_toggle = msg.data
 
     def _get_last_image(self, msg):
-        self.pub_set_last_image.publish(self.last_image)
+        self.pub_set.publish(self.last_image)
 
     def reset(self):
         pass
@@ -298,4 +297,7 @@ class RenderNode(Node):
 
     def shutdown(self):
         rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.sub_toggle.unregister()
+        self.sub_get.unregister()
+        self.pub_set.unregister()
         cv2.destroyAllWindows()
