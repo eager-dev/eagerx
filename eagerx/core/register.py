@@ -213,7 +213,7 @@ def engine_states(**engine_states) -> Callable:
 
     :param engine_states: The engine state's msg_type class.
     """
-    return functools.partial(_register_types, TYPE_REGISTER, "states", engine_states)
+    return functools.partial(_register_types, TYPE_REGISTER, "engine_states", engine_states)
 
 
 def bridge_config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Callable:
