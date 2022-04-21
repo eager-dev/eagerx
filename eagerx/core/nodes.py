@@ -11,14 +11,15 @@ import cv_bridge
 import cv2
 
 import eagerx
-from eagerx import register
+import eagerx.core.register as register
+from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import initialize_converter, Msg
 
 
 class EnvNode(eagerx.Node):
     @staticmethod
     @register.spec("Environment", eagerx.Node)
-    def spec(spec: eagerx.specs.NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
         spec.initialize(EnvNode)
 
@@ -138,7 +139,7 @@ class EnvNode(eagerx.Node):
 class ObservationsNode(eagerx.Node):
     @staticmethod
     @register.spec("Observations", eagerx.Node)
-    def spec(spec: eagerx.specs.NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ObservationsNode spec"""
         # Initialize spec
         spec.initialize(ObservationsNode)
@@ -171,7 +172,7 @@ class ObservationsNode(eagerx.Node):
 class ActionsNode(eagerx.Node):
     @staticmethod
     @register.spec("Actions", eagerx.Node)
-    def spec(spec: eagerx.specs.NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ActionsNode spec"""
         # Initialize spec
         spec.initialize(ActionsNode)
@@ -205,7 +206,7 @@ class RenderNode(eagerx.Node):
     @staticmethod
     @register.spec("Render", eagerx.Node)
     def spec(
-        spec: eagerx.specs.NodeSpec,
+        spec: NodeSpec,
         rate,
         display=True,
         log_level=eagerx.log.WARN,
