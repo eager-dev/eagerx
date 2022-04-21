@@ -219,7 +219,7 @@ class RenderNode(eagerx.Node):
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
-        spec.config.process = eagerx.process.ENVIRONMENT
+        spec.config.process = process
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["image"]

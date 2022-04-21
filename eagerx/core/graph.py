@@ -22,6 +22,7 @@ from eagerx.utils.network_utils import (
     color_edges,
     is_stale,
 )
+import eagerx
 from eagerx.core.entities import Node, BaseConverter, SpaceConverter
 from eagerx.core.view import GraphView
 from eagerx.core.specs import (
@@ -947,6 +948,7 @@ class Graph:
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
         entity_id: str = "Render",
+        process: int = eagerx.process.ENVIRONMENT,
         **kwargs,
     ):
         """Render the :class:`sensor_msgs.msg.Image` messages produced by a node/sensor in the graph.
@@ -975,7 +977,9 @@ class Graph:
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
         :param entity_id: The :attr:`~eagerx.core.entities.Node.entity_id` with which the render node was registered
-                   with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard Render node.
+                          with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard Render node.
+        :param process: Process in which the render node is launched. See :class:`~eagerx.core.constants.process` for all
+                        options.
         :param kwargs: Optional arguments required by the render node.
         """
         # Delete old render node from self._state['nodes'] if it exists
@@ -983,7 +987,7 @@ class Graph:
             self.remove("env/render")
 
         # Add (new) render node to self._state['node']
-        render = Node.make(entity_id, rate=rate, **kwargs)
+        render = Node.make(entity_id, rate=rate, process=process, **kwargs)
         self.add(render)
 
         # Create connection
