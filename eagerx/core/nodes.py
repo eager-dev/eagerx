@@ -10,25 +10,22 @@ from sensor_msgs.msg import Image
 import cv_bridge
 import cv2
 
-
-import eagerx.core.register as register
-from eagerx.core.constants import process, WARN
-from eagerx.core.entities import Node
-from eagerx.core.specs import NodeSpec
+import eagerx
+from eagerx import register
 from eagerx.utils.utils import initialize_converter, Msg
 
 
-class EnvNode(Node):
+class EnvNode(eagerx.Node):
     @staticmethod
-    @register.spec("Environment", Node)
-    def spec(spec: NodeSpec, rate=1, log_level=WARN, color="yellow"):
+    @register.spec("Environment", eagerx.Node)
+    def spec(spec: eagerx.specs.NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
         spec.initialize(EnvNode)
 
         # Modify default node params
         spec.config.name = "environment"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = []
@@ -138,10 +135,10 @@ class EnvNode(Node):
         self.obs_event.set()
 
 
-class ObservationsNode(Node):
+class ObservationsNode(eagerx.Node):
     @staticmethod
-    @register.spec("Observations", Node)
-    def spec(spec: NodeSpec, rate=1, log_level=WARN, color="yellow"):
+    @register.spec("Observations", eagerx.Node)
+    def spec(spec: eagerx.specs.NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ObservationsNode spec"""
         # Initialize spec
         spec.initialize(ObservationsNode)
@@ -149,7 +146,7 @@ class ObservationsNode(Node):
         # Modify default node params
         spec.config.name = "env/observations"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["actions_set"]
@@ -171,10 +168,10 @@ class ObservationsNode(Node):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
-class ActionsNode(Node):
+class ActionsNode(eagerx.Node):
     @staticmethod
-    @register.spec("Actions", Node)
-    def spec(spec: NodeSpec, rate=1, log_level=WARN, color="yellow"):
+    @register.spec("Actions", eagerx.Node)
+    def spec(spec: eagerx.specs.NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ActionsNode spec"""
         # Initialize spec
         spec.initialize(ActionsNode)
@@ -182,7 +179,7 @@ class ActionsNode(Node):
         # Modify default node params
         spec.config.name = "env/actions"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["step"]
@@ -204,10 +201,17 @@ class ActionsNode(Node):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
-class RenderNode(Node):
+class RenderNode(eagerx.Node):
     @staticmethod
-    @register.spec("Render", Node)
-    def spec(spec: NodeSpec, rate, display=True, log_level=WARN, color="grey"):
+    @register.spec("Render", eagerx.Node)
+    def spec(
+        spec: eagerx.specs.NodeSpec,
+        rate,
+        display=True,
+        log_level=eagerx.log.WARN,
+        color="grey",
+        process=eagerx.process.ENVIRONMENT,
+    ):
         """RenderNode spec"""
         # Initialize spec
         spec.initialize(RenderNode)
@@ -215,7 +219,7 @@ class RenderNode(Node):
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["image"]
