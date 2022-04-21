@@ -29,7 +29,7 @@ def skip_run():
                                 process=eagerx.process.ENVIRONMENT)
 
     # Initialize Environment
-    env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, bridge=bridge)
+    env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, bridge=bridge, force_start=False)
 
     # First reset
     _ = env.reset()
@@ -44,11 +44,12 @@ def skip_run():
     print("\n[Finished]")
 
     # Shutdown test
-    env.shutdown()
+    # env.shutdown()
     if roscore:
         roscore.shutdown()
     print("\n[Shutdown]")
 
 
 if __name__ == "__main__":
+    skip_run()
     skip_run()

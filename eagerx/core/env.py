@@ -2,7 +2,9 @@
 import rospy
 import rosparam
 import rosgraph
+import rosservice
 from std_msgs.msg import UInt64
+from std_srvs.srv import Trigger, TriggerResponse, TriggerRequest
 
 # EAGERX
 from eagerx.core.specs import NodeSpec, ObjectSpec, BridgeSpec
@@ -43,7 +45,7 @@ class Env(gym.Env):
         supervisor.config.outputs = ["step"]
         return supervisor
 
-    def __init__(self, name: str, rate: float, graph: Graph, bridge: BridgeSpec) -> None:
+    def __init__(self, name: str, rate: float, graph: Graph, bridge: BridgeSpec, force_start: bool) -> None:
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = "/" + name
@@ -63,7 +65,7 @@ class Env(gym.Env):
         [o.add_bridge(self._bridge_name) for o in objects]
 
         # Initialize supervisor node
-        self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(bridge, nodes, objects)
+        self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(bridge, nodes, objects, force_start)
         self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize bridge
@@ -83,9 +85,10 @@ class Env(gym.Env):
         self.register_objects(objects)
 
         # Implement clean up
+        self._shutdown_srv = rospy.Service(f"{self.ns}/environment/shutdown", Trigger, self._remote_shutdown)
         atexit.register(self.shutdown)
 
-    def _init_supervisor(self, bridge: BridgeSpec, nodes: List[NodeSpec], objects: List[ObjectSpec]):
+    def _init_supervisor(self, bridge: BridgeSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
         # Initialize supervisor
         supervisor = self.create_supervisor()
 
@@ -138,6 +141,22 @@ class Env(gym.Env):
                             with supervisor.states as d:
                                 d[name] = mapping
                             supervisor.config.states.append(name)
+
+        # Check if there already exists an environment
+        services = rosservice.get_service_list()
+        if f"{self.ns}/environment/shutdown" in services:
+            if force_start:
+                rospy.logwarn(f"There already exists an environment named '{self.ns}'. Shutting down existing environment.")
+                shutdown_client = rospy.ServiceProxy(f"{self.ns}/environment/shutdown", Trigger)
+                shutdown_client.wait_for_service(1)
+                shutdown_client(TriggerRequest())
+            else:
+                msg = (
+                    f"There already exists an environment named '{self.ns}'. Exiting now. Set 'force_start=True' if you "
+                    "want to shutdown the existing environment."
+                )
+                rospy.logerr(msg)
+                raise rospy.ROSException(msg)
 
         # Delete pre-existing parameters
         try:
@@ -394,8 +413,19 @@ class Env(gym.Env):
         self.supervisor_node.step()
         return self._get_observation()
 
+    def _remote_shutdown(self, req):
+        if not self.has_shutdown:
+            rospy.loginfo(f"Starting remote shutdown procedure for environment `{self.ns}`.")
+            self.shutdown()
+            msg = f"Remote shutdown procedure completed for environment `{self.ns}`."
+            rospy.loginfo(msg)
+        else:
+            msg = f"Environment `{self.ns}` has already shutdown."
+        return TriggerResponse(success=True, message=msg)
+
     def _shutdown(self):
         if not self.has_shutdown:
+            self._shutdown_srv.shutdown()
             for address, node in self.supervisor_node.launch_nodes.items():
                 rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()
@@ -557,6 +587,7 @@ class EagerxEnv(Env):
         step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
         reset_fn: Callable = lambda env: env.state_space.sample(),  # noqa: B008
         exclude: Optional[List[str]] = None,
+        force_start: bool = True,
     ) -> None:
         """Initializes an environment with EAGERx dynamics.
 
@@ -576,6 +607,9 @@ class EagerxEnv(Env):
                         the observations that will not be returned as part of the dict when the agent calls
                         :func:`~eagerx.core.EagerxEnv.reset` and :func:`~eagerx.core.EagerxEnv.step`.
                         Observations with `window=0` are already excluded.
+        :param force_start: If there already exists an environment with the same name, the existing environment is
+                            first shutdown by calling the :func:`~eagerx.core.env.EagerxEnv` method before initializing this
+                            environment.
         """
         self.steps = None
         self.prev_observation = None
@@ -587,7 +621,7 @@ class EagerxEnv(Env):
         #: Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
         #: May also be an empty dictionary if no states need to be reset.
         self.reset_fn = reset_fn
-        super(EagerxEnv, self).__init__(name, rate, graph, bridge)
+        super(EagerxEnv, self).__init__(name, rate, graph, bridge, force_start=force_start)
 
         # Determine set of observations to exclude
         exclude = exclude if isinstance(exclude, list) else []

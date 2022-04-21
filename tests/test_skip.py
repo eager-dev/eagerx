@@ -1,3 +1,5 @@
+import rospy
+
 import eagerx
 
 # Implementation specific
@@ -5,11 +7,13 @@ import tests.test  # noqa # pylint: disable=unused-import
 import pytest
 
 
-@pytest.mark.timeout(20)
-def test_skip_observation():
-    # Start roscore
-    roscore = eagerx.initialize("eagerx_core", anonymous=True, log_level=eagerx.log.INFO)
+# Start roscore
+roscore = eagerx.initialize("eagerx_core", anonymous=True, log_level=eagerx.log.INFO)
 
+
+@pytest.mark.timeout(20)
+@pytest.mark.parametrize("force_start", [True, True, False])
+def test_skip_observation(force_start):
     # Define object
     arm = eagerx.Object.make("Arm", "obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
 
@@ -31,7 +35,16 @@ def test_skip_observation():
                                 process=eagerx.process.ENVIRONMENT)
 
     # Initialize Environment
-    env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, bridge=bridge)
+    try:
+        env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, bridge=bridge, force_start=force_start)
+        msg = "We should have exited the environment here. IMPORTANT!!! The test with force_start=False cannot be the first test."
+        assert force_start, msg
+    except rospy.ROSException:
+        if not force_start:
+            print("Successfully exited environment initialization, because environment already exists and force_start=False")
+            return
+        else:
+            raise
 
     # First reset
     _ = env.reset()
@@ -46,7 +59,6 @@ def test_skip_observation():
     print("\n[Finished]")
 
     # Shutdown test
-    env.shutdown()
-    if roscore:
-        roscore.shutdown()
-    print("\n[Shutdown]")
+    # if roscore:
+    #     roscore.shutdown()
+    # print("\n[Shutdown]")
