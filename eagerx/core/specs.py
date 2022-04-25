@@ -874,6 +874,8 @@ class ObjectSpec(EntitySpec):
                     )
                 with getattr(self, component) as d:
                     d[cname] = mapping
+                # Select component per default
+                getattr(self.config, component).append(cname)
 
     def _initialize_bridge_config(self, bridge_id, bridge_config):
         # Add default config
