@@ -21,7 +21,7 @@ class Arm(eagerx.Object):
         """Agnostic definition of the Arm object"""
         # Set state properties: space_converters
         spec.sensors.N6.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.sensors.N7.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        # spec.sensors.N7.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.sensors.N6.rate = rate
         spec.sensors.N7.rate = 2
 

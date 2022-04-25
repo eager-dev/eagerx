@@ -52,14 +52,12 @@ class EngineGraph:
                 cname,
                 msg_type=conv_msg_type,
                 converter=ConverterSpec(params.converter.to_dict()),  # Set input converter as output converter
-                space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
             spec.add_input(
                 cname,
                 msg_type=params.msg_type,
                 skip=params.skip,
                 converter=ConverterSpec(params.converter.to_dict()),
-                space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
             spec.config.outputs.append(cname)
 
@@ -75,7 +73,6 @@ class EngineGraph:
                 cname,
                 msg_type=conv_msg_type,
                 converter=ConverterSpec(params.converter.to_dict()),
-                space_converter=ConverterSpec(params.space_converter.to_dict()),
             )
 
         # Create a state
