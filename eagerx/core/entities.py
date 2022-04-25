@@ -1030,7 +1030,7 @@ class Bridge(BaseNode):
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
         if self.num_resets >= 1:
-            self.callback(t_n, **kwargs)
+            self.callback(t_n)
         # Fill output msg with number of node ticks
         self.num_ticks += 1
         return dict(tick=UInt64(data=node_tick + 1))
@@ -1132,12 +1132,13 @@ class Bridge(BaseNode):
         pass
 
     @abc.abstractmethod
-    def callback(self, t_n: float, **engine_node_outputs: Msg) -> None:
+    def callback(self, t_n: float) -> None:
         """
         The bridge callback that is performed at the specified rate.
 
         This method should be decorated with :func:`eagerx.core.register.outputs` to register
-        `tick` = :class:`std_msgs.msg.UInt64` as the only output.
+        `tick` = :class:`std_msgs.msg.UInt64` as the only output. This `tick` output synchronizes every
+        :class:`~eagerx.core.entities.EngineNode` that specifies this tick as an input.
 
         This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Bridge.rate`.
 
@@ -1147,13 +1148,7 @@ class Bridge(BaseNode):
                   If you wish to broadcast other output messages based on properties of the simulator,
                   a separate :class:`~eagerx.core.entities.EngineNode` should be created.
 
-        .. note:: The outputs of every :class:`~eagerx.core.entities.EngineNode` for every registered
-                  :class:`~eagerx.core.entities.Object` are automatically registered as input to the bridge to ensure
-                  input-output synchronization.
-
         :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Bridge.rate`.
-        :param engine_node_outputs: The outputs of every :class:`~eagerx.core.entities.EngineNode` for every registered
-                                    :class:`~eagerx.core.entities.Object`.
         """
         pass
 

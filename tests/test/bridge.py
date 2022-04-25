@@ -71,7 +71,7 @@ class TestBridgeNode(Bridge):
         return "POST RESET RETURN VALUE"
 
     @register.outputs(tick=UInt64)
-    def callback(self, t_n: float, **kwargs: Optional[Msg]):
+    def callback(self, t_n: float):
         # Publish nonreactive input
         self.nonreactive_pub.publish(UInt64(data=self.num_ticks))
 
@@ -81,12 +81,3 @@ class TestBridgeNode(Bridge):
             rospy.logerr(
                 f"[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)})."
             )
-
-        # Verify that all timestamps are smaller or equal to node time
-        t_n = node_tick * (1 / self.rate)
-        for i in self.inputs:
-            name = i["name"]
-            if name in kwargs:
-                t_i = kwargs[name].info.t_in
-                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")

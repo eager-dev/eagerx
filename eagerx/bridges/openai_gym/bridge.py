@@ -1,11 +1,10 @@
 # OTHER
-from typing import Optional, Dict, Union, List
+from typing import Optional
 import gym
 
 # ROS IMPORTS
 import rospy
 from std_msgs.msg import UInt64
-from genpy.message import Message
 
 # RX IMPORTS
 from eagerx.core.constants import process, ERROR
@@ -72,7 +71,7 @@ class GymBridge(Bridge):
             sim["buffer_done"] = []
 
     @register.outputs(tick=UInt64)
-    def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
+    def callback(self, t_n: float):
         for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]
             obs, reward, is_done, _ = sim["env"].step(next_action)
