@@ -10,25 +10,23 @@ from sensor_msgs.msg import Image
 import cv_bridge
 import cv2
 
-
+import eagerx
 import eagerx.core.register as register
-from eagerx.core.constants import process, WARN
-from eagerx.core.entities import Node
 from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import initialize_converter, Msg
 
 
-class EnvNode(Node):
+class EnvNode(eagerx.Node):
     @staticmethod
-    @register.spec("Environment", Node)
-    def spec(spec: NodeSpec, rate=1, log_level=WARN, color="yellow"):
+    @register.spec("Environment", eagerx.Node)
+    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
         spec.initialize(EnvNode)
 
         # Modify default node params
         spec.config.name = "environment"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = []
@@ -103,6 +101,11 @@ class EnvNode(Node):
 
             extra = window - len(i.msgs)
             if extra > 0:
+                # Only happens when skip=True && window > 0
+                if len(i.msgs) == 0:
+                    initial_obs = buffer["converter"].initial_obs
+                    i.msgs.append(initial_obs)
+                    extra -= 1  # Subtract, because we appended the initial_obs
                 msgs = extra * [i.msgs[0]] + i.msgs
             else:
                 msgs = i.msgs
@@ -133,10 +136,10 @@ class EnvNode(Node):
         self.obs_event.set()
 
 
-class ObservationsNode(Node):
+class ObservationsNode(eagerx.Node):
     @staticmethod
-    @register.spec("Observations", Node)
-    def spec(spec: NodeSpec, rate=1, log_level=WARN, color="yellow"):
+    @register.spec("Observations", eagerx.Node)
+    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ObservationsNode spec"""
         # Initialize spec
         spec.initialize(ObservationsNode)
@@ -144,7 +147,7 @@ class ObservationsNode(Node):
         # Modify default node params
         spec.config.name = "env/observations"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["actions_set"]
@@ -166,10 +169,10 @@ class ObservationsNode(Node):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
-class ActionsNode(Node):
+class ActionsNode(eagerx.Node):
     @staticmethod
-    @register.spec("Actions", Node)
-    def spec(spec: NodeSpec, rate=1, log_level=WARN, color="yellow"):
+    @register.spec("Actions", eagerx.Node)
+    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ActionsNode spec"""
         # Initialize spec
         spec.initialize(ActionsNode)
@@ -177,7 +180,7 @@ class ActionsNode(Node):
         # Modify default node params
         spec.config.name = "env/actions"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = eagerx.process.ENVIRONMENT
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["step"]
@@ -199,10 +202,17 @@ class ActionsNode(Node):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
-class RenderNode(Node):
+class RenderNode(eagerx.Node):
     @staticmethod
-    @register.spec("Render", Node)
-    def spec(spec: NodeSpec, rate, display=True, log_level=WARN, color="grey"):
+    @register.spec("Render", eagerx.Node)
+    def spec(
+        spec: NodeSpec,
+        rate,
+        display=True,
+        log_level=eagerx.log.WARN,
+        color="grey",
+        process=eagerx.process.ENVIRONMENT,
+    ):
         """RenderNode spec"""
         # Initialize spec
         spec.initialize(RenderNode)
@@ -210,7 +220,7 @@ class RenderNode(Node):
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
-        spec.config.process = process.ENVIRONMENT
+        spec.config.process = process
         spec.config.color = color
         spec.config.log_level = log_level
         spec.config.inputs = ["image"]
@@ -230,9 +240,9 @@ class RenderNode(Node):
         self.last_image = Image(data=[])
         self.render_toggle = False
         self.window_closed = True
-        rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
-        rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
-        self.pub_set_last_image = rospy.Publisher(
+        self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
+        self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
+        self.pub_set = rospy.Publisher(
             "%s/%s/set_last_image" % (self.ns, self.name),
             Image,
             queue_size=0,
@@ -241,14 +251,13 @@ class RenderNode(Node):
 
     def _set_render_toggle(self, msg):
         if msg.data:
-
             rospy.loginfo("START RENDERING!")
         else:
             rospy.loginfo("STOP RENDERING!")
         self.render_toggle = msg.data
 
     def _get_last_image(self, msg):
-        self.pub_set_last_image.publish(self.last_image)
+        self.pub_set.publish(self.last_image)
 
     def reset(self):
         pass
@@ -293,4 +302,7 @@ class RenderNode(Node):
 
     def shutdown(self):
         rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.sub_toggle.unregister()
+        self.sub_get.unregister()
+        self.pub_set.unregister()
         cv2.destroyAllWindows()

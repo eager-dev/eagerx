@@ -37,7 +37,7 @@ First of all, there are the standard parameters for the :class:`~eagerx.core.ent
 
 * :attr:`~eagerx.core.entities.Bridge.rate`
 * :attr:`~eagerx.core.entities.Bridge.process`
-* :attr:`~eagerx.core.entities.Bridge.is_reactive`
+* :attr:`~eagerx.core.entities.Bridge.sync`
 * :attr:`~eagerx.core.entities.Bridge.real_time_factor`
 * :attr:`~eagerx.core.entities.Bridge.simulate_delays`
 * :attr:`~eagerx.core.entities.Bridge.log_level`
@@ -79,7 +79,7 @@ We can define the default values for all of these parameters using the spec func
           spec: BridgeSpec,
           rate,
           process: Optional[int] = process.NEW_PROCESS,
-          is_reactive: Optional[bool] = True,
+          sync: Optional[bool] = True,
           real_time_factor: Optional[float] = 0,
           simulate_delays: Optional[bool] = True,
           log_level: Optional[int] = ERROR,
@@ -95,7 +95,7 @@ We can define the default values for all of these parameters using the spec func
           # Modify default bridge params
           spec.config.rate = rate
           spec.config.process = process
-          spec.config.is_reactive = is_reactive
+          spec.config.sync = sync
           spec.config.real_time_factor = real_time_factor
           spec.config.simulate_delays = simulate_delays
           spec.config.log_level = log_level

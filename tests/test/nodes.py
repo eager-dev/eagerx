@@ -140,7 +140,7 @@ class TestNode(EngineNode):
 
         # Verify that # of ticks equals internal counter
         node_tick = t_n * self.rate
-        if self.is_reactive and not isclose(self.num_ticks, node_tick):
+        if self.sync and not isclose(self.num_ticks, node_tick):
             rospy.logerr(
                 f"[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)})."
             )

@@ -1,11 +1,10 @@
 # OTHER
-from typing import Optional, Dict, Union, List
+from typing import Optional
 import gym
 
 # ROS IMPORTS
 import rospy
 from std_msgs.msg import UInt64
-from genpy.message import Message
 
 # RX IMPORTS
 from eagerx.core.constants import process, ERROR
@@ -24,7 +23,7 @@ class GymBridge(Bridge):
         spec: BridgeSpec,
         rate,
         process: Optional[int] = process.NEW_PROCESS,
-        is_reactive: Optional[bool] = True,
+        sync: Optional[bool] = True,
         real_time_factor: Optional[float] = 0,
         simulate_delays: Optional[bool] = True,
         log_level: Optional[int] = ERROR,
@@ -36,7 +35,7 @@ class GymBridge(Bridge):
         # Modify default bridge params
         spec.config.rate = rate
         spec.config.process = process
-        spec.config.is_reactive = is_reactive
+        spec.config.sync = sync
         spec.config.real_time_factor = real_time_factor
         spec.config.simulate_delays = simulate_delays
         spec.config.log_level = log_level
@@ -72,7 +71,7 @@ class GymBridge(Bridge):
             sim["buffer_done"] = []
 
     @register.outputs(tick=UInt64)
-    def callback(self, t_n: float, **kwargs: Dict[str, Union[List[Message], float, int]]):
+    def callback(self, t_n: float):
         for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]
             obs, reward, is_done, _ = sim["env"].step(next_action)

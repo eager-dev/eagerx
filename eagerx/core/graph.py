@@ -5,6 +5,7 @@ import networkx as nx
 from typing import List, Union, Dict, Optional, Any
 import rospy
 from eagerx.utils.utils import (
+    initialize_converter,
     get_opposite_msg_cls,
     get_module_type_string,
     get_cls_from_string,
@@ -21,6 +22,7 @@ from eagerx.utils.network_utils import (
     color_edges,
     is_stale,
 )
+import eagerx
 from eagerx.core.entities import Node, BaseConverter, SpaceConverter
 from eagerx.core.view import GraphView
 from eagerx.core.specs import (
@@ -35,7 +37,7 @@ yaml.Dumper.ignore_aliases = lambda *args: True  # todo: check if needed.
 
 
 def merge(a, b, path=None):
-    "merges b into a"
+    """merges b into a"""
     # If it is a spec, convert to params
     if path is None:
         path = []
@@ -309,6 +311,7 @@ class Graph:
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
+        initial_obs: Optional[Any] = None,
     ) -> None:
         """Connect an action/source (i.e. node/object component) to an observation/target (i.e. node/object component).
 
@@ -342,7 +345,13 @@ class Graph:
                       :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
                       in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
-                     May be necessary to ensure that the connected graph is directed and acyclic.
+                     May be necessary to ensure that the connected graph is directed and acyclic. If the input is an
+                     observation to the environment with `window` > 0, the user must provide an initial observation
+                     (i.e. the `initial_obs` argument).
+        :param initial_obs: An initial observation that is used on t=0 if an observation is corresponds to a skipped
+                            input with `window` > 0. The provided observation must comply with the specified observation
+                            space that corresponds to the observation. This ensures that at t=0, the observation to the
+                            agent complies with the environment's observation space.
         """
         assert not source or not action, (
             'You cannot specify a source if you wish to connect action "%s",' " as the action will act as the source." % action
@@ -364,7 +373,9 @@ class Graph:
             source = self.get_view("env/actions", ["outputs", action])
         elif observation:  # target = observation
             self.add_component(observation=observation)
-            converter = self._connect_observation(source, observation, converter=converter)
+            converter = self._connect_observation(
+                source, observation, converter=converter, window=window, skip=skip, initial_obs=initial_obs
+            )
             target = self.get_view("env/observations", ["inputs", observation])
         self._connect(source, target, converter, window, delay, skip)
 
@@ -476,8 +487,9 @@ class Graph:
             )
             self._set(params_action["outputs"], {action: mapping})
 
-    def _connect_observation(self, source, observation, converter):
+    def _connect_observation(self, source, observation, converter, window, skip, initial_obs):
         """Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target)."""
+
         params_obs = self._state["nodes"]["env/observations"]
         assert observation in params_obs["inputs"], 'Observation "%s" must be added, before you can connect it.' % observation
         name, component, cname = source()
@@ -496,6 +508,21 @@ class Graph:
         if converter is None:
             converter = source.space_converter.to_dict()
         msg_type_C = get_opposite_msg_cls(msg_type_B, converter)
+
+        # Set the initial_obs
+        if initial_obs is not None:
+            assert isinstance(initial_obs, (list, float, int, bool)), (
+                "Initial_obs is not of any supported type: list, " "float, int, bool."
+            )
+            converter["initial_obs"] = initial_obs
+
+        # Initialize converter
+        if skip and window > 0:
+            c = initialize_converter(converter)
+            assert c.initial_obs is not None, (
+                f"Observation '{observation}' is missing an initial observation (`initial_obs`)."
+                " This is required when skip=True and window>0."
+            )
 
         # Set properties in node params of 'env/observations'
         assert len(params_obs["inputs"][observation]) == 0, 'Observation "%s" already connected.' % observation
@@ -921,6 +948,7 @@ class Graph:
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
         entity_id: str = "Render",
+        process: int = eagerx.process.ENVIRONMENT,
         **kwargs,
     ):
         """Render the :class:`sensor_msgs.msg.Image` messages produced by a node/sensor in the graph.
@@ -949,7 +977,9 @@ class Graph:
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
         :param entity_id: The :attr:`~eagerx.core.entities.Node.entity_id` with which the render node was registered
-                   with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard Render node.
+                          with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard Render node.
+        :param process: Process in which the render node is launched. See :class:`~eagerx.core.constants.process` for all
+                        options.
         :param kwargs: Optional arguments required by the render node.
         """
         # Delete old render node from self._state['nodes'] if it exists
@@ -957,7 +987,7 @@ class Graph:
             self.remove("env/render")
 
         # Add (new) render node to self._state['node']
-        render = Node.make(entity_id, rate=rate, **kwargs)
+        render = Node.make(entity_id, rate=rate, process=process, **kwargs)
         self.add(render)
 
         # Create connection

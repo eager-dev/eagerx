@@ -132,7 +132,7 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0, process=bridge_p)
+    bridge = Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=0, process=bridge_p)
 
     # Initialize Environment
     env = EagerxEnv(
@@ -172,6 +172,6 @@ if __name__ == "__main__":
     #  The bridges knows which inputs are nonreactive when the object is registered.
     #  - Nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
     #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
-    #  not be agnostic (as they would break in the case is_reactive=True).
+    #  not be agnostic (as they would break in the case sync=True).
     #  - In the bridge definition of an object, there cannot be converters defined for the components related to the sensor and actuator.
     #  Reason for this is that if a converter would already be defined there, then it is not possible anymore to add another one in the agnostic graph.

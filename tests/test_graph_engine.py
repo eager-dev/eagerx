@@ -27,7 +27,7 @@ def test_graph_engine():
     graph.connect(action="act_1", target=arm.actuators.N8)
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0, process=process.ENVIRONMENT)
+    bridge = Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=0, process=process.ENVIRONMENT)
 
     # Initialize Environment
     env = EagerxEnv(name="graph_engine", rate=7, graph=graph, bridge=bridge)

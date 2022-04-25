@@ -222,7 +222,7 @@ def test_graph():
     graph.is_valid(plot=True)
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=False, real_time_factor=5.5, process=process.NEW_PROCESS)
+    bridge = Bridge.make("TestBridge", rate=20, sync=False, real_time_factor=5.5, process=process.NEW_PROCESS)
 
     # Initialize Environment
     env = EagerxEnv(

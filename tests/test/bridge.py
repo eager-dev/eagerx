@@ -18,7 +18,7 @@ class TestBridgeNode(Bridge):
         # Initialize any simulator here, that is passed as reference to each simnode
         self.simulator = None
 
-        # If real_time bridge, assert that real_time_factor == 1 & is_reactive=False.
+        # If real_time bridge, assert that real_time_factor == 1 & sync=False.
 
         # Initialize nonreactive input (Only required for this test bridge implementation
         self.nonreactive_pub = rospy.Publisher(self.ns + nonreactive_address, UInt64, queue_size=0, latch=True)
@@ -29,7 +29,7 @@ class TestBridgeNode(Bridge):
         spec,
         rate,
         process: Optional[int] = process.NEW_PROCESS,
-        is_reactive: Optional[bool] = True,
+        sync: Optional[bool] = True,
         real_time_factor: Optional[float] = 0,
         simulate_delays: Optional[bool] = True,
         log_level: Optional[int] = ERROR,
@@ -42,7 +42,7 @@ class TestBridgeNode(Bridge):
         # Modify default bridge params
         spec.config.rate = rate
         spec.config.process = process
-        spec.config.is_reactive = is_reactive
+        spec.config.sync = sync
         spec.config.real_time_factor = real_time_factor
         spec.config.simulate_delays = simulate_delays
         spec.config.log_level = log_level
@@ -71,7 +71,7 @@ class TestBridgeNode(Bridge):
         return "POST RESET RETURN VALUE"
 
     @register.outputs(tick=UInt64)
-    def callback(self, t_n: float, **kwargs: Optional[Msg]):
+    def callback(self, t_n: float):
         # Publish nonreactive input
         self.nonreactive_pub.publish(UInt64(data=self.num_ticks))
 
@@ -81,12 +81,3 @@ class TestBridgeNode(Bridge):
             rospy.logerr(
                 f"[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)})."
             )
-
-        # Verify that all timestamps are smaller or equal to node time
-        t_n = node_tick * (1 / self.rate)
-        for i in self.inputs:
-            name = i["name"]
-            if name in kwargs:
-                t_i = kwargs[name].info.t_in
-                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")

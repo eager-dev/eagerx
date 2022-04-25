@@ -18,13 +18,13 @@ class Space_Float32MultiArray(SpaceConverter):
 
     @staticmethod
     @register.spec("Space_Float32MultiArray", SpaceConverter)
-    def spec(spec: ConverterSpec, low=None, high=None, dtype="float32"):
+    def spec(spec: ConverterSpec, low, high, dtype="float32"):
         # Initialize spec with default arguments
         spec.initialize(Space_Float32MultiArray)
         params = dict(low=low, high=high, dtype=dtype)
         spec.config.update(params)
 
-    def initialize(self, low=None, high=None, dtype="float32"):
+    def initialize(self, low, high, dtype="float32"):
         self.low = np.array(low, dtype=dtype)
         self.high = np.array(high, dtype=dtype)
         self.dtype = dtype
@@ -107,14 +107,14 @@ class Space_Float32(SpaceConverter):
 
     @staticmethod
     @register.spec("Space_Float32", SpaceConverter)
-    def spec(spec: ConverterSpec, low=None, high=None, dtype="float32"):
+    def spec(spec: ConverterSpec, low, high, dtype="float32"):
         # Initialize spec with default arguments
         spec.initialize(Space_Float32)
 
         params = dict(low=low, high=high, dtype=dtype)
         spec.config.update(params)
 
-    def initialize(self, low=None, high=None, dtype="float32"):
+    def initialize(self, low, high, dtype="float32"):
         self.low = low
         self.high = high
         assert isinstance(low, (int, float)), "Low must be of type (int, float)."

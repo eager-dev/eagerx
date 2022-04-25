@@ -18,7 +18,7 @@ from time import time
 if __name__ == "__main__":
     # Define rate (depends on rate of gym env)
     rate = 20
-    is_reactive = True
+    sync = True
     real_time_factor = 2.0
 
     # Define object
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=real_time_factor,
+    bridge = Bridge.make("GymBridge", rate=rate, sync=sync, real_time_factor=real_time_factor,
                          process=process.NEW_PROCESS)
 
     # Define step function
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     # ax[-1].legend(handles=handles, ncol=4, prop={'size': 8}, loc='upper center', bbox_to_anchor=(0.5, -0.45), fancybox=True, shadow=True)
     # ax[-1].legend(handles=all_handles, ncol=6, prop={'size': 8}, loc='lower left', fancybox=True, shadow=True)
     ax[-1].set(xlabel="$t (s)$")
-    sync = "Reactive" if is_reactive else "Async"
+    sync = "Reactive" if sync else "Async"
     real_time_str = real_time_factor if real_time_factor > 0 else '"fast-as-possible"'
 
     fig.suptitle(

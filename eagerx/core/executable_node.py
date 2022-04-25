@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+# source ROS if in colab
+import os
+
+if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
+    import site
+
+    site.addsitedir("/opt/ros/melodic/lib/python2.7/dist-packages")
+    site.addsitedir("/usr/lib/python2.7/dist-packages")
+
 # ROS imports
 import rospy
 from std_msgs.msg import UInt64
@@ -68,7 +77,7 @@ class RxNode(object):
         rate = params["rate"]
 
         # Get info from bridge on reactive properties
-        is_reactive = get_param_with_blocking(self.ns + "/bridge/is_reactive")
+        sync = get_param_with_blocking(self.ns + "/bridge/sync")
         real_time_factor = get_param_with_blocking(self.ns + "/bridge/real_time_factor")
         simulate_delays = get_param_with_blocking(self.ns + "/bridge/simulate_delays")
 
@@ -77,7 +86,7 @@ class RxNode(object):
         node = node_cls(
             ns=self.ns,
             message_broker=self.mb,
-            is_reactive=is_reactive,
+            sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
             **kwargs,

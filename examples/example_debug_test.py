@@ -13,7 +13,7 @@ def graph_engine(idx):
     # Start roscore
     roscore = eagerx.initialize("eagerx_core", anonymous=True, log_level=eagerx.log.DEBUG)
 
-    is_reactive = True
+    sync = True
     rtf = 0
     p = 0
 
@@ -69,7 +69,7 @@ def graph_engine(idx):
     graph.gui()
 
     # Define bridge
-    bridge = eagerx.Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
+    bridge = eagerx.Bridge.make("TestBridge", rate=20, sync=sync, real_time_factor=rtf, process=bridge_p)
 
     # Initialize Environment
     name = str(time.time()).replace(".", "_")

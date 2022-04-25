@@ -55,7 +55,7 @@ def init_node_pipeline(
     state_outputs,
     targets,
     cb_ft,
-    is_reactive,
+    sync,
     real_time_factor,
     simulate_delays,
     disposables,
@@ -67,7 +67,7 @@ def init_node_pipeline(
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
 
     # Throttle the callback trigger
-    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, event_scheduler, node)
+    Nct = throttle_callback_trigger(rate_node, Nc, E, sync, real_time_factor, event_scheduler, node)
 
     # Create input channels
     zipped_inputs, zipped_input_flags = init_channels(
@@ -75,7 +75,7 @@ def init_node_pipeline(
         Nct,
         rate_node,
         inputs,
-        is_reactive,
+        sync,
         real_time_factor,
         simulate_delays,
         E,
@@ -92,7 +92,7 @@ def init_node_pipeline(
         real_reset,
         feedthrough,
         targets,
-        is_reactive,
+        sync,
         real_time_factor,
         simulate_delays,
         E,
@@ -199,7 +199,7 @@ def init_node(
     reset_disp = CompositeDisposable(eps_disp)
 
     # Gather reactive properties
-    is_reactive = node.is_reactive
+    sync = node.sync
     real_time_factor = node.real_time_factor
     simulate_delays = node.simulate_delays
 
@@ -349,7 +349,7 @@ def init_node(
                 state_outputs,
                 targets,
                 cb_ft,
-                is_reactive,
+                sync,
                 real_time_factor,
                 simulate_delays,
                 eps_disp,
@@ -407,7 +407,7 @@ def init_bridge_pipeline(
     SS_ho,
     SS_CL_ho,
     state_inputs,
-    is_reactive,
+    sync,
     real_time_factor,
     simulate_delays,
     E,
@@ -421,7 +421,7 @@ def init_bridge_pipeline(
     Ns = BehaviorSubject(0)  # Number of started callbacks (i.e. number of planned Topics).
 
     # Throttle the callback trigger
-    Nct = throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, event_scheduler, node)
+    Nct = throttle_callback_trigger(rate_node, Nc, E, sync, real_time_factor, event_scheduler, node)
     Nct_ho.on_next(Nct)
 
     # Create a tuple with None, to be consistent with feedthrough pipeline of init_node_pipeline
@@ -515,7 +515,7 @@ def init_bridge(
     reset_disp = CompositeDisposable(eps_disp)
 
     # Gather reactive properties
-    is_reactive = node.is_reactive
+    sync = node.sync
     real_time_factor = node.real_time_factor
     simulate_delays = node.simulate_delays
 
@@ -791,7 +791,7 @@ def init_bridge(
                 Nct,
                 rate_node,
                 inputs,
-                is_reactive,
+                sync,
                 real_time_factor,
                 simulate_delays,
                 end_reset["msg"],
@@ -830,7 +830,7 @@ def init_bridge(
                 SS_ho,
                 SS_CL_ho,
                 state_inputs,
-                is_reactive,
+                sync,
                 real_time_factor,
                 simulate_delays,
                 end_reset["msg"],
