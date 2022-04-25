@@ -1000,6 +1000,9 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         state_inputs.append(s)
 
     # Process nodes
+    has_output = False
+    num_outputs = sum([len(params["outputs"]) for params in node_params])
+    count = 0
     converted_outputs = dict()  # {address: (msg_type_out, converter, msg_type_ros, source)}
     for params in node_params:
         name = params["name"]
@@ -1013,7 +1016,16 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         )
         node_flags.append(nf)
 
+        # Only add output if tick is an input
+        must_sync = len([i["name"] for i in params["inputs"] if i["name"] == "tick"]) > 0
         for i in params["outputs"]:
+            count += 1
+            # Only add output as input to bridge if:
+            #  1. `tick` is an input to the engine node (ie, we require input-output synchronization).
+            #  2. It is the final output of the object, and no other output was added to the bridge yet.
+            #     This is required, else the bridge might not have any output.
+            if not (must_sync or ((not has_output) and count == num_outputs)):
+                continue
             ros_msg_type = get_opposite_msg_cls(i["msg_type"], i["converter"])
 
             # Infer input (ROS) message type from  output msg_type and converter
@@ -1030,7 +1042,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                     source,
                 )
 
-            # Create a new input topic for each SimNode output topic
+            # Create a new input topic for each EngineNode output topic
             n = RxInput(
                 name=i["address"],
                 address=i["address"],
@@ -1066,7 +1078,8 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                 o.update(i)
                 reactive_proxy.append(o)
 
-    # Check that converted outputs do not break the object's simulation graph (some nodes might expect a non-converted output message).
+    # Check that converted outputs do not break the object's simulation graph.
+    # Some nodes might expect a non-converted output message.
     for params in node_params:
         for i in params["inputs"]:
             if i["address"] in converted_outputs:
