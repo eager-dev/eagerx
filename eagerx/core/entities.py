@@ -448,6 +448,35 @@ class Node(BaseNode):
                         return self.empty_outputs
         output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
+        # Skip type check if node = "environment":
+        #  1. Because we actually do not output the registered msg_type, but a numpy array (so checks always fail)
+        #  2. The callback sometimes returns None, because .reset() was called instead of a .step().
+        if self.name == "environment":
+            return output
+        # Type check output of callback
+        for o in self.outputs:
+            cname = o["name"]
+            if cname in output:
+                assert isinstance(output[cname], o["msg_type"]), (
+                    f"The message type of output {cname}` ({type(output[cname])}), returned by the .callback(...) of "
+                    f"`{self.name}`, should be of type `{o['msg_type']}`."
+                )
+            else:
+                rospy.logwarn_once(
+                    f"The .callback(...) of `{self.name}` did not return the registered output `{cname}`. Downstream nodes, "
+                    "depending on this output for their callback, may deadlock. "
+                )
+
+        for i in self.targets:
+            cname_done = i["name"] + "/done"
+            assert cname_done in output, (
+                f"The .callback(...) of `{self.name}` did not return an output dict with key"
+                f"`{cname_done}` that communicates the reset status for the registered target."
+            )
+            assert isinstance(output[cname_done], Bool), (
+                f"The message type of target {cname_done}` ({type(output[cname_done])}), returned by the .callback(...) of "
+                f"`{self.name}`, should be of type `std_msgs.msg/Bool`."
+            )
         return output
 
     def set_delay(self, delay: float, component: str, cname: str) -> None:
