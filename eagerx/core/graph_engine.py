@@ -42,6 +42,7 @@ class EngineGraph:
         # Create actuator node
         spec = EngineNode.pre_make(None, None)
         spec.config.name = "actuators"
+        spec.config.color = "yellow"
         nodes.append(spec)
         for cname, params in actuators.items():
             # Determine converted msg_type, based on user-defined input converter
@@ -65,6 +66,7 @@ class EngineGraph:
         # Create sensor node
         spec = EngineNode.pre_make(None, None)
         spec.config.name = "sensors"
+        spec.config.color = "yellow"
         nodes.append(spec)
         for cname, params in sensors.items():
             conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
