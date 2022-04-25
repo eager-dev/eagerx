@@ -56,7 +56,7 @@ ros_log_fns = {
 }
 
 
-def cb_ft(cb_input, is_reactive):
+def cb_ft(cb_input, sync):
     # Fill output msg with number of node ticks
     output_msgs = dict()
     for key, msg in cb_input.items():
@@ -64,7 +64,7 @@ def cb_ft(cb_input, is_reactive):
             if len(msg.msgs) > 0:
                 output_msgs[key] = msg.msgs[-1]
             else:
-                assert not is_reactive, "Actions must always be fed through if we are running reactively."
+                assert not sync, "Actions must always be fed through if we are running reactively."
                 output_msgs[key] = None
     return output_msgs
 
@@ -322,7 +322,7 @@ def create_msg_tuple(name: str, node_tick: int, msg: List[Any], stamp: List[Stam
     return Msg(info, msg)
 
 
-def remap_state(name, is_reactive, real_time_factor):
+def remap_state(name, sync, real_time_factor):
     def _remap_state(source):
         def subscribe(observer, scheduler=None):
             start = time.time()
@@ -333,7 +333,7 @@ def remap_state(name, is_reactive, real_time_factor):
                 msg = value[0][1]
                 done = value[1]
                 wc_stamp = time.time()
-                if is_reactive:
+                if sync:
                     sim_stamp = None
                 else:
                     sim_stamp = (wc_stamp - start) / real_time_factor
@@ -349,7 +349,7 @@ def remap_state(name, is_reactive, real_time_factor):
     return _remap_state
 
 
-def remap_target(name, is_reactive, real_time_factor):
+def remap_target(name, sync, real_time_factor):
     def _remap_target(source):
         def subscribe(observer, scheduler=None):
             start = time.time()
@@ -359,7 +359,7 @@ def remap_target(name, is_reactive, real_time_factor):
                 node_tick = value[0]
                 msg = value[1]
                 wc_stamp = time.time()
-                if is_reactive:
+                if sync:
                     sim_stamp = None
                 else:
                     sim_stamp = (wc_stamp - start) / real_time_factor
@@ -489,7 +489,7 @@ def generate_msgs(
     name: str,
     rate_in: float,
     params: dict,
-    is_reactive: bool,
+    sync: bool,
     real_time_factor: float,
     simulate_delays: bool,
     node=None,
@@ -514,10 +514,10 @@ def generate_msgs(
             @synchronized(lock)
             def next(i):
                 if len(tick_queue) > 0:
-                    if not is_reactive or len(msgs_queue) >= num_queue[0]:
+                    if not sync or len(msgs_queue) >= num_queue[0]:
                         try:
                             tick = tick_queue.pop(0)
-                            if is_reactive:
+                            if sync:
                                 # determine num_msgs
                                 num_msgs = num_queue.pop(0)
                                 msgs = msgs_queue[:num_msgs]
@@ -536,7 +536,7 @@ def generate_msgs(
                         # Determine t_n stamp
                         wc_stamp = time.time()
                         seq = tick
-                        if is_reactive:
+                        if sync:
                             sim_stamp = round(tick / rate_node, 12)
                         else:
                             sim_stamp = (wc_stamp - start) / real_time_factor
@@ -558,7 +558,7 @@ def generate_msgs(
 
             # Determine Nc logic
             def on_next_Nc(x):
-                if is_reactive:
+                if sync:
                     # Caculate expected number of message to be received
                     delay = params["delay"] if simulate_delays else 0.0
                     num_msgs = expected_inputs(x - skip, rate_in, rate_node, delay)
@@ -575,7 +575,7 @@ def generate_msgs(
                 msgs_queue.append(x[1])
                 wc_stamp = time.time()
                 seq = x[0]
-                if is_reactive:
+                if sync:
                     sim_stamp = round(x[0] * dt_i, 12)
                 else:
                     sim_stamp = (wc_stamp - start) / real_time_factor
@@ -583,7 +583,7 @@ def generate_msgs(
                 next(x)
 
             sad = SingleAssignmentDisposable()
-            if not is_reactive and simulate_delays:
+            if not sync and simulate_delays:
                 source_msg_delayed = source_msg.pipe(ops.delay(params["delay"] / real_time_factor))
             else:
                 source_msg_delayed = source_msg
@@ -602,7 +602,7 @@ def create_channel(
     Nc,
     rate_node,
     inpt,
-    is_reactive,
+    sync,
     real_time_factor,
     simulate_delays,
     E,
@@ -644,7 +644,7 @@ def create_channel(
             name,
             rate,
             params=inpt,
-            is_reactive=is_reactive,
+            sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
             node=node,
@@ -657,7 +657,7 @@ def create_channel(
         ops.map(lambda val: val[0] + 1),
         ops.start_with(0),
         ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
-        ops.filter(lambda value: not is_reactive or value[0] == value[1]),
+        ops.filter(lambda value: not sync or value[0] == value[1]),
         ops.map(lambda x: {name: x[0]}),
     )
     return channel, flag
@@ -668,7 +668,7 @@ def init_channels(
     Nc,
     rate_node,
     inputs,
-    is_reactive,
+    sync,
     real_time_factor,
     simulate_delays,
     E,
@@ -685,7 +685,7 @@ def init_channels(
             Nc,
             rate_node,
             i,
-            is_reactive,
+            sync,
             real_time_factor,
             simulate_delays,
             E,
@@ -722,7 +722,7 @@ def init_real_reset(
     real_reset,
     feedthrough,
     targets,
-    is_reactive,
+    sync,
     real_time_factor,
     simulate_delays,
     E,
@@ -747,7 +747,7 @@ def init_real_reset(
             Nc,
             rate_node,
             feedthrough,
-            is_reactive,
+            sync,
             real_time_factor,
             simulate_delays,
             E,
@@ -782,7 +782,7 @@ def init_target_channel(states, scheduler, node):
             ops.map(s["converter"].convert),
             ops.share(),
             ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
-            remap_target(s["name"], node.is_reactive, node.real_time_factor),
+            remap_target(s["name"], node.sync, node.real_time_factor),
         )
         channels.append(c)
     return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False))
@@ -811,7 +811,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node):
                 ops.start_with((-1, None)),
                 ops.combine_latest(d),
                 ops.filter(lambda x: x[0][0] >= 0 or x[1]),
-                remap_state(s["name"], node.is_reactive, node.real_time_factor),
+                remap_state(s["name"], node.sync, node.real_time_factor),
             )
             channels.append(c)
         return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False), ops.merge(rx.never()))
@@ -849,7 +849,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.start_with((-1, None)),
                 ops.combine_latest(d),
                 ops.filter(lambda x: x[0][0] >= 0 or x[1]),
-                remap_state(s["name"], node.is_reactive, node.real_time_factor),
+                remap_state(s["name"], node.sync, node.real_time_factor),
             )
 
             done, reset = trigger.pipe(
@@ -894,7 +894,7 @@ def init_callback_pipeline(
         ft_stream = ft_stream.pipe(
             ops.map(lambda x: x[1][1]),
             spy("CB_FT", node, log_level=DEBUG, mapper=remap_cb_input(mode=0)),
-            ops.map(lambda val: cb_ft(val, node.is_reactive)),
+            ops.map(lambda val: cb_ft(val, node.sync)),
             ops.share(),
         )
         reset_stream = reset_stream.pipe(
@@ -1271,9 +1271,9 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
     return _throttle_with_time
 
 
-def throttle_callback_trigger(rate_node, Nc, E, is_reactive, real_time_factor, scheduler, node):
+def throttle_callback_trigger(rate_node, Nc, E, sync, real_time_factor, scheduler, node):
     # return Nc
-    if is_reactive and real_time_factor == 0:
+    if sync and real_time_factor == 0:
         Nct = Nc
     else:
         assert (

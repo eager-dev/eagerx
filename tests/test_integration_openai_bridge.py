@@ -18,10 +18,10 @@ ENV = process.ENVIRONMENT
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
-    "gym_id, eps, is_reactive, rtf, p",
+    "gym_id, eps, sync, rtf, p",
     [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
-def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
+def test_integration_openai_bridge(gym_id, eps, sync, rtf, p):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
 
     # Define rate (depends on rate of gym env)
@@ -52,11 +52,11 @@ def test_integration_openai_bridge(gym_id, eps, is_reactive, rtf, p):
     graph.connect(source=obj.sensors.done, observation="done", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
-    name = f"{name}_{eps}_{is_reactive}_{p}"
+    name = f"{name}_{eps}_{sync}_{p}"
 
     # Define bridge
     obj.gui("GymBridge")
-    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=rtf, process=p)
+    bridge = Bridge.make("GymBridge", rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Initialize Environment
     env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, bridge=bridge)

@@ -185,16 +185,16 @@ class SupervisorNode(BaseNode):
 
 
 class Supervisor(object):
-    def __init__(self, name, message_broker, is_reactive, real_time_factor, simulate_delays):
+    def __init__(self, name, message_broker, sync, real_time_factor, simulate_delays):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
         self.initialized = False
-        self.is_reactive = is_reactive
+        self.sync = sync
         self.has_shutdown = False
 
         # Prepare input & output topics
-        outputs, states, self.node = self._prepare_io_topics(self.name, is_reactive, real_time_factor, simulate_delays)
+        outputs, states, self.node = self._prepare_io_topics(self.name, sync, real_time_factor, simulate_delays)
 
         # Initialize reactive pipeline
         rx_objects, env_subjects = eagerx.core.rx_pipelines.init_supervisor(
@@ -212,7 +212,7 @@ class Supervisor(object):
             rospy.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
-    def _prepare_io_topics(self, name, is_reactive, real_time_factor, simulate_delays):
+    def _prepare_io_topics(self, name, sync, real_time_factor, simulate_delays):
         params = get_param_with_blocking(name)
 
         # Get node
@@ -220,7 +220,7 @@ class Supervisor(object):
         node = node_cls(
             ns=self.ns,
             message_broker=self.mb,
-            is_reactive=is_reactive,
+            sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
             **params,

@@ -602,7 +602,7 @@ class BridgeSpec(BaseNodeSpec):
 
             Process in which the bridge is launched. See :class:`~eagerx.core.constants.process` for all options.
 
-        - .. py:attribute:: Spec.config.is_reactive: bool = True
+        - .. py:attribute:: Spec.config.sync: bool = True
 
             Flag that specifies whether we run reactive or asynchronous.
 

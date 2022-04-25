@@ -18,7 +18,7 @@ def graph_engine(idx):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.DEBUG)
 
     gym_id = "Pendulum-v0"
-    is_reactive = True
+    sync = True
     rtf = 0
     p = 0
 
@@ -51,7 +51,7 @@ def graph_engine(idx):
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
     # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=is_reactive, real_time_factor=rtf, process=p)
+    bridge = Bridge.make("GymBridge", rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Initialize Environment
     name = str(time.time()).replace('.', '_')

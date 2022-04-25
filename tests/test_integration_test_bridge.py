@@ -17,15 +17,15 @@ ENV = process.ENVIRONMENT
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize(
-    "eps, steps, is_reactive, rtf, p",
+    "eps, steps, sync, rtf, p",
     [(3, 3, True, 0, ENV), (20, 40, True, 0, NP), (3, 3, True, 4, NP), (20, 40, False, 4, NP), (3, 3, False, 4, ENV)],
 )
-def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
+def test_integration_test_bridge(eps, steps, sync, rtf, p):
     # Start roscore
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
 
     # Define unique name for test environment
-    name = f"{eps}_{steps}_{is_reactive}_{p}"
+    name = f"{eps}_{steps}_{sync}_{p}"
     node_p = p
     bridge_p = p
     rate = 17
@@ -72,7 +72,7 @@ def test_integration_test_bridge(eps, steps, is_reactive, rtf, p):
     graph.gui()
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=is_reactive, real_time_factor=rtf, process=bridge_p)
+    bridge = Bridge.make("TestBridge", rate=20, sync=sync, real_time_factor=rtf, process=bridge_p)
 
     # Initialize Environment
     env = EagerxEnv(

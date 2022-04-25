@@ -26,7 +26,7 @@ def graph_engine(idx):
     graph.connect(action="act_1", target=arm.actuators.N8)
 
     # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=1, process=process.ENVIRONMENT)
+    bridge = Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=1, process=process.ENVIRONMENT)
 
     # Initialize Environment
     env = EagerxEnv(name=f"rx_{idx}", rate=7, graph=graph, bridge=bridge)

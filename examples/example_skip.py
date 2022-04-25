@@ -25,7 +25,7 @@ def skip_run():
     graph.connect(source=arm.sensors.N6, observation="sens_1")
 
     # Define bridge
-    bridge = eagerx.Bridge.make("TestBridge", rate=20, is_reactive=True, real_time_factor=0,
+    bridge = eagerx.Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=0,
                                 process=eagerx.process.ENVIRONMENT)
 
     # Initialize Environment

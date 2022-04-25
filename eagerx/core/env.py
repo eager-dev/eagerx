@@ -173,7 +173,7 @@ class Env(gym.Env):
         mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"))
 
         # Get info from bridge on reactive properties
-        is_reactive = bridge.config.is_reactive
+        sync = bridge.config.sync
         real_time_factor = bridge.config.real_time_factor
         simulate_delays = bridge.config.simulate_delays
 
@@ -185,7 +185,7 @@ class Env(gym.Env):
         rx_supervisor = Supervisor(
             "%s/%s" % (self.ns, name),
             mb,
-            is_reactive,
+            sync,
             real_time_factor,
             simulate_delays,
         )
@@ -334,7 +334,7 @@ class Env(gym.Env):
     def _set_action(self, action) -> None:
         # Set actions in buffer
         for name, buffer in self.env_node.action_buffer.items():
-            assert not self.supervisor_node.is_reactive or name in action, (
+            assert not self.supervisor_node.sync or name in action, (
                 'Action "%s" not specified. Must specify all actions in action_space if running reactive.' % name
             )
             if name in action:

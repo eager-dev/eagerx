@@ -123,7 +123,7 @@ class BaseNode(Entity):
         states: List[Dict],
         feedthroughs: List[Dict],
         targets: List[Dict],
-        is_reactive: bool,
+        sync: bool,
         real_time_factor: float,
         simulate_delays: bool,
         *args,
@@ -178,7 +178,7 @@ class BaseNode(Entity):
         self.targets: List[Dict] = targets
         #: Flag that specifies whether we run reactive or asynchronous.
         #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
-        self.is_reactive: bool = is_reactive
+        self.sync: bool = sync
         #: A specified upper bound on the real_time factor. Wall-clock rate=real_time_factor*rate.
         #: If real_time_factor < 1 the simulation is slower than real time.
         #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
@@ -436,7 +436,7 @@ class Node(BaseNode):
 
         # Skip callback if not all inputs with window > 0 have received at least one input.
         if (
-            not self.is_reactive or not self.num_ticks > 1
+            not self.sync or not self.num_ticks > 1
         ):  # Larger than 1 here, because we might have already ticked, but not yet received a skipped input.
             for cname, skip in self.windowed.items():
                 if len(kwargs[cname].msgs) == 0:
@@ -841,7 +841,7 @@ class Bridge(BaseNode):
         "callback": ["outputs"],
     }
 
-    def __init__(self, target_addresses, node_names, is_reactive, real_time_factor, **kwargs):
+    def __init__(self, target_addresses, node_names, sync, real_time_factor, **kwargs):
         """
         Base class constructor.
 
@@ -851,7 +851,7 @@ class Bridge(BaseNode):
         :param simulator: Simulator object
         :param target_addresses: Addresses from which the bridge should expect "done" msgs.
         :param node_names: List of node names that are registered in the graph.
-        :param is_reactive: Boolean flag. Specifies whether we run reactive or asynchronous.
+        :param sync: Boolean flag. Specifies whether we run reactive or asynchronous.
         :param real_time_factor: Sets an upper bound of real_time factor. Wall-clock rate=real_time_factor*rate.
          If real_time_factor < 1 the simulation is slower than real time.
         :param kwargs: Arguments that are to be passed down to the node baseclass. See NodeBase for this.
@@ -867,9 +867,9 @@ class Bridge(BaseNode):
         self.node_names = node_names
 
         # Check real_time_factor & reactive args
-        assert is_reactive or (
-            not is_reactive and real_time_factor > 0
-        ), "Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set is_reactive=True or real_time_factor > 0"
+        assert sync or (
+            not sync and real_time_factor > 0
+        ), "Cannot have a real_time_factor=0 while not reactive. Will result in synchronization issues. Set sync=True or real_time_factor > 0"
 
         # Initialized nodes
         self.sp_nodes = dict()
@@ -904,7 +904,7 @@ class Bridge(BaseNode):
         ]
 
         # Call baseclass constructor (which eventually calls .initialize())
-        super().__init__(is_reactive=is_reactive, real_time_factor=real_time_factor, **kwargs)
+        super().__init__(sync=sync, real_time_factor=real_time_factor, **kwargs)
 
     def register_node(self, node_params):
         # Initialize nodes
@@ -1070,7 +1070,7 @@ class Bridge(BaseNode):
         # Set default bridge params
         with spec.config as d:
             d.name = "bridge"
-            d.is_reactive = True
+            d.sync = True
             d.real_time_factor = 0
             d.simulate_delays = True
             d.executable = "python:=eagerx.core.executable_bridge"

@@ -38,7 +38,7 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, is_reactive=True, real_time_factor=1, process=process.NEW_PROCESS)
+    bridge = Bridge.make("GymBridge", rate=rate, sync=True, real_time_factor=1, process=process.NEW_PROCESS)
 
     env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
     env.render(mode="human")

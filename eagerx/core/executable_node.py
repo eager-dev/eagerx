@@ -77,7 +77,7 @@ class RxNode(object):
         rate = params["rate"]
 
         # Get info from bridge on reactive properties
-        is_reactive = get_param_with_blocking(self.ns + "/bridge/is_reactive")
+        sync = get_param_with_blocking(self.ns + "/bridge/sync")
         real_time_factor = get_param_with_blocking(self.ns + "/bridge/real_time_factor")
         simulate_delays = get_param_with_blocking(self.ns + "/bridge/simulate_delays")
 
@@ -86,7 +86,7 @@ class RxNode(object):
         node = node_cls(
             ns=self.ns,
             message_broker=self.mb,
-            is_reactive=is_reactive,
+            sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
             **kwargs,

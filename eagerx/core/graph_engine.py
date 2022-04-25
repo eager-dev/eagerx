@@ -217,7 +217,7 @@ class EngineGraph:
                               .. warning:: Only add external inputs if you are sure that they are synchronized with respect
                                            to the provided rate and their respective inputs.
                                            Asynchronous external inputs can easily lead to deadlocks if running in synchronized mode
-                                           (i.e. :attr:`~eagerx.core.entities.Bridge.is_reactive` = True).
+                                           (i.e. :attr:`~eagerx.core.entities.Bridge.sync` = True).
         """
         flag = not address or (source is None and actuator is None and sensor is None)
         assert flag, f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
