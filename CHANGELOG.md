@@ -2,6 +2,28 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.17 (2022-04-25)
+### Fix
+* Remove unnecessary SpaceConverter call. Closes #158. ([`b61be97`](https://github.com/eager-dev/eagerx/commit/b61be97c81dd014acb9b692752efd10e4b4beb34))
+* Make mapping optional ([`11820dd`](https://github.com/eager-dev/eagerx/commit/11820ddff76e852fa188ff006c4fd616e65f2692))
+* Refactor is_reactive to sync. Closes #149. ([`178255c`](https://github.com/eager-dev/eagerx/commit/178255c9aa16c8a274601f517887d694b14b0db9))
+* Type check the output of callbacks ([`f29de1d`](https://github.com/eager-dev/eagerx/commit/f29de1dd00a37c17403e4d21aa9056e609719387))
+* Only add EngineNode outputs as bridge input if `tick` is an input. ([`745631c`](https://github.com/eager-dev/eagerx/commit/745631c82043aab1bc4cae481b8577d70e75ee70))
+* Remove inputs from bridge callback ([`024725f`](https://github.com/eager-dev/eagerx/commit/024725fa4f1df6ff93bc25eab4e9f029131656d7))
+* Change default color of actuators and sensors ([`d6de36d`](https://github.com/eager-dev/eagerx/commit/d6de36d71c1bc8b24935524d77f6b4f8e0a40915))
+* Select all registered components per default. ([`51f0deb`](https://github.com/eager-dev/eagerx/commit/51f0deb1ad8a8475a716460f08c3e4707fe80ccc))
+* Downgrade already initialized roscore warning to info. ([`9bb6107`](https://github.com/eager-dev/eagerx/commit/9bb61079d3aad4a20af1cb82b358c1c6a1872c6b))
+* Remove circular imports ([`7d600c7`](https://github.com/eager-dev/eagerx/commit/7d600c77e4645688e2830ac4b8601cb700c9424f))
+* Allow setting the render node process. Per default in environment. ([`6a19fa0`](https://github.com/eager-dev/eagerx/commit/6a19fa042edee86ffd7bcae397b243ac093da36d))
+* Imports in core nodes ([`79ed11a`](https://github.com/eager-dev/eagerx/commit/79ed11a5700abf07cbf06af82e86043173c59592))
+* Remote shutdown if environmen with same name already exists. ([`5c38bce`](https://github.com/eager-dev/eagerx/commit/5c38bce321f1d680dad1beea8054d386ebc55409))
+* Unregister render subs/pubs ([`5581be0`](https://github.com/eager-dev/eagerx/commit/5581be054eb654c5e01d8c352421cace15553455))
+* Engine_state info ([`dc3181e`](https://github.com/eager-dev/eagerx/commit/dc3181e6e9c9d5e1c1b3ed7db36035baaf10a7a0))
+* Allows specification of initial_obs if skip=True and window>0 ([`7628ec4`](https://github.com/eager-dev/eagerx/commit/7628ec451608085f04f50dca37ad6be3939fe96e))
+* Allow keyword updating of specs ([`c933459`](https://github.com/eager-dev/eagerx/commit/c933459f0caf6e267218d05198efd65ae331fd30))
+* Remove kwargs from Float32MultiArray ([`9f15cb9`](https://github.com/eager-dev/eagerx/commit/9f15cb92f51f28c558cee0884c810de4651d492b))
+* Add ros to python path in colab ([`2cfa2d4`](https://github.com/eager-dev/eagerx/commit/2cfa2d41e76c0a3353eb6252a3fbac4b133a8e8a))
+
 ## v0.1.16 (2022-04-14)
 ### Fix
 * Clean eagerx imports ([#154](https://github.com/eager-dev/eagerx/issues/154)) ([`999c449`](https://github.com/eager-dev/eagerx/commit/999c4496a9d4be6c1047a546798c5b07bde7e3d7))
