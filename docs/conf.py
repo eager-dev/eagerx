@@ -43,7 +43,8 @@ class Mock(MagicMock):
 # 'torch', 'torch.nn', 'torch.nn.functional',
 # DO not mock modules for now, we will need to do that for read the docs later
 # autodoc_mock_imports = ["rosgraph", "roslaunch"]
-MOCK_MODULES = ["rospy", "rosparam", "rosgraph", "roslaunch", "rosservice", "genpy", "std_msgs.msg", "sensor_msgs.msg", "cv_bridge"]
+MOCK_MODULES = ["rospy", "rosparam", "rosgraph", "roslaunch", "rosservice", "genpy", "std_srvs.srv", "std_msgs.msg",
+                "sensor_msgs.msg", "cv_bridge"]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 
