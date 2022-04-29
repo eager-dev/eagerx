@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.18 (2022-04-29)
+### Fix
+* Add colab render ([`f20d09d`](https://github.com/eager-dev/eagerx/commit/f20d09da01972732df5fd203f9105c8ac94d2ab5))
+
 ## v0.1.17 (2022-04-25)
 ### Fix
 * Remove unnecessary SpaceConverter call. Closes #158. ([`b61be97`](https://github.com/eager-dev/eagerx/commit/b61be97c81dd014acb9b692752efd10e4b4beb34))
