@@ -27,8 +27,8 @@ if __name__ == "__main__":
     graph.connect(action="action",                  target=obj.actuators.action,    window=1)
 
     # Add rendering
-    # graph.add_component(name, 'sensors', 'image')
-    # graph.render(source=(name, 'sensors', 'image'), rate=10, display=True)
+    # graph.add_component(obj.sensors.image)
+    # graph.render(source=obj.sensors.image, rate=10)
 
     # Open gui
     graph.gui()

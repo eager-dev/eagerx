@@ -1,3 +1,5 @@
+import os
+
 import yaml
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -947,7 +949,7 @@ class Graph:
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
-        entity_id: str = "Render",
+        entity_id: Optional[str] = None,
         process: int = eagerx.process.ENVIRONMENT,
         **kwargs,
     ):
@@ -977,7 +979,8 @@ class Graph:
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
         :param entity_id: The :attr:`~eagerx.core.entities.Node.entity_id` with which the render node was registered
-                          with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard Render node.
+                          with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard `Render` node.
+                          In Google colab, the `ColabRender` is used.
         :param process: Process in which the render node is launched. See :class:`~eagerx.core.constants.process` for all
                         options.
         :param kwargs: Optional arguments required by the render node.
@@ -987,6 +990,8 @@ class Graph:
             self.remove("env/render")
 
         # Add (new) render node to self._state['node']
+        if entity_id is None:
+            entity_id = "ColabRender" if bool(eval(os.environ.get("EAGERX_COLAB", "0"))) else "Render"
         render = Node.make(entity_id, rate=rate, process=process, **kwargs)
         self.add(render)
 
