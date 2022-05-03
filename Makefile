@@ -24,7 +24,7 @@ lint:
 # Build docker images
 # If you do export RELEASE=True, it will also push them
 docker:
-	docker-cpu docker-gpu docker-sb-cpu docker-sb-gpu
+	make docker-cpu docker-gpu docker-sb-cpu docker-sb-gpu
 
 docker-cpu:
 	./scripts/build_docker.sh
