@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.19 (2022-05-03)
+### Fix
+* Allow bridge implementations to be functions ([`ac24db6`](https://github.com/eager-dev/eagerx/commit/ac24db6c38643070186b1cda47a5b46734a2dcd8))
+* Render gym images on virtual display ([`f69b51a`](https://github.com/eager-dev/eagerx/commit/f69b51a970f0e965c06d9029813e1eb5d151b9a9))
+
+### Documentation
+* Update bibtex typo ([`0b10967`](https://github.com/eager-dev/eagerx/commit/0b10967b0aea06c3e5cab07e6b8f576fb2c385ab))
+* Add std_srvs.srv to conf.py ([`b05e0af`](https://github.com/eager-dev/eagerx/commit/b05e0aff0e2e575dbc857859300c6d68c0cdd19d))
+
 ## v0.1.18 (2022-04-29)
 ### Fix
 * Add colab render ([`f20d09d`](https://github.com/eager-dev/eagerx/commit/f20d09da01972732df5fd203f9105c8ac94d2ab5))
