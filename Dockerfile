@@ -63,8 +63,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ros-noetic-ros-
 RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 RUN echo "export ROSLAUNCH_SSH_UNKNOWN=1" >> /root/.bashrc
 
-# Install eagerx-examples if ADD_SB, this will also install stable-baselines3
-RUN if [ ${ADD_SB} ] ; then pip install eagerx-examples; fi
+# Install eagerx-tutorials if ADD_SB, this will also install stable-baselines3
+RUN if [ ${ADD_SB} ] ; then pip install eagerx-tutorials; fi
 
 # Use headless opencv
 RUN pip uninstall -y opencv-python && pip install opencv-python-headless && rm -rf $HOME/.cache/pip
