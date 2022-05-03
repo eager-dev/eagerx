@@ -90,6 +90,18 @@ Luckily, inter-node communication within EAGERx can always be listened to extern
 ..
   TODO: add example and gif of visualization.
 
+Tutorials
+=========
+
+A number of tutorials are available in the form of Google Colabs:
+
+- `Tutorial 1: Environment Creation and Training with EAGERx <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb>`_
+- `Tutorial 2: Reset and Step Function <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/2_reset_and_step.ipynb>`_
+- `Tutorial 3: Converters <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/3_converters.ipynb>`_
+- `Tutorial 4: Nodes and Graph Validity <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/4_nodes.ipynb>`_
+
+For more information see the `docs <https://eagerx.readthedocs.io/en/master/guide/tutorials/colabs.html>`_ or the `eagerx_tutorials package <https://github.com/eager-dev/eagerx_tutorials>`_.
+
 Dependencies
 ============
 Below you find instructions for installing dependencies required for EAGERx.
