@@ -259,8 +259,12 @@ def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
 
     def _register(func):
         name_split = func.__qualname__.split(".")
-        cls_name = name_split[0]
-        fn_name = name_split[1]
+        if len(name_split) > 1:
+            cls_name = name_split[0]
+            fn_name = name_split[1]
+        else:
+            cls_name = "N/A"
+            fn_name = name_split[0]
         entry = func.__module__ + "/" + func.__qualname__
         rospy.logdebug(f"[{cls_name}][{fn_name}]: bridge_id={bridge_id}, entry={entry}")
 
@@ -299,7 +303,7 @@ def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
 
 
 def add_bridge(spec, bridge_id):
-    # """Add bridge based on registered entity_id"""
+    """Add bridge based on registered entity_id"""
     entity_id = spec.config.entity_id
 
     # Register bridge implementation for object

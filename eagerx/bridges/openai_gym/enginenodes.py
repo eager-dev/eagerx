@@ -2,6 +2,8 @@ from typing import Optional, List
 import skimage.transform
 import numpy as np
 import gym
+from pyvirtualdisplay import Display
+import os
 
 # IMPORT ROS
 import rospy
@@ -298,6 +300,13 @@ class GymImage(EngineNode):
         self.obj_name = self.config["name"]
         self.render_toggle_pub = rospy.Subscriber("%s/env/render/toggle" % self.ns, Bool, self._set_render_toggle)
 
+        # Setup virtual display for rendering.
+        self.display = Display(visible=False, backend="xvfb")
+        self.disp_id = os.environ["DISPLAY"]  # First record default display id
+        self.display.start()
+        self.xvfb_id = self.display.env()["DISPLAY"]  # Get virtual display id
+        os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
+
     @register.states()
     def reset(self):
         # This sensor is stateless (in contrast to e.g. a Kalman filter).
@@ -310,7 +319,9 @@ class GymImage(EngineNode):
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
         if self.always_render or self.render_toggle:
+            os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
             rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
+            os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
 
             # Resize image if not matching desired self.shape (defined in .yaml)
             if rgb.shape[:2] != tuple(self.shape):
