@@ -302,10 +302,10 @@ class GymImage(EngineNode):
 
         # Setup virtual display for rendering.
         self.display = Display(visible=False, backend="xvfb")
-        self.disp_id = os.environ['DISPLAY']   # First record default display id
+        self.disp_id = os.environ["DISPLAY"]  # First record default display id
         self.display.start()
-        self.xvfb_id = self.display.env()["DISPLAY"]   # Get virtual display id
-        os.environ['DISPLAY'] = self.disp_id  # Reset to default display id
+        self.xvfb_id = self.display.env()["DISPLAY"]  # Get virtual display id
+        os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
 
     @register.states()
     def reset(self):
@@ -319,9 +319,9 @@ class GymImage(EngineNode):
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
         if self.always_render or self.render_toggle:
-            os.environ['DISPLAY'] = self.xvfb_id  # Set virtual display id
+            os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
             rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
-            os.environ['DISPLAY'] = self.disp_id  # Reset to default display id
+            os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
 
             # Resize image if not matching desired self.shape (defined in .yaml)
             if rgb.shape[:2] != tuple(self.shape):
