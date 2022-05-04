@@ -43,6 +43,21 @@ class GymBridge(Bridge):
 
     @register.bridge_config(env_id=None)
     def add_object(self, config, bridge_config, node_params, state_params):
+        """
+        Adds an object whose dynamics are governed by a registered OpenAI gym environment.
+
+        :param config: The (agnostic) config of the :class:`~eagerx.core.entities.Object` that is to be added.
+        :param bridge_config: The bridge-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
+                              This dict contains the registered parameters:
+
+                              - **env_id**: A string ID of the OpenAI gym environment.
+                                            See https://gym.openai.com/envs/#classic_control for all available flags.
+
+        :param node_params: A list containing the config of every :class:`~eagerx.core.entities.EngineNode` that represents
+                            an :class:`~eagerx.core.entities.Object`'s sensor or actuator that is to be added.
+        :param state_params: A list containing the parameters of every the :class:`~eagerx.core.entities.Object`'s
+                             :class:`~eagerx.core.entities.EngineState` that is to be added.
+        """
         # add object to simulator (we have a ref to the simulator with self.simulator)
         rospy.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
 

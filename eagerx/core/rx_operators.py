@@ -1053,10 +1053,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
             # Convert to classes
             n["msg_type"] = get_attribute_from_module(n["msg_type"])
-            if isinstance(i["converter"], dict):
-                n["converter"] = initialize_converter(i["converter"])
-            else:
-                n["converter"] = i["converter"]
+            n["converter"] = Identity()
 
             # Initialize rx objects
             n["msg"] = Subject()  # Ir
