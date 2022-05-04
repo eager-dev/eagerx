@@ -5,7 +5,7 @@
 CPU_PARENT=ubuntu:20.04
 GPU_PARENT=nvidia/cuda:11.3.1-runtime-ubuntu20.04
 
-TAG=eagerx
+TAG=eagerx/eagerx
 VERSION="$(poetry version --short)"
 POETRY_VERSION=1.1.3
 PYTHON_VERSION=3.8
@@ -32,6 +32,6 @@ sudo docker build --build-arg PARENT_IMAGE=${PARENT} --build-arg PYTORCH_DEPS=${
 sudo docker tag ${TAG}:${VERSION} ${TAG}:latest
 
 if [ ${RELEASE} ]; then
-  sudo docker push eagerx/${TAG}:${VERSION}
-  sudo docker push eagerx/${TAG}:latest
+  sudo docker push ${TAG}:${VERSION}
+  sudo docker push ${TAG}:latest
 fi
