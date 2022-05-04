@@ -2,6 +2,17 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.20 (2022-05-04)
+### Fix
+* Converter bug with bridge inputs ([`a5d9a8d`](https://github.com/eager-dev/eagerx/commit/a5d9a8d3e75900472b14787799784340c802873d))
+* Create colab render window in first callback call.  ([`55d54ee`](https://github.com/eager-dev/eagerx/commit/55d54ee708601d2c6bbe90c19d30f80531232972))
+
+### Documentation
+* Rename ros to ros1 and add prerequisites to installation instructions ([`3753627`](https://github.com/eager-dev/eagerx/commit/3753627df904afb131ed42b6cc46effb43e0a92a))
+* Add info on docker and installation from source ([`7872ce6`](https://github.com/eager-dev/eagerx/commit/7872ce6e51c76dca696f6c8733c4acd6850d59f9))
+* Add docstring to `GymBridge.add_object`. ([`e1b225c`](https://github.com/eager-dev/eagerx/commit/e1b225c7e9de0db16176e219726a6ccd2156322f))
+* Add colab tutorials ([`6c3202b`](https://github.com/eager-dev/eagerx/commit/6c3202b26eafa2468b3999fe3c88813c19909979))
+
 ## v0.1.19 (2022-05-03)
 ### Fix
 * Allow bridge implementations to be functions ([`ac24db6`](https://github.com/eager-dev/eagerx/commit/ac24db6c38643070186b1cda47a5b46734a2dcd8))
