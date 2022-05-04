@@ -13,14 +13,16 @@ There are three installation options:
 - Using docker
 
 .. note::
-   EAGERx depends on a minimal ROS installation.
-   When installing EAGERx using pip or from source, ROS should be installed as well.
+   EAGERx depends on a minimal ROS1 installation.
+   When installing EAGERx using pip or from source, ROS1 should be installed as well.
    Fortunately, you **can** use eagerx anywhere as you would any python package, so it does **not** impose a ROS package structure on your project.
    See `here <ROS_>`_ for installation instructions.
-   The docker image comes with an installation of ROS.
+   The docker image comes with an installation of ROS1.
 
 Installation using *pip*
 -----------------------
+
+*Prerequisites*: `Install `ROS1 <ROS_>`_.
 
 You can do a minimal installation of ``EAGERx`` with:
 
@@ -31,7 +33,7 @@ You can do a minimal installation of ``EAGERx`` with:
 Installation from source
 ------------------------
 
-*Prerequisites*: `Install Poetry <https://python-poetry.org/docs/#installation>`_ and `ROS <ROS_>`_.
+*Prerequisites*: `Install Poetry <https://python-poetry.org/docs/#installation>`_ and `ROS1 <ROS_>`_.
 
 Clone the `eagerx repository <https://github.com/eager-dev/eagerx>`_ and go to its root:
 
@@ -54,6 +56,8 @@ Verify installation:
 
 Installation using Docker
 -------------------------
+
+*Prerequisites*: `Install Docker <https://docs.docker.com/engine/install/>`_ and for GPU dockers `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`_.
 
 In total, four docker images are available with EAGERx installed, i.e. two with a minimal installation of EAGERx and its dependencies (CPU and GPU) and two with `Stable Baselines 3 <https://stable-baselines3.readthedocs.io/en/master/index.html>`_ installed as well (CPU and GPU).
 The dockers with Stable Baselines 3 also come with `tutorials on EAGERx <https://github.com/eager-dev/eagerx_tutorials>`_.
@@ -81,6 +85,11 @@ The docker image can be run as follows:
 
 where [image] should be replaced with *eagerx/eagerx* or *eagerx/eagerx-sb*.
 
+Verify that EAGERx is installed:
+
+.. code:: shell
+    python -c 'import eagerx'
+
 CPU Dockers
 ^^^^^^^^^^^
 
@@ -99,6 +108,11 @@ Run the image with the command
   sudo docker run -it --rm [image]
 
 where image should be replaced with *eagerx/eagerx-cpu* or *eagerx/eagerx-sb-cpu*.
+
+Verify that EAGERx is installed:
+
+.. code:: shell
+    python -c 'import eagerx'
 
 Extras: GUI
 ===========
@@ -130,7 +144,8 @@ In robotics it is crucial to monitor the robot's behavior during the learning pr
 Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
 
 .. note::
-    ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. See `here <ROS_>`_ for installation instructions.
+    ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS1 installation.
+    See `here <ROS_>`_ for installation instructions.
     The docker images do not support visualization using ``rqt_plot``.
 
 ..
@@ -140,13 +155,13 @@ Runtime Dependencies
 ====================
 Below you find instructions for installing runtime dependencies required for EAGERx.
 
-ROS
----
+ROS1
+----
 
-See the `ROS Installation Options <http://wiki.ros.org/ROS/Installation>`_, or do the following.
-By replacing ``<DISTRO>`` with the supported ROS distributions (``noetic``, ``melodic``),
+See the `ROS1 Installation Options <http://wiki.ros.org/ROS/Installation>`_, or do the following.
+By replacing ``<DISTRO>`` with the supported ROS1 distributions (``noetic``, ``melodic``),
 and ``<PACKAGE>`` with the installation type (``ros-base``, ``desktop``, ``desktop-full``),
-a minimal ros installation can be installed with:
+a minimal ROS1 installation can be installed with:
 
 .. warning:: Currently, eagerx only supports ROS1. ROS2 support will be added in future versions.
 
