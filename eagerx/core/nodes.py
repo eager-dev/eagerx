@@ -353,6 +353,7 @@ class ColabRender(eagerx.Node):
         # todo: Avoid overflowing buffer
         try:
             from eagerx.core.colab_render import InlineRender
+
             # Store cls as attribute so that it can be initialized in the callback
             self.window_cls = InlineRender
         except ImportError as e:
