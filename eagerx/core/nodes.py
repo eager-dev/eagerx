@@ -346,19 +346,24 @@ class ColabRender(eagerx.Node):
         # Pre-set window
         spec.inputs.image.window = 0
 
-    def initialize(self, fps, size, maxlen, shape, subsample):
+    def initialize(self, fps, maxlen, shape, subsample):
         # todo: Overwrite fps if higher than rate
         # todo: Subsample if fps lower than rate * real_time_factor
         # todo: set node_fps either slightly higher or lower than js_fps?
         # todo: Avoid overflowing buffer
         try:
             from eagerx.core.colab_render import InlineRender
+            # Store cls as attribute so that it can be initialized in the callback
+            self.window_cls = InlineRender
         except ImportError as e:
             rospy.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
             raise
         self.dt_fps = 1 / fps
         self.subsample = subsample
-        self.window = InlineRender(fps=fps, maxlen=maxlen, shape=shape)
+        self.fps = fps
+        self.shape = shape
+        self.maxlen = maxlen
+        self.window = None
         self.last_image = Image(data=[])
         self.render_toggle = False
         self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
@@ -392,7 +397,9 @@ class ColabRender(eagerx.Node):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
         # If too little time has passed, do not add frame (avoid buffer overflowing)
-        if not time.time() > (self.dt_fps + self.window.timestamp):
+        if self.window is None:
+            self.window = self.window_cls(fps=self.fps, maxlen=self.maxlen, shape=self.shape)
+        elif not time.time() > (self.dt_fps + self.window.timestamp):
             return output_msgs
         # Check if frame is not empty
         empty = self.last_image.height == 0 or self.last_image.width == 0
@@ -405,8 +412,8 @@ class ColabRender(eagerx.Node):
             else:
                 img = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
             # Convert to rgb (from bgr)
-            if "rgb" in self.last_image.encoding:
-                img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            if "bgr" in self.last_image.encoding:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             # Add image to buffer (where it is send async to javascript window)
             self.window.buffer_images(img)
         return output_msgs
