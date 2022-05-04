@@ -6,19 +6,102 @@ Getting Started
 Installing EAGERx
 =================
 
+There are three installation options:
+
+- Using *pip*
+- From source
+- Using docker
+
+.. note::
+   EAGERx depends on a minimal ROS installation.
+   When installing EAGERx using pip or from source, ROS should be installed as well.
+   Fortunately, you **can** use eagerx anywhere as you would any python package, so it does **not** impose a ROS package structure on your project.
+   See `here <ROS_>`_ for installation instructions.
+   The docker image comes with an installation of ROS.
+
+Installation using *pip*
+-----------------------
+
 You can do a minimal installation of ``EAGERx`` with:
 
 .. code:: shell
 
     pip3 install eagerx
 
-.. note::
-   EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
-   so it does **not** impose a ROS package structure on your project.
-   See `here <ROS_>`_ for installation instructions.
+Installation from source
+------------------------
+
+*Prerequisites*: `Install Poetry <https://python-poetry.org/docs/#installation>`_ and `ROS <ROS_>`_.
+
+Clone the `eagerx repository <https://github.com/eager-dev/eagerx>`_ and go to its root:
+
+.. code:: shell
+
+  git clone git@github.com:eager-dev/eagerx.git
+  cd eagerx
+
+Install EAGERx:
+
+.. code:: shell
+
+  poetry install
+
+Verify installation:
+
+.. code:: shell
+
+  poetry run python examples/example_openai.py
+
+Installation using Docker
+-------------------------
+
+In total, four docker images are available with EAGERx installed, i.e. two with a minimal installation of EAGERx and its dependencies (CPU and GPU) and two with `Stable Baselines 3 <https://stable-baselines3.readthedocs.io/en/master/index.html>`_ installed as well (CPU and GPU).
+The dockers with Stable Baselines 3 also come with `tutorials on EAGERx <https://github.com/eager-dev/eagerx_tutorials>`_.
+
+GPU Dockers
+^^^^^^^^^^^
+
+The GPU dockers require `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`_ and can be pulled as follows:
+
+.. code:: shell
+
+  sudo docker pull eagerx/eagerx
+
+or with Stable Baselines 3 and the `tutorials <https://github.com/eager-dev/eagerx_tutorials>`_:
+
+.. code:: shell
+
+  sudo docker pull eagerx/eagerx-sb
+
+The docker image can be run as follows:
+
+.. code:: shell
+
+  sudo docker run -it --rm --gpus all [image]
+
+where [image] should be replaced with *eagerx/eagerx* or *eagerx/eagerx-sb*.
+
+CPU Dockers
+^^^^^^^^^^^
+
+The CPU only dockers can be pulled as follows:
+
+.. code:: shell
+
+  sudo docker pull [image]
+
+where image should be replaced with *eagerx/eagerx-cpu* or *eagerx/eagerx-sb-cpu*.
+
+Run the image with the command
+
+.. code:: shell
+
+  sudo docker run -it --rm [image]
+
+where image should be replaced with *eagerx/eagerx-cpu* or *eagerx/eagerx-sb-cpu*.
 
 Extras: GUI
------------
+===========
 
 To install the whole set of features, you will need additional packages.
 There is for example a package available for visualizing the :class:`~eagerx.core.graph.Graph` and the :class:`~eagerx.core.graph_engine.EngineGraph`.
@@ -29,6 +112,10 @@ You can install the gui by running:
 
     pip3 install eagerx-gui
 
+.. note::
+
+    The EAGERx docker images currently do not support gui functionality.
+
 .. figure:: /_static/gif/gui.GIF
     :align: center
     :alt: alternate text
@@ -37,12 +124,14 @@ You can install the gui by running:
     The construction of an environment via the GUI.
 
 Extras: training visualization
-------------------------------
+==============================
+
 In robotics it is crucial to monitor the robot's behavior during the learning process.
 Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
 
 .. note::
     ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. See `here <ROS_>`_ for installation instructions.
+    The docker images do not support visualization using ``rqt_plot``.
 
 ..
   TODO: add example and gif of visualization.
@@ -64,7 +153,7 @@ a minimal ros installation can be installed with:
 .. code:: shell
 
     sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-    sudo apt install curl # if you haven't already installed curl
+    sudo apt install curl = if you haven't already installed curl
     curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
     sudo apt update
     sudo apt install ros-<DISTRO>-<PACKAGE>
