@@ -1,4 +1,5 @@
 # EAGERx imports
+import eagerx
 from eagerx import Object, Bridge, initialize, log, process
 
 initialize("eagerx_core", anonymous=True, log_level=log.INFO)
@@ -27,42 +28,48 @@ if __name__ == "__main__":
     graph.connect(action="action",                  target=obj.actuators.action,    window=1)
 
     # Add rendering
-    # graph.add_component(obj.sensors.image)
-    # graph.render(source=obj.sensors.image, rate=10)
+    graph.add_component(obj.sensors.image)
+    graph.render(source=obj.sensors.image, rate=10)
 
     # Open gui
-    graph.gui()
+    # graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")
     graph.load("./test.graph")
 
     # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, sync=True, real_time_factor=1, process=process.NEW_PROCESS)
+    bridge = Bridge.make("GymBridge", rate=rate, sync=True, real_time_factor=1, process=process.ENVIRONMENT)
 
     env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
     env.render(mode="human")
     done, obs = False, env.reset()
+    for i in range(10):
+        action = env.action_space.sample()
+        obs, reward, done, info = env.step(action)
     env.shutdown()
 
     # Initialize Environment
     env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
 
     # Turn on rendering
-    env.render(mode="human")
+    # env.render(mode="human")
 
     # First reset
     obs, done = env.reset(), False
     for j in range(5):
         print("\n[Episode %s]" % j)
         iter = 0
-        while not done and iter < 10:
+        env.render(mode="human")
+        while not done and iter < 20:
             iter += 1
+            if iter == 10:
+                env.close()
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
         obs = env.reset()
         done = False
     print("\n[Finished]")
-    # env.shutdown()
+    env.shutdown()
     print("\n[shutdown]")
 

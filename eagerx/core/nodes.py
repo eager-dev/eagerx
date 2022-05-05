@@ -1,5 +1,5 @@
 from typing import Optional, List
-from threading import Event
+from threading import Event, Thread, Condition
 import signal
 import time
 import sys
@@ -212,7 +212,7 @@ class RenderNode(eagerx.Node):
         display=True,
         log_level=eagerx.log.WARN,
         color="grey",
-        process=eagerx.process.ENVIRONMENT,
+        process=eagerx.process.NEW_PROCESS,
     ):
         """RenderNode spec"""
         # Initialize spec
@@ -221,6 +221,7 @@ class RenderNode(eagerx.Node):
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
+        assert process == eagerx.process.NEW_PROCESS, "Render requires process=NEW_PROCESS, because of cv2 limitations."
         spec.config.process = process
         spec.config.color = color
         spec.config.log_level = log_level
@@ -240,7 +241,6 @@ class RenderNode(eagerx.Node):
         self.display = display
         self.last_image = Image(data=[])
         self.render_toggle = False
-        self.window_closed = True
         self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
         self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
         self.pub_set = rospy.Publisher(
@@ -249,6 +249,34 @@ class RenderNode(eagerx.Node):
             queue_size=0,
             latch=True,
         )
+
+        # Setup async imshow (opening, closing, and imshow must all be in the same thread).
+        self.window_open = False
+        self.must_close = False
+        self.stop_thread = False
+        self.cv_image = None
+        self.img_event = Event()
+        self.img_cond = Condition()
+        self.img_thread = Thread(target=self._async_imshow, args=())
+        self.img_thread.start()
+
+    def _async_imshow(self):
+        while True:
+            self.img_event.wait()  # Wait for event (ie new image or close window)
+            self.img_event.clear()  # Clear event
+            if self.stop_thread:
+                break
+            if self.window_open and self.must_close:  # We must close the window
+                cv2.destroyWindow(f"{self.ns_name}")
+                self.must_close = False
+                self.window_open = False
+                continue
+            if self.cv_image is None:
+                continue
+            if self.render_toggle:
+                cv2.imshow(f"{self.ns_name}", self.cv_image)
+            cv2.waitKey(1)
+            self.window_open = True
 
     def _set_render_toggle(self, msg):
         if msg.data:
@@ -262,7 +290,6 @@ class RenderNode(eagerx.Node):
 
     def reset(self):
         pass
-        # self.last_image = Image()
 
     @register.inputs(image=Image)
     @register.outputs(done=UInt64)
@@ -290,12 +317,10 @@ class RenderNode(eagerx.Node):
                 rospy.logwarn(e)
                 return dict(done=UInt64())
 
-            cv2.imshow("Render", cv_image)
-            cv2.waitKey(1)
-            self.window_closed = False
-        elif not self.window_closed:
-            cv2.destroyWindow("Render")
-            self.window_closed = True
+            # Set cv_image
+            self.cv_image = cv_image
+        with self.img_cond:
+            self.img_event.set()  # Signal async_imshow thread
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=UInt64())
@@ -306,7 +331,19 @@ class RenderNode(eagerx.Node):
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()
-        cv2.destroyAllWindows()
+
+        # Close render window
+        with self.img_cond:
+            self.must_close = True
+            self.img_event.set()
+
+        # Wait for render window to be closed
+        while self.window_open:
+            time.sleep(0.01)
+
+        with self.img_cond:
+            self.stop_thread = True
+            self.img_event.set()
 
 
 class ColabRender(eagerx.Node):
@@ -330,6 +367,7 @@ class ColabRender(eagerx.Node):
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
+        assert process == eagerx.process.ENVIRONMENT, "ColabRendering must happen in the same process as the environment."
         spec.config.process = process
         spec.config.color = color
         spec.config.log_level = log_level

@@ -950,7 +950,7 @@ class Graph:
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
         entity_id: Optional[str] = None,
-        process: int = eagerx.process.ENVIRONMENT,
+        process: int = eagerx.process.NEW_PROCESS,
         **kwargs,
     ):
         """Render the :class:`sensor_msgs.msg.Image` messages produced by a node/sensor in the graph.
@@ -991,7 +991,11 @@ class Graph:
 
         # Add (new) render node to self._state['node']
         if entity_id is None:
-            entity_id = "ColabRender" if bool(eval(os.environ.get("EAGERX_COLAB", "0"))) else "Render"
+            if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
+                entity_id = "ColabRender"
+                process = eagerx.process.ENVIRONMENT
+            else:
+                entity_id = "Render"
         render = Node.make(entity_id, rate=rate, process=process, **kwargs)
         self.add(render)
 
