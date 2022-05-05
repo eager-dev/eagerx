@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.21 (2022-05-05)
+### Fix
+* Put rendering in same thread. Set default to NEW_PROCESS. ([`b6d35d3`](https://github.com/eager-dev/eagerx/commit/b6d35d343881100e3c607e38cb0a857d5634dba8))
+
 ## v0.1.20 (2022-05-04)
 ### Fix
 * Converter bug with bridge inputs ([`a5d9a8d`](https://github.com/eager-dev/eagerx/commit/a5d9a8d3e75900472b14787799784340c802873d))
