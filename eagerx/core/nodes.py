@@ -262,7 +262,7 @@ class RenderNode(eagerx.Node):
 
     def _async_imshow(self):
         while True:
-            self.img_event.wait()   # Wait for event (ie new image or close window)
+            self.img_event.wait()  # Wait for event (ie new image or close window)
             self.img_event.clear()  # Clear event
             if self.stop_thread:
                 break
