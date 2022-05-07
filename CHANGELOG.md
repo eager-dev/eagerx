@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.22 (2022-05-07)
+### Fix
+* Bug when checking window > 0 if skip=True & intial_obs!=None. ([`f45b33a`](https://github.com/eager-dev/eagerx/commit/f45b33ad69eaa37d664c1282ee36a56adf888da0))
+* Avoid occasional opening of  empty window on shutdown. ([`5c0b657`](https://github.com/eager-dev/eagerx/commit/5c0b657e5def1e8f01120feb0da0e7d44bd32f1d))
+
+### Documentation
+* Add tutorial 5,6,7 ([`cf85123`](https://github.com/eager-dev/eagerx/commit/cf851237b8f8128cc81f5fcc2096855a2c4172e0))
+* Fix broken links and ad poetry installation instructions ([`2d60d29`](https://github.com/eager-dev/eagerx/commit/2d60d29190095c6b45cd9c7f9c7cd19e367fb7b3))
+
 ## v0.1.21 (2022-05-05)
 ### Fix
 * Put rendering in same thread. Set default to NEW_PROCESS. ([`b6d35d3`](https://github.com/eager-dev/eagerx/commit/b6d35d343881100e3c607e38cb0a857d5634dba8))
