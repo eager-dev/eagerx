@@ -519,7 +519,7 @@ class Graph:
             converter["initial_obs"] = initial_obs
 
         # Initialize converter
-        if skip and window > 0:
+        if skip and (window is not None and window > 0):
             c = initialize_converter(converter)
             assert c.initial_obs is not None, (
                 f"Observation '{observation}' is missing an initial observation (`initial_obs`)."
