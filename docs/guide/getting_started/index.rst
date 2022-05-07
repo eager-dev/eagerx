@@ -16,13 +16,13 @@ There are three installation options:
    EAGERx depends on a minimal ROS1 installation.
    When installing EAGERx using pip or from source, ROS1 should be installed as well.
    Fortunately, you **can** use eagerx anywhere as you would any python package, so it does **not** impose a ROS package structure on your project.
-   See `here <ROS_>`_ for installation instructions.
+   See `here <ROS1_>`_ for installation instructions.
    The docker image comes with an installation of ROS1.
 
 Installation using *pip*
 -----------------------
 
-*Prerequisites*: `Install `ROS1 <ROS_>`_.
+*Prerequisites*: Install `ROS1 <ROS1_>`_.
 
 You can do a minimal installation of ``EAGERx`` with:
 
@@ -33,7 +33,7 @@ You can do a minimal installation of ``EAGERx`` with:
 Installation from source
 ------------------------
 
-*Prerequisites*: `Install Poetry <https://python-poetry.org/docs/#installation>`_ and `ROS1 <ROS_>`_.
+*Prerequisites*: Install `Poetry <Poetry_>`_ and `ROS1 <ROS1_>`_.
 
 Clone the `eagerx repository <https://github.com/eager-dev/eagerx>`_ and go to its root:
 
@@ -145,15 +145,30 @@ Luckily, inter-node communication within EAGERx can always be listened to extern
 
 .. note::
     ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS1 installation.
-    See `here <ROS_>`_ for installation instructions.
+    See `here <ROS1_>`_ for installation instructions.
     The docker images do not support visualization using ``rqt_plot``.
 
 ..
   TODO: add example and gif of visualization.
 
-Runtime Dependencies
+Other Dependencies
 ====================
-Below you find instructions for installing runtime dependencies required for EAGERx.
+Below you find instructions for installing dependencies (optionally) required by EAGERx.
+
+Poetry
+------
+Poetry is a tool for dependency management and packaging in Python.
+It allows you to declare the libraries your project depends on and it will manage (install/update) them for you.
+We advise contributors to use this tool when developing an EAGERx package to leverage the pre-build CI workflow we have setup in the template package.
+However, this is **not** a requirement and a simple `pip install` to install all eagerx package dependencies into your project's (virtual) Python environment will also work.
+
+For installation on osx / linux / bashonwindows, simply run:
+
+.. code:: shell
+
+    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+
+For more installation instructions, see `here <https://python-poetry.org/docs/#installation>`_.
 
 ROS1
 ----
