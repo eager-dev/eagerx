@@ -336,12 +336,9 @@ class RenderNode(eagerx.Node):
         with self.img_cond:
             self.must_close = True
             self.img_event.set()
-
-        # Wait for render window to be closed
-        while self.window_open:
-            time.sleep(0.01)
-
-        with self.img_cond:
+            # Wait for render window to be closed
+            while self.window_open:
+                time.sleep(0.01)
             self.stop_thread = True
             self.img_event.set()
 

@@ -13,6 +13,9 @@ The following tutorials are currently available:
 - `Tutorial 2: Reset and Step Function <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/2_reset_and_step.ipynb>`_
 - `Tutorial 3: Converters <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/3_converters.ipynb>`_
 - `Tutorial 4: Nodes and Graph Validity <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/4_nodes.ipynb>`_
+- `Tutorial 5: Adding Engine Support for an Object <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/5_engine_implementation.ipynb>`_
+- `Tutorial 6: More Informative Rendering <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_rendering.ipynb>`_
+- `Tutorial 7: Reset Routines <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/7_reset_routine.ipynb>`_
 
 .. figure:: /_static/gif/pendulum.GIF
   :align: center
@@ -75,3 +78,35 @@ This tutorial covers:
 
 .. image:: /_static/img/colab-badge.svg
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/4_nodes.ipynb
+
+5. Adding Engine Support for an Object
+######################################
+
+This tutorial covers:
+
+- Adding an engine-specific implementation to an :class:`~eagerx.core.entities.Object`
+- Initializing the corresponding :class:`~eagerx.core.entities.Bridge`
+- Train with the newly added engine-specific implementation
+
+.. image:: /_static/img/colab-badge.svg
+  :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/5_engine_implementation.ipynb
+
+6. More Informative Rendering
+#############################
+
+- Create a layover :class:`~eagerx.core.entities.Node` that augments a raw image sensors
+- Connect the layover :class:`~eagerx.core.entities.Node` and use it for rendering
+- Demonstrate that rendering is agnostic to the selected physics-engine
+
+.. image:: /_static/img/colab-badge.svg
+  :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_rendering.ipynb
+
+
+7. Reset Routines
+#################
+
+- Defining the reset routine with a :class:`~eagerx.core.entities.ResetNode`
+- Reset the :class:`~eagerx.core.entities.Object`'s with the reset routine.
+
+.. image:: /_static/img/colab-badge.svg
+  :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/7_reset_routine.ipynb
