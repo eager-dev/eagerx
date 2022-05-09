@@ -62,7 +62,7 @@ You can do a minimal installation of ``EAGERx`` with:
     See `here <ROS_>`_ for installation instructions.
 
 
-We provide other options for installing EAGERx in `our documentation <https://eagerx.readthedocs.io/en/master/>`_.`including
+We provide other options for installing EAGERx in `our documentation <https://eagerx.readthedocs.io/en/master/>`_ including
 using Docker or Conda environment to have ROS1 setup.
 
 
