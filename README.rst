@@ -61,8 +61,13 @@ You can do a minimal installation of ``EAGERx`` with:
     so it does **not** impose a ROS package structure on your project.
     See `here <ROS_>`_ for installation instructions.
 
+
+We provide other options for installing EAGERx in `our documentation <https://eagerx.readthedocs.io/en/master/>`_.`including
+using Docker or Conda environment to have ROS1 setup.
+
+
 Extras: GUI
----------------------
+-----------
 
 To install the whole set of features, you will need additional packages.
 You can install everything by running:
@@ -110,7 +115,7 @@ Dependencies
 Below you find instructions for installing dependencies required for EAGERx.
 
 ROS
----------------------
+---
 
 See the `ROS Installation Options <https://eagerx.readthedocs.io/en/latest/>`_, or do the following.
 By replacing ``<DISTRO>`` with the supported ROS distributions (``noetic``, ``melodic``),
@@ -144,7 +149,7 @@ this line:
       echo "source /opt/ros/<DISTRO>/setup.bash" >> .venv/bin/activate
 
 Cite EAGERx
-===============
+===========
 If you are using EAGERx for your scientific publications, please cite:
 
 .. code:: bibtex
@@ -159,7 +164,7 @@ If you are using EAGERx for your scientific publications, please cite:
     }
 
 Maintainers
-=================
+===========
 EAGERx is currently maintained by Bas van der Heijden (`@bheijden <https://github.com/bheijden>`_) and Jelle Luijkx (`@jelledouwe <https://github.com/jelledouwe>`_).
 
 How to contact us
@@ -169,5 +174,5 @@ Follow us on Twitter `@EagerxD <https://twitter.com/EagerxD>`_!
 For any question, send an e-mail to eagerx.dev@gmail.com.
 
 Acknowledgements
-=================
+================
 EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.

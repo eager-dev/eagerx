@@ -71,7 +71,7 @@ Here, the arguments is the ones we have just defined in the :func:`~eagerx.core.
       self.angle_idx = angle_idx
 
 convert
-######
+#######
 
 The :func:`~eagerx.core.entities.Processor.convert` method takes as an argument a message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE` and processes it.
 
