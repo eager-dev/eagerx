@@ -491,8 +491,8 @@ dependencies:
     - eagerx-gui==0.2.4
     - eagerx-ode==0.1.11
     - eagerx-pybullet==0.1.7
-    - eagerx-reality==0.1.5
-    - eagerx-tutorials==0.1.6
+    - eagerx-reality==0.1.6
+    - eagerx-tutorials==0.1.10
     - entrypoints==0.4
     - executing==0.8.3
     - fastjsonschema==2.15.3
