@@ -1,7 +1,9 @@
 .. _getting_started:
+
 ***************
 Getting Started
 ***************
+
 
 Installing EAGERx
 =================
@@ -11,6 +13,7 @@ There are three installation options:
 - Using *pip*
 - From source
 - Using docker
+- Using conda and robostack
 
 .. note::
    EAGERx depends on a minimal ROS1 installation.
@@ -20,7 +23,7 @@ There are three installation options:
    The docker image comes with an installation of ROS1.
 
 Installation using *pip*
------------------------
+------------------------
 
 *Prerequisites*: Install `ROS1 <ROS1_>`_.
 
@@ -37,7 +40,7 @@ Installation from source
 
 Clone the `eagerx repository <https://github.com/eager-dev/eagerx>`_ and go to its root:
 
-.. code:: shell
+.. code-block:: shell
 
   git clone git@github.com:eager-dev/eagerx.git
   cd eagerx
@@ -88,6 +91,7 @@ where [image] should be replaced with *eagerx/eagerx* or *eagerx/eagerx-sb*.
 Verify that EAGERx is installed:
 
 .. code:: shell
+
     python -c 'import eagerx'
 
 CPU Dockers
@@ -112,7 +116,75 @@ where image should be replaced with *eagerx/eagerx-cpu* or *eagerx/eagerx-sb-cpu
 Verify that EAGERx is installed:
 
 .. code:: shell
+
     python -c 'import eagerx'
+
+
+Installation Using Conda
+------------------------
+
+You first need to download and install `Conda <https://github.com/conda-forge/miniforge>`_ (we recommend the miniforge distribution).
+
+Then, follow the instructions of `RoboStack <https://robostack.github.io/GettingStarted.html>`_ to install ROS1:
+
+.. code-block:: shell
+
+  # if you don't have mamba yet, install it first (not needed when using mambaforge):
+  conda install mamba -c conda-forge
+
+  # now create a new environment
+  mamba create -n ros_env python=3.8
+  conda activate ros_env
+
+  # this adds the conda-forge channel to the new created environment configuration 
+  conda config --env --add channels conda-forge
+  # and the robostack channels
+  conda config --env --add channels robostack
+  conda config --env --add channels robostack-experimental
+
+  # Install the version of ROS you are interested in:
+  mamba install ros-noetic-desktop
+
+  # optionally, install some compiler packages if you want to e.g. build packages in a colcon_ws:
+  mamba install compilers cmake pkg-config make ninja colcon-common-extensions
+
+  # on Linux and osx (but not Windows) for ROS1 you might want to:
+  mamba install catkin_tools
+
+  # on Windows, install Visual Studio 2017 or 2019 with C++ support 
+  # see https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-160
+
+  # on Windows, install the Visual Studio command prompt:
+  # mamba install vs2019_win-64
+
+  # note that in this case, you should also install the necessary dependencies with conda/mamba, if possible
+
+  # IMPORTANT! reload environment to activate required scripts before running anything
+  # on Windows, please restart the Anaconda Prompt / Command Prompt!
+  conda deactivate
+  conda activate ros_env
+
+  # if you want to use rosdep, also do:
+  mamba install rosdep
+  rosdep init  # IMPORTANT: do not use sudo!
+  rosdep update
+
+
+Finally, you can activate your ``ros_env`` and install EAGERx:
+
+.. code-block:: shell
+
+  conda activate ros_env
+  pip install eagerx
+
+
+We also provide a `Conda environment file <../../_static/conda/ros_env.yml>`_ which contains ROS1, EAGERx, SB3 and other EAGERx packages. In that case you simply have to do:
+
+.. code-block:: shell
+
+  conda env create -f ros_env.yml
+
+
 
 Extras: GUI
 ===========
@@ -180,10 +252,10 @@ a minimal ROS1 installation can be installed with:
 
 .. warning:: Currently, eagerx only supports ROS1. ROS2 support will be added in future versions.
 
-.. code:: shell
+.. code-block:: shell
 
     sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-    sudo apt install curl = if you haven't already installed curl
+    sudo apt install curl # if you haven't already installed curl
     curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
     sudo apt update
     sudo apt install ros-<DISTRO>-<PACKAGE>
@@ -214,7 +286,7 @@ Known issues
   to break, so as a temporary fix, you are advised to suppress this error. Please file a bug report if eagerx/opencv/gui
   functionality actually breaks.
 
-.. code:: shell
+.. code::
 
     QObject::moveToThread: Current thread (0x7fb6c4009eb0) is not the object's thread (0x7fb6c407cf40). Cannot move to
     target thread (0x7fb6c4009eb0).

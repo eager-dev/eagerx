@@ -9,7 +9,7 @@ In this case, we will create an implementation for the `RealBridge <https://gith
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_
 
 real_bridge
-##########
+###########
 
 Bridge-specific can be created by adding a method to an :class:`~eagerx.core.entities.Object`, e.g. :func:`~eagerx.core.entities.Object.example_bridge`.
 In this case, we create an implementation for the *RealBridge*, to be able to perform experiments with the real system.
