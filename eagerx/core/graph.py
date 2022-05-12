@@ -163,6 +163,24 @@ class Graph:
                     self.disconnect(source, target, action, observation, remove=remove)
             self._state["nodes"].pop(name)
 
+    def get_spec(self, name: str) -> EntitySpec:
+        """Get Spec from the graph
+
+        :param name: Name
+        :return: The specification of the entity.
+        """
+        assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
+        params = self._state["nodes"][name]
+        if "node_type" in params:  # Either Node or ResetNode
+            if "targets" in params:  # == ResetNode
+                spec = ResetNodeSpec(params)
+            else:  # == Node
+                spec = NodeSpec(params)
+        else:  # == Object
+            spec = ObjectSpec(params)
+        spec.set_graph(self)
+        return spec
+
     def add_component(
         self,
         entry: Optional[GraphView] = None,
