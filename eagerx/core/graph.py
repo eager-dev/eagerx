@@ -409,6 +409,9 @@ class Graph:
         else:
             self._is_selected(self._state, target)
 
+        # Make sure that source and target are compatible
+        self._is_compatible(self._state, source, target)
+
         # Make sure that target is not already connected.
         for s, t in self._state["connects"]:
             t_name, t_comp, t_cname = t
@@ -1065,6 +1068,42 @@ class Graph:
         params = state["nodes"][name]
         component = "outputs" if component == "feedthroughs" else component
         assert cname in params["config"][component], f'"{cname}" not selected in "{name}" under "config" in {component}.'
+
+    @staticmethod
+    def _is_compatible(state: Dict, source: GraphView, target: GraphView):
+        """Check if provided the provided entries are compatible."""
+        # Valid source and target components
+        targets = ["inputs", "actuators", "feedthroughs", "targets"]
+        sources = ["outputs", "states", "sensors"]
+
+        # Provided entries
+        target_name, target_component, target_cname = target()
+        source_name, source_component, source_cname = source()
+        base_msg = (
+            f"'{target_name}.{target_component}.{target_cname}' cannot be connected with "
+            f"'{source_name}.{source_component}.{source_cname}')."
+        )
+
+        # Check if target & source are validly chosen
+        assert target_component in targets, f"{base_msg} '{target_component}' cannot be a target."
+        assert source_component in sources, f"{base_msg} '{source_component}' cannot be a source."
+
+        # Check if combinations are valid.
+        if source_component in ["outputs", "sensors"]:
+            valid = ["inputs", "feedthroughs", "actuators"]
+            msg = f"{base_msg} '{source_component}' can only be connected to any of the components in '{valid}'."
+            assert target_component in valid, msg
+        else:  # source_component == "states":
+            valid = ["targets"]
+            msg = f"{base_msg} '{source_component}' can only be connected to any of the components in '{valid}'."
+            assert target_component in valid, msg
+
+            # Check that the state corresponds to an object (i.e. is an engine state)
+            msg = (
+                f"{base_msg} Only '{source_component}' of Objects can be connected to targets. '{source_name}' "
+                "is not of type Object."
+            )
+            assert "node_type" not in state["nodes"][source_name], msg
 
     @staticmethod
     def _correct_signature(
