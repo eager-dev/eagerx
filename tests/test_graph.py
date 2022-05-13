@@ -68,6 +68,11 @@ def test_graph():
 
     graph = Graph.create(nodes=[N3, KF], objects=viper)
 
+    # Get specs
+    graph.get_spec("KF")
+    graph.get_spec("N3")
+    graph.get_spec("obj")
+
     # Rendering
     graph.render(
         source=viper.sensors.N6,
