@@ -14,15 +14,6 @@ from eagerx.utils.utils import Msg
 
 
 class TestBridgeNode(Bridge):
-    def initialize(self, num_substeps: int, nonreactive_address: str):
-        # Initialize any simulator here, that is passed as reference to each simnode
-        self.simulator = None
-
-        # If real_time bridge, assert that real_time_factor == 1 & sync=False.
-
-        # Initialize nonreactive input (Only required for this test bridge implementation
-        self.nonreactive_pub = rospy.Publisher(self.ns + nonreactive_address, UInt64, queue_size=0, latch=True)
-
     @staticmethod
     @register.spec("TestBridge", Bridge)
     def spec(
@@ -36,8 +27,6 @@ class TestBridgeNode(Bridge):
         states: Optional[List[str]] = None,
     ):
         """TestBridge spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        TestBridgeNode.initialize_spec(spec)
 
         # Modify default bridge params
         spec.config.rate = rate
@@ -55,6 +44,15 @@ class TestBridgeNode(Bridge):
 
         # Add state: "param_1"
         spec.states.param_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
+
+    def initialize(self, num_substeps: int, nonreactive_address: str):
+        # Initialize any simulator here, that is passed as reference to each simnode
+        self.simulator = None
+
+        # If real_time bridge, assert that real_time_factor == 1 & sync=False.
+
+        # Initialize nonreactive input (Only required for this test bridge implementation
+        self.nonreactive_pub = rospy.Publisher(self.ns + nonreactive_address, UInt64, queue_size=0, latch=True)
 
     @register.bridge_config(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
     def add_object(self, config, bridge_config, node_params, state_params):

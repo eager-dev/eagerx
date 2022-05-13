@@ -29,9 +29,6 @@ class RealResetNode(ResetNode):
         test_arg: Optional[str] = "test_argument",
     ):
         """Create the default spec that is compatible with __init__(...), .callback(...), and .reset(...)"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(RealResetNode)
-
         # Modify default node params
         spec.config.name = name
         spec.config.rate = rate
@@ -179,9 +176,6 @@ class ProcessNode(TestNode):
         test_arg: Optional[str] = "test_argument",
     ):
         """ProcessNode spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(ProcessNode)
-
         # Modify default node params
         spec.config.name = name
         spec.config.rate = rate
@@ -228,9 +222,6 @@ class KalmanNode(TestNode):
         test_arg: Optional[str] = "test_argument",
     ):
         """KalmanNode spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(KalmanNode)
-
         # Modify default node params
         spec.config.name = name
         spec.config.rate = rate
@@ -294,9 +285,6 @@ class TestActuator(TestNode):
         test_arg: Optional[str] = "test_argument",
     ):
         """TestActuator spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(TestActuator)
-
         # Modify default node params
         spec.config.name = name
         spec.config.rate = rate
@@ -329,9 +317,6 @@ class TestSensor(TestNode):
         test_arg: Optional[str] = "test_argument",
     ):
         """TestSensor spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(TestSensor)
-
         # Modify default node params
         spec.config.name = name
         spec.config.rate = rate

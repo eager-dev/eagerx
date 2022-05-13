@@ -11,9 +11,6 @@ class GetIndex_Float32MultiArray(Processor):
     @staticmethod
     @register.spec("GetIndex_Float32MultiArray", Processor)
     def spec(spec, index: Union[int, List[int]]):
-        # Initialize spec with default arguments
-        spec.initialize(GetIndex_Float32MultiArray)
-
         if isinstance(index, int):
             index = [index]
         for i in index:

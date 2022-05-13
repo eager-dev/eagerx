@@ -264,7 +264,8 @@ class BaseNodeSpec(EntitySpec):
             for cname, msg_type in cnames.items():
                 msg_type = get_module_type_string(msg_type)
                 if component == "outputs":
-                    self.config.outputs.append(cname)
+                    if cname not in self.config.outputs:
+                        self.config.outputs.append(cname)
                     mapping = dict(
                         msg_type=msg_type,
                         rate="$(config rate)",
@@ -285,9 +286,9 @@ class BaseNodeSpec(EntitySpec):
                         )
                         with self.feedthroughs as d:
                             d[cname] = mapping_ft
-                        # self._set({"feedthroughs": {cname: mapping_ft}})
                 elif component == "inputs":
-                    self.config.inputs.append(cname)
+                    if cname not in self.config.inputs:
+                        self.config.inputs.append(cname)
                     address = "bridge/outputs/tick" if cname == "tick" else None
                     mapping = dict(
                         msg_type=msg_type,
@@ -300,7 +301,8 @@ class BaseNodeSpec(EntitySpec):
                         address=address,
                     )
                 elif component == "targets":
-                    self.config.targets.append(cname)
+                    if cname not in self.config.targets:
+                        self.config.targets.append(cname)
                     mapping = dict(
                         msg_type=msg_type,
                         converter=self.identity.params,
@@ -308,7 +310,8 @@ class BaseNodeSpec(EntitySpec):
                         address=None,
                     )
                 else:
-                    self.config.states.append(cname)
+                    if cname not in self.config.states:
+                        self.config.states.append(cname)
                     component = "states"
                     mapping = dict(
                         msg_type=msg_type,
@@ -875,7 +878,8 @@ class ObjectSpec(EntitySpec):
                 with getattr(self, component) as d:
                     d[cname] = mapping
                 # Select component per default
-                getattr(self.config, component).append(cname)
+                if cname not in getattr(self.config, component):
+                    getattr(self.config, component).append(cname)
 
     def _initialize_bridge_config(self, bridge_id, bridge_config):
         # Add default config

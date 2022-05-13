@@ -59,9 +59,6 @@ class GymObject(Object):
         render_shape: Optional[List[int]] = None,
     ):
         """Object spec of GymObject"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        GymObject.initialize_spec(spec)
-
         # Set default node params
         spec.config.name = name
         spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "done"]

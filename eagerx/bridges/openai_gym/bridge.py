@@ -29,9 +29,6 @@ class GymBridge(Bridge):
         log_level: Optional[int] = ERROR,
     ):
         """TestBridge spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(GymBridge)
-
         # Modify default bridge params
         spec.config.rate = rate
         spec.config.process = process

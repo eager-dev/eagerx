@@ -30,9 +30,6 @@ class ObservationSensor(EngineNode):
         color: Optional[str] = "cyan",
     ):
         """ObservationSensor spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(ObservationSensor)
-
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -83,9 +80,6 @@ class RewardSensor(EngineNode):
         color: Optional[str] = "cyan",
     ):
         """RewardSensor spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(RewardSensor)
-
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -136,9 +130,6 @@ class DoneSensor(EngineNode):
         color: Optional[str] = "cyan",
     ):
         """DoneSensor spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(DoneSensor)
-
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -190,9 +181,6 @@ class ActionActuator(EngineNode):
         color: Optional[str] = "green",
     ):
         """ActionActuator spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(ActionActuator)
-
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -273,9 +261,6 @@ class GymImage(EngineNode):
         always_render=False,
     ):
         """GymImage spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(GymImage)
-
         # Set default
         spec.config.name = name
         spec.config.rate = rate

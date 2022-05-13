@@ -21,9 +21,6 @@ class Space_RosUInt64(SpaceConverter):
     @staticmethod
     @register.spec("Space_RosUInt64", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
-        # Initialize converter
-        Space_RosUInt64.initialize_spec(spec)
-
         spec.config.low = low
         spec.config.high = high
         spec.config.shape = shape

@@ -3,7 +3,7 @@ import inspect
 import rospy
 import copy
 from unittest.mock import MagicMock
-from eagerx.utils.utils import deepcopy
+from eagerx.utils.utils import deepcopy, load
 from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict, Optional
 import os
 
@@ -64,6 +64,10 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
             if not entity_id == "Identity":
                 rospy.logdebug("[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type))
             spec = entity_cls.pre_make(entity_id, entity_type)
+
+            # Initialize spec
+            spec.initialize(load(entity_type))
+
             try:
                 func(spec, *args, **kwargs)
             except TypeError as e:

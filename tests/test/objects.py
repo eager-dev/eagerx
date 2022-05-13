@@ -57,9 +57,6 @@ class Arm(eagerx.Object):
         low: Optional[int] = 0,
     ):
         """Object spec of Arm"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        Arm.initialize_spec(spec)
-
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         spec.config.name = name
@@ -278,9 +275,6 @@ class Viper(Arm):
         low: Optional[int] = 0,
     ):
         """Object spec of Viper"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        Viper.initialize_spec(spec)
-
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         spec.config.name = name
