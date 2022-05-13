@@ -8,14 +8,14 @@ from std_msgs.msg import UInt64
 
 # EAGERx IMPORTS
 from eagerx.core.constants import process, ERROR
-from eagerx.core.entities import Bridge, SpaceConverter
+from eagerx.core.entities import Engine, SpaceConverter
 import eagerx.core.register as register
 from eagerx.utils.utils import Msg
 
 
-class TestBridgeNode(Bridge):
+class TestEngineNode(Engine):
     @staticmethod
-    @register.spec("TestBridge", Bridge)
+    @register.spec("TestEngine", Engine)
     def spec(
         spec,
         rate,
@@ -26,9 +26,9 @@ class TestBridgeNode(Bridge):
         log_level: Optional[int] = ERROR,
         states: Optional[List[str]] = None,
     ):
-        """TestBridge spec"""
+        """TestEngine spec"""
 
-        # Modify default bridge params
+        # Modify default engine params
         spec.config.rate = rate
         spec.config.process = process
         spec.config.sync = sync
@@ -49,13 +49,13 @@ class TestBridgeNode(Bridge):
         # Initialize any simulator here, that is passed as reference to each simnode
         self.simulator = None
 
-        # If real_time bridge, assert that real_time_factor == 1 & sync=False.
+        # If real_time engine, assert that real_time_factor == 1 & sync=False.
 
-        # Initialize nonreactive input (Only required for this test bridge implementation
+        # Initialize nonreactive input (Only required for this test engine implementation
         self.nonreactive_pub = rospy.Publisher(self.ns + nonreactive_address, UInt64, queue_size=0, latch=True)
 
-    @register.bridge_config(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
-    def add_object(self, config, bridge_config, node_params, state_params):
+    @register.engine_config(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
+    def add_object(self, config, engine_config, node_params, state_params):
         # add object to simulator (we have a ref to the simulator with self.simulator)
         rospy.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
 

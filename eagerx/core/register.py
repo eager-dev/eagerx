@@ -10,9 +10,9 @@ import os
 
 if TYPE_CHECKING:
     from eagerx.core.graph_engine import EngineGraph  # noqa: F401
-    from eagerx.core.Entities import Entity, Bridge  # noqa: F401
+    from eagerx.core.Entities import Entity, Engine  # noqa: F401
 
-# Global registry with registered entities (bridges, objects, nodes, converters, simnodes, etc..)
+# Global registry with registered entities (engines, objects, nodes, converters, simnodes, etc..)
 REGISTRY = dict()
 # Global registry with registered I/O types of (.callback, .reset/.pre_reset, .initialize, .add_object)
 TYPE_REGISTER = dict()
@@ -220,15 +220,15 @@ def engine_states(**engine_states) -> Callable:
     return functools.partial(_register_types, TYPE_REGISTER, "engine_states", engine_states)
 
 
-def bridge_config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Callable:
-    """A decorator to register bridge specific parameters that are required to
-    add an :class:`~eagerx.core.entities.Object` to the bridge's :attr:`~eagerx.core.entities.Bridge.simulator`.
+def engine_config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Callable:
+    """A decorator to register engine specific parameters that are required to
+    add an :class:`~eagerx.core.entities.Object` to the engine's :attr:`~eagerx.core.entities.Engine.simulator`.
 
-    The :func:`~eagerx.core.entities.Bridge.add_object` method should be decorated.
+    The :func:`~eagerx.core.entities.Engine.add_object` method should be decorated.
 
-    :param params: Bridge specific parameters with default values (i.e. only optional arguments are allowed).
+    :param params: Engine specific parameters with default values (i.e. only optional arguments are allowed).
     """
-    return functools.partial(_register_types, TYPE_REGISTER, "bridge_config", params, cls_only=False)
+    return functools.partial(_register_types, TYPE_REGISTER, "engine_config", params, cls_only=False)
 
 
 def config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Callable:
@@ -236,7 +236,7 @@ def config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Call
 
     The :func:`~eagerx.core.entities.Object.agnostic` method should be decorated.
 
-    :param params: Bridge specific parameters with default values (i.e. only optional arguments are allowed).
+    :param params: Engine specific parameters with default values (i.e. only optional arguments are allowed).
     """
     return functools.partial(
         _register_types,
@@ -247,19 +247,19 @@ def config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Call
     )
 
 
-# BRIDGES
+# ENGINES
 
 
-def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
-    """A decorator to register a bridge implementation of an :class:`~eagerx.core.entities.Object`.
+def engine(entity_id: str, engine_cls: "Engine") -> Callable:
+    """A decorator to register an engine implementation of an :class:`~eagerx.core.entities.Object`.
 
-    .. note:: In our running example, the :func:`~eagerx.core.entities.Object.example_bridge` method would be decorated.
+    .. note:: In our running example, the :func:`~eagerx.core.entities.Object.example_engine` method would be decorated.
 
     :param entity_id: A unique string id.
-    :param bridge_cls: The Bridge's subclass (not the baseclass :class:`~eagerx.core.entities.Bridge`).
+    :param engine_cls: The Engine's subclass (not the baseclass :class:`~eagerx.core.entities.Engine`).
     """
-    bridge_config = LOOKUP_TYPES[bridge_cls.add_object]["bridge_config"]
-    bridge_id = REVERSE_REGISTRY[bridge_cls.spec]
+    engine_config = LOOKUP_TYPES[engine_cls.add_object]["engine_config"]
+    engine_id = REVERSE_REGISTRY[engine_cls.spec]
 
     def _register(func):
         name_split = func.__qualname__.split(".")
@@ -270,52 +270,52 @@ def bridge(entity_id: str, bridge_cls: "Bridge") -> Callable:
             cls_name = "N/A"
             fn_name = name_split[0]
         entry = func.__module__ + "/" + func.__qualname__
-        rospy.logdebug(f"[{cls_name}][{fn_name}]: bridge_id={bridge_id}, entry={entry}")
+        rospy.logdebug(f"[{cls_name}][{fn_name}]: engine_id={engine_id}, entry={entry}")
 
         @functools.wraps(func)
-        def _bridge(spec):
-            """First, initialize spec with object_info, then call the bridge function"""
-            # Add default bridge_config parameters
-            spec._initialize_bridge_config(bridge_id, copy.deepcopy(bridge_config))
+        def _engine(spec):
+            """First, initialize spec with object_info, then call the engine function"""
+            # Add default engine_config parameters
+            spec._initialize_engine_config(engine_id, copy.deepcopy(engine_config))
             # Initialize engine graph
             graph = spec._initialize_object_graph()
-            # Modify bridge_config with user-defined bridge implementation
+            # Modify engine_config with user-defined engine implementation
             func(spec, graph)
             # Add graph to spec & remove redundant states
-            spec._add_graph(bridge_id, graph)
+            spec._add_graph(engine_id, graph)
             return graph
 
-        # Register bridge implementation for object
+        # Register engine implementation for object
         from eagerx.core.entities import Object
 
-        msg = f"Cannot register bridge '{bridge_id}' for object '{entity_id}'. "
+        msg = f"Cannot register engine '{engine_id}' for object '{entity_id}'. "
         assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
         assert entity_id in REGISTRY[Object], (
             msg + "No object with this entity_id was registered. Make sure to import the object."
         )
 
         # Check if spec of duplicate entity_id corresponds to same spec function
-        flag = bridge_id in REGISTRY[Object][entity_id] and _bridge == REGISTRY[Object][entity_id][bridge_id]
+        flag = engine_id in REGISTRY[Object][entity_id] and _engine == REGISTRY[Object][entity_id][engine_id]
         flag = not flag or bool(eval(os.environ.get("EAGERX_RELOAD", "0")))
-        assert flag, msg + "There is already a bridge implementation of this type registered."
+        assert flag, msg + "There is already an engine implementation of this type registered."
 
-        # Register bridge implementation
-        REGISTRY[Object][entity_id][bridge_id] = _bridge
-        return _bridge
+        # Register engine implementation
+        REGISTRY[Object][entity_id][engine_id] = _engine
+        return _engine
 
     return _register
 
 
-def add_bridge(spec, bridge_id):
-    """Add bridge based on registered entity_id"""
+def add_engine(spec, engine_id):
+    """Add engine based on registered entity_id"""
     entity_id = spec.config.entity_id
 
-    # Register bridge implementation for object
+    # Register engine implementation for object
     from eagerx.core.entities import Object
 
-    msg = f"Cannot ad bridge implementation '{bridge_id}' for object '{entity_id}'. "
+    msg = f"Cannot ad engine implementation '{engine_id}' for object '{entity_id}'. "
     assert Object in REGISTRY, msg + "No Objects have been registered. Make sure to import the object."
     assert entity_id in REGISTRY[Object], msg + "No object with this entity_id was registered. Make sure to import the object."
 
-    graph = REGISTRY[Object][entity_id][bridge_id](spec)
+    graph = REGISTRY[Object][entity_id][engine_id](spec)
     return graph

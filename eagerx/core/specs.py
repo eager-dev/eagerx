@@ -141,7 +141,7 @@ class BaseNodeSpec(EntitySpec):
 
         - .. py:attribute:: Spec.config.log_level: int = 30
 
-            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`
+            Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -180,8 +180,8 @@ class BaseNodeSpec(EntitySpec):
         - .. py:attribute:: Spec.inputs.<name>.delay: float = 0.0
 
             A non-negative simulated delay (seconds). This delay is ignored if
-            :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-            in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+            :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+            in the engine's :func:`~eagerx.core.entities.Engine.spec`.
 
         - .. py:attribute:: Spec.inputs.<name>.skip: bool = False
 
@@ -246,8 +246,8 @@ class BaseNodeSpec(EntitySpec):
         with self.config as d:
             d.update(defaults)
 
-        if "bridge_config" in params:
-            params.pop("bridge_config")
+        if "engine_config" in params:
+            params.pop("engine_config")
 
         if "targets" in params:
             from eagerx.core.entities import ResetNode
@@ -289,7 +289,7 @@ class BaseNodeSpec(EntitySpec):
                 elif component == "inputs":
                     if cname not in self.config.inputs:
                         self.config.inputs.append(cname)
-                    address = "bridge/outputs/tick" if cname == "tick" else None
+                    address = "engine/outputs/tick" if cname == "tick" else None
                     mapping = dict(
                         msg_type=msg_type,
                         delay=0.0,
@@ -576,8 +576,8 @@ class ResetNodeSpec(BaseNodeSpec):
         - .. py:attribute:: Spec.feedthroughs.<name>.delay: float = 0.0
 
             A non-negative simulated delay (seconds). This delay is ignored if
-            :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-            in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+            :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+            in the engine's :func:`~eagerx.core.entities.Engine.spec`.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -586,8 +586,8 @@ class ResetNodeSpec(BaseNodeSpec):
         return self._lookup("feedthroughs")
 
 
-class BridgeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the bridge."""
+class EngineSpec(BaseNodeSpec):
+    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the engine."""
 
     @property
     def config(self) -> Union[SpecView, GraphView]:
@@ -599,11 +599,11 @@ class BridgeSpec(BaseNodeSpec):
 
         - .. py:attribute:: Spec.config.rate: float
 
-            Rate (Hz) at which the :func:`~eagerx.core.entities.Bridge.callback` is called.
+            Rate (Hz) at which the :func:`~eagerx.core.entities.Engine.callback` is called.
 
         - .. py:attribute:: Spec.config.process: int = 0
 
-            Process in which the bridge is launched. See :class:`~eagerx.core.constants.process` for all options.
+            Process in which the engine is launched. See :class:`~eagerx.core.constants.process` for all options.
 
         - .. py:attribute:: Spec.config.sync: bool = True
 
@@ -629,7 +629,7 @@ class BridgeSpec(BaseNodeSpec):
 
         - .. py:attribute:: Spec.config.log_level: int = 30
 
-            Specifies the log level for the bridge: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
+            Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -674,8 +674,8 @@ class ObjectSpec(EntitySpec):
         else:
             return SpecView(self, depth=[depth], name=name)
 
-    def gui(self, bridge_id: str) -> None:
-        """Opens a graphical user interface of the object's bridge implementation.
+    def gui(self, engine_id: str) -> None:
+        """Opens a graphical user interface of the object's engine implementation.
 
         .. note:: Requires `eagerx-gui`:
 
@@ -684,13 +684,13 @@ class ObjectSpec(EntitySpec):
 
             pip3 install eagerx-gui
 
-        :param bridge_id: The `entity_id` with which the object's bridge implementation was registered (e.g. "PybulletBridge").
+        :param engine_id: The `entity_id` with which the object's engine implementation was registered (e.g. "PybulletEngine").
         """
         import eagerx.core.register as register
 
         spec_copy = ObjectSpec(self.params)
-        spec_copy._params[bridge_id] = {}
-        graph = register.add_bridge(spec_copy, bridge_id)
+        spec_copy._params[engine_id] = {}
+        graph = register.add_engine(spec_copy, engine_id)
         graph.gui()
 
     @property
@@ -756,8 +756,8 @@ class ObjectSpec(EntitySpec):
         - .. py:attribute:: Spec.actuators.<name>.delay: float = 0.0
 
             A non-negative simulated delay (seconds). This delay is ignored if
-            :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-            in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+            :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+            in the engine's :func:`~eagerx.core.entities.Engine.spec`.
 
         - .. py:attribute:: Spec.actuators.<name>.skip: bool = False
 
@@ -819,17 +819,17 @@ class ObjectSpec(EntitySpec):
         return self._lookup("config")
 
     @property
-    def example_bridge(self) -> Union[SpecView, GraphView]:
-        """An example API for a bridge-specific implementation with `<bridge_id>` = "example_bridge".
+    def example_engine(self) -> Union[SpecView, GraphView]:
+        """An example API for an engine-specific implementation with `<engine_id>` = "example_engine".
 
         .. note:: This is an example method for documentation purposes only.
 
         The mutable parameters are:
 
-        - Additional parameters registered with :func:`eagerx.core.register.bridge_config` that
-          decorates :class:`eagerx.core.entities.add_object` in the bridge subclass definition.
+        - Additional parameters registered with :func:`eagerx.core.register.engine_config` that
+          decorates :class:`eagerx.core.entities.add_object` in the engine subclass definition.
 
-        - .. py:attribute:: Spec.<bridge_id>.states.<name>: EngineState
+        - .. py:attribute:: Spec.<engine_id>.states.<name>: EngineState
 
             Link an :class:`~eagerx.core.specs.EngineState` to a registered state with :func:`eagerx.core.register.states`.
 
@@ -837,7 +837,7 @@ class ObjectSpec(EntitySpec):
 
         :return: API to get/set parameters.
         """
-        raise NotImplementedError("This is a mock bridge implementation for documentation purposes.")
+        raise NotImplementedError("This is a mock engine implementation for documentation purposes.")
 
     def initialize(self, spec_cls):
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
@@ -881,28 +881,28 @@ class ObjectSpec(EntitySpec):
                 if cname not in getattr(self.config, component):
                     getattr(self.config, component).append(cname)
 
-    def _initialize_bridge_config(self, bridge_id, bridge_config):
+    def _initialize_engine_config(self, engine_id, engine_config):
         # Add default config
-        with getattr(self, bridge_id) as d:
-            d.update(bridge_config)
+        with getattr(self, engine_id) as d:
+            d.update(engine_config)
             d["states"] = {}
             # Add all states to engine-specific params
             with d.states as s:
                 for cname in self.states.keys():
                     s[cname] = None
 
-    def _add_graph(self, bridge_id, graph):
+    def _add_graph(self, engine_id, graph):
         # Register EngineGraph
         nodes, actuators, sensors = graph.register()
 
         # Pop states that were not implemented.
-        with getattr(self, bridge_id).states as d:
-            for cname in list(getattr(self, bridge_id).states.keys()):
+        with getattr(self, engine_id).states as d:
+            for cname in list(getattr(self, engine_id).states.keys()):
                 if d[cname] is None:
                     d.pop(cname)
 
         # Set engine_spec
-        with getattr(self, bridge_id) as d:
+        with getattr(self, engine_id) as d:
             d.actuators = actuators
             d.sensors = sensors
             d.nodes = nodes
@@ -920,17 +920,17 @@ class ObjectSpec(EntitySpec):
         graph = EngineGraph.create(**mapping)
         return graph
 
-    def add_bridge(self, bridge_id):
+    def add_engine(self, engine_id):
         # Construct context & replace placeholders
         context = {"config": self.config.to_dict()}
         substitute_args(self._params["config"], context, only=["config"])  # First resolve args within the context
         substitute_args(self._params, context, only=["config"])  # Resolve rest of params
 
-        # Add bridge entry
-        self._params[bridge_id] = {}
-        register.add_bridge(self, bridge_id)
+        # Add engine entry
+        self._params[engine_id] = {}
+        register.add_engine(self, engine_id)
 
-    def build(self, ns, bridge_id):
+    def build(self, ns, engine_id):
         params = self.params  # Creates a deepcopy
         default = copy.deepcopy(self.config.to_dict())  # Creates a deepcopy
         name = default["name"]
@@ -944,19 +944,19 @@ class ObjectSpec(EntitySpec):
         agnostic = dict()
         for key in list(params.keys()):
             if key not in ["actuators", "sensors", "states"]:
-                if key not in ["config", bridge_id]:
+                if key not in ["config", engine_id]:
                     params.pop(key)
                 continue
             agnostic[key] = params.pop(key)
 
-        # Get bridge definition
-        bridge = params.pop(bridge_id)
-        nodes = bridge.pop("nodes")
+        # Get engine definition
+        engine = params.pop(engine_id)
+        nodes = engine.pop("nodes")
         specific = dict()
-        for key in list(bridge.keys()):
+        for key in list(engine.keys()):
             if key not in ["actuators", "sensors", "states"]:
                 continue
-            specific[key] = bridge.pop(key)
+            specific[key] = engine.pop(key)
 
         # Replace node names
         for key in list(nodes.keys()):
@@ -972,7 +972,7 @@ class ObjectSpec(EntitySpec):
                     entry_lst = specific[obj_comp][obj_cname]
                 except KeyError:
                     raise KeyError(
-                        f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in bridge "{bridge_id}".'
+                        f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
                     )
                 # todo: here we assume a single node implements the actuator --> could be multiple
 
@@ -1010,7 +1010,7 @@ class ObjectSpec(EntitySpec):
                         id = Identity().get_yaml_definition()
                         if not agnostic_converter == id:
                             msg = (
-                                f"A converter was defined for {node_name}.{node_comp}.{node_cname}, however the bridge "
+                                f"A converter was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
                                 "implementation also has a converter defined. You can only have one converter."
                             )
                             assert node_comp_params["converter"] == id, msg
@@ -1032,7 +1032,7 @@ class ObjectSpec(EntitySpec):
                     node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
                     msg = (
                         f'There appears to be a dependency on enginenode "{node_name}" for the implementation of '
-                        f'bridge "{bridge_id}" for object "{name}" to work. However, enginenode "{node_name}" is '
+                        f'engine "{engine_id}" for object "{name}" to work. However, enginenode "{node_name}" is '
                         f'directly tied to an unselected actuator "{cname}". '
                         "The actuator must be selected to resolve the graph."
                     )
@@ -1061,7 +1061,7 @@ class ObjectSpec(EntitySpec):
                 args["state"] = specific[obj_comp][obj_cname]
             except KeyError:
                 raise KeyError(
-                    f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in bridge "{bridge_id}".'
+                    f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
                 )
             states.append(RxEngineState(**args))
             state_names.append(f'{ns}/{args["name"]}')
@@ -1073,8 +1073,8 @@ class ObjectSpec(EntitySpec):
         obj_params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
         obj_params["state_names"] = state_names
 
-        # Add bridge
-        obj_params["bridge"] = bridge
+        # Add engine
+        obj_params["engine"] = engine
 
         # Clean up parameters
         for component in ["sensors", "actuators", "states"]:

@@ -1,7 +1,7 @@
 from eagerx.core.constants import process, log  # noqa: F401
 from eagerx.core.entities import (  # noqa: F401
     Object,
-    Bridge,
+    Engine,
     Node,
     ResetNode,
     Converter,

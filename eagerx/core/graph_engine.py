@@ -204,8 +204,8 @@ class EngineGraph:
 
                        .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
         :param delay: A non-negative simulated delay (seconds). This delay is ignored if
-                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+                      :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+                      in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
         :param external_rate: The rate (Hz) with which messages are published to the topic specified by
@@ -214,7 +214,7 @@ class EngineGraph:
                               .. warning:: Only add external inputs if you are sure that they are synchronized with respect
                                            to the provided rate and their respective inputs.
                                            Asynchronous external inputs can easily lead to deadlocks if running in synchronized mode
-                                           (i.e. :attr:`~eagerx.core.entities.Bridge.sync` = True).
+                                           (i.e. :attr:`~eagerx.core.entities.Engine.sync` = True).
         """
         flag = not address or (source is None and actuator is None and sensor is None)
         assert flag, f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
@@ -459,18 +459,18 @@ class EngineGraph:
         # """
         # Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
         # parameter will be set there. Else, the parameter is set under the "config" key.
-        # For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
+        # For objects, parameters are set under their agnostic definitions of the components (so not engine specific).
         # If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
         # disconnected. See _set_converter for more info.
         # """
         assert not entry()[0] == "actuators", (
             "Cannot change the actuator parameters here, "
-            "in a bridge specific implementation. That is only possible in the "
+            "in an engine specific implementation. That is only possible in the "
             "object's agnostic definition."
         )
         assert not entry()[0] == "sensors", (
             "Cannot change the sensor parameters here, "
-            "in a bridge specific implementation. That is only possible in the "
+            "in an engine specific implementation. That is only possible in the "
             "object's agnostic definition."
         )
 

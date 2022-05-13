@@ -4,7 +4,7 @@ from eagerx.core.constants import process, log  # noqa: F401  # pylint: disable=
 from eagerx.utils.node_utils import initialize  # noqa # pylint: disable=unused-import
 from eagerx.core.entities import (  # noqa: F401  # pylint: disable=unused-import
     Object,
-    Bridge,
+    Engine,
     Node,
     ResetNode,
     Converter,

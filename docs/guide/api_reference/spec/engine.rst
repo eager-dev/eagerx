@@ -1,7 +1,7 @@
-Bridge
+Engine
 ======
 
-.. autoclass:: eagerx.core.specs.BridgeSpec
+.. autoclass:: eagerx.core.specs.EngineSpec
     :members:
     :inherited-members:
     :exclude-members:

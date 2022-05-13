@@ -395,7 +395,7 @@ def init_node(
     return rx_objects
 
 
-def init_bridge_pipeline(
+def init_engine_pipeline(
     ns,
     rate_node,
     node,
@@ -495,7 +495,7 @@ def init_bridge_pipeline(
     return {"dispose": d}
 
 
-def init_bridge(
+def init_engine(
     ns,
     rate_node,
     node,
@@ -705,7 +705,7 @@ def init_bridge(
 
     # Before starting real_reset procedure, wait for EngineState pipeline to be initialized.
     # This, so that the first time, the engine states are run.
-    # Some bridges/simulators might require that for setting initial state.
+    # Some engines/simulators might require that for setting initial state.
     ER = Subject()
     end_register = dict(name="end_register", address=ns + "/end_register", msg=ER, msg_type=UInt64)
     node_outputs.append(end_register)
@@ -770,7 +770,7 @@ def init_bridge(
     d = rx.zip(f.pipe(spy("F", node)), Rr.pipe(spy("Rr", node))).pipe(ops.share()).subscribe(ResetTrigger)
     reset_disp.add(d)
 
-    # Send reset messages for all outputs (Only '/rx/bridge/outputs/tick')
+    # Send reset messages for all outputs (Only '/rx/engine/outputs/tick')
     [reset_disp.add(RM.subscribe(o["reset"])) for o in outputs]
 
     ###########################################################################
@@ -818,7 +818,7 @@ def init_bridge(
     pipeline_trigger = rx.zip(check_z_flags, check_z_inputs)
     reset_obs = pipeline_trigger.pipe(
         ops.map(
-            lambda x: init_bridge_pipeline(
+            lambda x: init_engine_pipeline(
                 ns,
                 rate_node,
                 node,
@@ -838,7 +838,7 @@ def init_bridge(
                 event_scheduler=event_scheduler,
             )
         ),
-        trace_observable("init_bridge_pipeline", node),
+        trace_observable("init_engine_pipeline", node),
         ops.share(),
     )
 
@@ -982,7 +982,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
-    tick = dict(name="tick", address=ns + "/bridge/outputs/tick", msg=Subject(), msg_type=UInt64)
+    tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), msg_type=UInt64)
     end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
     d = end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
     reset_disp.add(d)

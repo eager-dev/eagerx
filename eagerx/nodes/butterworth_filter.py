@@ -35,7 +35,7 @@ class ButterworthFilter(Node):
         :param N: The order of the filter
         :param Wn: The critical frequency or frequencies
         :param btype: {'lowpass', 'highpass', 'bandpass', 'bandstop'}
-        :param process: {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+        :param process: {0: NEW_PROCESS, 1: ENVIRONMENT, 2: ENGINE, 3: EXTERNAL}
         :param color: console color of logged messages. {'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'grey'}
         :return:
         """

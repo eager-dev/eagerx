@@ -24,7 +24,7 @@ class ObservationSensor(EngineNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = process.ENGINE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
@@ -41,9 +41,9 @@ class ObservationSensor(EngineNode):
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
-            self.process == process.BRIDGE
-        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.id = self.bridge_config["env_id"]
+            self.process == process.ENGINE
+        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
+        self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
         self.last_obs = None
 
@@ -74,7 +74,7 @@ class RewardSensor(EngineNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = process.ENGINE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
@@ -91,9 +91,9 @@ class RewardSensor(EngineNode):
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
-            self.process == process.BRIDGE
-        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.id = self.bridge_config["env_id"]
+            self.process == process.ENGINE
+        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
+        self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
         self.last_reward = None
 
@@ -124,7 +124,7 @@ class DoneSensor(EngineNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = process.ENGINE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
@@ -141,9 +141,9 @@ class DoneSensor(EngineNode):
     def initialize(self):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
-            self.process == process.BRIDGE
-        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
-        self.id = self.bridge_config["env_id"]
+            self.process == process.ENGINE
+        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
+        self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
         self.last_done = None
 
@@ -175,7 +175,7 @@ class ActionActuator(EngineNode):
         name: str,
         rate: float,
         zero_action=None,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = process.ENGINE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "green",
@@ -195,8 +195,8 @@ class ActionActuator(EngineNode):
     def initialize(self, zero_action):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
-            self.process == process.BRIDGE
-        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
+            self.process == process.ENGINE
+        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.obj_name = self.config["name"]
         self.simulator[self.obj_name]["env"]: gym.Env
         self.is_discrete = (
@@ -253,7 +253,7 @@ class GymImage(EngineNode):
         spec,
         name: str,
         rate: float,
-        process: Optional[int] = process.BRIDGE,
+        process: Optional[int] = process.ENGINE,
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "cyan",
@@ -276,12 +276,12 @@ class GymImage(EngineNode):
     def initialize(self, shape, always_render):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
-            self.process == process.BRIDGE
-        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Bridge process"
+            self.process == process.ENGINE
+        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.shape = tuple(shape)
         self.always_render = always_render
         self.render_toggle = False
-        self.id = self.bridge_config["env_id"]
+        self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
         self.render_toggle_pub = rospy.Subscriber("%s/env/render/toggle" % self.ns, Bool, self._set_render_toggle)
 

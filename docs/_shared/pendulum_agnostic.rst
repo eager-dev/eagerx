@@ -3,7 +3,7 @@ Agnostic
 ********
 
 Each :class:`~eagerx.core.entities.Object` requires an agnostic implementation.
-With agnostic, we mean agnostic to the type of bridge that is used.
+With agnostic, we mean agnostic to the type of engine that is used.
 This concerns for example the action and observation spaces of the :class:`~eagerx.core.entities.Object`, which are the same no matter whether the system is simulated or not.
 
 An :class:`~eagerx.core.entities.Object` has two abstract classes:
@@ -16,13 +16,13 @@ An :class:`~eagerx.core.entities.Object` has two abstract classes:
 agnostic
 ########
 
-The :func:`~eagerx.core.entities.Object.agnostic` method should be used for defining the information that is agnostic of the bridge that is being used.
+The :func:`~eagerx.core.entities.Object.agnostic` method should be used for defining the information that is agnostic of the engine that is being used.
 Here we specify what :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states` the :class:`~eagerx.core.entities.Object` has.
 An actuator can be used to apply an action in the environment, a sensor can obtain observations, while a state is something that can be reset before starting an episode.
 In our case, we have three sensors (*pendulum_output*, *action_applied* and *image*), one actuator (*pendulum_input*) and two states (*model_state*, *model_parameters*).
 We use the *model_state* to reset the angle and angular velocity of the pendulum during a reset, while we use the *model_parameters* state to randomize the model parameters over the episodes in order to improve robustness against model inaccuracies.
 Furthermore, the :func:`~eagerx.core.entities.Object.agnostic` method should be used to define all agnostic :attr:`~eagerx.core.specs.ObjectSpec.config` parameters.
-These are the parameters that are independent of the :class:`~eagerx.core.entities.Bridge` that is used.
+These are the parameters that are independent of the :class:`~eagerx.core.entities.Engine` that is used.
 We will set the agnostic parameters for each of the :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`, i.e. rates, windows and space converters.
 The rates define at which rate the callback of that entity is called, window sizes determine the window size for incoming messages, while space converters define how to convert the messages to an `OpenAI Gym space <https://gym.openai.com/docs/#spaces>`_.
 More information on these parameters is available at the API Reference sections on :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`.
@@ -34,8 +34,8 @@ More information on these parameters is available at the API Reference sections 
   from sensor_msgs.msg import Image
 
   # EAGERx IMPORTS
-  from eagerx_reality.bridge import RealBridge
-  from eagerx_ode.bridge import OdeBridge
+  from eagerx_reality.engine import RealEngine
+  from eagerx_ode.engine import OdeEngine
   from eagerx import Object, EngineNode, SpaceConverter, EngineState, Processor
   from eagerx.core.specs import ObjectSpec
   from eagerx.core.graph_engine import EngineGraph
@@ -133,7 +133,7 @@ Per default, we will e.g. use the *model_state* :class:`~eagerx.core.entities.En
       spec.config.render_shape = render_shape if render_shape else [480, 480]
       spec.config.camera_index = camera_index
 
-      # Add bridge implementation
+      # Add engine implementation
       Pendulum.agnostic(spec, rate)
 
 

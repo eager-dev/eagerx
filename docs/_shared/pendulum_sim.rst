@@ -1,15 +1,15 @@
-.. _bridge_specific_ode_bridge:
+.. _engine_specific_ode_engine:
 ***************************
-Bridge-Specific (OdeBridge)
+Engine-Specific (OdeEngine)
 ***************************
 
-Having defined the agnostic parameters of the *Pendulum*, we can now specify the bridge-specific implementations.
-In this case, we will create an implementation for the `*OdeBridge* <https://github.com/eager-dev/eagerx_ode>`_. 
+Having defined the agnostic parameters of the *Pendulum*, we can now specify the engine-specific implementations.
+In this case, we will create an implementation for the `*OdeEngine* <https://github.com/eager-dev/eagerx_ode>`_.
 
-ode_bridge
+ode_engine
 ##########
 
-Bridge-specific implementations can be created by adding a method to an :class:`~eagerx.core.entities.Object`, e.g. :func:`~eagerx.core.entities.Object.example_bridge`.
+Engine-specific implementations can be created by adding a method to an :class:`~eagerx.core.entities.Object`, e.g. :func:`~eagerx.core.entities.Object.example_engine`.
 Here we will define which :class:`~eagerx.core.entities.EngineNode` and :class:`~eagerx.core.entities.EngineState` will be used for which :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states`.
 In our case, we will use the *OdeParameters* and *OdeEngineState* (`which are defined here <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_states.py>`_) for the *model_parameters* and *model_state* :attr:`~eagerx.core.specs.ObjectSpec.states`, respectively.
 We will use the *OdeOutput*, *ActionApplied* and *OdeInput* (`which are defined here <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_nodes.py>`_) for the *pendulum_output* sensor, the *action_applied* and *pendulum_input* actuators, respectively.

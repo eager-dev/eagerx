@@ -55,13 +55,13 @@ Register
     :exclude-members:
     :member-order: groupwise
 
-.. autoclass:: eagerx.core.register.bridge_config
+.. autoclass:: eagerx.core.register.engine_config
     :members:
     :inherited-members:
     :exclude-members:
     :member-order: groupwise
 
-.. autoclass:: eagerx.core.register.bridge
+.. autoclass:: eagerx.core.register.engine
     :members:
     :inherited-members:
     :exclude-members:

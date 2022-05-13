@@ -362,8 +362,8 @@ class Graph:
                        .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
 
         :param delay: A non-negative simulated delay (seconds). This delay is ignored if
-                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+                      :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+                      in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic. If the input is an
                      observation to the environment with `window` > 0, the user must provide an initial observation
@@ -995,8 +995,8 @@ class Graph:
                        .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
 
         :param delay: A non-negative simulated delay (seconds). This delay is ignored if
-                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+                      :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+                      in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
         :param entity_id: The :attr:`~eagerx.core.entities.Node.entity_id` with which the render node was registered
@@ -1162,7 +1162,7 @@ class Graph:
         Graph.check_msg_types_are_consistent(state)
         Graph.check_inputs_have_address(state)
         Graph.check_graph_is_acyclic(state, plot=plot)
-        # Graph.check_exists_compatible_bridge(state)
+        # Graph.check_exists_compatible_engine(state)
         return True
 
     @staticmethod
@@ -1436,23 +1436,23 @@ class Graph:
         return True
 
     @staticmethod
-    def check_exists_compatible_bridge(state, tablefmt="fancy_grid"):
-        msg = "Bridge implementations are not part of the engine graph anymore."
+    def check_exists_compatible_engine(state, tablefmt="fancy_grid"):
+        msg = "Engine implementations are not part of the engine graph anymore."
         raise NotImplementedError(msg)
-        # # Bridges are headers
+        # # Engines are headers
         # from tabulate import tabulate
-        # bridges = []
+        # engines = []
         # objects = []
         # for node, params in state["nodes"].items():
         #     default = params["config"]
-        #     # todo: only check bridge if it concerns one of the selected components
+        #     # todo: only check engine if it concerns one of the selected components
         #     if "node_type" not in state["nodes"][node]:  # Object
         #         params = state["nodes"][node]
         #         entity_id = params["config"]["entity_id"]
         #         obj_name = params["config"]["name"]
         #         entry = [obj_name, entity_id]
         #
-        #         # Add all (unknown) bridges to the list
+        #         # Add all (unknown) engines to the list
         #         for key, _value in params.items():
         #             if key in [
         #                 "entity_type",
@@ -1462,11 +1462,11 @@ class Graph:
         #                 "states",
         #             ]:
         #                 continue
-        #             if key not in bridges:
-        #                 bridges.append(key)
+        #             if key not in engines:
+        #                 engines.append(key)
         #
-        #         # See what bridges support all object components
-        #         for b in bridges:
+        #         # See what engines support all object components
+        #         for b in engines:
         #             if b in params:
         #                 for component in ["sensors", "actuators", "states"]:
         #                     if component in default:
@@ -1476,19 +1476,19 @@ class Graph:
         #                             else:
         #                                 e_str = " "  # Component entry is not supported
         #                                 break  # Break if entry in component is not supported
-        #             else:  # Bridge name not even mentioned in object config
+        #             else:  # Engine name not even mentioned in object config
         #                 e_str = " "
         #             entry.append(e_str)
         #         objects.append(entry)
         #
-        # # Fill up incompatible bridges that were added after object entries
+        # # Fill up incompatible engines that were added after object entries
         # for entry in objects:
-        #     for _ in bridges[len(entry) - 2 :]:
+        #     for _ in engines[len(entry) - 2 :]:
         #         entry.append(" ")
         #
-        # # Get compatible bridges
+        # # Get compatible engines
         # compatible = []
-        # for idx, b in enumerate(bridges):
+        # for idx, b in enumerate(engines):
         #     idx = idx + 2
         #     for entry in objects:
         #         c = [True if entry[idx] == "x" else False for entry in objects]
@@ -1497,10 +1497,10 @@ class Graph:
         #
         # # Objects are entries
         # headers = ["name", "object"]
-        # for b in bridges:
+        # for b in engines:
         #     headers.append(b.replace("/", "/\n"))
         #
-        # # Assert if there are compatible bridges
+        # # Assert if there are compatible engines
         # tabulate_str = tabulate(
         #     objects,
         #     headers=headers,
@@ -1508,7 +1508,7 @@ class Graph:
         #     colalign=["center"] * len(headers),
         # )
         # assert len(compatible), (
-        #     "No compatible bridges for the selected objects. Ensure that all components, selected in each object, is supported by a common bridge.\n%s"
+        #     "No compatible engines for the selected objects. Ensure that all components, selected in each object, is supported by a common engine.\n%s"
         #     % tabulate_str
         # )
         # return tabulate_str

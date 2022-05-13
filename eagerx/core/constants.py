@@ -80,7 +80,7 @@ GUI_WIDGETS = {
                 "error": 40,
                 "fatal": 50,
             },
-            "process": {"new process": 0, "environment": 1, "bridge": 2, "external": 3},
+            "process": {"new process": 0, "environment": 1, "engine": 2, "external": 3},
         },
         "constant": {
             "all": list(set.union(TERMS_IN, TERMS_OUT, {"name", "entity_id", "launch_file"})),
@@ -127,7 +127,7 @@ GUI_ENTITIES_TO_IGNORE = {
     "Converter",
     "Processor",
     "EngineNode",
-    "Bridge",
+    "Engine",
     "EngineState",
 }
 GUI_NODE_IDS_TO_IGNORE = {
@@ -141,19 +141,19 @@ GUI_NODE_IDS_TO_IGNORE = {
 
 # PROCESS
 class process:
-    #: Spawn the node/bridge in a separate process.
+    #: Spawn the node/engine in a separate process.
     #: Allows parallelization, but increases communication overhead due to the (de)serialization of messages.
     NEW_PROCESS: int = 0
-    #: Spawn the node/bridge in the process of the environment.
+    #: Spawn the node/engine in the process of the environment.
     ENVIRONMENT: int = 1
-    #: Spawn a node in the process of the bridge.
+    #: Spawn a node in the process of the engine.
     #: If an :class:`~eagerx.core.entities.EngineNode` requires direct access to the
-    #: :attr:`~eagerx.core.entities.Bridge.simulator`,
+    #: :attr:`~eagerx.core.entities.Engine.simulator`,
     #: :attr:`~eagerx.core.entities.EngineNode.config`, and
-    #: :attr:`~eagerx.core.entities.EngineNode.bridge_config`,
-    #: it must be spawned in the same process as the bridge.
-    BRIDGE: int = 2
-    #: Spawn the node/bridge in a separate process. This process is not spawned by the environment.
+    #: :attr:`~eagerx.core.entities.EngineNode.engine_config`,
+    #: it must be spawned in the same process as the engine.
+    ENGINE: int = 2
+    #: Spawn the node/engine in a separate process. This process is not spawned by the environment.
     #: Instead, the user is responsible for running the executable script with the appropriate arguments.
     #: This allows nodes to run distributed.
     EXTERNAL: int = 3

@@ -1,4 +1,4 @@
-from eagerx import Object, Bridge
+from eagerx import Object, Engine
 from eagerx import initialize, log, process
 
 # Environment imports
@@ -26,11 +26,11 @@ def test_graph_engine():
     graph.connect(source=arm.sensors.N6, observation="obs_1")
     graph.connect(action="act_1", target=arm.actuators.N8)
 
-    # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=0, process=process.ENVIRONMENT)
+    # Define engine
+    engine = Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=process.ENVIRONMENT)
 
     # Initialize Environment
-    env = EagerxEnv(name="graph_engine", rate=7, graph=graph, bridge=bridge)
+    env = EagerxEnv(name="graph_engine", rate=7, graph=graph, engine=engine)
 
     # First reset
     env.reset()

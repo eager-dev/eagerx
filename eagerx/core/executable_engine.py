@@ -30,7 +30,7 @@ from threading import Condition
 import sys
 
 
-class RxBridge(object):
+class RxEngine(object):
     def __init__(self, name, message_broker):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
@@ -46,14 +46,14 @@ class RxBridge(object):
             states,
             node_names,
             target_addresses,
-            self.bridge,
+            self.engine,
         ) = self._prepare_io_topics(self.name)
 
         # Initialize reactive pipeline
-        rx_objects = eagerx.core.rx_pipelines.init_bridge(
+        rx_objects = eagerx.core.rx_pipelines.init_engine(
             self.ns,
             rate,
-            self.bridge,
+            self.engine,
             inputs,
             outputs,
             states,
@@ -71,7 +71,7 @@ class RxBridge(object):
     def node_initialized(self):
         with self.cond_reg:
             # Wait for all nodes to be initialized
-            wait_for_node_initialization(self.bridge.is_initialized)
+            wait_for_node_initialization(self.engine.is_initialized)
 
             # Notify env that node is initialized
             if not self.initialized:
@@ -125,23 +125,23 @@ class RxBridge(object):
         )
 
     def _shutdown(self):
-        rospy.logdebug(f"[{self.name}] RxBridge._shutdown() called.")
+        rospy.logdebug(f"[{self.name}] RxEngine._shutdown() called.")
         self.init_pub.unregister()
 
     def node_shutdown(self):
         if not self.has_shutdown:
-            rospy.logdebug(f"[{self.name}] RxBridge.node_shutdown() called.")
-            for address, node in self.bridge.launch_nodes.items():
+            rospy.logdebug(f"[{self.name}] RxEngine.node_shutdown() called.")
+            for address, node in self.engine.launch_nodes.items():
                 rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()
-            for _, rxnode in self.bridge.sp_nodes.items():
+            for _, rxnode in self.engine.sp_nodes.items():
                 rxnode: RxNode
                 if not rxnode.has_shutdown:
                     rospy.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
                     rxnode.node_shutdown()
             rospy.loginfo(f"[{self.name}] Shutting down.")
             self._shutdown()
-            self.bridge.shutdown()
+            self.engine.shutdown()
             self.mb.shutdown()
             self.has_shutdown = True
 
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
         message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
-        pnode = RxBridge(name=f"{ns}/{name}", message_broker=message_broker)
+        pnode = RxEngine(name=f"{ns}/{name}", message_broker=message_broker)
 
         message_broker.connect_io()
 

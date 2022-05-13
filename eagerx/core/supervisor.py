@@ -104,7 +104,7 @@ class SupervisorNode(BaseNode):
         )
         self.subjects["register_node"].on_next(String(self.ns + "/" + node_name))
 
-    def register_object(self, object: ObjectSpec, bridge_name: str):
+    def register_object(self, object: ObjectSpec, engine_name: str):
         # Increase cumulative registered counter. Is send as '/start_reset' message.
         self.cum_registered += 1
 
@@ -115,7 +115,7 @@ class SupervisorNode(BaseNode):
         ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
 
         # Upload object params to rosparam server
-        params, nodes = object.build(ns=self.ns, bridge_id=bridge_name)
+        params, nodes = object.build(ns=self.ns, engine_id=engine_name)
         rosparam.upload_params(self.ns, params)
 
         # Set node args

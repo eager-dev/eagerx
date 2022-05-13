@@ -1,6 +1,6 @@
 # EAGERx imports
 import eagerx
-from eagerx import Object, Bridge, initialize, log, process
+from eagerx import Object, Engine, initialize, log, process
 
 initialize("eagerx_core", anonymous=True, log_level=log.INFO)
 
@@ -8,7 +8,7 @@ initialize("eagerx_core", anonymous=True, log_level=log.INFO)
 from eagerx.core.graph import Graph
 
 # Implementation specific
-import eagerx.bridges.openai_gym as eagerx_gym
+import eagerx.engines.openai_gym as eagerx_gym
 
 if __name__ == "__main__":
 
@@ -38,10 +38,10 @@ if __name__ == "__main__":
     graph.save("./test.graph")
     graph.load("./test.graph")
 
-    # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, sync=True, real_time_factor=1, process=process.ENVIRONMENT)
+    # Define engine
+    engine = Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=1, process=process.ENVIRONMENT)
 
-    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, engine=engine)
     env.render(mode="human")
     done, obs = False, env.reset()
     for i in range(10):
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     env.shutdown()
 
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, engine=engine)
 
     # Turn on rendering
     # env.render(mode="human")

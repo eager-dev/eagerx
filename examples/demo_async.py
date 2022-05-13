@@ -1,5 +1,5 @@
 # ROS packages required
-from eagerx import Object, Bridge, initialize, log, process
+from eagerx import Object, Engine, initialize, log, process
 
 initialize("eagerx_core", anonymous=True, log_level=log.INFO)
 
@@ -8,7 +8,7 @@ from eagerx.core.graph import Graph
 
 
 # Implementation specific
-import eagerx.bridges.openai_gym as eagerx_gym
+import eagerx.engines.openai_gym as eagerx_gym
 
 
 # OTHER
@@ -47,8 +47,8 @@ def run(LOG_DIR, sync, rtf, num_eps, num_steps, actions):
     graph.save("./test.graph")
     graph.load("./test.graph")
 
-    # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, sync=sync, real_time_factor=real_time_factor,
+    # Define engine
+    engine = Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=real_time_factor,
                          process=process.NEW_PROCESS)
 
     # Define step function
@@ -56,7 +56,7 @@ def run(LOG_DIR, sync, rtf, num_eps, num_steps, actions):
         return obs, obs["reward"][0], steps >= 200, dict()
 
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, bridge=bridge, step_fn=step_fn)
+    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, engine=engine, step_fn=step_fn)
 
     # Turn on rendering
     env.render(mode="human")

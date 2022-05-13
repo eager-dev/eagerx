@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from eagerx.core.graph_engine import EngineGraph  # noqa: F401
     from eagerx.core.specs import (  # noqa: F401
         EntitySpec,
-        BridgeSpec,
+        EngineSpec,
         NodeSpec,
         ConverterSpec,
         EngineStateSpec,
@@ -125,7 +125,7 @@ class BaseNode(Entity):
         **kwargs,
     ):
         """
-        The base class from which all (simulation) nodes and bridges inherit.
+        The base class from which all (simulation) nodes and engines inherit.
 
         All parameters that were uploaded to the rosparam server are stored in this object.
 
@@ -166,15 +166,15 @@ class BaseNode(Entity):
         #: Parameters for all selected targets.
         self.targets: List[Dict] = targets
         #: Flag that specifies whether we run reactive or asynchronous.
-        #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        #: Can be set in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         self.sync: bool = sync
         #: A specified upper bound on the real_time factor. Wall-clock rate=real_time_factor*rate.
         #: If real_time_factor < 1 the simulation is slower than real time.
-        #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        #: Can be set in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         self.real_time_factor: float = real_time_factor
         #: Flag that specifies whether input delays are simulated.
         #: You probably want to set this to False when running in the real-world.
-        #: Can be set in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+        #: Can be set in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         self.simulate_delays: bool = simulate_delays
         #: Specifies the color of logged messages & node color in the GUI.
         #: Check-out the termcolor documentation for the supported colors.
@@ -288,7 +288,7 @@ class Node(BaseNode):
     - :func:`~eagerx.core.entities.Node.shutdown` (optional)
 
     Use baseclass :class:`~eagerx.core.entities.EngineNode` instead, for nodes that will be added to
-    :class:`~eagerx.core.graph_engine.EngineGraph` when specifying a bridge implementation for an :class:`~eagerx.core.entities.Object`.
+    :class:`~eagerx.core.graph_engine.EngineGraph` when specifying an engine implementation for an :class:`~eagerx.core.entities.Object`.
 
     Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
     """
@@ -573,7 +573,7 @@ class ResetNode(Node):
     - :func:`~eagerx.core.entities.ResetNode.shutdown` (optional)
 
     Use baseclass :class:`~eagerx.core.entities.EngineNode` instead, for nodes that will be added to
-    :class:`~eagerx.core.graph_engine.EngineGraph` when specifying a bridge implementation for an :class:`~eagerx.core.entities.Object`.
+    :class:`~eagerx.core.graph_engine.EngineGraph` when specifying an engine implementation for an :class:`~eagerx.core.entities.Object`.
 
     Use baseclass :class:`~eagerx.core.entities.Node` instead, for regular nodes that will be added to the
     agnostic :class:`~eagerx.core.graph.Graph`.
@@ -678,14 +678,14 @@ class EngineNode(Node):
     """Baseclass for nodes that must be synchronized with respect to the simulator.
 
     Use this baseclass to implement nodes that will be added to an :class:`~eagerx.core.graph_engine.EngineGraph`
-    when specifying a bridge implementation for an :class:`~eagerx.core.entities.Object`.
+    when specifying an engine implementation for an :class:`~eagerx.core.entities.Object`.
 
     Users must call :func:`~eagerx.core.entities.EngineNode.make` to make the registered engine node subclass'
     :func:`~eagerx.core.entities.EngineNode.spec`. See :func:`~eagerx.core.entities.EngineNode.make` for more info.
 
     .. note:: Engine nodes only receive a reference to the :attr:`~eagerx.core.entities.EngineNode.simulator`
               when the engine nodes are launched within
-              the same process as the bridge. See :class:`~eagerx.core.constants.process` for more info.
+              the same process as the engine. See :class:`~eagerx.core.constants.process` for more info.
 
     Subclasses must implement the following methods:
 
@@ -714,32 +714,32 @@ class EngineNode(Node):
                     f"Timeout: object ({object_name}) not registered."
                 )
             try:
-                bridge_config = config.pop("bridge")
+                engine_config = config.pop("engine")
             except KeyError:
-                bridge_config = {}
+                engine_config = {}
         else:
-            config, bridge_config = None, None
-        #: A reference to the :attr:`~eagerx.core.entities.Bridge.simulator`. The simulator type depends on the bridge.
+            config, engine_config = None, None
+        #: A reference to the :attr:`~eagerx.core.entities.Engine.simulator`. The simulator type depends on the engine.
         #: Oftentimes, engine nodes require this reference in :func:`~eagerx.core.entities.EngineNode.callback` and/or
         #: :func:`~eagerx.core.entities.EngineNode.reset` to simulate (e.g. apply an action, extract a sensor measurement).
-        #: Only available if the node was launched inside the bridge process.
+        #: Only available if the node was launched inside the engine process.
         #: See :class:`~eagerx.core.constants.process` for more info.
-        #: The simulator is initialized in the bridge's :func:`~eagerx.core.entities.Bridge.initialize` method.
+        #: The simulator is initialized in the engine's :func:`~eagerx.core.entities.Engine.initialize` method.
         self.simulator: Any = simulator
         #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph`
-        #: that corresponds to a specific bridge
+        #: that corresponds to a specific engine
         #: implementation of an :class:`~eagerx.core.entities.Object`. This a copy of that
         #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.
         #: The parameters in :attr:`~eagerx.core.entities.Object.config` can be modified in the
         #: :class:`~eagerx.core.entities.Object`'s :func:`~eagerx.core.entities.Object.spec` method.
         self.config: Dict = config
         #: Engine nodes are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that
-        #: corresponds to a specific bridge
+        #: corresponds to a specific engine
         #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a copy of that
         #: :class:`~eagerx.core.entities.Object`'s
-        #: :attr:`~eagerx.core.entities.Object.config`.<:class:`~eagerx.core.entities.Bridge` :attr:`~eagerx.core.entities.bridge.entity_id`>.
-        #: These parameters can be modified in the bridge-specific implementation of an :class:`~eagerx.core.entities.Object`.
-        self.bridge_config: Dict = bridge_config
+        #: :attr:`~eagerx.core.entities.Object.config`.<:class:`~eagerx.core.entities.Engine` :attr:`~eagerx.core.entities.engine.entity_id`>.
+        #: These parameters can be modified in the engine-specific implementation of an :class:`~eagerx.core.entities.Object`.
+        self.engine_config: Dict = engine_config
 
         # Call baseclass constructor (which eventually calls .initialize())
         super().__init__(**kwargs)
@@ -788,35 +788,35 @@ class EngineNode(Node):
         super().check_spec(spec)
 
 
-class Bridge(BaseNode):
-    """Baseclass for bridges.
+class Engine(BaseNode):
+    """Baseclass for engines.
 
-    Use this baseclass to implement a bridge that interfaces the simulator.
+    Use this baseclass to implement an engine that interfaces the simulator.
 
-    Users must call :func:`~eagerx.core.entities.Bridge.make` to make the registered bridge subclass'
-    :func:`~eagerx.core.entities.Bridge.spec`. See :func:`~eagerx.core.entities.Bridge.make` for more info.
+    Users must call :func:`~eagerx.core.entities.Engine.make` to make the registered engine subclass'
+    :func:`~eagerx.core.entities.Engine.spec`. See :func:`~eagerx.core.entities.Engine.make` for more info.
 
     Subclasses must implement the following methods:
 
-    - :func:`~eagerx.core.entities.Bridge.spec`
+    - :func:`~eagerx.core.entities.Engine.spec`
 
-    - :func:`~eagerx.core.entities.Bridge.initialize`
+    - :func:`~eagerx.core.entities.Engine.initialize`
 
-    - :func:`~eagerx.core.entities.Bridge.add_object`
+    - :func:`~eagerx.core.entities.Engine.add_object`
 
-    - :func:`~eagerx.core.entities.Bridge.pre_reset`
+    - :func:`~eagerx.core.entities.Engine.pre_reset`
 
-    - :func:`~eagerx.core.entities.Bridge.reset`
+    - :func:`~eagerx.core.entities.Engine.reset`
 
-    - :func:`~eagerx.core.entities.Bridge.callback`
+    - :func:`~eagerx.core.entities.Engine.callback`
 
-    - :func:`~eagerx.core.entities.Bridge.shutdown` (optional)
+    - :func:`~eagerx.core.entities.Engine.shutdown` (optional)
     """
 
     INFO = {
         "spec": [],
         "initialize": [],
-        "add_object": ["bridge_config"],
+        "add_object": ["engine_config"],
         "pre_reset": ["states"],
         "reset": ["states"],
         "callback": ["outputs"],
@@ -830,18 +830,18 @@ class Bridge(BaseNode):
         to this constructor.
 
         :param simulator: Simulator object
-        :param target_addresses: Addresses from which the bridge should expect "done" msgs.
+        :param target_addresses: Addresses from which the engine should expect "done" msgs.
         :param node_names: List of node names that are registered in the graph.
         :param sync: Boolean flag. Specifies whether we run reactive or asynchronous.
         :param real_time_factor: Sets an upper bound of real_time factor. Wall-clock rate=real_time_factor*rate.
          If real_time_factor < 1 the simulation is slower than real time.
         :param kwargs: Arguments that are to be passed down to the node baseclass. See NodeBase for this.
         """
-        #: The simulator object. The simulator depends on the bridge and should be initialized in the
-        #: :func:`~eagerx.core.entities.Bridge.initialize` method. Oftentimes, engine nodes require a reference in
+        #: The simulator object. The simulator depends on the engine and should be initialized in the
+        #: :func:`~eagerx.core.entities.Engine.initialize` method. Oftentimes, engine nodes require a reference in
         #: :func:`~eagerx.core.entities.EngineNode.callback` and/or :func:`~eagerx.core.entities.EngineNode.reset`
         #: to this simulator object to simulate (e.g. apply an action, extract a sensor measurement).
-        #: Engine nodes only have this reference if the node was launched inside the bridge process.
+        #: Engine nodes only have this reference if the node was launched inside the engine process.
         #: See :class:`~eagerx.core.constants.process` for more info.
         self.simulator: Any = None
         self.target_addresses = target_addresses
@@ -893,7 +893,7 @@ class Bridge(BaseNode):
         launch_nodes = dict()
         initialize_nodes(
             node_params,
-            process.BRIDGE,
+            process.ENGINE,
             self.ns,
             self.message_broker,
             self.is_initialized,
@@ -914,17 +914,17 @@ class Bridge(BaseNode):
     def register_object(self, object_params, node_params, state_params):
         # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
         try:
-            bridge_params = object_params.pop("bridge")
+            engine_params = object_params.pop("engine")
         except KeyError:
-            bridge_params = {}
-        self.add_object(object_params, bridge_params, node_params, state_params)
+            engine_params = {}
+        self.add_object(object_params, engine_params, node_params, state_params)
 
         # Initialize states
         for i in state_params:
             i["state"]["name"] = i["name"]
             i["state"]["simulator"] = self.simulator
             i["state"]["config"] = object_params
-            i["state"]["bridge_config"] = bridge_params
+            i["state"]["engine_config"] = engine_params
             i["state"]["ns"] = self.ns
             i["state"] = initialize_state(i["state"])
 
@@ -937,7 +937,7 @@ class Bridge(BaseNode):
         )
         initialize_nodes(
             node_params,
-            process.BRIDGE,
+            process.ENGINE,
             self.ns,
             self.message_broker,
             self.is_initialized,
@@ -1048,16 +1048,16 @@ class Bridge(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
-        # Set default bridge params
+        # Set default engine params
         with spec.config as d:
-            d.name = "bridge"
+            d.name = "engine"
             d.sync = True
             d.real_time_factor = 0
             d.simulate_delays = True
-            d.executable = "python:=eagerx.core.executable_bridge"
-        from eagerx.core.specs import BridgeSpec  # noqa: F811
+            d.executable = "python:=eagerx.core.executable_engine"
+        from eagerx.core.specs import EngineSpec  # noqa: F811
 
-        return BridgeSpec(spec.params)
+        return EngineSpec(spec.params)
 
     @classmethod
     def check_spec(cls, spec):
@@ -1065,10 +1065,10 @@ class Bridge(BaseNode):
 
     @staticmethod
     @abc.abstractmethod
-    def spec(spec: "BridgeSpec", *args: Any, **kwargs: Any):
-        """An abstract method that creates the bridge's specification that is used to initialize the bridge at run-time.
+    def spec(spec: "EngineSpec", *args: Any, **kwargs: Any):
+        """An abstract method that creates the engine's specification that is used to initialize the engine at run-time.
 
-        See :class:`~eagerx.core.specs.BridgeSpec` for all default config parameters.
+        See :class:`~eagerx.core.specs.EngineSpec` for all default config parameters.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
@@ -1079,16 +1079,16 @@ class Bridge(BaseNode):
         pass
 
     @abc.abstractmethod
-    def add_object(self, config: Dict, bridge_config: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
+    def add_object(self, config: Dict, engine_config: Dict, node_params: List[Dict], state_params: List[Dict]) -> None:
         """
-        Adds an object to the simulator that is interfaced by the bridge.
+        Adds an object to the simulator that is interfaced by the engine.
 
-        This method must be decorated with :func:`eagerx.core.register.bridge_config` to register bridge specific
+        This method must be decorated with :func:`eagerx.core.register.engine_config` to register engine specific
         parameters that are required to add an :class:`~eagerx.core.entities.Object` to
-        the bridge's :attr:`~eagerx.core.entities.Bridge.simulator`.
+        the engine's :attr:`~eagerx.core.entities.Engine.simulator`.
 
         :param config: The (agnostic) config of the :class:`~eagerx.core.entities.Object` that is to be added.
-        :param bridge_config: The bridge-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
+        :param engine_config: The engine-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
 
         :param node_params: A list containing the config of every :class:`~eagerx.core.entities.EngineNode` that represents
                             an :class:`~eagerx.core.entities.Object`'s sensor or actuator that is to be added.
@@ -1100,7 +1100,7 @@ class Bridge(BaseNode):
     @abc.abstractmethod
     def pre_reset(self, **states: Any) -> None:
         """
-        An abstract method that resets the bridge to its initial state before the start of an episode.
+        An abstract method that resets the engine to its initial state before the start of an episode.
 
         .. note:: This method is called **before** every :class:`~eagerx.core.entities.EngineNode` and
                   :class:`~eagerx.core.entities.EngineState` has performed its reset,
@@ -1114,14 +1114,14 @@ class Bridge(BaseNode):
                     :class:`~eagerx.core.entities.EngineNode` and :class:`~eagerx.core.entities.EngineState`.
 
         :param states: States that were registered (& selected) with the :func:`eagerx.core.register.states` decorator by the subclass.
-                       The state messages are send by the environment and can be used to reset the bridge at the start of an episode.
+                       The state messages are send by the environment and can be used to reset the engine at the start of an episode.
                        This can be anything, such as the dynamical properties of the simulator (e.g. friction coefficients).
         """
         pass
 
     @abc.abstractmethod
     def reset(self, **states: Any) -> None:
-        """An abstract method that resets the bridge to its initial state before the start of an episode.
+        """An abstract method that resets the engine to its initial state before the start of an episode.
 
         This method should be decorated with :func:`eagerx.core.register.states` to register the states.
 
@@ -1132,7 +1132,7 @@ class Bridge(BaseNode):
                     :class:`~eagerx.core.entities.EngineNode` and :class:`~eagerx.core.entities.EngineState` have reset.
 
         :param states: States that were registered (& selected) with the :func:`eagerx.core.register.states` decorator by the subclass.
-                       The state messages are send by the environment and can be used to reset the bridge at the start of an episode.
+                       The state messages are send by the environment and can be used to reset the engine at the start of an episode.
                        This can be anything, such as the dynamical properties of the simulator (e.g. friction coefficients).
         """
         pass
@@ -1140,21 +1140,21 @@ class Bridge(BaseNode):
     @abc.abstractmethod
     def callback(self, t_n: float) -> None:
         """
-        The bridge callback that is performed at the specified rate.
+        The engine callback that is performed at the specified rate.
 
         This method should be decorated with :func:`eagerx.core.register.outputs` to register
         `tick` = :class:`std_msgs.msg.UInt64` as the only output. This `tick` output synchronizes every
         :class:`~eagerx.core.entities.EngineNode` that specifies this tick as an input.
 
-        This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Bridge.rate`.
+        This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Engine.rate`.
 
-        .. note:: The bridge **only** outputs the registered 'tick' message after each callback. However, the user is not responsible
+        .. note:: The engine **only** outputs the registered 'tick' message after each callback. However, the user is not responsible
                   for creating this message. This is taken care of outside this method. Subclasses cannot register any
                   other output for this callback with the :func:`eagerx.core.register.outputs` decorator.
                   If you wish to broadcast other output messages based on properties of the simulator,
                   a separate :class:`~eagerx.core.entities.EngineNode` should be created.
 
-        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Bridge.rate`.
+        :param t_n: Time passed (seconds) since last reset. Increments with 1/:attr:`~eagerx.core.entities.Engine.rate`.
         """
         pass
 
@@ -1173,12 +1173,12 @@ class Object(Entity):
 
     - :func:`~eagerx.core.entities.Object.agnostic`
 
-    For every supported :class:`~eagerx.core.entities.Bridge`, an implementation method must be added
-    that has the same signature as :func:`~eagerx.core.entities.Object.example_bridge`:
+    For every supported :class:`~eagerx.core.entities.Engine`, an implementation method must be added
+    that has the same signature as :func:`~eagerx.core.entities.Object.example_engine`:
 
     - :func:`~eagerx.core.entities.Object.pybullet` (example)
 
-    - :func:`~eagerx.core.entities.Object.ode_bridge` (example)
+    - :func:`~eagerx.core.entities.Object.ode_engine` (example)
 
     - ...
     """
@@ -1262,24 +1262,24 @@ class Object(Entity):
                 f'but it has no space_converter. Check the spec of "{entity_id}".'
             )
 
-    def example_bridge(self, spec: "ObjectSpec", graph: "EngineGraph") -> None:
-        """An example of a bridge-specific implementation of an object's registered sensors, actuators, and/or states.
+    def example_engine(self, spec: "ObjectSpec", graph: "EngineGraph") -> None:
+        """An example of an engine-specific implementation of an object's registered sensors, actuators, and/or states.
 
-        See :attr:`~eagerx.core.specs.ObjectSpec.example_bridge` how bridge specific (i.e. bridge_config)
+        See :attr:`~eagerx.core.specs.ObjectSpec.example_engine` how engine specific (i.e. engine_config)
         parameters can be set.
 
-        This method must be decorated with :func:`eagerx.core.register.bridge` to register
-        the bridge implementation of the object.
+        This method must be decorated with :func:`eagerx.core.register.engine` to register
+        the engine implementation of the object.
 
         .. note:: This is an example method for documentation purposes only.
 
         :param spec: A (mutable) specification.
         :param graph: A graph containing the object's registered (disconnected) sensors & actuators.
                       Users should add nodes that inherit from :class:`~eagerx.core.entities.EngineNode`, and connect
-                      them to the sensors & actuators. As such, the engine nodes become the *bridge-specific implementation*
+                      them to the sensors & actuators. As such, the engine nodes become the *engine-specific implementation*
                       of the agnostic sensors & actuator definition.
         """
-        raise NotImplementedError("This is a mock bridge implementation for documentation purposes.")
+        raise NotImplementedError("This is a mock engine implementation for documentation purposes.")
 
 
 class BaseConverter(Entity):
@@ -1657,7 +1657,7 @@ class EngineState(Entity):
         name,
         simulator,
         config,
-        bridge_config,
+        engine_config,
         *args,
         color="grey",
         print_mode="termcolor",
@@ -1667,25 +1667,25 @@ class EngineState(Entity):
         self.ns = ns
         self.name = name
 
-        #: A reference to the :attr:`~eagerx.core.entities.Bridge.simulator`. The simulator type depends on the bridge.
+        #: A reference to the :attr:`~eagerx.core.entities.Engine.simulator`. The simulator type depends on the engine.
         #: Oftentimes, engine states require this reference in :func:`~eagerx.core.entities.EngineNode.reset`
         #: to simulate the reset of an :class:`~eagerx.core.entities.Object`'s state.
-        #: The simulator is initialized in the bridge's :func:`~eagerx.core.entities.Bridge.initialize` method.
+        #: The simulator is initialized in the engine's :func:`~eagerx.core.entities.Engine.initialize` method.
         self.simulator: Any = simulator
         #: Engine states are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that
-        #: corresponds to a specific bridge
+        #: corresponds to a specific engine
         #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
         #: :class:`~eagerx.core.entities.Object`'s :attr:`~eagerx.core.entities.Object.config`.
         #: The parameters in :attr:`~eagerx.core.entities.Object.config` can be modified in the
         #: :class:`~eagerx.core.entities.Object`'s :func:`~eagerx.core.entities.Object.spec` method.
         self.config: Dict = config
         #: Engine states are always part of an :class:`~eagerx.core.graph_engine.EngineGraph` that
-        #: corresponds to a specific bridge
+        #: corresponds to a specific engine
         #: implementation of an :class:`~eagerx.core.entities.Object`. This attribute is a reference to that
         #: :class:`~eagerx.core.entities.Object`'s
-        #: :attr:`~eagerx.core.entities.Object.config`.<:class:`~eagerx.core.entities.Bridge` :attr:`~eagerx.core.entities.bridge.entity_id`>.
-        #: These parameters can be modified in the bridge-specific implementation of an :class:`~eagerx.core.entities.Object`.
-        self.bridge_config: Dict = bridge_config
+        #: :attr:`~eagerx.core.entities.Object.config`.<:class:`~eagerx.core.entities.Engine` :attr:`~eagerx.core.entities.engine.entity_id`>.
+        #: These parameters can be modified in the engine-specific implementation of an :class:`~eagerx.core.entities.Object`.
+        self.engine_config: Dict = engine_config
         #: Specifies the color of logged messages & node color in the GUI.
         #: Check-out the termcolor documentation for the supported colors.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.EngineState.spec`.
