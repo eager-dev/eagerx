@@ -22,8 +22,6 @@ class EnvNode(eagerx.Node):
     @register.spec("Environment", eagerx.Node)
     def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
-        spec.initialize(EnvNode)
-
         # Modify default node params
         spec.config.name = "environment"
         spec.config.rate = rate
@@ -142,9 +140,6 @@ class ObservationsNode(eagerx.Node):
     @register.spec("Observations", eagerx.Node)
     def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ObservationsNode spec"""
-        # Initialize spec
-        spec.initialize(ObservationsNode)
-
         # Modify default node params
         spec.config.name = "env/observations"
         spec.config.rate = rate
@@ -175,9 +170,6 @@ class ActionsNode(eagerx.Node):
     @register.spec("Actions", eagerx.Node)
     def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ActionsNode spec"""
-        # Initialize spec
-        spec.initialize(ActionsNode)
-
         # Modify default node params
         spec.config.name = "env/actions"
         spec.config.rate = rate
@@ -215,9 +207,6 @@ class RenderNode(eagerx.Node):
         process=eagerx.process.NEW_PROCESS,
     ):
         """RenderNode spec"""
-        # Initialize spec
-        spec.initialize(RenderNode)
-
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
@@ -358,9 +347,6 @@ class ColabRender(eagerx.Node):
         color: str = "grey",
     ):
         """ColabRender spec"""
-        # Initialize spec
-        spec.initialize(ColabRender)
-
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate

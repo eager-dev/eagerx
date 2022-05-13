@@ -89,9 +89,6 @@ We can define the default values for all of these parameters using the spec func
           hmin: float = 0.0,
           mxstep: int = 0,
       ):
-          # Performs all the steps to fill-in the params with registered info about all functions.
-          spec.initialize(OdeBridge)
-
           # Modify default bridge params
           spec.config.rate = rate
           spec.config.process = process
@@ -111,7 +108,6 @@ We can define the default values for all of these parameters using the spec func
   You are probably familiar with the first one, but the second might need some explanation.
   We use the :func:`~eagerx.core.register.spec` decorator to create an identifier for this bridge, i.e. "OdeBridge".
   Also, it will allow us to directly modify default bridge parameters that are stored in the *spec* object of type :class:`~eagerx.core.specs.BridgeSpec`.
-  Note that we first need to run :func:`~eagerx.core.specs.BridgeSpec.initialize` to set the default arguments.
   Custom arguments correspond to the arguments of the :func:`~eagerx.core.entities.Bridge.initialize` method as we will see later on.
 
   Also worth noting, is that we can see that there are two ways to set parameters, i.e. by setting them directly or by using the :func:`~eagerx.core.view.update` method.

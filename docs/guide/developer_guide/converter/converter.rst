@@ -54,8 +54,6 @@ In our case, we add *dtype* to the :attr:`~eagerx.core.specs.ConverterSpec.confi
   @staticmethod
   @register.spec("Ndarray_Float32MultiArray", Converter)
   def spec(spec: ConverterSpec, dtype="float32"):
-      # Initialize spec with default arguments
-      spec.initialize(Ndarray_Float32MultiArray)
       spec.config.dtype = dtype
 
 .. note::

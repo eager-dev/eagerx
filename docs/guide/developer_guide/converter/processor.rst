@@ -52,7 +52,6 @@ In our case, we add *angle_idx* to the :attr:`~eagerx.core.specs.ConverterSpec.c
   @staticmethod
   @register.spec("AngleDecomposition", Processor)
   def spec(spec, angle_idx: int = 0):
-      spec.initialize(AngleDecomposition)
       spec.config.angle_idx = angle_idx
 
 .. note::

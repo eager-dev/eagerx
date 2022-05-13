@@ -72,9 +72,6 @@ The spec method now looks as follows:
         default_action: List,
         color: Optional[str] = "green",
     ):
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(OdeInput)
-
         # Modify default node params
         spec.config.name = name
         spec.config.rate = rate  # Rate at which the callback is called

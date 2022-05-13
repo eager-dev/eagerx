@@ -60,10 +60,7 @@ In our case, we add *low*, *high* and *dtype* to the :attr:`~eagerx.core.specs.C
   @staticmethod
   @register.spec("Space_AngleDecomposition", SpaceConverter)
   def spec(spec: ConverterSpec, low=None, high=None, dtype="float32"):
-      # Initialize spec with default arguments
-      spec.initialize(Space_AngleDecomposition)
-      params = dict(low=low, high=high, dtype=dtype)
-      spec.config.update(params)
+      spec.config.update(low=low, high=high, dtype=dtype)
 
 .. note::
 

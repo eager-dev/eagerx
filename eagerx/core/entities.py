@@ -88,24 +88,13 @@ class Entity(object):
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
-        from eagerx.core.specs import EntitySpec
+        from eagerx.core.specs import EntitySpec  # noqa: F811 F401
 
         return EntitySpec(dict(entity_id=entity_id, entity_type=entity_type))
 
     @classmethod
     def check_spec(cls, spec):
         pass
-
-    @classmethod
-    def initialize_spec(cls, spec: "EntitySpec") -> None:
-        """Initializes the spec with the default config, and registered I/O (inputs, outputs, states, etc...).
-
-        Must be called from within the subclass' spec function.
-
-        :param spec: The spec that is to be initialized (i.e. filled) with the info registered with the various decorators from
-                     :mod:`eagerx.core.register` in the subclass' class definition.
-        """
-        spec.initialize(cls)
 
 
 class BaseNode(Entity):
@@ -502,10 +491,6 @@ class Node(BaseNode):
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
-        The subclass' implementation must call :func:`~eagerx.core.entities.Node.initialize_spec` to initialize
-        the spec with the default :attr:`~eagerx.core.specs.NodeSpec.config`
-        and registered I/O (inputs, outputs, states, etc...).
-
         .. note:: Users should not call :func:`~eagerx.core.entities.Node.spec` directly to make the node's spec.
                   Instead, users should call :func:`~eagerx.core.entities.Node.make`.
 
@@ -610,10 +595,6 @@ class ResetNode(Node):
         input/output/target/state parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        The subclass' implementation must call :func:`~eagerx.core.entities.ResetNode.initialize_spec` to initialize
-        the spec with the default :attr:`~eagerx.core.specs.ResetNodeSpec.config`
-        and registered I/O (inputs, outputs, states, etc...).
 
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.
@@ -1091,10 +1072,6 @@ class Bridge(BaseNode):
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
-        The subclass' implementation must call :func:`~eagerx.core.entities.Bridge.initialize_spec` to initialize
-        the spec with the default :attr:`~eagerx.core.specs.BridgeSpec.config`
-        and registered I/O (inputs, outputs, states, etc...).
-
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.
         :param kwargs: Additional optional arguments as specified by the subclass.
@@ -1244,9 +1221,6 @@ class Object(Entity):
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
 
-        The subclass' implementation must call :func:`~eagerx.core.entities.Object.initialize_spec` to initialize
-        the spec with the default :attr:`~eagerx.core.specs.ObjectSpec.config`.
-
         The subclass' implementation must also call :func:`~eagerx.core.entities.Object.agnostic` to
         set the spec with the registered sensors, actuators and engine states.
 
@@ -1357,9 +1331,6 @@ class BaseConverter(Entity):
         See :class:`~eagerx.core.specs.ConverterSpec` how the default config parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        The subclass' implementation must call :func:`~eagerx.core.entities.BaseConverter.initialize_spec` to initialize
-        the spec with the default :attr:`~eagerx.core.specs.ConverterSpec.config`.
 
         .. note:: Users should not call :func:`~eagerx.core.entities.BaseConverter.spec` directly to make the
                   converter/processor's spec. Instead, users should call :func:`~eagerx.core.entities.BaseConverter.make`.
@@ -1732,9 +1703,6 @@ class EngineState(Entity):
         See :class:`~eagerx.core.specs.EngineStateSpec` how the default config parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        The subclass' implementation must call :func:`~eagerx.core.entities.EngineState.initialize_spec` to initialize
-        the spec with the default :attr:`~eagerx.core.specs.EngineStateSpec.config`.
 
         .. note:: Users should not call :func:`~eagerx.core.entities.EngineState.spec` directly to make the
                   engine state's spec. Instead, users should call :func:`~eagerx.core.entities.EngineState.make`.
