@@ -1,6 +1,6 @@
 from yaml import dump
 import copy
-from eagerx.utils.utils import is_supported_type
+from eagerx.utils.utils import is_supported_type, space_to_dict, SUPPORTED_SPACES
 from typing import Dict, Any, Optional
 
 supported_types = (str, int, list, float, bool, dict)
@@ -34,18 +34,27 @@ def get_dict(params, depth):
 def _is_supported_type(param):
     try:
         is_supported_type(param, supported_types, none_support=True)
-    except TypeError:
+    except TypeError as t:
+        from eagerx.core.specs import EntitySpec
+
         if isinstance(param, (SpecView, GraphView)):
             param = param.to_dict()
             is_supported_type(param, supported_types, none_support=True)
+        elif isinstance(param, SUPPORTED_SPACES):
+            param = space_to_dict(param)
+            is_supported_type(param, supported_types, none_support=True)
+        elif isinstance(param, EntitySpec):
+            param = param.params
+            is_supported_type(param, supported_types, none_support=True)
         else:
-            from eagerx.core.specs import EntitySpec
-
-            if isinstance(param, EntitySpec):
-                param = param.params
-                is_supported_type(param, supported_types, none_support=True)
-            else:
-                raise
+            try:
+                if "space" in param:
+                    param["space"] = space_to_dict(param["space"])
+                    is_supported_type(param, supported_types, none_support=True)
+                else:
+                    raise t
+            except TypeError as te:
+                raise te
 
 
 def _convert_type(param):
@@ -59,6 +68,8 @@ def _convert_type(param):
 
             if isinstance(param, EntitySpec):
                 return param.params
+            elif isinstance(param, SUPPORTED_SPACES):
+                return space_to_dict(param)
             else:
                 message = f'Type "{type(param)}" is not supported. Only types {supported_types} are supported.'
                 raise TypeError(message)

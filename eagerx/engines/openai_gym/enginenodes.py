@@ -7,7 +7,8 @@ import os
 
 # IMPORT ROS
 import rospy
-from std_msgs.msg import UInt64, Float32MultiArray, Bool, Float32
+from gym.spaces import Discrete, Box
+from std_msgs.msg import Bool
 from sensor_msgs.msg import Image
 
 # IMPORT EAGERX
@@ -51,8 +52,8 @@ class ObservationSensor(EngineNode):
     def reset(self):
         self.last_obs = None
 
-    @register.inputs(tick=UInt64)
-    @register.outputs(observation=Float32MultiArray)
+    @register.inputs(tick=None)
+    @register.outputs(observation=None)
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
@@ -64,7 +65,7 @@ class ObservationSensor(EngineNode):
         else:
             obs = obs[-1]
             self.last_obs = obs
-        return dict(observation=Float32MultiArray(data=obs))
+        return dict(observation=obs)
 
 
 class RewardSensor(EngineNode):
@@ -101,8 +102,8 @@ class RewardSensor(EngineNode):
     def reset(self):
         self.last_reward = 0.0
 
-    @register.inputs(tick=UInt64)
-    @register.outputs(reward=Float32)
+    @register.inputs(tick=None)
+    @register.outputs(reward=None)
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
@@ -114,7 +115,7 @@ class RewardSensor(EngineNode):
         else:
             self.last_reward = reward[-1]
             reward = sum(reward)
-        return dict(reward=Float32(data=reward))
+        return dict(reward=reward)
 
 
 class DoneSensor(EngineNode):
@@ -151,8 +152,8 @@ class DoneSensor(EngineNode):
     def reset(self):
         self.last_done = False
 
-    @register.inputs(tick=UInt64)
-    @register.outputs(done=Bool)
+    @register.inputs(tick=None)
+    @register.outputs(done=Discrete(2))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
@@ -164,7 +165,7 @@ class DoneSensor(EngineNode):
         else:
             done = any(done) or self.last_done
             self.last_done = done
-        return dict(done=Bool(data=done))
+        return dict(done=done)
 
 
 class ActionActuator(EngineNode):
@@ -219,8 +220,8 @@ class ActionActuator(EngineNode):
         # This controller is stateless (in contrast to e.g. a PID controller).
         self.simulator[self.obj_name]["next_action"] = self.zero_action
 
-    @register.inputs(tick=UInt64, action=Float32MultiArray)
-    @register.outputs(action_applied=Float32MultiArray)
+    @register.inputs(tick=None, action=None)
+    @register.outputs(action_applied=None)
     def callback(
         self,
         t_n: float,
@@ -243,7 +244,7 @@ class ActionActuator(EngineNode):
         action_applied = self.simulator[self.obj_name]["next_action"]
 
         # Send action that has been applied.
-        return dict(action_applied=Float32MultiArray(data=action_applied))
+        return dict(action_applied=action_applied)
 
 
 class GymImage(EngineNode):
@@ -272,6 +273,7 @@ class GymImage(EngineNode):
         # Modify custom node params
         spec.config.shape = shape if isinstance(shape, list) else [200, 200]
         spec.config.always_render = always_render
+        spec.outputs.image.space = Box(low=0, high=255, shape=spec.config.shape)
 
     def initialize(self, shape, always_render):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -297,8 +299,8 @@ class GymImage(EngineNode):
         # This sensor is stateless (in contrast to e.g. a Kalman filter).
         pass
 
-    @register.inputs(tick=UInt64)
-    @register.outputs(image=Image)
+    @register.inputs(tick=None)
+    @register.outputs(image=None)
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]

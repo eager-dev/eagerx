@@ -1,5 +1,9 @@
 # ROS IMPORTS
+from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import UInt64, Bool, String
+
+# OTHER
+from gym.spaces.discrete import Discrete
 
 # RX IMPORTS
 import rx
@@ -9,6 +13,7 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
 
 # EAGERX IMPORTS
+from eagerx.utils.utils import space_to_dict, dtype_to_ros_msg_type
 from eagerx.core.constants import DEBUG
 
 from eagerx.core.rx_operators import (
@@ -34,6 +39,8 @@ from eagerx.core.rx_operators import (
     extract_node_reset,
     throttle_callback_trigger,
     with_latest_from,
+    convert,
+    numpy_to_UInt64,
 )
 
 
@@ -141,7 +148,7 @@ def init_node_pipeline(
             ops.filter(lambda x: x is not None),
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            ops.map(o["converter"].convert),
+            convert(o["msg_type"], o["space"], o["processor"], o["name"], node, direction="out", converter=None),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -464,7 +471,7 @@ def init_engine_pipeline(
         d = output_stream.pipe(
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            ops.map(o["converter"].convert),
+            convert(o["msg_type"], o["space"], o["processor"], o["name"], node, direction="out", converter=None),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -932,7 +939,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         d = msgs.pipe(
             filter_dict_on_key(s["name"]),
             ops.filter(lambda msg: msg is not None),
-            ops.map(s["converter"].convert),
+            convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="out", converter=None),
             ops.share(),
         ).subscribe(s["msg"])
         reset_disp.add(d)
@@ -982,9 +989,22 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
-    tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), msg_type=UInt64)
+    # Define tick attributes
+    space = Discrete(9999)
+    dtype = space_to_dict(space)["dtype"]
+    msg_type = dtype_to_ros_msg_type(dtype, module_type_string=False)
+    tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), msg_type=numpy_msg(msg_type))
+
     end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
-    d = end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
+    d = (
+        end_reset["msg"]
+        .pipe(
+            numpy_to_UInt64(dtype, inverse=True),
+            spy("RESET END", node, log_level=DEBUG),
+            convert(msg_type, space, None, "tick", node, direction="out", converter=None),
+        )
+        .subscribe(tick["msg"])
+    )
     reset_disp.add(d)
 
     # Create node inputs & outputs

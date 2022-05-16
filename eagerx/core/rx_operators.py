@@ -1,6 +1,6 @@
 # ROS IMPORTS
 import rospy
-from std_msgs.msg import Bool, UInt64
+from std_msgs.msg import Bool, UInt64, MultiArrayDimension
 
 # RX IMPORTS
 import rx
@@ -10,7 +10,6 @@ from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
-from eagerx.core.converters import Identity
 from eagerx.core.specs import RxInput
 from eagerx.core.constants import (
     SILENT,
@@ -29,9 +28,8 @@ from eagerx.utils.utils import (
     Info,
     Msg,
     Stamp,
-    get_opposite_msg_cls,
-    get_module_type_string,
-    msg_type_error,
+    dtype_to_ros_msg_type,
+    NUMPY_COMPATIBLE_MESSAGES,
 )
 
 # OTHER IMPORTS
@@ -44,6 +42,7 @@ import traceback
 from os import getpid
 from threading import current_thread, RLock
 from typing import Callable, Optional, List, Any
+import numpy as np
 
 print_modes = {TERMCOLOR: "eagerx_core.TERMCOLOR", ROS: "eagerx_core.ROS"}
 ros_log_fns = {
@@ -619,7 +618,7 @@ def create_channel(
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
         ops.observe_on(scheduler),
-        ops.map(inpt["converter"].convert),
+        convert(inpt["msg_type"], inpt["space"], inpt["processor"], name, node, direction="in", converter=inpt["converter"]),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),
     )
@@ -779,7 +778,7 @@ def init_target_channel(states, scheduler, node):
     channels = []
     for s in states:
         c = s["msg"].pipe(
-            ops.map(s["converter"].convert),
+            convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="in", converter=None),
             ops.share(),
             ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
             remap_target(s["name"], node.sync, node.real_time_factor),
@@ -805,7 +804,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                ops.map(s["converter"].convert),
+                convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="in", converter=None),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -843,7 +842,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                ops.map(s["converter"].convert),
+                convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="in", converter=None),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -985,10 +984,8 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
 
         # Convert to classes
         i["msg_type"] = get_attribute_from_module(i["msg_type"])
-        if "converter" in i and isinstance(i["converter"], dict):
-            i["converter"] = initialize_converter(i["converter"])
-        elif "converter" not in i:
-            i["converter"] = Identity()
+        if "processor" in i and isinstance(i["processor"], dict):
+            i["processor"] = initialize_converter(i["processor"])
 
         # Initialize rx objects
         i["msg"] = Subject()  # S
@@ -1003,7 +1000,6 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
     has_output = False
     num_outputs = sum([len(params["outputs"]) for params in node_params])
     count = 0
-    converted_outputs = dict()  # {address: (msg_type_out, converter, msg_type_ros, source)}
     for params in node_params:
         name = params["name"]
 
@@ -1026,34 +1022,20 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
             #     This is required, else the engine might not have any output.
             if not (must_sync or ((not has_output) and count == num_outputs)):
                 continue
-            ros_msg_type = get_opposite_msg_cls(i["msg_type"], i["converter"])
-
-            # Infer input (ROS) message type from  output msg_type and converter
-            if not i["converter"] == Identity().get_yaml_definition():
-                if params["name"].split("/")[-2] == "sensors":  # if output is also the sensor output
-                    split_name = params["name"].split("/")
-                    source = ("/".join(split_name[:-2]), split_name[-2], split_name[-1])
-                else:
-                    source = (params["name"], "outputs", i["name"])
-                converted_outputs[i["address"]] = (
-                    get_attribute_from_module(i["msg_type"]),
-                    i["converter"],
-                    ros_msg_type,
-                    source,
-                )
 
             # Create a new input topic for each EngineNode output topic
             n = RxInput(
                 name=i["address"],
                 address=i["address"],
-                msg_type=get_module_type_string(ros_msg_type),
+                msg_type=i["msg_type"],
                 external_rate=None,
+                processor=None,
                 window=0,
+                space=None,
             ).build()
 
             # Convert to classes
             n["msg_type"] = get_attribute_from_module(n["msg_type"])
-            n["converter"] = Identity()
 
             # Initialize rx objects
             n["msg"] = Subject()  # Ir
@@ -1074,34 +1056,6 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                 o = dict()
                 o.update(i)
                 reactive_proxy.append(o)
-
-    # Check that converted outputs do not break the object's simulation graph.
-    # Some nodes might expect a non-converted output message.
-    for params in node_params:
-        for i in params["inputs"]:
-            if i["address"] in converted_outputs:
-                # determine message conversion
-                msg_type_out = converted_outputs[i["address"]][0]
-                converter_out = converted_outputs[i["address"]][1]
-                msg_type_ros = converted_outputs[i["address"]][2]
-                converter_in = i["converter"]
-                msg_type_in = get_opposite_msg_cls(msg_type_ros, i["converter"])
-                msg_type_in_yaml = get_attribute_from_module(i["msg_type"])
-
-                target = (params["name"], "inputs", params["inputs"][0]["name"])
-                source = converted_outputs[i["address"]][3]
-
-                msg_type_str = msg_type_error(
-                    source,
-                    target,
-                    msg_type_out,
-                    converter_out,
-                    msg_type_ros,
-                    converter_in,
-                    msg_type_in,
-                    msg_type_in_yaml,
-                )
-                assert msg_type_in == msg_type_in_yaml, msg_type_str
 
     return dict(
         inputs=inputs,
@@ -1342,3 +1296,145 @@ class NotSet:
 
     def __repr__(self):
         return "NotSet"
+
+
+def convert(msg_type, space, processor, name, node, direction="out", converter=None):
+    OUTPUT = True if direction == "out" else False
+    INPUT = True if direction == "in" else False
+    space_checked = [False]
+
+    def _convert(source):
+        def subscribe(observer, scheduler=None):
+            def on_next(recv):
+                if INPUT:
+                    if converter is None and not isinstance(recv, tuple(NUMPY_COMPATIBLE_MESSAGES)):
+                        rospy.logwarn(f"[{node.ns_name}][incoming][{name}]: type(recv)=", type(recv))
+                        rospy.sleep(10000000)
+                    # Convert input message to numpy array
+                    if converter is not None:
+                        res = converter.convert(recv)
+                    else:
+                        # HACK! UInt8MultiArray is not supported by ros_numpy. Convert Bytes to UInt8.
+                        # if "Int8MultiArray" in type(recv).__name__:
+                        if "ByteMultiArray" in type(recv).__name__:
+                            recv.data = recv.data.astype("uint8", copy=False)
+                        s = [d.size for d in recv.layout.dim]
+                        # res = np.array(recv.data).reshape(s)
+                        res = recv.data.reshape(s)
+
+                    # Preprocess numpy array
+                    if processor is not None:
+                        res = processor.convert(res)
+
+                    # Check if message complies with space (after conversion)
+                    if space is not None and not space_checked[0]:
+                        space_checked[0] = True
+                        try:
+                            if not res.shape == space.shape:
+                                msg = (
+                                    f"[{node.ns_name}][incoming][{name}]: Different shapes "
+                                    f"detected between the message (before processing) ({res.shape}) "
+                                    f"and its corresponding space ({space.shape})."
+                                )
+                                rospy.logwarn_once(msg)
+                            elif not space.contains(res):
+                                msg = (
+                                    f"[{node.ns_name}][incoming][{name}]: The message (before processing) is"
+                                    f" outside of the bounds of the corresponding space."
+                                )
+                                rospy.logwarn_once(msg)
+                            if not res.dtype == space.dtype:
+                                msg = (
+                                    f"[{node.ns_name}][incoming][{name}]: Different dtypes "
+                                    f"detected between the message (before processing) ({res.dtype}) "
+                                    f"and its corresponding space ({space.dtype})."
+                                )
+                                rospy.logwarn_once(msg)
+                        except AttributeError as e:
+                            raise AttributeError(f"[{node.ns_name}][outgoing][{name}]: space is probably not initialized: {e}")
+                    observer.on_next(res)
+                elif OUTPUT:
+                    # Check if message complies with space (before conversion)
+                    if not isinstance(recv, (np.ndarray, np.number)):
+                        rospy.logwarn(f"[{node.ns_name}][outgoing][{name}]: type(recv)=", type(recv))
+                        rospy.sleep(10000000)
+                    if space is not None and not space_checked[0]:
+                        space_checked[0] = True
+                        try:
+                            if not recv.shape == space.shape:
+                                msg = (
+                                    f"[{node.ns_name}][outgoing][{name}]: Different shapes "
+                                    f"detected between the message (before processing) ({recv.shape}) "
+                                    f"and its corresponding space ({space.shape})."
+                                )
+                                rospy.logwarn_once(msg)
+                            elif not space.contains(recv):
+                                msg = (
+                                    f"[{node.ns_name}][outgoing][{name}]: The message (before processing) is"
+                                    f" outside of the bounds of the corresponding space."
+                                )
+                                rospy.logwarn_once(msg)
+                            if not recv.dtype == space.dtype:
+                                msg = (
+                                    f"[{node.ns_name}][outgoing][{name}]: Different dtypes "
+                                    f"detected between the message (before processing) ({recv.dtype}) "
+                                    f"and its corresponding space ({space.dtype})."
+                                )
+                                rospy.logwarn_once(msg)
+                        except AttributeError as e:
+                            raise AttributeError(f"[{node.ns_name}][outgoing][{name}]: space is probably not initialized: {e}")
+
+                    # Process message
+                    if processor is not None:
+                        res = processor.convert(recv)
+                    else:
+                        res = recv
+
+                    # Make sure that dtype of processed message corresponds to outgoing message_type
+                    dtype_msg_type = dtype_to_ros_msg_type(res.dtype, module_type_string=False)
+                    assert dtype_msg_type == msg_type, (
+                        f"[{node.ns_name}][outgoing][{name}]: dtype of "
+                        f"(processed) message ({res.dtype}) is incompatible"
+                        f" with the registered msg_type ({msg_type})"
+                    )
+                    # HACK! UInt8MultiArray is not supported by ros_numpy. Convert uint8 to int8 (without copy).
+                    if res.dtype.name == "uint8":
+                        res = res.astype("int8", copy=False)
+
+                    # Prepare output
+                    shape = res.shape
+                    msg = msg_type(data=res.reshape(-1))
+                    for i, d in enumerate(shape):
+                        dim = MultiArrayDimension(label=str(i), size=d, stride=sum(shape[i:]))
+                        msg.layout.dim.append(dim)
+                    observer.on_next(msg)
+                else:
+                    raise NotImplementedError(f"Direction not implemented: {direction}.")
+
+            return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
+
+        return rx.create(subscribe)
+
+    return _convert
+
+
+def numpy_to_UInt64(dtype, inverse=False):
+    def _numpy_to_UInt64(source):
+        def subscribe(observer, scheduler=None):
+            if inverse:
+
+                def on_next(uint64):
+                    msg = np.array(uint64.data, dtype=dtype)
+                    observer.on_next(msg)
+
+            else:
+
+                def on_next(msg):
+                    uint64 = UInt64(data=msg.item())
+                    observer.on_next(uint64)
+
+            return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
+
+        return rx.create(subscribe)
+
+    return _numpy_to_UInt64

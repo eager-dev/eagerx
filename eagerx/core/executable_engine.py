@@ -20,6 +20,7 @@ from eagerx.utils.utils import (
     initialize_converter,
     get_param_with_blocking,
     get_opposite_msg_cls,
+    dict_to_space,
 )
 from eagerx.core.executable_node import RxNode
 from eagerx.utils.node_utils import wait_for_node_initialization
@@ -93,26 +94,30 @@ class RxEngine(object):
         # Prepare input topics
         for i in params["inputs"]:
             i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
             if isinstance(i["converter"], dict):
                 i["converter"] = initialize_converter(i["converter"])
-            # else:  # Converter already initialized
+            if i["converter"] is not None:
+                i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
 
         # Prepare output topics
         for i in params["outputs"]:
             i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-            # else:  # Converter already initialized
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
             i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-            # else:  # Converter already initialized
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
 
         return (
             rate,

@@ -12,14 +12,22 @@ import numpy as np
 import psutil
 import rospy
 from genpy import Message
-from std_msgs.msg import Bool, UInt64
+from std_msgs.msg import Bool
 from tabulate import tabulate
 
 import eagerx.core.constants
 from eagerx.core.constants import TERMCOLOR, WARN, SILENT, process
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx.utils.utils import Msg, initialize_state, check_valid_rosparam_type, get_param_with_blocking
+from eagerx.utils.utils import (
+    Msg,
+    initialize_state,
+    check_valid_rosparam_type,
+    get_param_with_blocking,
+    dtype_to_ros_msg_type,
+    dict_to_space,
+    initialize_converter,
+)
 
 from typing import TYPE_CHECKING
 
@@ -236,19 +244,20 @@ class BaseNode(Entity):
         for component in ["inputs", "outputs", "states"]:
             for cname in spec.config[component]:
                 c = getattr(spec, component)
-
-                assert cname in c, (
-                    f'Cname "{cname}" was selected for node "{name}", '
-                    f'but it has no implementation. Check the spec of "{entity_id}".'
+                msg = (
+                    f'"{cname}" was selected as {component[:-1]}'
+                    f'but it is not a registered {component[:-1]} of node "{name}". Check the spec of "{entity_id}".'
                 )
+                assert cname in c, msg
 
-        # Check that all states have a space_converter
-        for cname in spec.config.states:
-            sc = getattr(spec.states, cname).space_converter
-            assert sc is not None, (
-                f'State "{cname}" was selected for node "{name}", '
-                f'but it has no space_converter. Check the spec of "{entity_id}".'
-            )
+        # Check that components have a space
+        for component in ["states"]:
+            for cname, params in getattr(spec, component).items():
+                msg = (
+                    f'"{cname}" was defined as {component[:-1]} in "{name}", but its space ({type(params.space)}) '
+                    f'is not a valid space. Check the spec of "{entity_id}".'
+                )
+                assert params.space is not None, msg
 
     @abc.abstractmethod
     def initialize(
@@ -444,16 +453,10 @@ class Node(BaseNode):
             return output
         # Type check output of callback
         for o in self.outputs:
-            cname = o["name"]
-            if cname in output:
-                assert isinstance(output[cname], o["msg_type"]), (
-                    f"The message type of output {cname}` ({type(output[cname])}), returned by the .callback(...) of "
-                    f"`{self.name}`, should be of type `{o['msg_type']}`."
-                )
-            else:
+            if o["name"] not in output:
                 rospy.logwarn_once(
-                    f"The .callback(...) of `{self.name}` did not return the registered output `{cname}`. Downstream nodes, "
-                    "depending on this output for their callback, may deadlock. "
+                    f"The .callback(...) of `{self.name}` did not return the registered output `{o['name']}`. "
+                    "Downstream nodes, depending on this output for their callback, may deadlock. "
                 )
 
         for i in self.targets:
@@ -462,10 +465,11 @@ class Node(BaseNode):
                 f"The .callback(...) of `{self.name}` did not return an output dict with key"
                 f"`{cname_done}` that communicates the reset status for the registered target."
             )
-            assert isinstance(output[cname_done], Bool), (
+            assert isinstance(output[cname_done], (bool, np.bool, np.bool_)), (
                 f"The message type of target {cname_done}` ({type(output[cname_done])}), returned by the .callback(...) of "
-                f"`{self.name}`, should be of type `std_msgs.msg/Bool`."
+                f"`{self.name}`, should be of type `bool`."
             )
+            output[cname_done] = Bool(data=output[cname_done])
         return output
 
     def set_delay(self, delay: float, component: str, cname: str) -> None:
@@ -667,11 +671,15 @@ class ResetNode(Node):
         ), f'Node "{name}" does not have any targets selected. Please select at least one target when making the spec, or check the spec defined for "{entity_id}".'
 
         # Check if all selected targets have an implementation (other components are checked in BaseNode.check_spec())
+        # Check that all selected cnames have a corresponding implementation
         for component in ["targets"]:
-            for cname in spec._params["config"][component]:
-                assert (
-                    cname in spec._params[component]
-                ), f'Cname "{cname}" was selected for node "{name}", but it has no implementation. Check the spec of "{entity_id}".'
+            for cname in spec.config[component]:
+                c = getattr(spec, component)
+                msg = (
+                    f'"{cname}" was selected as {component[:-1]}'
+                    f'but it is not a registered {component[:-1]} of node "{name}". Check the spec of "{entity_id}".'
+                )
+                assert cname in c, msg
 
 
 class EngineNode(Node):
@@ -859,6 +867,7 @@ class Engine(BaseNode):
         self.is_initialized = dict()
 
         # Message counter
+        self.dtype_tick = kwargs["outputs"][0]["space"]["dtype"]
         self.num_ticks = 0
 
         # Track memory usage  & speed
@@ -927,6 +936,10 @@ class Engine(BaseNode):
             i["state"]["engine_config"] = engine_params
             i["state"]["ns"] = self.ns
             i["state"] = initialize_state(i["state"])
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
 
         # Initialize nodes
         sp_nodes = dict()
@@ -1043,7 +1056,7 @@ class Engine(BaseNode):
             self.callback(t_n)
         # Fill output msg with number of node ticks
         self.num_ticks += 1
-        return dict(tick=UInt64(data=node_tick + 1))
+        return dict(tick=np.array(node_tick + 1, dtype=self.dtype_tick))
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
@@ -1055,6 +1068,12 @@ class Engine(BaseNode):
             d.real_time_factor = 0
             d.simulate_delays = True
             d.executable = "python:=eagerx.core.executable_engine"
+
+        # Add tick as output
+        space = gym.spaces.discrete.Discrete(np.iinfo("int32").max)
+        spec.add_output("tick", space=space)
+        spec.outputs.tick.msg_type = dtype_to_ros_msg_type(spec.outputs.tick.space.dtype)
+        spec.config.outputs.append("tick")
         from eagerx.core.specs import EngineSpec  # noqa: F811
 
         return EngineSpec(spec.params)
@@ -1254,13 +1273,14 @@ class Object(Entity):
         entity_id = spec.config.entity_id
         name = spec.config.name
 
-        # Check that all selected states have a space_converter
-        for cname in spec.config.states:
-            sc = getattr(spec.states, cname).space_converter
-            assert sc is not None, (
-                f'State "{cname}" was selected for node "{name}", '
-                f'but it has no space_converter. Check the spec of "{entity_id}".'
-            )
+        # Check that all components have a space
+        for component in ["states"]:
+            for cname, params in getattr(spec, component).items():
+                msg = (
+                    f'"{cname}" was defined as {component[:-1]} in "{name}", but its space ({type(params.space)}) '
+                    f'is not a valid space. Check the spec of "{entity_id}".'
+                )
+                assert params.space is not None, msg
 
     def example_engine(self, spec: "ObjectSpec", graph: "EngineGraph") -> None:
         """An example of an engine-specific implementation of an object's registered sensors, actuators, and/or states.

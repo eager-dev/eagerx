@@ -2,8 +2,8 @@ import functools
 import inspect
 import rospy
 import copy
-from unittest.mock import MagicMock
-from eagerx.utils.utils import deepcopy, load
+# from unittest.mock import MagicMock
+from eagerx.utils.utils import deepcopy, load, SUPPORTED_SPACES
 from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict, Optional
 import os
 
@@ -117,17 +117,19 @@ def get_spec(entity, id, verbose=True):
 # TYPES
 
 
-def _register_types(TYPE_REGISTER, component, cnames, func, cls_only=True):
+def _register_types(TYPE_REGISTER, component, cnames, func, space_only=True):
     name_split = func.__qualname__.split(".")
     cls_name = name_split[0]
     fn_name = name_split[1]
     entry = func.__module__ + "/" + func.__qualname__
-    if cls_only:
-        for key, cls in cnames.items():
-            flag = inspect.isclass(cls) or isinstance(cls, MagicMock)
+    if space_only:
+        for key, space in cnames.items():
+            if space is None:
+                continue
+            flag = isinstance(space, SUPPORTED_SPACES)
             assert (
                 flag
-            ), f'TYPE REGISTRATION ERROR: [{cls_name}][{fn_name}][{component}]: An instance "{cls}" of class "{cls.__class__}" was provided for "{key}". Please provide the class instead.'
+            ), f'TYPE REGISTRATION ERROR: [{cls_name}][{fn_name}][{component}]: "{space}" is an invalid space. Please provide a valid space for "{key}"instead.'
     rospy.logdebug(f"[{cls_name}][{fn_name}]: {component}={cnames}, entry={entry}")
 
     @functools.wraps(func)
@@ -228,7 +230,7 @@ def engine_config(**params: Optional[Union[bool, int, float, str, List, Dict]]) 
 
     :param params: Engine specific parameters with default values (i.e. only optional arguments are allowed).
     """
-    return functools.partial(_register_types, TYPE_REGISTER, "engine_config", params, cls_only=False)
+    return functools.partial(_register_types, TYPE_REGISTER, "engine_config", params, space_only=False)
 
 
 def config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Callable:
@@ -243,7 +245,7 @@ def config(**params: Optional[Union[bool, int, float, str, List, Dict]]) -> Call
         TYPE_REGISTER,
         "config",
         params,
-        cls_only=False,
+        space_only=False,
     )
 
 

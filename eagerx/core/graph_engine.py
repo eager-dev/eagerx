@@ -6,11 +6,8 @@ import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
 from eagerx.utils.utils import (
     supported_types,
-    get_opposite_msg_cls,
-    get_cls_from_string,
-    get_opposite_msg_cls_v2,
+    dtype_to_ros_msg_type,
     substitute_args,
-    msg_type_error,
 )
 from eagerx.utils.network_utils import (
     episode_graph,
@@ -46,18 +43,21 @@ class EngineGraph:
         nodes.append(spec)
         for cname, params in actuators.items():
             # Determine converted msg_type, based on user-defined input converter
-            # If input_conv != entity_id but EngineNode connection also requires a converter --> raise error.
-            conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
+            # If input_conv != identity but EngineNode connection also requires a converter --> raise error.
+            # todo: use space dtype of opposite processor
+            #  conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
             spec.add_output(
                 cname,
-                msg_type=conv_msg_type,
-                converter=ConverterSpec(params.converter.to_dict()),  # Set input converter as output converter
+                space=params.space.to_dict() if params.space is not None else None,
+                processor=ConverterSpec(params.processor.to_dict()) if params.processor is not None else None,
             )
             spec.add_input(
                 cname,
-                msg_type=params.msg_type,
+                space=params.space.to_dict() if params.space is not None else None,
                 skip=params.skip,
-                converter=ConverterSpec(params.converter.to_dict()),
+                window=params.window,
+                processor=ConverterSpec(params.processor.to_dict()) if params.processor is not None else None,
+                converter=None,
             )
             spec.config.outputs.append(cname)
 
@@ -67,12 +67,12 @@ class EngineGraph:
         spec.config.color = "yellow"
         nodes.append(spec)
         for cname, params in sensors.items():
-            conv_msg_type = get_opposite_msg_cls_v2(params.msg_type, params.converter)
             spec.config.inputs.append(cname)
             spec.add_input(
                 cname,
-                msg_type=conv_msg_type,
-                converter=ConverterSpec(params.converter.to_dict()),
+                converter=None,
+                space=params.space.to_dict() if params.space is not None else None,
+                processor=ConverterSpec(params.processor.to_dict()) if params.processor is not None else None,
             )
 
         # Create a state
@@ -172,6 +172,7 @@ class EngineGraph:
         actuator: str = None,
         sensor: str = None,
         address: str = None,
+        processor: Optional[ConverterSpec] = None,
         converter: Optional[Dict] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
@@ -188,10 +189,10 @@ class EngineGraph:
 
                         .. note:: If an external address is provided,
                             you must also specify the *external_rate* with which messages are published on that topic.
-        :param converter: An input converter that converts the received input message before passing it
+        :param processor: Processes the received message before passing it
+                          to the target node's :func:`~eagerx.core.entities.Node.callback`.
+        :param converter: An input converter that converts the received external input message before passing it
                           to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
-
-                          .. note:: Output converters can only be set by manipulating the :class:`~eagerx.core.specs.NodeSpec`.
         :param window: A non-negative number that specifies the number of messages to pass to the
                        node's :func:`~eagerx.core.entities.EngineNode.callback`.
 
@@ -215,6 +216,7 @@ class EngineGraph:
                                            to the provided rate and their respective inputs.
                                            Asynchronous external inputs can easily lead to deadlocks if running in synchronized mode
                                            (i.e. :attr:`~eagerx.core.entities.Engine.sync` = True).
+
         """
         flag = not address or (source is None and actuator is None and sensor is None)
         assert flag, f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
@@ -228,6 +230,7 @@ class EngineGraph:
             f'You cannot specify a target if you wish to connect sensor "{sensor}", ' "as the sensor will act as the target."
         )
         assert not (actuator and sensor), "You cannot connect an actuator directly to a sensor."
+
         if address:
             curr_address = target.address
             assert curr_address is None, (
@@ -236,32 +239,33 @@ class EngineGraph:
                 "Disconnect target first."
             )
             self.set({"address": address}, target)
-            assert external_rate is not None, (
-                f'When providing an external address "{address}", ' "an external rate must also be provided."
-            )
+            assert (
+                external_rate is not None
+            ), f'When providing an external address "{address}", an external rate must also be provided.'
             assert external_rate > 0, f'Invalid external rate "{external_rate}". External rate must be > 0.'
             self.set({"external_rate": external_rate}, target)
+
+            # Add converter
+            assert converter is not None, f'When providing an external address "{address}", a converter must also be provided.'
+            self._set_converter(target, converter)
+
+            # Add processing
+            if processor is not None:
+                self._set_processor(target, processor)
             return
         else:
             assert external_rate is None, "An external rate may only be provided in combination with an address."
-
-        if isinstance(converter, ConverterSpec):
-            converter = converter.params
-        if isinstance(converter, GraphView):
-            converter = converter.to_dict()
+            assert converter is None, "A converter may only be provided in combination with an address."
 
         if actuator:  # source = actuator
             source = self.get_view("actuators", ["outputs", actuator])
-            from eagerx.core.converters import Identity
-
-            id = Identity().get_yaml_definition()
-            if converter or target.converter.to_dict() != id:
+            if processor or target.processor is not None:
                 msg = (
-                    f'Cannot specify an input converter for actuator "{actuator}", '
-                    "because one has already been specified in the agnostic graph definition. "
-                    "You can only have one input converter."
+                    f'Cannot specify a processor for actuator "{actuator}", '
+                    "because there is already one specified in the agnostic graph definition. "
+                    "You can only have one processor."
                 )
-                assert source.converter.to_dict() == id, msg
+                assert source.processor is not None, msg
             assert window is None, (
                 f'Cannot specify a window when connecting actuator "{actuator}". '
                 f"You can only do that in the agnostic object definition."
@@ -276,23 +280,17 @@ class EngineGraph:
             )
         elif sensor:  # target = sensor
             target = self.get_view("sensors", ["inputs", sensor])
-            # Check for output converter clash.
-            # I.e. if both agnostic sensor & enginenode output have output converter.
-            from eagerx.core.converters import Identity
-
-            id = Identity().get_yaml_definition()
-            if source.converter.to_dict() != id:
-                src_name, _, src_cname = source()
+            # Check for processor clash.
+            # I.e. if both agnostic sensor & enginenode output have a processor.
+            if source.processor is not None:
+                src_name, src_comp, src_cname = source()
                 msg = (
-                    "Output converter clash! "
-                    f"Output '{src_cname}' of EngineNode '{src_name}' you attempt to connect to sensor '{sensor}'"
-                    f" both have an output converter defined, but only one output converter can be used."
+                    "Processor clash detected! "
+                    f"You attempt to connect EngineNode output '{src_name}.{src_comp}.{src_cname}' to sensor '{sensor}'. "
+                    f"There is a processor defined for '{src_name}.{src_comp}.{src_cname}', but sensor '{sensor}' also has a "
+                    f"a processor. Only one can be used."
                 )
-                assert target.converter.to_dict() == id, msg
-            assert converter is None, (
-                f'Cannot specify an input converter when connecting sensor "{sensor}". '
-                "For sensors, you can only do that in the agnostic definition. "
-            )
+                assert target.processor is None, msg
             assert window is None, (
                 f'Cannot specify a window when connecting sensor "{sensor}".'
                 " You can only do that in the agnostic object definition."
@@ -305,13 +303,13 @@ class EngineGraph:
                 f'Cannot specify a skip when connecting sensor "{sensor}".'
                 " You can only do that in the agnostic object definition."
             )
-        self._connect(source, target, converter, window, delay, skip)
+        self._connect(source, target, processor, window, delay, skip)
 
     def _connect(
         self,
         source: Optional[GraphView] = None,
         target: Optional[GraphView] = None,
-        converter: Optional[Dict] = None,
+        processor: Optional[Dict] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -344,8 +342,8 @@ class EngineGraph:
             assert flag, f'Target "{target}" is already connected to source "{s}"'
 
         # Add properties to target params
-        if converter is not None:
-            self._set_converter(target, converter)
+        if processor is not None:
+            self._set_processor(target, processor)
         if window is not None:
             self.set({"window": window}, target)
         if delay is not None:
@@ -354,7 +352,7 @@ class EngineGraph:
             self.set({"skip": skip}, target)
 
         # Add connection
-        EngineGraph.check_msg_type(source, target, self._state)
+        # EngineGraph.check_msg_type(source, target, self._state)
         connect = [list(source()), list(target())]
         self._state["connects"].append(connect)
 
@@ -406,6 +404,8 @@ class EngineGraph:
             )
             self.set(None, target, parameter="address")
             self.set(None, target, parameter="external_rate")
+            self.set(None, target, parameter="processor")
+            self.set(None, target, parameter="converter")
         else:
             self._is_selected(self._state, source)
             connect_exists = False
@@ -489,6 +489,12 @@ class EngineGraph:
                     "Add output converters before connecting, and input converters when making a connection."
                 )
                 rospy.logwarn_once(msg)
+            elif parameter == "processor":
+                msg = (
+                    "Skipping processor. Cannot change the processor with this method. "
+                    "Add output processors before connecting, and input processors when making a connection."
+                )
+                rospy.logwarn_once(msg)
             else:
                 t = entry()
                 name = t[0]
@@ -510,11 +516,7 @@ class EngineGraph:
                 self._set(p, {parameter: value})
 
     def _set_converter(self, entry: GraphView, converter: Dict):
-        """
-        Replaces the converter specified for a node's/object's I/O.
-        **DOES NOT** remove observation entries if they are disconnected.
-        **DOES NOT** remove action entries if they are disconnect and the last connection.
-        """
+        """Replaces the converter specified for a node's external input."""
         if isinstance(converter, ConverterSpec):
             converter = converter.params
         elif isinstance(converter, GraphView):
@@ -522,27 +524,24 @@ class EngineGraph:
 
         _ = entry.converter  # Check if parameter exists
 
-        # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
-        msg_type = get_cls_from_string(entry.msg_type)
-        converter_old = entry.converter.to_dict()
-        msg_type_ros_old = get_opposite_msg_cls(msg_type, converter_old)
-        msg_type_ros_new = get_opposite_msg_cls(msg_type, converter)
-        if not msg_type_ros_new == msg_type_ros_old:
-            was_disconnected = self._disconnect_component(entry)
-        else:
-            was_disconnected = False
-
-        # If disconnected action/observation, we cannot add converter so raise error.
+        # Replace converter
         name, component, cname = entry()
         params = self._state["nodes"][name]
-        flag = not (was_disconnected and name in ["actuators", "sensors"])
-        assert flag, (
-            f'Cannot change the converter of actuator/sensor "{cname}", '
-            f'as it changes the msg_type from "{msg_type_ros_old}" to "{msg_type_ros_new}"'
-        )
-
-        # Replace converter
         params[component][cname]["converter"] = converter
+
+    def _set_processor(self, entry: GraphView, processor: Dict):
+        """Replaces the processor specified for a node's input."""
+        if isinstance(processor, ConverterSpec):
+            processor = processor.params
+        elif isinstance(processor, GraphView):
+            processor = processor.to_dict()
+
+        _ = entry.processor  # Check if parameter exists
+
+        # Replace processor
+        name, component, cname = entry()
+        params = self._state["nodes"][name]
+        params[component][cname]["processor"] = processor
 
     def get(
         self,
@@ -624,10 +623,9 @@ class EngineGraph:
         return dependencies
 
     def register(self):
-        # """Set the addresses in all incoming components.
-        # Validate the graph.
-        # Create params that can be uploaded to the ROS param server.
-        # """
+        """Set the addresses in all incoming components. Validate the graph.
+        Create params that can be uploaded to the ROS param server.
+        """
 
         # Check if valid graph.
         assert self.is_valid(plot=False), "Graph not valid."
@@ -635,8 +633,16 @@ class EngineGraph:
         # Find dependencies
         dependencies = self._node_depenencies(self._state)
 
-        # Add addresses based on connections
+        # Copy state
         state = deepcopy(self._state)
+
+        # Add message types to outputs
+        for _node_name, params in state["nodes"].items():
+            for _cname, cname_params in params["outputs"].items():
+                source_dtype = "float32" if cname_params["space"] is None else cname_params["space"]["dtype"]
+                cname_params["msg_type"] = dtype_to_ros_msg_type(source_dtype)
+
+        # Add addresses based on connections
         actuators = dict()
         sensors = dict()
         for source, target in state["connects"]:
@@ -653,7 +659,6 @@ class EngineGraph:
                     "cname": target_cname,
                     "dependency": dependency,
                 }
-                # actuators[source_cname] = entry
                 actuators[source_cname].append(entry)
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             if target_name == "sensors":
@@ -666,10 +671,24 @@ class EngineGraph:
                     "cname": source_cname,
                     "dependency": dependency,
                 }
-                # sensors[target_cname] = entry
                 sensors[target_cname].append(entry)
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
             state["nodes"][target_name][target_comp][target_cname]["address"] = address
+
+            # Determine msg_type
+            source_params = state["nodes"][source_name][source_comp][source_cname]
+            target_params = state["nodes"][target_name][target_comp][target_cname]
+            source_dtype = "float32" if source_params["space"] is None else source_params["space"]["dtype"]
+            target_dtype = "float32" if target_params["space"] is None else target_params["space"]["dtype"]
+            if not source_dtype == target_dtype:
+                msg = (
+                    f"{source_name}.{source_comp}.{source_cname}.space.dtype ({source_dtype}) and "
+                    f"{target_name}.{target_comp}.{target_cname}.space.dtype ({target_dtype}) are inconsistent."
+                )
+                rospy.logwarn(msg)
+            msg_type = dtype_to_ros_msg_type(source_dtype)
+            state["nodes"][source_name][source_comp][source_cname]["msg_type"] = msg_type
+            state["nodes"][target_name][target_comp][target_cname]["msg_type"] = msg_type
 
         # Initialize param objects
         nodes = dict()
@@ -693,8 +712,6 @@ class EngineGraph:
                     substitute_args(params, context, only=["config", "ns"])
                     nodes[name] = params
 
-        # assert len(actuators) > 0, "No actuators node defined in the graph."
-        # assert len(sensors) > 0, "No sensors node defined in the graph."
         return nodes, actuators, sensors
 
     def gui(self) -> None:
@@ -806,62 +823,64 @@ class EngineGraph:
     @staticmethod
     def _is_valid(state, plot=True):
         state = deepcopy(state)
-        EngineGraph.check_msg_types_are_consistent(state)
+        # EngineGraph.check_msg_types_are_consistent(state)
         EngineGraph.check_inputs_have_address(state)
         EngineGraph.check_graph_is_acyclic(state, plot=plot)
         return True
 
     @staticmethod
     def check_msg_type(source, target, state):
+        raise NotImplementedError("Msg_types are inferred from spaces.")
         # Convert the source msg_type to target msg_type with converters:
         # msg_type_source --> output_converter --> msg_type_ROS --> input_converter --> msg_type_target
-        msg_type_out = get_cls_from_string(source.msg_type)
-        converter_out = source.converter.to_dict()
-        msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
-        converter_in = target.converter.to_dict()
-        msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
-
-        # Verify that this msg_type_in is the same as the msg_type specified in the target
-        msg_type_in_registered = get_cls_from_string(target.msg_type)
-
-        msg_type_str = msg_type_error(
-            source(),
-            target(),
-            msg_type_out,
-            converter_out,
-            msg_type_ros,
-            converter_in,
-            msg_type_in,
-            msg_type_in_registered,
-        )
-        assert msg_type_in == msg_type_in_registered, msg_type_str
+        # msg_type_out = get_cls_from_string(source.msg_type)
+        # converter_out = source.converter.to_dict()
+        # msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
+        # converter_in = target.converter.to_dict()
+        # msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
+        #
+        # # Verify that this msg_type_in is the same as the msg_type specified in the target
+        # msg_type_in_registered = get_cls_from_string(target.msg_type)
+        #
+        # msg_type_str = msg_type_error(
+        #     source(),
+        #     target(),
+        #     msg_type_out,
+        #     converter_out,
+        #     msg_type_ros,
+        #     converter_in,
+        #     msg_type_in,
+        #     msg_type_in_registered,
+        # )
+        # assert msg_type_in == msg_type_in_registered, msg_type_str
 
     @staticmethod
     def check_msg_types_are_consistent(state):
-        for source, target in state["connects"]:
-            if target[0] == "sensors":
-                target_view = EngineGraph._get_view(state, target[0], target[1:])
-                from eagerx.core.converters import Identity
-
-                id = Identity().get_yaml_definition()
-                # If agnostic definition has a non-identity output_converter,
-                # enginenode output cannot be inter-connected with other enginenodes,
-                # as they expect an unconverted output.
-                if target_view.converter.to_dict() != id:
-                    flag = [t for s, t in state["connects"] if s == source]
-                    msg = (
-                        f"Agnostic definition for sensor '{target[2]}' has a non-identity output converter, "
-                        f"However, output '{source[2]}' of EngineNode '{source[0]}' is interconnected to other "
-                        f"EngineNodes that expect the original (unconverted) output message: {flag}. "
-                        f"Non-identity output converters can only be added to a sensor if the corresponding "
-                        f"EngineNode output has only a single connection (with the sensor)."
-                    )
-                    assert len(flag) == 1, msg
-        for source, target in state["connects"]:
-            source = EngineGraph._get_view(state, source[0], source[1:])
-            target = EngineGraph._get_view(state, target[0], target[1:])
-            EngineGraph.check_msg_type(source, target, state)
-        return True
+        raise NotImplementedError("Msg_types are inferred from spaces.")
+        # for source, target in state["connects"]:
+        #     if target[0] == "sensors":
+        #         target_view = EngineGraph._get_view(state, target[0], target[1:])
+        #         from eagerx.core.converters import Identity
+        #
+        #         id = Identity().get_yaml_definition()
+        #         # If agnostic definition has a non-identity output_converter,
+        #         # enginenode output cannot be inter-connected with other enginenodes,
+        #         # as they expect an unconverted output.
+        #         if target_view.converter.to_dict() != id:
+        #             flag = [t for s, t in state["connects"] if s == source]
+        #             msg = (
+        #                 f"Agnostic definition for sensor '{target[2]}' has a non-identity output converter, "
+        #                 f"However, output '{source[2]}' of EngineNode '{source[0]}' is interconnected to other "
+        #                 f"EngineNodes that expect the original (unconverted) output message: {flag}. "
+        #                 f"Non-identity output converters can only be added to a sensor if the corresponding "
+        #                 f"EngineNode output has only a single connection (with the sensor)."
+        #             )
+        #             assert len(flag) == 1, msg
+        # for source, target in state["connects"]:
+        #     source = EngineGraph._get_view(state, source[0], source[1:])
+        #     target = EngineGraph._get_view(state, target[0], target[1:])
+        #     EngineGraph.check_msg_type(source, target, state)
+        # return True
 
     @staticmethod
     def check_inputs_have_address(state):

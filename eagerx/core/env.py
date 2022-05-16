@@ -3,8 +3,8 @@ import rospy
 import rosparam
 import rosgraph
 import rosservice
-from std_msgs.msg import UInt64
 from std_srvs.srv import Trigger, TriggerResponse, TriggerRequest
+
 
 # EAGERX
 from eagerx.core.specs import NodeSpec, ObjectSpec, EngineSpec
@@ -14,6 +14,9 @@ from eagerx.utils.node_utils import (
     initialize_nodes,
     wait_for_node_initialization,
     substitute_args,
+)
+from eagerx.utils.utils import (
+    dtype_to_ros_msg_type,
 )
 from eagerx.core.executable_node import RxNode
 from eagerx.core.executable_engine import RxEngine
@@ -26,24 +29,14 @@ import atexit
 import abc
 import cv2
 import numpy as np
+from gym.spaces import Discrete
 from copy import deepcopy
 from typing import List, Union, Dict, Tuple, Callable, Optional
 import gym
 import logging
 
 
-class Env(gym.Env):
-    @staticmethod
-    def create_supervisor():
-        entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
-        supervisor = Node.pre_make("N/a", entity_type)
-        supervisor.add_output("step", msg_type=UInt64)
-
-        supervisor.config.name = "env/supervisor"
-        supervisor.config.color = "yellow"
-        supervisor.config.process = process.ENVIRONMENT
-        supervisor.config.outputs = ["step"]
-        return supervisor
+class BaseEnv(gym.Env):
 
     def __init__(self, name: str, rate: float, graph: Graph, engine: EngineSpec, force_start: bool) -> None:
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
@@ -79,10 +72,10 @@ class Env(gym.Env):
             nodes = [self.render_node] + nodes
 
         # Register nodes
-        self.register_nodes(nodes)
+        self._register_nodes(nodes)
 
         # Register objects
-        self.register_objects(objects)
+        self._register_objects(objects)
 
         # Implement clean up
         self._shutdown_srv = rospy.Service(f"{self.ns}/environment/shutdown", Trigger, self._remote_shutdown)
@@ -90,7 +83,7 @@ class Env(gym.Env):
 
     def _init_supervisor(self, engine: EngineSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
         # Initialize supervisor
-        supervisor = self.create_supervisor()
+        supervisor = self._create_supervisor()
 
         # Get all states from objects & nodes
         for i in [engine] + nodes + objects:
@@ -100,34 +93,36 @@ class Env(gym.Env):
                 entity_name = i.config.name
                 name = f"{entity_name}/{cname}"
                 address = f"{entity_name}/states/{cname}"
-                msg_type = i.params["states"][cname]["msg_type"]
-                space_converter = i.params["states"][cname]["space_converter"]
+                processor = i.params["states"][cname]["processor"]
+                space = i.params["states"][cname]["space"]
+                msg_type = dtype_to_ros_msg_type(space["dtype"])
 
                 assert (
                     name not in supervisor.params["states"]
                 ), f'Cannot have duplicate states. State "{name}" is defined multiple times.'
 
-                mapping = dict(address=address, msg_type=msg_type, converter=space_converter)
+                mapping = dict(address=address, msg_type=msg_type, processor=processor, space=space)
                 with supervisor.states as d:
                     d[name] = mapping
                 supervisor.config.states.append(name)
 
-            # Get states from simnodes. WARNING: can make environment non-agnostic.
+            # Get states from enginenodes. WARNING: can make environment non-agnostic.
             if isinstance(i, ObjectSpec):
                 obj_name = i.config.name
                 context = {"ns": {"obj_name": obj_name}, "config": i.config.to_dict()}
-                for node_name, params_simnode in i.params[self._engine_name]["nodes"].items():
-                    if "states" in params_simnode["config"]:
-                        for cname in params_simnode["config"]["states"]:
-                            comp_params = params_simnode["states"][cname]
+                for node_name, params_enginenode in i.params[self._engine_name]["nodes"].items():
+                    if "states" in params_enginenode["config"]:
+                        for cname in params_enginenode["config"]["states"]:
+                            comp_params = params_enginenode["states"][cname]
                             node_name_sub = substitute_args(node_name, context=context, only=["ns", "config"])
                             name = f"{node_name_sub}/{cname}"
                             address = f"{node_name_sub}/states/{cname}"
-                            msg_type = comp_params["msg_type"]
-                            space_converter = comp_params["space_converter"]
+                            processor = comp_params["processor"]
+                            space = comp_params["space"]
+                            msg_type = dtype_to_ros_msg_type(space["dtype"])
 
                             rospy.logwarn(
-                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
+                                f'Adding state "{name}" to engine node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
                             )
                             assert (
                                 name not in supervisor.params["states"]
@@ -136,7 +131,8 @@ class Env(gym.Env):
                             mapping = dict(
                                 address=address,
                                 msg_type=msg_type,
-                                converter=space_converter,
+                                processor=processor,
+                                space=space,
                             )
                             with supervisor.states as d:
                                 d[name] = mapping
@@ -278,7 +274,20 @@ class Env(gym.Env):
         return rx_env.node, rx_env
 
     @property
-    def observation_space(self) -> gym.spaces.Dict:
+    def state_space(self) -> gym.spaces.Dict:
+        """Infers the state space from the :class:`~eagerx.core.entities.SpaceConverter` of every state.
+
+        This space defines the format of valid states that can be set before the start of an episode.
+
+        :returns: A dictionary with *key* = *state* and *value* = :class:`Space`.
+        """
+        state_space = dict()
+        for name, buffer in self.supervisor_node.state_buffer.items():
+            state_space[name] = buffer["space"]
+        return gym.spaces.Dict(spaces=state_space)
+
+    @property
+    def _observation_space(self) -> gym.spaces.Dict:
         """Infers the observation space from the :class:`~eagerx.core.entities.SpaceConverter` of every observation.
 
         This space defines the format of valid observations.
@@ -287,13 +296,12 @@ class Env(gym.Env):
                   For observations with :attr:`~eagerx.core.specs.RxInput.window` > 1,
                   the observation space is duplicated :attr:`~window` times.
 
-        :returns: A dictionary with *key* = *observation* and *value* = :class:`Space` obtained with
-                  :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        :returns: A dictionary with *key* = *observation* and *value* = :class:`Space`.
         """
         assert not self.has_shutdown, "This environment has been shutdown."
         observation_space = dict()
         for name, buffer in self.env_node.observation_buffer.items():
-            space = buffer["converter"].get_space()
+            space = buffer["space"]
             if not buffer["window"] > 0:
                 continue
             low = np.repeat(space.low[np.newaxis, ...], buffer["window"], axis=0)
@@ -303,33 +311,18 @@ class Env(gym.Env):
         return gym.spaces.Dict(spaces=observation_space)
 
     @property
-    def action_space(self) -> gym.spaces.Dict:
+    def _action_space(self) -> gym.spaces.Dict:
         """Infers the action space from the :class:`~eagerx.core.entities.SpaceConverter` of every action.
 
         This space defines the format of valid actions.
 
-        :returns: A dictionary with *key* = *action* and *value* = :class:`Space`
-                  obtained with :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        :returns: A dictionary with *key* = *action* and *value* = :class:`Space`.
         """
         assert not self.has_shutdown, "This environment has been shutdown."
         action_space = dict()
         for name, buffer in self.env_node.action_buffer.items():
-            action_space[name] = buffer["converter"].get_space()
+            action_space[name] = buffer["space"]
         return gym.spaces.Dict(spaces=action_space)
-
-    @property
-    def state_space(self) -> gym.spaces.Dict:
-        """Infers the state space from the :class:`~eagerx.core.entities.SpaceConverter` of every state.
-
-        This space defines the format of valid states that can be set before the start of an episode.
-
-        :returns: A dictionary with *key* = *state* and *value* = :class:`Space`
-                  obtained with :func:`~eagerx.core.entities.SpaceConverter.get_space`.
-        """
-        state_space = dict()
-        for name, buffer in self.supervisor_node.state_buffer.items():
-            state_space[name] = buffer["converter"].get_space()
-        return gym.spaces.Dict(spaces=state_space)
 
     def _set_action(self, action) -> None:
         # Set actions in buffer
@@ -447,7 +440,7 @@ class Env(gym.Env):
                 rospy.logwarn(e)
             self.has_shutdown = True
 
-    def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
+    def _register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
         assert not self.has_shutdown, "This environment has been shutdown."
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(nodes, list):
@@ -456,7 +449,7 @@ class Env(gym.Env):
         # Register nodes
         [self.supervisor_node.register_node(n) for n in nodes]
 
-    def register_objects(self, objects: Union[List[ObjectSpec], ObjectSpec]) -> None:
+    def _register_objects(self, objects: Union[List[ObjectSpec], ObjectSpec]) -> None:
         assert not self.has_shutdown, "This environment has been shutdown."
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(objects, list):
@@ -464,6 +457,19 @@ class Env(gym.Env):
 
         # Register objects
         [self.supervisor_node.register_object(o, self._engine_name) for o in objects]
+
+    @staticmethod
+    def _create_supervisor():
+        entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
+        supervisor = Node.pre_make("N/a", entity_type)
+        supervisor.add_output("step", space=Discrete(np.iinfo("int32").max))
+        supervisor.outputs.step.msg_type = dtype_to_ros_msg_type(supervisor.outputs.step.space.dtype)
+
+        supervisor.config.name = "env/supervisor"
+        supervisor.config.color = "yellow"
+        supervisor.config.process = process.ENVIRONMENT
+        supervisor.config.outputs = ["step"]
+        return supervisor
 
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         """A method to start rendering (i.e. open the render window).
@@ -509,15 +515,20 @@ class Env(gym.Env):
     def reset(self) -> Dict:
         """An abstract method that resets the environment to an initial state and returns an initial observation.
 
+        .. note:: To reset the graph, the method :func:`~eagerx.core.env.BaseEnv._reset` must be called with the desired
+                  initial states. The spaces of all registered states in the graph (of Objects and Nodes) are stored in
+                  :func:`~eagerx.core.env.BaseEnv.state_space`.
+
         :returns: The initial observation.
         """
         pass
 
     @abc.abstractmethod
     def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
+        # todo: UPDATE DOCS WITH INFO ON CALLING self._step()
         """An abstract method that runs one timestep of the environment's dynamics.
 
-        When the end of an episode is reached, you are responsible for calling :func:`~eagerx.core.Env.reset`
+        When the end of an episode is reached, you are responsible for calling :func:`~eagerx.core.BaseEnv.reset`
         to reset this environment's state.
 
         :params action: A dictionary of actions provided by the agent. Should include all registered actions.
@@ -533,6 +544,10 @@ class Env(gym.Env):
                   - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
         pass
+
+    def gui(self):
+        """Opens the gui of the graph that was used to initialize this environment."""
+        self.graph.gui()
 
     def close(self):
         """A method to stop rendering (i.e. close the render window).
@@ -563,7 +578,7 @@ class Env(gym.Env):
         self._shutdown()
 
 
-class EagerxEnv(Env):
+class EagerxEnv(BaseEnv):
     """The main EAGERx environment class that follows the OpenAI gym's Env API.
 
     Users can directly use this class, but may also choose to subclass it and inline the environment construction
@@ -646,8 +661,7 @@ class EagerxEnv(Env):
                   For observations with :attr:`~eagerx.core.specs.RxInput.window` > 1,
                   the observation space is duplicated :attr:`~window` times.
 
-        :returns: A dictionary with *key* = *observation* and *value* = :class:`Space` obtained with
-                  :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        :returns: A dictionary with *key* = *observation* and *value* = :class:`Space`.
         """
         if len(self.excl_nonzero) > 0:
             obs_space = super(EagerxEnv, self).observation_space.spaces

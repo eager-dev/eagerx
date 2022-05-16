@@ -2,12 +2,12 @@
 from typing import Optional, List
 
 # ROS IMPORTS
-from std_msgs.msg import Float32MultiArray, Bool, Float32
-from sensor_msgs.msg import Image
+import gym
+from gym.spaces import Box, Discrete
 
 # EAGERx IMPORTS
 from eagerx.engines.openai_gym.engine import GymEngine
-from eagerx.core.entities import Object, EngineNode, SpaceConverter
+from eagerx.core.entities import Object, EngineNode
 from eagerx.core.specs import ObjectSpec
 from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
@@ -17,8 +17,8 @@ class GymObject(Object):
     entity_id = "GymObject"
 
     @staticmethod
-    @register.sensors(observation=Float32MultiArray, reward=Float32, done=Bool, image=Image)
-    @register.actuators(action=Float32MultiArray)
+    @register.sensors(observation=None, reward=None, done=None, image=None)
+    @register.actuators(action=None)
     @register.engine_states()
     @register.config(env_id=None, always_render=False, default_action=None, render_shape=[200, 200])
     def agnostic(spec: ObjectSpec, rate):
@@ -27,19 +27,14 @@ class GymObject(Object):
         import eagerx.converters  # noqa # pylint: disable=unused-import
 
         # Set observation space_converters
-        spec.sensors.observation.space_converter = SpaceConverter.make(
-            "GymSpace_Float32MultiArray", gym_id=spec.config.env_id, space="observation"
-        )
-        spec.sensors.reward.space_converter = SpaceConverter.make("Space_Float32", low=-99999, high=9999, dtype="float32")
-        spec.sensors.done.space_converter = SpaceConverter.make("Space_Bool")
-        spec.sensors.image.space_converter = SpaceConverter.make(
-            "Space_Image", low=0, high=1, shape=spec.config.render_shape, dtype="float32"
-        )
-        spec.actuators.action.space_converter = SpaceConverter.make(
-            "GymSpace_Float32MultiArray", gym_id=spec.config.env_id, space="action"
-        )
+        env = gym.make(spec.config.env_id)
+        spec.sensors.observation.space = env.observation_space
+        spec.sensors.reward.space = Box(low=env.reward_range[0], high=env.reward_range[1], dtype="float32")
+        spec.sensors.done.space = Discrete(2)
+        spec.sensors.image.space = Box(low=0, high=1, shape=spec.config.render_shape, dtype="float32")
+        spec.actuators.action.space = env.action_space
 
-        # Set observation rates
+        # Set rates
         spec.sensors.observation.rate = rate
         spec.sensors.reward.rate = rate
         spec.sensors.done.rate = rate

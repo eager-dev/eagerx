@@ -1,5 +1,6 @@
-from typing import Dict, Any, Optional, Union
-import inspect
+from typing import Dict, Optional, Union
+import gym
+from gym.spaces import Discrete
 from yaml import dump
 import copy
 
@@ -8,7 +9,7 @@ from eagerx.core.view import SpecView, GraphView
 from eagerx.utils.utils import (
     replace_None,
     deepcopy,
-    get_module_type_string,
+    dtype_to_ros_msg_type,
     get_default_params,
     substitute_args,
 )
@@ -261,27 +262,27 @@ class BaseNodeSpec(EntitySpec):
 
         # Set default components
         for component, cnames in params.items():
-            for cname, msg_type in cnames.items():
-                msg_type = get_module_type_string(msg_type)
+            for cname, space in cnames.items():
                 if component == "outputs":
                     if cname not in self.config.outputs:
                         self.config.outputs.append(cname)
                     mapping = dict(
-                        msg_type=msg_type,
+                        msg_type=None,
                         rate="$(config rate)",
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=None,
                     )
                     # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
                     if add_ft:
                         mapping_ft = dict(
-                            msg_type=msg_type,
+                            msg_type=None,
                             delay=0.0,
                             window=1,
                             skip=False,
                             external_rate=None,
-                            converter=self.identity.params,
-                            space_converter=None,
+                            converter=None,
+                            processor=None,
+                            space=None,
                             address=None,
                         )
                         with self.feedthroughs as d:
@@ -290,23 +291,26 @@ class BaseNodeSpec(EntitySpec):
                     if cname not in self.config.inputs:
                         self.config.inputs.append(cname)
                     address = "engine/outputs/tick" if cname == "tick" else None
+                    space = Discrete(99999) if cname == "tick" else space
+                    msg_type = dtype_to_ros_msg_type(space.dtype.name) if cname == "tick" else None
                     mapping = dict(
                         msg_type=msg_type,
                         delay=0.0,
                         window=1,
                         skip=False,
                         external_rate=None,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        converter=None,
+                        processor=None,
+                        space=space,
                         address=address,
                     )
                 elif component == "targets":
                     if cname not in self.config.targets:
                         self.config.targets.append(cname)
                     mapping = dict(
-                        msg_type=msg_type,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        msg_type=None,
+                        processor=None,
+                        space=space,
                         address=None,
                     )
                 else:
@@ -314,9 +318,9 @@ class BaseNodeSpec(EntitySpec):
                         self.config.states.append(cname)
                     component = "states"
                     mapping = dict(
-                        msg_type=msg_type,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        msg_type=None,
+                        processor=None,
+                        space=space,
                     )
                 with getattr(self, component) as d:
                     d[cname] = mapping
@@ -341,72 +345,43 @@ class BaseNodeSpec(EntitySpec):
     def add_input(
         self,
         cname: str,
-        msg_type: Any,
         window: int = 1,
         delay: float = 0.0,
         skip: bool = False,
         external_rate: float = None,
         address: str = None,
+        processor: Optional[ConverterSpec] = None,
         converter: Optional[ConverterSpec] = None,
-        space_converter: Optional[ConverterSpec] = None,
+        space: Optional[gym.spaces.Space] = None,
     ):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
-            msg_type = get_module_type_string(msg_type)
         mapping = dict(
-            msg_type=msg_type,
+            msg_type=None,
             window=window,
             delay=delay,
             skip=skip,
             external_rate=external_rate,
+            space=space,
             address=address,
+            converter=converter.params if converter else None,
+            processor=processor.params if processor else None,
         )
-        mapping["converter"] = converter.params if converter else self.identity.params
-        mapping["space_converter"] = space_converter.params if space_converter else None
         with self.inputs as d:
             d[cname] = mapping
 
     def add_output(
         self,
         cname: str,
-        msg_type: Any,
-        converter: Optional[ConverterSpec] = None,
-        space_converter: Optional[ConverterSpec] = None,
+        processor: Optional[ConverterSpec] = None,
+        space: Optional[ConverterSpec] = None,
+        msg_type: Optional[str] = None,
     ):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
-            msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type, rate="$(config rate)")
-        mapping["converter"] = converter.params if converter else self.identity.params
-        mapping["space_converter"] = space_converter.params if space_converter else None
+        mapping = dict(
+            msg_type=msg_type,
+            rate="$(config rate)",
+            space=space,
+            processor=processor.params if processor else None,
+        )
         with self.outputs as d:
-            d[cname] = mapping
-
-    def add_state(self, cname: str, msg_type: Any, space_converter: ConverterSpec):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'The provided msg_type "{msg_type}" is not a class. Make sure you are *not* providing an instance of the class, instead of the class itself.'
-            msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type, space_converter=space_converter.params)
-        with self.states as d:
-            d[cname] = mapping
-
-    def add_target(self, cname: str, msg_type: Any, converter: Optional[ConverterSpec] = None):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'The provided msg_type "{msg_type}" is not a class. Make sure you are *not* providing an instance of the class, instead of the class itself.'
-            msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type)
-        mapping["converter"] = converter.params if converter else self.identity.params
-
-        assert "targets" in self._params["config"], f"Cannot add target '{cname}'. Node is not a 'ResetNode'"
-        with self.targets as d:
             d[cname] = mapping
 
     def build(self, ns):
@@ -483,8 +458,8 @@ class BaseNodeSpec(EntitySpec):
                 assert (
                     params["outputs"][cname]["msg_type"] == params["feedthroughs"][cname]["msg_type"]
                 ), f'Mismatch between Msg types of feedthrough "{cname}" and output "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
-                if "space_converter" in params["outputs"][cname]:
-                    params["feedthroughs"][cname]["space_converter"] = params["outputs"][cname]["space_converter"]
+                if "space" in params["outputs"][cname]:
+                    params["feedthroughs"][cname]["space"] = params["outputs"][cname]["space"]
                 n = RxFeedthrough(feedthrough_to=cname, **params["feedthroughs"][cname])
                 feedthroughs.append(n)
 
@@ -498,9 +473,10 @@ class BaseNodeSpec(EntitySpec):
         chars_ns = len(ns) + 1
         rate_dict = dict()
         for i in default["outputs"]:
-            assert (
-                i["rate"] is not None and isinstance(i["rate"], (int, float)) and i["rate"] > 0
-            ), f'The rate of node "{name}" (and output cname "{i["name"]}") is misspecified: rate="{i["rate"]}". Make sure that it is of type(rate)=("int", "float",) and rate > 0.'
+            assert i["rate"] is not None and isinstance(i["rate"], (int, float)) and i["rate"] > 0, (
+                f'The rate of node "{name}" (and output cname "{i["name"]}") is misspecified: rate="{i["rate"]}". '
+                'Make sure that it is of type(rate)=("int", "float",) and rate > 0.'
+            )
             address = i["address"][chars_ns:]
             rate_dict[address] = i["rate"]  # {'rate': i['rate']}
 
@@ -848,32 +824,32 @@ class ObjectSpec(EntitySpec):
 
         # Set default components
         for component, cnames in agnostic.items():
-            for cname, msg_type in cnames.items():
-                msg_type = get_module_type_string(msg_type)
+            for cname, space in cnames.items():
                 if component == "sensors":
                     mapping = dict(
-                        msg_type=msg_type,
+                        msg_type=None,
                         rate=1,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                     )
                 elif component == "actuators":
                     mapping = dict(
-                        msg_type=msg_type,
+                        msg_type=None,
                         rate=1,
                         delay=0.0,
                         window=1,
                         skip=False,
                         external_rate=None,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        converter=None,
+                        processor=None,
+                        space=space,
                     )
                 else:
                     component = "states"
                     mapping = dict(
-                        msg_type=msg_type,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        msg_type=None,
+                        processor=None,
+                        space=space,
                     )
                 with getattr(self, component) as d:
                     d[cname] = mapping
@@ -974,9 +950,7 @@ class ObjectSpec(EntitySpec):
                     raise KeyError(
                         f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
                     )
-                # todo: here we assume a single node implements the actuator --> could be multiple
 
-                # entry = entry_lst
                 for entry in reversed(entry_lst):
                     node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
                     obj_comp_params = agnostic[obj_comp][obj_cname]
@@ -1002,24 +976,21 @@ class ObjectSpec(EntitySpec):
                         node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
                         sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
                     else:  # Actuators
-                        agnostic_converter = obj_comp_params.pop("converter")
+                        agnostic_processor = obj_comp_params.pop("processor")
                         node_comp_params.update(obj_comp_params)
 
-                        from eagerx.core.converters import Identity
-
-                        id = Identity().get_yaml_definition()
-                        if not agnostic_converter == id:
+                        if agnostic_processor is not None:
                             msg = (
-                                f"A converter was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
-                                "implementation also has a converter defined. You can only have one converter."
+                                f"A processor was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
+                                "implementation also has a processor defined. You can only have one processor."
                             )
-                            assert node_comp_params["converter"] == id, msg
-                            node_comp_params["converter"] = agnostic_converter
+                            assert node_comp_params["processor"] is None, msg
+                            node_comp_params["processor"] = agnostic_processor
 
                         # Pop rate.
                         node_comp_params.pop("rate")
                         # Reassign converter in case a node provides the implementation for multiple actuators
-                        obj_comp_params["converter"] = agnostic_converter
+                        obj_comp_params["processor"] = agnostic_processor
 
         # Get set of node we are required to launch
         dependencies = list(set(dependencies))
@@ -1108,9 +1079,10 @@ class RxInput(Component):
         address: str,
         msg_type: str,
         window: int = 0,
+        processor: Dict = None,
         converter: Dict = None,
         external_rate: float = None,
-        space_converter: Dict = None,
+        space: Dict = None,
         delay: float = 0.0,
         skip: bool = False,
     ):
@@ -1139,8 +1111,8 @@ class RxOutput(Component):
         address: str,
         msg_type: str,
         rate: float,
-        converter: Dict = None,
-        space_converter: Dict = None,
+        processor: Dict = None,
+        space: Dict = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -1169,9 +1141,10 @@ class RxFeedthrough(Component):
         msg_type: str,
         feedthrough_to: str,
         window: int = 1,
+        processor: Dict = None,
         converter: Dict = None,
         external_rate: float = None,
-        space_converter: Dict = None,
+        space: Dict = None,
         delay: float = 0.0,
         skip: bool = False,
     ):
@@ -1198,8 +1171,8 @@ class RxState(Component):
         name: str,
         address: str,
         msg_type: str,
-        converter: Dict = None,
-        space_converter: Dict = None,
+        space: Dict,
+        processor: Dict = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -1225,8 +1198,8 @@ class RxEngineState(Component):
         address: str,
         state: Dict,
         msg_type: str,
-        converter: Dict = None,
-        space_converter: Dict = None,
+        processor: Dict = None,
+        space: Dict = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store

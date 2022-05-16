@@ -2,6 +2,19 @@
 import rospy
 import rosgraph
 import roslaunch
+from std_msgs.msg import (
+    Float32MultiArray,
+    UInt16MultiArray,
+    UInt32MultiArray,
+    UInt64MultiArray,
+    Float64MultiArray,
+    Int8MultiArray,
+    Int16MultiArray,
+    Int32MultiArray,
+    Int64MultiArray,
+    ByteMultiArray,
+    UInt8MultiArray,
+)
 
 # OTHER
 from typing import List, NamedTuple, Any, Optional, Dict, Union, Tuple
@@ -10,9 +23,83 @@ import importlib
 import inspect
 from functools import wraps
 from time import sleep
+import numpy as np
 import copy
 import ast
 import json
+import gym
+
+
+SUPPORTED_SPACES = (gym.spaces.box.Box, gym.spaces.discrete.Discrete)
+NUMPY_TO_ROS = {}
+NUMPY_TO_ROS["float32"] = Float32MultiArray
+NUMPY_TO_ROS["float64"] = Float64MultiArray
+NUMPY_TO_ROS["int8"] = Int8MultiArray
+NUMPY_TO_ROS["int16"] = Int16MultiArray
+NUMPY_TO_ROS["int32"] = Int32MultiArray
+NUMPY_TO_ROS["int64"] = Int64MultiArray
+NUMPY_TO_ROS["uint8"] = ByteMultiArray
+NUMPY_TO_ROS["uint16"] = UInt16MultiArray
+NUMPY_TO_ROS["uint32"] = UInt32MultiArray
+NUMPY_TO_ROS["uint64"] = UInt64MultiArray
+
+NUMPY_COMPATIBLE_MESSAGES = [val for _, val in NUMPY_TO_ROS.items()]
+
+
+def space_to_dict(space):
+    msg = f"Invalid space provided that is not supported ({type(space)}). Supported spaces are ({SUPPORTED_SPACES})"
+    assert isinstance(space, SUPPORTED_SPACES), msg
+    if isinstance(space, gym.spaces.box.Box):
+        low = np.nan_to_num(space.low)
+        high = np.nan_to_num(space.high)
+        if np.all(low == low.reshape(-1)[0]):
+            low = low.reshape(-1)[0].item()
+        if np.all(high == high.reshape(-1)[0]):
+            high = high.reshape(-1)[0].item()
+        if isinstance(low, np.ndarray):
+            low = low.tolist()
+        if isinstance(high, np.ndarray):
+            high = high.tolist()
+        d = dict(low=low, high=high, shape=list(space.shape), dtype=space.dtype.name)
+    elif isinstance(space, gym.spaces.discrete.Discrete):
+        d = dict(n=space.n, shape=list(space.shape), dtype=space.dtype.name)
+    else:
+        raise NotImplementedError(f"Provided space has not yet been implemented ({type(space)}).")
+    return d
+
+
+def dict_to_space(d: Dict):
+    assert isinstance(d, dict), f"Invalid input provided that is not supported ({type(d)}). Argument should be a dict."
+    if "n" in d:
+        space = gym.spaces.discrete.Discrete(n=d["n"])
+    elif all([arg in d for arg in ["low", "high", "shape", "dtype"]]):
+        if isinstance(d["low"], list):
+            low = np.array(d["low"], dtype=d["dtype"])
+        else:
+            low = d["low"]
+        if isinstance(d["high"], list):
+            high = np.array(d["high"], dtype=d["dtype"])
+        else:
+            high = d["high"]
+        space = gym.spaces.box.Box(low=low, high=high, shape=d["shape"], dtype=d["dtype"])
+    else:
+        raise NotImplementedError(f"Cannot infer type of space to initialize with the provided dict ({d}).")
+    return space
+
+
+def dtype_to_ros_msg_type(dtype: str, module_type_string: bool = True):
+    try:
+        if hasattr(dtype, "name"):
+            dtype = dtype.name
+        msg_type_cls = NUMPY_TO_ROS[dtype]
+
+        if module_type_string:
+            return get_module_type_string(msg_type_cls)
+        else:
+            return msg_type_cls
+    except KeyError:
+        msg = f"Invalid dtype provided that is not supported ({dtype}). Supported dtypes are ({NUMPY_TO_ROS.keys()})"
+        raise KeyError(msg)
 
 
 def dict_null(items):

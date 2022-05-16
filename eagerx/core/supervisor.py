@@ -18,6 +18,7 @@ from eagerx.utils.utils import (
     get_attribute_from_module,
     initialize_converter,
     get_param_with_blocking,
+    dict_to_space,
 )
 from eagerx.utils.node_utils import initialize_nodes
 from eagerx.core.nodes import EnvNode
@@ -49,12 +50,17 @@ class SupervisorNode(BaseNode):
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
         for i in states:
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-                converter = i["converter"]
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+                processor = i["processor"]
             else:
-                converter = i["converter"]
-            self.state_buffer[i["name"]] = {"msg": None, "converter": converter}
+                processor = i["processor"]
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+                space = i["space"]
+            else:
+                space = i["space"]
+            self.state_buffer[i["name"]] = {"msg": None, "processor": processor, "space": space}
 
         # Required for reset
         self._step_counter = 0
@@ -229,14 +235,18 @@ class Supervisor(object):
         # Prepare output topics
         for i in params["outputs"]:
             i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
             i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
 
         return tuple(params["outputs"]), tuple(params["states"]), node
 

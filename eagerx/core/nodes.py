@@ -5,8 +5,9 @@ import time
 import sys
 
 import numpy as np
+from gym.spaces import Discrete
 import rospy
-from std_msgs.msg import UInt64, Bool
+from std_msgs.msg import Bool
 from sensor_msgs.msg import Image
 import cv_bridge
 import cv2
@@ -14,7 +15,7 @@ import cv2
 import eagerx
 import eagerx.core.register as register
 from eagerx.core.specs import NodeSpec
-from eagerx.utils.utils import initialize_converter, Msg
+from eagerx.utils.utils import initialize_converter, Msg, dict_to_space
 
 
 class EnvNode(eagerx.Node):
@@ -38,20 +39,25 @@ class EnvNode(eagerx.Node):
         for i in self.inputs:
             if i["name"] == "actions_set":
                 continue
-            if "converter" in i and isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-                converter = i["converter"]
-            elif "converter" in i and not isinstance(i["converter"], dict):
-                converter = i["converter"]
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+                processor = i["processor"]
             else:
-                raise ValueError(f'Converter type {i["converter"]} of {i["name"]} not supported.')
+                processor = i["processor"]
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+                space = i["space"]
+            else:
+                space = i["space"]
+            assert space is not None, f'No space defined for observation {i["name"]}.'
 
             name = i["name"]
             window = i["window"]
             self.observation_buffer[name] = {
                 "msgs": None,
-                "converter": converter,
+                "processor": processor,
                 "window": window,
+                "space": space,
             }
 
         # Synchronization event
@@ -73,14 +79,19 @@ class EnvNode(eagerx.Node):
         for i in self.outputs:
             if i["name"] == "set":
                 continue
-            if "converter" in i and isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-                converter = i["converter"]
-            elif "converter" in i and not isinstance(i["converter"], dict):
-                converter = i["converter"]
+            if isinstance(i["processor"], dict):
+                i["processor"] = initialize_converter(i["processor"])
+                processor = i["processor"]
             else:
-                converter = None
-            self.action_buffer[i["name"]] = {"msg": None, "converter": converter}
+                processor = i["processor"]
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+                space = i["space"]
+            else:
+                space = i["space"]
+            assert space is not None, f'No space defined for observation {i["name"]}.'
+
+            self.action_buffer[i["name"]] = {"msg": None, "processor": processor, "space": space}
 
     def reset(self):
         self.must_reset = False
@@ -102,6 +113,7 @@ class EnvNode(eagerx.Node):
             if extra > 0:
                 # Only happens when skip=True && window > 0
                 if len(i.msgs) == 0:
+                    raise NotImplementedError("initial_obs not yet refactored.")
                     initial_obs = buffer["converter"].initial_obs
                     i.msgs.append(initial_obs)
                     extra -= 1  # Subtract, because we appended the initial_obs
@@ -119,7 +131,7 @@ class EnvNode(eagerx.Node):
                 if not flag:
                     raise KeyboardInterrupt
             except (KeyboardInterrupt, SystemExit):
-                print("[env] KEYBOARD INTERRUPT")
+                print(f"[{self.ns_name}] KEYBOARD INTERRUPT")
                 raise
 
         if self.must_reset:
@@ -159,8 +171,8 @@ class ObservationsNode(eagerx.Node):
     def reset(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
-    @register.inputs(actions_set=UInt64)
-    @register.outputs(set=UInt64)
+    @register.inputs(actions_set=Discrete(np.iinfo("int32").max))
+    @register.outputs(set=Discrete(np.iinfo("int32").max))
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
@@ -189,8 +201,8 @@ class ActionsNode(eagerx.Node):
     def reset(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
-    @register.inputs(observations_set=UInt64, step=UInt64)
-    @register.outputs(set=UInt64)
+    @register.inputs(observations_set=Discrete(np.iinfo("int32").max), step=Discrete(np.iinfo("int32").max))
+    @register.outputs(set=Discrete(np.iinfo("int32").max))
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
@@ -205,6 +217,7 @@ class RenderNode(eagerx.Node):
         log_level=eagerx.log.WARN,
         color="grey",
         process=eagerx.process.NEW_PROCESS,
+        encoding="bgr",
     ):
         """RenderNode spec"""
         # Modify default node params
@@ -220,14 +233,16 @@ class RenderNode(eagerx.Node):
 
         # Modify custom params
         spec.config.display = display
+        spec.config.encoding = encoding
 
         # Pre-set window
         spec.inputs.image.window = 0
 
-    def initialize(self, display):
+    def initialize(self, display, encoding):
         self.cv_bridge = cv_bridge.CvBridge()
         self.window = None
         self.display = display
+        self.encoding = encoding
         self.last_image = Image(data=[])
         self.render_toggle = False
         self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
@@ -280,39 +295,19 @@ class RenderNode(eagerx.Node):
     def reset(self):
         pass
 
-    @register.inputs(image=Image)
-    @register.outputs(done=UInt64)
+    @register.inputs(image=None)
+    @register.outputs(done=Discrete(2))
     def callback(self, t_n: float, image: Optional[Msg] = None):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
-        empty = self.last_image.height == 0 or self.last_image.width == 0
+        empty = len(image.msgs[-1]) == 0
         if not empty and self.display and self.render_toggle:
-            try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, "bgr8")
-            except ImportError as e:
-                rospy.logwarn_once("[%s] %s. Using numpy instead." % (self.ns_name, e))
-
-                if isinstance(self.last_image.data, bytes):
-                    cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(
-                        self.last_image.height, self.last_image.width, -1
-                    )
-                else:
-                    cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(
-                        self.last_image.height, self.last_image.width, -1
-                    )
-                if "rgb" in self.last_image.encoding:
-                    cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-            except cv_bridge.CvBridgeError as e:
-                rospy.logwarn(e)
-                return dict(done=UInt64())
-
-            # Set cv_image
-            self.cv_image = cv_image
+            self.cv_image = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
         with self.img_cond:
             self.img_event.set()  # Signal async_imshow thread
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=UInt64())
+        output_msgs = dict(done=np.array(0, dtype="float32"))
         return output_msgs
 
     def shutdown(self):
@@ -410,11 +405,11 @@ class ColabRender(eagerx.Node):
     def reset(self):
         self.last_image = Image(data=[])
 
-    @register.inputs(image=Image)
-    @register.outputs(done=UInt64)
+    @register.inputs(image=None)
+    @register.outputs(done=Discrete(2))
     def callback(self, t_n: float, image: Optional[eagerx.utils.utils.Msg] = None):
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=UInt64())
+        output_msgs = dict(done=0)
         # Grab latest image
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]

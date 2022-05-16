@@ -4,7 +4,7 @@ import gym
 
 # ROS IMPORTS
 import rospy
-from std_msgs.msg import UInt64
+from gym.spaces import Discrete
 
 # RX IMPORTS
 from eagerx.core.constants import process, ERROR
@@ -82,7 +82,7 @@ class GymEngine(Engine):
             sim["buffer_reward"] = []
             sim["buffer_done"] = []
 
-    @register.outputs(tick=UInt64)
+    @register.outputs(tick=Discrete(999999))
     def callback(self, t_n: float):
         for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]

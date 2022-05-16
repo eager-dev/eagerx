@@ -1,5 +1,5 @@
 import os
-
+import gym
 import yaml
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -7,14 +7,10 @@ import networkx as nx
 from typing import List, Union, Dict, Optional, Any
 import rospy
 from eagerx.utils.utils import (
-    initialize_converter,
-    get_opposite_msg_cls,
-    get_module_type_string,
-    get_cls_from_string,
-    get_attribute_from_module,
     substitute_args,
-    msg_type_error,
     supported_types,
+    space_to_dict,
+    dtype_to_ros_msg_type,
 )
 from eagerx.utils.network_utils import (
     reset_graph,
@@ -25,8 +21,8 @@ from eagerx.utils.network_utils import (
     is_stale,
 )
 import eagerx
-from eagerx.core.entities import Node, BaseConverter, SpaceConverter
-from eagerx.core.view import GraphView
+from eagerx.core.entities import Node
+from eagerx.core.view import GraphView, SpecView
 from eagerx.core.specs import (
     ResetNodeSpec,
     ObjectSpec,
@@ -327,11 +323,11 @@ class Graph:
         target: GraphView = None,
         action: str = None,
         observation: str = None,
-        converter: Optional[ConverterSpec] = None,
+        space: Optional[gym.spaces.Space] = None,
+        processor: Optional[ConverterSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
-        initial_obs: Optional[Any] = None,
     ) -> None:
         """Connect an action/source (i.e. node/object component) to an observation/target (i.e. node/object component).
 
@@ -346,11 +342,9 @@ class Graph:
                        :attr:`~eagerx.core.specs.ResetNodeSpec.feedthroughs`.
         :param action: Name of the action to connect (and add).
         :param observation: Name of the observation to connect (and add).
-        :param converter: An input converter that converts the received input message before passing it
-                          to the node's :func:`~eagerx.core.entities.Node.callback`.
-
-                          .. note:: Output converters can only be set by manipulating the :class:`~eagerx.core.specs.NodeSpec`
-                           and :class:`~eagerx.core.specs.ObjectSpec` directly.
+        :param space: Defines the observation or action space.
+        :param processor: Processes the received message before passing it
+                          to the target node's :func:`~eagerx.core.entities.Node.callback`.
         :param window: A non-negative number that specifies the number of messages to pass to the node's :func:`~eagerx.core.entities.Node.callback`.
 
                        - *window* = 1: Only the last received input message.
@@ -365,13 +359,7 @@ class Graph:
                       :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
                       in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
-                     May be necessary to ensure that the connected graph is directed and acyclic. If the input is an
-                     observation to the environment with `window` > 0, the user must provide an initial observation
-                     (i.e. the `initial_obs` argument).
-        :param initial_obs: An initial observation that is used on t=0 if an observation is corresponds to a skipped
-                            input with `window` > 0. The provided observation must comply with the specified observation
-                            space that corresponds to the observation. This ensures that at t=0, the observation to the
-                            agent complies with the environment's observation space.
+                     May be necessary to ensure that the connected graph is directed and acyclic.
         """
         assert not source or not action, (
             'You cannot specify a source if you wish to connect action "%s",' " as the action will act as the source." % action
@@ -382,28 +370,34 @@ class Graph:
         )
         assert not (observation and action), "You cannot connect an action directly to an observation."
 
-        if isinstance(converter, ConverterSpec):
-            converter = converter.params
-        if isinstance(converter, GraphView):
-            converter = converter.to_dict()
+        if space is not None:
+            assert observation or action, "A space can only be provided when connecting actions or observations."
+
+        # Convert processors, spaces
+        if isinstance(processor, ConverterSpec):
+            processor = processor.params
+        elif isinstance(processor, (GraphView, SpecView)):
+            processor = processor.to_dict()
+        if isinstance(space, (GraphView, SpecView)):
+            space = space.to_dict()
+        elif isinstance(space, gym.spaces.Space):
+            space = space_to_dict(space)
 
         if action:  # source = action
             self.add_component(action=action)
-            self._connect_action(action, target, converter=converter)
+            self._connect_action(action, target, space)
             source = self.get_view("env/actions", ["outputs", action])
         elif observation:  # target = observation
             self.add_component(observation=observation)
-            converter = self._connect_observation(
-                source, observation, converter=converter, window=window, skip=skip, initial_obs=initial_obs
-            )
+            self._connect_observation(source, observation, space=space)
             target = self.get_view("env/observations", ["inputs", observation])
-        self._connect(source, target, converter, window, delay, skip)
+        self._connect(source, target, processor, window, delay, skip)
 
     def _connect(
         self,
         source: GraphView = None,
         target: GraphView = None,
-        converter: Optional[ConverterSpec] = None,
+        processor: Optional[Dict] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -437,8 +431,8 @@ class Graph:
             assert flag, f'Target "{target}" is already connected to source "{s}"'
 
         # Add properties to target params
-        if converter is not None:
-            self.set({"converter": converter}, target)
+        if processor is not None:
+            self.set({"processor": processor}, target)
         if window is not None:
             self.set({"window": window}, target)
         if delay is not None:
@@ -447,11 +441,11 @@ class Graph:
             self.set({"skip": skip}, target)
 
         # Add connection
-        Graph.check_msg_type(source, target, self._state)
+        # Graph.check_msg_type(source, target, self._state)
         connect = [list(source()), list(target())]
         self._state["connects"].append(connect)
 
-    def _connect_action(self, action, target, converter=None):
+    def _connect_action(self, action, target, space):
         """Method to connect a (previously added) action, that *precedes* self._connect(source, target)."""
         params_action = self._state["nodes"]["env/actions"]
         assert action in params_action["outputs"], f'Action "{action}" must be added, before you can connect it.'
@@ -465,104 +459,57 @@ class Graph:
             # Perform checks on target
             self._is_selected(self._state, target)
 
-        # Infer source properties (converter & msg_type) from target
-        sc = target.space_converter
-        space_converter = sc.to_dict() if isinstance(sc, GraphView) else sc
-        msg_type_C = get_cls_from_string(target.msg_type)
-        if converter:  # Overwrite msg_type_B if input converter specified
-            msg_type_B = get_opposite_msg_cls(msg_type_C, converter)
-        else:
-            msg_type_B = msg_type_C
-
         # Set properties in node params of 'env/actions'
         if len(params_action["outputs"][action]) > 0:  # Action already registered
-            space_converter_state = params_action["outputs"][action]["converter"]
-            msg_type_B_state = get_opposite_msg_cls(params_action["outputs"][action]["msg_type"], space_converter_state)
-            assert msg_type_B == msg_type_B_state, (
-                f'Conflicting msg_types for action "{action}" that is already '
-                f"used in another connection. Occurs with connection %s" % tuple([name, component, cname])
-            )
-
-            if not space_converter == space_converter_state:
+            space_state = params_action["outputs"][action]["space"]
+            if space is None and not target.space == space_state:
                 rospy.logwarn(
-                    'Conflicting %s for action "%s". '
-                    "Not using the space_converter "
-                    "of %s[%s][%s]" % ("space_converters", action, name, component, cname)
+                    f'Conflicting space ({space}) for action "{action}". ' f"Not using the space of {name}.{component}.{cname}"
                 )
-            msg_type_A = get_opposite_msg_cls(msg_type_B_state, space_converter_state)
+            else:
+                rospy.logwarn(
+                    f'Conflicting space ({space}) for action "{action}". '
+                    f"Overwriting the space that was previously associated with this action."
+                )
         else:
-            assert target.space_converter is not None, (
-                f'"{cname}" does not have a space_converter defined for ' f'{component} in the spec of object "{name}".'
-            )
-            # Verify that converter is not modifying the msg_type (i.e. it is a processor).
-            assert msg_type_B == msg_type_C, (
-                "Cannot have a converter that maps to a different msg_type as the "
-                "converted msg_type will not be compatible with the "
-                "space_converter specified in the spec."
-            )
-            msg_type_A = get_opposite_msg_cls(msg_type_B, space_converter)
-            msg_type = get_module_type_string(msg_type_A)
+            space = target.space if space is None else space
+            assert space is not None, f'"{cname}" does not have a space registered for {component} in the spec of "{name}".'
             mapping = dict(
-                msg_type=msg_type,
+                msg_type=None,
                 rate="$(config rate)",
-                converter=space_converter,
-                space_converter=None,
+                processor=None,
+                space=space,
             )
             self._set(params_action["outputs"], {action: mapping})
 
-    def _connect_observation(self, source, observation, converter, window, skip, initial_obs):
+    def _connect_observation(self, source, observation, space):
         """Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target)."""
 
         params_obs = self._state["nodes"]["env/observations"]
         assert observation in params_obs["inputs"], 'Observation "%s" must be added, before you can connect it.' % observation
         name, component, cname = source()
 
-        assert converter is not None or source.space_converter, (
-            f'"{cname}" does not have a space_converter '
-            f'defined under {component} in the spec of "{name}". '
-            "Either specify it there, or add an input converter "
-            "that acts as a space_converter to this connection."
+        assert space is not None or source.space is not None, (
+            f'"{name}.{component}.{cname}" does not have a space '
+            f'registered in the spec of "{name}". '
+            f'Either specify it there, or specify a space when connecting observation "{observation}".'
         )
-
-        # Infer target properties (converter & msg_type) from source
-        msg_type_A = get_cls_from_string(source.msg_type)
-        output_converter = source.converter.to_dict()
-        msg_type_B = get_opposite_msg_cls(msg_type_A, output_converter)
-        if converter is None:
-            converter = source.space_converter.to_dict()
-        msg_type_C = get_opposite_msg_cls(msg_type_B, converter)
-
-        # Set the initial_obs
-        if initial_obs is not None:
-            assert isinstance(initial_obs, (list, float, int, bool)), (
-                "Initial_obs is not of any supported type: list, " "float, int, bool."
-            )
-            converter["initial_obs"] = initial_obs
-
-        # Initialize converter
-        if skip and (window is not None and window > 0):
-            c = initialize_converter(converter)
-            assert c.initial_obs is not None, (
-                f"Observation '{observation}' is missing an initial observation (`initial_obs`)."
-                " This is required when skip=True and window>0."
-            )
+        space = space if space is not None else source.space
 
         # Set properties in node params of 'env/observations'
         assert len(params_obs["inputs"][observation]) == 0, 'Observation "%s" already connected.' % observation
-        msg_type = get_module_type_string(msg_type_C)
-        params_obs["inputs"][observation]["msg_type"] = get_module_type_string(msg_type_C)
         mapping = dict(
-            msg_type=msg_type,
+            msg_type=None,
             delay=0.0,
             window=1,
             skip=False,
             external_rate=None,
-            converter=BaseConverter.make("Identity"),
-            space_converter=None,
+            processor=None,
+            converter=None,
+            space=space,
             address=None,
         )
         self._set(params_obs["inputs"], {observation: mapping})
-        return converter
 
     def disconnect(
         self,
@@ -661,7 +608,7 @@ class Graph:
         else:
             pass  # Nothing to do here (for now)
 
-        # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/converter.
+        # Reset target params to disconnected state (reset to go back to default yaml), i.e. reset window/delay/skip/processor.
         if observation:
             self._disconnect_observation(observation)
         else:
@@ -705,7 +652,7 @@ class Graph:
 
     def _disconnect_action(self, action: str):
         """Returns the action entry back to its disconnected state.
-        That is, remove space_converter if it is not connected to any other targets."""
+        That is, remove space if it is not connected to any other targets."""
         params_action = self._state["nodes"]["env/actions"]
         assert action in params_action["outputs"], 'Cannot disconnect action "%s", as it does not exist.' % action
         source = ["env/actions", "outputs", action]
@@ -790,8 +737,6 @@ class Graph:
     ) -> None:
         """Sets the parameters of a node/object/action/observation.
 
-        .. note:: If a converter is set, we check if the msg_type changes with the new converter. If so, the entry is disconnected.
-
         :param mapping: Either a mapping with *key* = *parameter*,
                         or a single value that corresponds to the optional *parameter* argument.
         :param entry: The entry whose parameters are mutated.
@@ -814,12 +759,12 @@ class Graph:
         for parameter, value in mapping.items():
             if parameter:
                 getattr(entry, parameter)  # Check if parameter exists
-            if parameter == "converter":
+            if parameter == "processor":
                 if isinstance(value, ConverterSpec):
                     value = value.params
                 elif isinstance(value, GraphView):
                     value = value.to_dict()
-                self._set_converter(entry, value)
+                self._set_processor(entry, value)
             else:
                 t = entry()
                 name = t[0]
@@ -840,48 +785,19 @@ class Graph:
                     p = self._state["nodes"][name][component][cname]
                 self._set(p, {parameter: value})
 
-    def _set_converter(self, entry: GraphView, converter: Dict):
-        """Replaces the converter specified for a node's/object's I/O.
-        **DOES NOT** remove observation entries if they are disconnected.
-        **DOES NOT** remove action entries if they are disconnect and the last connection.
-        """
-        _ = entry.converter  # Check if parameter exists
+    def _set_processor(self, entry: GraphView, processor: Dict):
+        """Replaces the processor specified for a node's/object's input."""
+        if isinstance(processor, ConverterSpec):
+            processor = processor.params
+        elif isinstance(processor, GraphView):
+            processor = processor.to_dict()
+
+        _ = entry.processor  # Check if parameter exists
+
+        # Replace processor
         name, component, cname = entry()
         params = self._state["nodes"][name]
-
-        # Check if converted msg_type of old converter is equal to the msg_type of newly specified converter
-        if component == "feedthroughs":
-            msg_type = get_cls_from_string(params["outputs"][cname]["msg_type"])
-        else:
-            msg_type = get_cls_from_string(params[component][cname]["msg_type"])
-        converter_old = params[component][cname]["converter"]
-        msg_type_ros_old = get_opposite_msg_cls(msg_type, converter_old)
-        msg_type_ros_new = get_opposite_msg_cls(msg_type, converter)
-        if not msg_type_ros_new == msg_type_ros_old:
-            was_disconnected = self._disconnect_component(entry)
-        else:
-            was_disconnected = False
-
-        # If disconnected action/observation, we cannot add converter so raise error.
-        assert not (
-            was_disconnected and name in ["env/actions", "env/observations"]
-        ), 'Cannot change the converter of action/observation "%s", as it changes the msg_type from ' '"%s" to "%s"' % (
-            cname,
-            msg_type_ros_old,
-            msg_type_ros_new,
-        )
-
-        # Make sure the converter is a spaceconverter
-        if name in ["env/actions", "env/observations"]:
-            converter_cls = get_attribute_from_module(converter["converter_type"])
-            assert issubclass(converter_cls, SpaceConverter), (
-                'Incorrect converter type for "%s". Action/observation converters should always be a subclass of '
-                '"%s/%s".' % (cname, SpaceConverter.__module__, SpaceConverter.__name__)
-            )
-
-        # Replace converter
-        params[component][cname].pop("converter")
-        self._set(params[component][cname], {"converter": converter})
+        params[component][cname]["processor"] = processor
 
     def get(
         self,
@@ -915,9 +831,21 @@ class Graph:
     def register(self):
         # Check if valid graph.
         assert self.is_valid(plot=False), "Graph not valid."
+        state = deepcopy(self._state)
+
+        # Add message types to outputs
+        for _node_name, params in state["nodes"].items():
+            components = ["states"]
+            if "node_type" in params:
+                components.append("outputs")
+            else:
+                components.append("sensors")
+            for component in components:
+                for _cname, cname_params in params[component].items():
+                    source_dtype = "float32" if cname_params["space"] is None else cname_params["space"]["dtype"]
+                    cname_params["msg_type"] = dtype_to_ros_msg_type(source_dtype)
 
         # Add addresses based on connections
-        state = deepcopy(self._state)
         for source, target in state["connects"]:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
@@ -938,6 +866,25 @@ class Graph:
             else:
                 address = "%s/%s/%s" % (source_name, source_comp, source_cname)
             state["nodes"][target_name][target_comp][target_cname]["address"] = address
+
+            # Determine msg_type
+            source_params = state["nodes"][source_name][source_comp][source_cname]
+            target_params = state["nodes"][target_name][target_comp][target_cname]
+            source_dtype = "float32" if source_params["space"] is None else source_params["space"]["dtype"]
+            target_dtype = "float32" if target_params["space"] is None else target_params["space"]["dtype"]
+            if not source_dtype == target_dtype:
+                msg = (
+                    f"{source_name}.{source_comp}.{source_cname}.space.dtype ({source_dtype}) and "
+                    f"{target_name}.{target_comp}.{target_cname}.space.dtype ({target_dtype}) are inconsistent."
+                )
+                rospy.logwarn(msg)
+            msg_type = dtype_to_ros_msg_type(source_dtype)
+            state["nodes"][target_name][target_comp][target_cname]["msg_type"] = msg_type
+
+            # Check message types
+            source_msg_type = state["nodes"][source_name][source_comp][source_cname]["msg_type"]
+            msg = f"Msg types not the same. source={source}.msg_type={source_msg_type} || target={target}.msg_type={msg_type}."
+            assert msg_type == source_msg_type, msg
 
         # Initialize param objects
         nodes = []
@@ -966,7 +913,7 @@ class Graph:
         self,
         source: GraphView,
         rate: float,
-        converter: Optional[ConverterSpec] = None,
+        processor: Optional[ConverterSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -979,11 +926,8 @@ class Graph:
         :param source: Compatible source types are :attr:`~eagerx.core.specs.NodeSpec.outputs` and
                        :attr:`~eagerx.core.specs.ObjectSpec.sensors`.
         :param rate: The rate (Hz) at which to render the images.
-        :param converter: An input converter that converts the received input message before passing it
-                          to the node's :func:`~eagerx.core.entities.Node.callback`.
-
-                          .. note:: Output converters can only be set by manipulating the :class:`~eagerx.core.specs.NodeSpec`
-                           and :class:`~eagerx.core.specs.ObjectSpec` directly.
+        :param processor: Processes the received message before passing it
+                          to the target node's :func:`~eagerx.core.entities.Node.callback`.
         :param window: A non-negative number that specifies the number of messages to pass to the node's :func:`~eagerx.core.entities.Node.callback`.
 
                        - *window* = 1: Only the last received input message.
@@ -1018,6 +962,7 @@ class Graph:
             else:
                 entity_id = "Render"
         render = Node.make(entity_id, rate=rate, process=process, **kwargs)
+        render.inputs.image.space = source.space
         self.add(render)
 
         # Create connection
@@ -1025,7 +970,7 @@ class Graph:
         self.connect(
             source=source,
             target=target,
-            converter=converter,
+            processor=processor,
             window=window,
             delay=delay,
             skip=skip,
@@ -1159,7 +1104,7 @@ class Graph:
     @staticmethod
     def _is_valid(state, plot=True):
         state = deepcopy(state)
-        Graph.check_msg_types_are_consistent(state)
+        # Graph.check_msg_types_are_consistent(state)
         Graph.check_inputs_have_address(state)
         Graph.check_graph_is_acyclic(state, plot=plot)
         # Graph.check_exists_compatible_engine(state)
@@ -1167,40 +1112,42 @@ class Graph:
 
     @staticmethod
     def check_msg_type(source, target, state):
+        raise NotImplementedError("Msg_types are inferred from spaces.")
         # Convert the source msg_type to target msg_type with converters:
         # msg_type_source --> output_converter --> msg_type_ROS --> input_converter --> msg_type_target
-        msg_type_out = get_cls_from_string(source.msg_type)
-        converter_out = source.converter.to_dict()
-        msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
-        converter_in = target.converter.to_dict()
-        msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
-
-        # Verify that this msg_type_in is the same as the msg_type specified in the target
-        target_name, target_comp, target_cname = target()
-        if target_comp == "feedthroughs":
-            msg_type_in_registered = get_cls_from_string(state["nodes"][target_name]["outputs"][target_cname]["msg_type"])
-        else:
-            msg_type_in_registered = get_cls_from_string(target.msg_type)
-
-        msg_type_str = msg_type_error(
-            source(),
-            target(),
-            msg_type_out,
-            converter_out,
-            msg_type_ros,
-            converter_in,
-            msg_type_in,
-            msg_type_in_registered,
-        )
-        assert msg_type_in == msg_type_in_registered, msg_type_str
+        # msg_type_out = get_cls_from_string(source.msg_type)
+        # converter_out = source.converter.to_dict()
+        # msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
+        # converter_in = target.converter.to_dict()
+        # msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
+        #
+        # # Verify that this msg_type_in is the same as the msg_type specified in the target
+        # target_name, target_comp, target_cname = target()
+        # if target_comp == "feedthroughs":
+        #     msg_type_in_registered = get_cls_from_string(state["nodes"][target_name]["outputs"][target_cname]["msg_type"])
+        # else:
+        #     msg_type_in_registered = get_cls_from_string(target.msg_type)
+        #
+        # msg_type_str = msg_type_error(
+        #     source(),
+        #     target(),
+        #     msg_type_out,
+        #     converter_out,
+        #     msg_type_ros,
+        #     converter_in,
+        #     msg_type_in,
+        #     msg_type_in_registered,
+        # )
+        # assert msg_type_in == msg_type_in_registered, msg_type_str
 
     @staticmethod
     def check_msg_types_are_consistent(state):
-        for source, target in state["connects"]:
-            source = Graph._get_view(state, source[0], source[1:])
-            target = Graph._get_view(state, target[0], target[1:])
-            Graph.check_msg_type(source, target, state)
-        return True
+        raise NotImplementedError("Msg_types are inferred from spaces.")
+        # for source, target in state["connects"]:
+        #     source = Graph._get_view(state, source[0], source[1:])
+        #     target = Graph._get_view(state, target[0], target[1:])
+        #     Graph.check_msg_type(source, target, state)
+        # return True
 
     @staticmethod
     def check_inputs_have_address(state):
@@ -1232,8 +1179,8 @@ class Graph:
                         assert "address" in p and p["address"] is not None, (
                             f'"{cname}" was selected in {component} '
                             f'of "{name}", but no address could be '
-                            "produced/inferred. Either deselect it, "
-                            "or connect it."
+                            "produced/inferred. This likely means that it has not been connected. "
+                            "Either deselect it, or connect it."
                         )
             else:
                 for component in params["config"]:
@@ -1247,7 +1194,7 @@ class Graph:
                             continue
                         assert "address" in params[component][cname], (
                             f'"{cname}" was selected in {component} of "{name}", '
-                            "but no address could be produced/inferred. "
+                            "but no address could be produced/inferred. This likely means that it has not been connected. "
                             "Either deselect it, or connect it."
                         )
         return True
@@ -1437,8 +1384,7 @@ class Graph:
 
     @staticmethod
     def check_exists_compatible_engine(state, tablefmt="fancy_grid"):
-        msg = "Engine implementations are not part of the engine graph anymore."
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Engine implementations are not part of the engine graph anymore.")
         # # Engines are headers
         # from tabulate import tabulate
         # engines = []

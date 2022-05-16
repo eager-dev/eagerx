@@ -2,6 +2,7 @@
 from typing import Any
 
 import rospy
+from rospy.numpy_msg import numpy_msg
 import rx.disposable
 from rx import Observable, create
 from rx.disposable import Disposable
@@ -15,7 +16,16 @@ from functools import wraps
 from threading import Condition
 
 # IMPORT EAGERX
+from eagerx.utils.utils import NUMPY_COMPATIBLE_MESSAGES
 from eagerx.core.constants import DEBUG
+
+
+def _wrap_np(msg_type):
+    if msg_type in NUMPY_COMPATIBLE_MESSAGES:
+        return numpy_msg(msg_type)
+        # return msg_type
+    else:
+        return msg_type
 
 
 def thread_safe_wrapper(func, condition):
@@ -133,6 +143,7 @@ class RxMessageBroker(object):
                 "disposable": None,
                 "source": i,
                 "msg_type": i["msg_type"],
+                "processor": i["processor"],
                 "converter": i["converter"],
                 "window": i["window"],
                 "status": "disconnected",
@@ -155,7 +166,7 @@ class RxMessageBroker(object):
                 "source": i,
                 "msg_type": i["msg_type"],
                 "rate": i["rate"],
-                "converter": i["converter"],
+                "processor": i["processor"],
                 "status": "",
             }
             n["outputs"][cname_address + "/reset"] = {
@@ -167,7 +178,7 @@ class RxMessageBroker(object):
             }
 
             # Create publisher
-            i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
+            i["msg_pub"] = rospy.Publisher(i["address"], _wrap_np(i["msg_type"]), queue_size=0, latch=True)
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -191,6 +202,7 @@ class RxMessageBroker(object):
                 "disposable": None,
                 "source": i,
                 "msg_type": i["msg_type"],
+                "processor": i["processor"],
                 "converter": i["converter"],
                 "window": i["window"],
                 "status": "disconnected",
@@ -214,11 +226,11 @@ class RxMessageBroker(object):
                 "msg_type": i["msg_type"],
                 "status": "",
             }
-            if "converter" in i:
-                n["state_outputs"][cname_address]["converter"] = i["converter"]
+            if "processor" in i:
+                n["state_outputs"][cname_address]["processor"] = i["processor"]
 
             # Create publisher
-            i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
+            i["msg_pub"] = rospy.Publisher(i["address"], _wrap_np(i["msg_type"]), queue_size=0, latch=True)
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -239,7 +251,7 @@ class RxMessageBroker(object):
                     "disposable": None,
                     "source": i,
                     "msg_type": i["msg_type"],
-                    "converter": i["converter"],
+                    "processor": i["processor"],
                     "status": "disconnected",
                 }
             # Only true if **not** a real reset node (i.e., sim state & engine done flag)
@@ -263,7 +275,7 @@ class RxMessageBroker(object):
                 "disposable": None,
                 "source": i,
                 "msg_type": i["msg_type"],
-                "converter": i["converter"],
+                "processor": i["processor"],
                 "status": "disconnected",
             }
         for i in node_inputs:
@@ -292,7 +304,7 @@ class RxMessageBroker(object):
             }
 
             # Create publisher: (latched: register, node_reset, start_reset, reset, real_reset)
-            i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
+            i["msg_pub"] = rospy.Publisher(i["address"], _wrap_np(i["msg_type"]), queue_size=0, latch=True)
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -385,10 +397,10 @@ class RxMessageBroker(object):
                     key_str = ("%s" % key).ljust(15, " ")
                     address_str = ("| %s " % cname_address).ljust(50, " ")
                     msg_type_str = ("| %s " % entry["msg_type"].__name__).ljust(10, " ")
-                    if "converter" in entry:
-                        converter_str = ("| %s " % entry["converter"].__class__.__name__).ljust(23, " ")
+                    if "processor" in entry:
+                        processor_str = ("| %s " % entry["processor"].__class__.__name__).ljust(23, " ")
                     else:
-                        converter_str = ("| %s " % "").ljust(23, " ")
+                        processor_str = ("| %s " % "").ljust(23, " ")
                     if "window" in entry:
                         window_str = ("| %s " % entry["window"]).ljust(8, " ")
                     else:
@@ -399,7 +411,7 @@ class RxMessageBroker(object):
                         rate_str = "|" + "".center(3, " ")
                     status_str = ("| %s" % status).ljust(60, " ")
 
-                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + window_str + status_str
+                    log_msg = key_str + rate_str + address_str + msg_type_str + processor_str + window_str + status_str
                     cprint(log_msg, color)
             print(" ".center(140, " "))
 
@@ -439,7 +451,7 @@ class RxMessageBroker(object):
                         rate_str = f"|{str(entry['rate']).center(3, ' ')}"
                         node_str = f'| {self.rx_connectable[address]["node_name"].ljust(40, " ")}'
                         msg_type_str = f'| {self.rx_connectable[address]["source"]["msg_type"].__name__}'.ljust(12, " ")
-                        converter_str = f'| {self.rx_connectable[address]["source"]["converter"].__class__.__name__}'.ljust(
+                        converter_str = f'| {self.rx_connectable[address]["source"]["processor"].__class__.__name__}'.ljust(
                             12, " "
                         )
                         status += node_str + msg_type_str + converter_str
@@ -464,16 +476,16 @@ class RxMessageBroker(object):
                     msg_type_str = ("| %s " % entry["msg_type"].__name__).ljust(10, " ")
                     status_str = ("| Connected via %s" % status).ljust(60, " ")
 
-                    if "converter" in entry:
-                        converter_str = ("| %s " % entry["converter"].__class__.__name__).ljust(23, " ")
+                    if "processor" in entry:
+                        processor_str = ("| %s " % entry["processor"].__class__.__name__).ljust(23, " ")
                     else:
-                        converter_str = ("| %s " % "").ljust(23, " ")
+                        processor_str = ("| %s " % "").ljust(23, " ")
                     if "window" in entry:
                         window_str = ("| %s " % entry["window"]).ljust(8, " ")
                     else:
                         window_str = ("| %s " % "").ljust(8, " ")
 
-                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + window_str + status_str
+                    log_msg = key_str + rate_str + address_str + msg_type_str + processor_str + window_str + status_str
                     print_status and cprint(log_msg, color)
 
                     # Remove address from disconnected
@@ -512,7 +524,7 @@ def from_topic(topic_type: Any, topic_name: str, node_name, subscribers: list) -
                     sub.unregister()
                     rospy.logdebug(f"[{sub.name}]: Unregistered this subscription because of exception: {e}")
 
-            sub = rospy.Subscriber(topic_name, topic_type, callback=cb_from_topic, callback_args=wrapped_sub)
+            sub = rospy.Subscriber(topic_name, _wrap_np(topic_type), callback=cb_from_topic, callback_args=wrapped_sub)
             wrapped_sub.append(sub)
             subscribers.append(sub)
         except Exception as e:
