@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.23 (2022-05-16)
+### Fix
+* Refactor bridge to engine ([`372e71c`](https://github.com/eager-dev/eagerx/commit/372e71ccd2782ffa80b9fb657b5e84b560cb17af))
+* Update docs and remove initialize_spec ([`4bc3fdb`](https://github.com/eager-dev/eagerx/commit/4bc3fdbb89e24e9d0908b34dcb1e961bdcb4507f))
+* Initialize spec inside `register.spec` wrapper. ([`e31f2fc`](https://github.com/eager-dev/eagerx/commit/e31f2fcf3f5513b83c1104d3bf47da60a76a4306))
+* Get spec object from graph state ([`7b3c90f`](https://github.com/eager-dev/eagerx/commit/7b3c90f1ddca2807a55eaca7207f447dfc5d23e8))
+* Ensure target and source are compatible ([`5a60c4d`](https://github.com/eager-dev/eagerx/commit/5a60c4d648a33d30e8d53b904687311ca7336a6f))
+
 ## v0.1.22 (2022-05-07)
 ### Fix
 * Bug when checking window > 0 if skip=True & intial_obs!=None. ([`f45b33a`](https://github.com/eager-dev/eagerx/commit/f45b33ad69eaa37d664c1282ee36a56adf888da0))
