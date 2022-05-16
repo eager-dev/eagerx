@@ -30,13 +30,13 @@ def test_skip_observation(force_start):
     graph.connect(source=N1.outputs.out_2, observation="maf_state", skip=True, window=1, initial_obs=[666])
     graph.connect(source=arm.sensors.N6, observation="sens_1")
 
-    # Define bridge
-    bridge = eagerx.Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=0,
+    # Define engine
+    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0,
                                 process=eagerx.process.ENVIRONMENT)
 
     # Initialize Environment
     try:
-        env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, bridge=bridge, force_start=force_start)
+        env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, engine=engine, force_start=force_start)
         msg = "We should have exited the environment here. IMPORTANT!!! The test with force_start=False cannot be the first test."
         assert force_start, msg
     except rospy.ROSException:

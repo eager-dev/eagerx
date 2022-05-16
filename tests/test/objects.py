@@ -6,7 +6,7 @@ from std_msgs.msg import UInt64, String
 import eagerx
 from eagerx import register
 from eagerx import specs
-from tests.test.bridge import TestBridgeNode
+from tests.test.engine import TestEngineNode
 
 
 class Arm(eagerx.Object):
@@ -57,9 +57,6 @@ class Arm(eagerx.Object):
         low: Optional[int] = 0,
     ):
         """Object spec of Arm"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        Arm.initialize_spec(spec)
-
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         spec.config.name = name
@@ -83,15 +80,15 @@ class Arm(eagerx.Object):
         Arm.agnostic(spec, rate=15)
 
     @staticmethod
-    @register.bridge(entity_id, TestBridgeNode)
-    def test_bridge(spec: specs.ObjectSpec, graph: eagerx.EngineGraph):
-        """Engine-specific implementation of the Arm with the test bridge."""
-        # Set bridge_config
-        spec.TestBridge.req_arg = "TEST"
-        spec.TestBridge.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
+    @register.engine(entity_id, TestEngineNode)
+    def test_engine(spec: specs.ObjectSpec, graph: eagerx.EngineGraph):
+        """Engine-specific implementation of the Arm with the test engine."""
+        # Set engine_config
+        spec.TestEngine.req_arg = "TEST"
+        spec.TestEngine.xacro = "$(find some_package)/urdf/arm.urdf.xacro"
 
         # Create engine_states
-        spec.TestBridge.states.N9 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N9")
+        spec.TestEngine.states.N9 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N9")
 
         # Create sensor engine nodes
         N6 = eagerx.EngineNode.make(
@@ -102,7 +99,7 @@ class Arm(eagerx.Object):
             inputs=["tick", "in_1"],
             outputs=["out_1"],
             states=["state_1"],
-            test_arg=spec.TestBridge.req_arg,
+            test_arg=spec.TestEngine.req_arg,
         )
         N7 = eagerx.EngineNode.make(
             "TestSensor",
@@ -139,7 +136,7 @@ class Arm(eagerx.Object):
 
         # Test SpecificSpec:
         _ = spec.__str__()
-        spec.TestBridge.states.N9.test_arg = "test2"
+        spec.TestEngine.states.N9.test_arg = "test2"
 
         # Test EngineGraph: Add/remove sensor
         graph.add(N6)
@@ -278,9 +275,6 @@ class Viper(Arm):
         low: Optional[int] = 0,
     ):
         """Object spec of Viper"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        Viper.initialize_spec(spec)
-
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...
         spec.config.name = name
@@ -300,16 +294,16 @@ class Viper(Arm):
         Viper.agnostic(spec, rate=15)
 
     @staticmethod
-    @register.bridge(entity_id, TestBridgeNode)
-    def test_bridge(spec: specs.ObjectSpec, graph: eagerx.EngineGraph):
-        """Engine-specific implementation of the Viper with the test bridge."""
+    @register.engine(entity_id, TestEngineNode)
+    def test_engine(spec: specs.ObjectSpec, graph: eagerx.EngineGraph):
+        """Engine-specific implementation of the Viper with the test engine."""
         # Set object arguments
-        spec.TestBridge.req_arg = "TEST ARGUMENT"
-        spec.TestBridge.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
+        spec.TestEngine.req_arg = "TEST ARGUMENT"
+        spec.TestEngine.xacro = "$(find some_package)/urdf/viper.urdf.xacro"
 
         # Create engine_states
-        spec.TestBridge.states.N9 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N9")
-        spec.TestBridge.states.N10 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N10")
+        spec.TestEngine.states.N9 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N9")
+        spec.TestEngine.states.N10 = eagerx.EngineState.make("TestEngineState", test_arg="arg_N10")
 
         # Create sensor engine nodes
         N6 = eagerx.EngineNode.make(
@@ -320,7 +314,7 @@ class Viper(Arm):
             inputs=["tick", "in_1"],
             outputs=["out_1"],
             states=["state_1"],
-            test_arg=spec.TestBridge.req_arg,
+            test_arg=spec.TestEngine.req_arg,
         )
         N7 = eagerx.EngineNode.make(
             "TestSensor",

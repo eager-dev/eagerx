@@ -7,16 +7,16 @@ First we will train in simulation and afterwards we will fine tune the policy on
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/examples/example_real.py>`_
 
-Initialize the Bridges
+Initialize the Engines
 ######################
 
-After creating the :mod:`~eagerx.core.graph.Graph`, we will also :func:`~eagerx.core.entities.Bridge.make` the *OdeBridge* and *RealBridge*.
+After creating the :mod:`~eagerx.core.graph.Graph`, we will also :func:`~eagerx.core.entities.Engine.make` the *OdeEngine* and *RealEngine*.
 
 ::
 
-  # Define bridges
-  bridge_ode = Bridge.make('OdeBridge', rate=rate, sync=True, real_time_factor=0, process=process.NEW_PROCESS)
-  bridge_real = Bridge.make('RealBridge', rate=rate, sync=True, process=process.NEW_PROCESS)
+  # Define engines
+  engine_ode = Engine.make('OdeEngine', rate=rate, sync=True, real_time_factor=0, process=process.NEW_PROCESS)
+  engine_real = Engine.make('RealEngine', rate=rate, sync=True, process=process.NEW_PROCESS)
 
 EagerxEnv
 #########
@@ -46,13 +46,13 @@ We terminate the episode if the number of steps is larger than 500.
   Therefore, we this data is stored under the key "observation".
 
 
-We will then initialize two times a :mod:`~eagerx.core.env.EagerxEnv`: one with the *OdeBridge* and one with the *RealBridge*.
+We will then initialize two times a :mod:`~eagerx.core.env.EagerxEnv`: one with the *OdeEngine* and one with the *RealEngine*.
 
 ::
 
   # Initialize Environment
-  real_env = Flatten(EagerxEnv(name='real', rate=rate, graph=graph, bridge=bridge_real, step_fn=step_fn))
-  simulation_env = Flatten(EagerxEnv(name='ode', rate=rate, graph=graph, bridge=bridge_ode, step_fn=step_fn))
+  real_env = Flatten(EagerxEnv(name='real', rate=rate, graph=graph, engine=engine_real, step_fn=step_fn))
+  simulation_env = Flatten(EagerxEnv(name='ode', rate=rate, graph=graph, engine=engine_ode, step_fn=step_fn))
 
 Train in Simulation
 ###################

@@ -82,7 +82,7 @@ class RxMessageBroker(object):
             ns = node.ns
         else:
             ns = self.node_io[node_name]["node"].ns
-        tick_address = ns + "/bridge/outputs/tick"
+        tick_address = ns + "/engine/outputs/tick"
 
         # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
         for i in outputs:
@@ -231,7 +231,7 @@ class RxMessageBroker(object):
                 cname_address = f"{i['name']}:{address}"
             except KeyError:
                 cname_address = f"done_flag:{address}"
-            if "msg" in i:  # Only true if sim state node (i.e. **not** for bridge done flags)
+            if "msg" in i:  # Only true if sim state node (i.e. **not** for engine done flags)
                 self._assert_already_registered(cname_address + "/set", self.node_io[node_name], "state_inputs")
                 self._assert_already_registered(cname_address + "/set", n, "state_inputs")
                 n["state_inputs"][cname_address + "/set"] = {
@@ -242,7 +242,7 @@ class RxMessageBroker(object):
                     "converter": i["converter"],
                     "status": "disconnected",
                 }
-            # Only true if **not** a real reset node (i.e., sim state & bridge done flag)
+            # Only true if **not** a real reset node (i.e., sim state & engine done flag)
             if (cname_address + "/done") not in n["state_outputs"].keys():
                 self._assert_already_registered(cname_address + "/done", self.node_io[node_name], "state_inputs")
                 self._assert_already_registered(cname_address + "/done", n, "state_inputs")

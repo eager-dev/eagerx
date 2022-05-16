@@ -35,25 +35,15 @@ class ButterworthFilter(Node):
         :param N: The order of the filter
         :param Wn: The critical frequency or frequencies
         :param btype: {'lowpass', 'highpass', 'bandpass', 'bandstop'}
-        :param process: {0: NEW_PROCESS, 1: ENVIRONMENT, 2: BRIDGE, 3: EXTERNAL}
+        :param process: {0: NEW_PROCESS, 1: ENVIRONMENT, 2: ENGINE, 3: EXTERNAL}
         :param color: console color of logged messages. {'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'grey'}
         :return:
         """
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(ButterworthFilter)
-
         # Modify default node params
-        spec.config.name = name
-        spec.config.rate = rate
-        spec.config.process = process
-        spec.config.color = color
-        spec.config.inputs = ["signal"]
-        spec.config.outputs = ["filtered"]
+        spec.config.update(name=name, rate=rate, process=process, color=color, inputs=["signal"], outputs=["filtered"])
 
         # Modify custom node params
-        spec.config.N = N
-        spec.config.Wn = Wn
-        spec.config.btype = btype
+        spec.config.update(N=N, Wn=Wn, btype=btype)
 
         # Add converter & space_converter
         spec.inputs.signal.window = "$(config N)"

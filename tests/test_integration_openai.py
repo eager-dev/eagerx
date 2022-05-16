@@ -1,11 +1,11 @@
-from eagerx import Object, Bridge, Node, Processor, SpaceConverter
+from eagerx import Object, Engine, Node, Processor, SpaceConverter
 from eagerx import initialize, log, process
 
 # Environment imports
 from eagerx.core.graph import Graph
 
 # Implementation specific
-import eagerx.bridges.openai_gym as eagerx_gym
+import eagerx.engines.openai_gym as eagerx_gym
 import eagerx.nodes  # noqa: F401
 import eagerx.converters  # noqa: F401
 
@@ -21,7 +21,7 @@ ENV = process.ENVIRONMENT
     "gym_id, eps, sync, rtf, p",
     [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
-def test_integration_openai_bridge(gym_id, eps, sync, rtf, p):
+def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
 
     # Define rate (depends on rate of gym env)
@@ -54,12 +54,12 @@ def test_integration_openai_bridge(gym_id, eps, sync, rtf, p):
 
     name = f"{name}_{eps}_{sync}_{p}"
 
-    # Define bridge
-    obj.gui("GymBridge")
-    bridge = Bridge.make("GymBridge", rate=rate, sync=sync, real_time_factor=rtf, process=p)
+    # Define engine
+    obj.gui("GymEngine")
+    engine = Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine)
 
     # First reset
     done = False

@@ -76,10 +76,10 @@ class RxNode(object):
         params = get_param_with_blocking(name)
         rate = params["rate"]
 
-        # Get info from bridge on reactive properties
-        sync = get_param_with_blocking(self.ns + "/bridge/sync")
-        real_time_factor = get_param_with_blocking(self.ns + "/bridge/real_time_factor")
-        simulate_delays = get_param_with_blocking(self.ns + "/bridge/simulate_delays")
+        # Get info from engine on reactive properties
+        sync = get_param_with_blocking(self.ns + "/engine/sync")
+        real_time_factor = get_param_with_blocking(self.ns + "/engine/real_time_factor")
+        simulate_delays = get_param_with_blocking(self.ns + "/engine/simulate_delays")
 
         # Get node
         node_cls = get_attribute_from_module(params["node_type"])

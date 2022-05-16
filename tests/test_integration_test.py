@@ -1,4 +1,4 @@
-from eagerx import Object, Bridge, Node, ResetNode, Converter
+from eagerx import Object, Engine, Node, ResetNode, Converter
 from eagerx import initialize, log, process
 
 # Environment imports
@@ -20,14 +20,14 @@ ENV = process.ENVIRONMENT
     "eps, steps, sync, rtf, p",
     [(3, 3, True, 0, ENV), (20, 40, True, 0, NP), (3, 3, True, 4, NP), (20, 40, False, 4, NP), (3, 3, False, 4, ENV)],
 )
-def test_integration_test_bridge(eps, steps, sync, rtf, p):
+def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Start roscore
     roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
 
     # Define unique name for test environment
     name = f"{eps}_{steps}_{sync}_{p}"
     node_p = p
-    bridge_p = p
+    engine_p = p
     rate = 17
 
     # Define nodes
@@ -72,18 +72,18 @@ def test_integration_test_bridge(eps, steps, sync, rtf, p):
     # Open GUI (only opens if eagerx-gui installed)
     graph.gui()
 
-    # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, sync=sync, real_time_factor=rtf, process=bridge_p)
+    # Define engine
+    engine = Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
 
     # Initialize Environment
     env = EagerxEnv(
         name=name,
         rate=rate,
         graph=graph,
-        bridge=bridge,
+        engine=engine,
         reset_fn=lambda env: {
             "obj/N9": env.state_space.sample()["obj/N9"],
-            "bridge/param_1": env.state_space.sample()["bridge/param_1"],
+            "engine/param_1": env.state_space.sample()["engine/param_1"],
         },
     )
     env = Flatten(env)

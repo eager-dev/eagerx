@@ -4,7 +4,7 @@ Introduction
 In this tutorial we will go through the process of learning a pendulum to swing up using EAGERx.
 We will touch upon the following subjects in this tutorial:
 
-* How to create a bridge
+* How to create an engine
 * How to create an object
 * How to create a space converter
 * How to use the GUI

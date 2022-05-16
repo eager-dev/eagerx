@@ -1,4 +1,4 @@
-from eagerx.core.specs import BridgeSpec
+from eagerx.core.specs import EngineSpec
 from eagerx.core.graph import Graph
 from eagerx.core.env import EagerxEnv
 from typing import Dict, Tuple, Callable
@@ -17,10 +17,10 @@ class EagerxGym(EagerxEnv):
         name: str,
         rate: float,
         graph: Graph,
-        bridge: BridgeSpec,
+        engine: EngineSpec,
         step_fn: Callable = step_fn,
     ) -> None:
-        super().__init__(name=name, rate=rate, graph=graph, bridge=bridge, step_fn=step_fn, exclude=["reward", "done"])
+        super().__init__(name=name, rate=rate, graph=graph, engine=engine, step_fn=step_fn, exclude=["reward", "done"])
         # Flatten action spaces
         self._reduced_action_space = super(EagerxGym, self).action_space
         self._flattened_action_space, self._actions_all_discrete = get_flattened_space(self._reduced_action_space)

@@ -3,10 +3,10 @@ Engine States
 *************
 
 In this section we will discuss the concept of an engine state.
-We will do so by going through the process of creating an engine state for the *OdeBridge*.
-The *OdeBridge* allows to simulate systems based on ordinary differential equations (ODEs).
+We will do so by going through the process of creating an engine state for the *OdeEngine*.
+The *OdeEngine* allows to simulate systems based on ordinary differential equations (ODEs).
 
-For the *OdeBridge* we will create two engine states, i.e. the *OdeEngineState* and *OdeParameters* engine states.
+For the *OdeEngine* we will create two engine states, i.e. the *OdeEngineState* and *OdeParameters* engine states.
 These engine states will allow to reset the state of objects and reset the parameters for the ODE integration, respectively.
 
 `Full code is available here. <https://github.com/eager-dev/eagerx_ode/blob/master/eagerx_ode/engine_states.py>`_
@@ -17,13 +17,13 @@ These engine states will allow to reset the state of objects and reset the param
   :figclass: align-center
 
   In this section we will discuss the concept of an :class:`~eagerx.core.entities.EngineState`.
-  In an engine state, we create an implementation of a state for a specific :class:`~eagerx.core.entities.Bridge`.
+  In an engine state, we create an implementation of a state for a specific :class:`~eagerx.core.entities.Engine`.
 
 OdeEngineState
 ##############
 
 The first engine state will will create is the *OdeEngineState*.
-This engine state will be responsible for resetting the states of objects in the *OdeBridge* during a reset of the environment.
+This engine state will be responsible for resetting the states of objects in the *OdeEngine* during a reset of the environment.
 Engine states can be created using the :class:`~eagerx.core.entities.EngineState` base class.
 For creating an engine node, we need to implement three abstract methods:
 
@@ -49,15 +49,13 @@ In our case, we do not need to specify parameters, so the implementation is fair
     @staticmethod
     @register.spec("OdeSimState", EngineState)
     def spec(spec):
-        spec.initialize(OdeEngineState)
+        pass
 
 .. note::
   Mind the usage of the :func:`~eagerx.core.register.spec` decorator.
   This decorator is required to register the *OdeEngineState*.
   All entities within EAGERx have to be registered, such that their specification can be created based on their unique id.
   In this decorator we provide a unique id for the engine state (*"OdeSimState"*) and specify the type (:class:`~eagerx.core.entities.EngineState`).
-  Another thing that is worth noting, is that we need to call :func:`~eagerx.core.specs.EngineStateSpec.initialize` with a reference to the class, in this case *OdeEngineState*.
-  This will initialize the *spec* object and set default values.
 
 
 initialize
@@ -87,6 +85,6 @@ This method will be called during a reset and will reset the state of the object
     self.simulator[self.obj_name]["state"] = np.squeeze(state.data)
 
 .. note::
-  Note that we have access to the :attr:`~ode_bridge.OdeBridge.simulator` attribute, which is created in the *OdeBridge* class.
+  Note that we have access to the :attr:`~ode_engine.OdeEngine.simulator` attribute, which is created in the *OdeEngine* class.
 
 Similarly, we can create the *OdeParameters* :class:`~eagerx.core.entities.EngineState` by implementing the :func:`~eagerx.core.entities.EngineState.spec`, :func:`~eagerx.core.entities.EngineState.initialize` and :func:`~eagerx.core.entities.EngineState.reset` abstract methods.

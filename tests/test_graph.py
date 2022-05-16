@@ -1,4 +1,4 @@
-from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
+from eagerx import Object, Engine, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
 # Environment imports
@@ -67,6 +67,11 @@ def test_graph():
         print("Must fail! ", e)
 
     graph = Graph.create(nodes=[N3, KF], objects=viper)
+
+    # Get specs
+    graph.get_spec("KF")
+    graph.get_spec("N3")
+    graph.get_spec("obj")
 
     # Rendering
     graph.render(
@@ -221,18 +226,18 @@ def test_graph():
     plt.ion()
     graph.is_valid(plot=True)
 
-    # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, sync=False, real_time_factor=5.5, process=process.NEW_PROCESS)
+    # Define engine
+    engine = Engine.make("TestEngine", rate=20, sync=False, real_time_factor=5.5, process=process.NEW_PROCESS)
 
     # Initialize Environment
     env = EagerxEnv(
         name="graph",
         rate=rate,
         graph=graph,
-        bridge=bridge,
+        engine=engine,
         reset_fn=lambda env: {
             "obj/N9": env.state_space.sample()["obj/N9"],
-            "bridge/param_1": env.state_space.sample()["bridge/param_1"],
+            "engine/param_1": env.state_space.sample()["engine/param_1"],
         },
     )
     env = Flatten(env)

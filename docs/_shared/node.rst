@@ -65,9 +65,6 @@ Finally, we will set a :class:`~eagerx.core.entities.SpaceConverter`, such that 
           process: Optional[int] = process.NEW_PROCESS,
           color: Optional[str] = "grey",
       ):
-          # Performs all the steps to fill-in the params with registered info about all functions.
-          spec.initialize(ButterworthFilter)
-
           # Modify default node params
           spec.config.name = name
           spec.config.rate = rate

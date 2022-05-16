@@ -3,8 +3,8 @@ Implementing the real Pendulum
 
 
 Now that we have an implementation for the pendulum in simulation, we are ready to create an implementation for the real system.
-For this we will use the `*RealBridge* <https://github.com/eager-dev/eagerx_reality>`_.
-This bridge can be used as an interface to real-world systems.
+For this we will use the `*RealEngine* <https://github.com/eager-dev/eagerx_reality>`_.
+This engine can be used as an interface to real-world systems.
 In order to be able to use the real pendulum system in EAGERx, we need to create an :mod:`~eagerx.core.entities.EngineNode` for each actuator and sensor we have.
 Also, we need to create an :mod:`~eagerx.core.entities.EngineState` for each state we want to reset.
 In our case, we will create a *PendulumInput* actuator and a *PendulumOutput* sensor, `which are defined here <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/real/engine_nodes.py>`_.

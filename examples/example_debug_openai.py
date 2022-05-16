@@ -1,11 +1,11 @@
-from eagerx import Object, Bridge, Node, Processor, SpaceConverter
+from eagerx import Object, Engine, Node, Processor, SpaceConverter
 from eagerx import initialize, log, process
 
 # Environment imports
 from eagerx.core.graph import Graph
 
 # Implementation specific
-import eagerx.bridges.openai_gym as eagerx_gym
+import eagerx.engines.openai_gym as eagerx_gym
 import eagerx.nodes  # noqa: F401
 import eagerx.converters  # noqa: F401
 
@@ -50,12 +50,12 @@ def graph_engine(idx):
     graph.connect(source=obj.sensors.done, observation="done", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
-    # Define bridge
-    bridge = Bridge.make("GymBridge", rate=rate, sync=sync, real_time_factor=rtf, process=p)
+    # Define engine
+    engine = Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Initialize Environment
     name = str(time.time()).replace('.', '_')
-    env = eagerx_gym.EagerxGym(name=f"rx_{name}", rate=rate, graph=graph, bridge=bridge)
+    env = eagerx_gym.EagerxGym(name=f"rx_{name}", rate=rate, graph=graph, engine=engine)
 
     # First reset
     env.reset()

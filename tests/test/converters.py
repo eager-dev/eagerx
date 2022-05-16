@@ -21,9 +21,6 @@ class Space_RosUInt64(SpaceConverter):
     @staticmethod
     @register.spec("Space_RosUInt64", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
-        # Initialize converter
-        Space_RosUInt64.initialize_spec(spec)
-
         spec.config.low = low
         spec.config.high = high
         spec.config.shape = shape
@@ -68,9 +65,6 @@ class Space_RosString(SpaceConverter):
     @staticmethod
     @register.spec("Space_RosString", SpaceConverter)
     def spec(spec, low, high, shape=None, dtype="uint64"):
-        # Initialize converter
-        Space_RosString.initialize_spec(spec)
-
         spec.config.low = low
         spec.config.high = high
         spec.config.shape = shape
@@ -96,9 +90,6 @@ class RosImage_RosUInt64(Converter):
     @staticmethod
     @register.spec("RosImage_RosUInt64", Converter)
     def spec(spec, test_arg):
-        # Initialize converter
-        RosImage_RosUInt64.initialize_spec(spec)
-
         spec.config.test_arg = test_arg
 
     def A_to_B(self, msg):
@@ -118,9 +109,6 @@ class RosString_RosUInt64(Converter):
     @staticmethod
     @register.spec("RosString_RosUInt64", Converter)
     def spec(spec, test_arg):
-        # Initialize converter
-        spec.initialize(RosString_RosUInt64)
-
         spec.config.test_arg = test_arg
 
     def A_to_B(self, msg):
@@ -136,7 +124,7 @@ class IdentityProcessor(Processor):
     @staticmethod
     @register.spec("IdentityProcessor", Processor)
     def spec(spec):
-        IdentityProcessor.initialize_spec(spec)
+        pass
 
     def initialize(self):
         pass

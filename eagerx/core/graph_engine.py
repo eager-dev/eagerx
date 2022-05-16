@@ -204,8 +204,8 @@ class EngineGraph:
 
                        .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
         :param delay: A non-negative simulated delay (seconds). This delay is ignored if
-                      :attr:`~eagerx.core.entities.Bridge.simulate_delays` = True
-                      in the bridge's :func:`~eagerx.core.entities.Bridge.spec`.
+                      :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
+                      in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
         :param external_rate: The rate (Hz) with which messages are published to the topic specified by
@@ -214,7 +214,7 @@ class EngineGraph:
                               .. warning:: Only add external inputs if you are sure that they are synchronized with respect
                                            to the provided rate and their respective inputs.
                                            Asynchronous external inputs can easily lead to deadlocks if running in synchronized mode
-                                           (i.e. :attr:`~eagerx.core.entities.Bridge.sync` = True).
+                                           (i.e. :attr:`~eagerx.core.entities.Engine.sync` = True).
         """
         flag = not address or (source is None and actuator is None and sensor is None)
         assert flag, f'You cannot provide an external address "{address}" together with a sensor, actuator, or source.'
@@ -326,6 +326,9 @@ class EngineGraph:
 
         # Perform checks on target
         self._is_selected(self._state, target)
+
+        # Make sure that source and target are compatible
+        self._is_compatible(self._state, source, target)
 
         # Make sure that target is not already connected.
         curr_address = target.address
@@ -456,18 +459,18 @@ class EngineGraph:
         # """
         # Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
         # parameter will be set there. Else, the parameter is set under the "config" key.
-        # For objects, parameters are set under their agnostic definitions of the components (so not bridge specific).
+        # For objects, parameters are set under their agnostic definitions of the components (so not engine specific).
         # If a converter is added, we check if the msg_type changes with the new converter. If so, the component is
         # disconnected. See _set_converter for more info.
         # """
         assert not entry()[0] == "actuators", (
             "Cannot change the actuator parameters here, "
-            "in a bridge specific implementation. That is only possible in the "
+            "in an engine specific implementation. That is only possible in the "
             "object's agnostic definition."
         )
         assert not entry()[0] == "sensors", (
             "Cannot change the sensor parameters here, "
-            "in a bridge specific implementation. That is only possible in the "
+            "in an engine specific implementation. That is only possible in the "
             "object's agnostic definition."
         )
 
@@ -733,6 +736,42 @@ class EngineGraph:
         params = state["nodes"][name]
         component = "outputs" if component == "feedthroughs" else component
         assert cname in params["config"][component], f'"{cname}" not selected in "{name}" under "config" in {component}.'
+
+    @staticmethod
+    def _is_compatible(state: Dict, source: GraphView, target: GraphView):
+        """Check if provided the provided entries are compatible."""
+        # Valid source and target components
+        targets = ["inputs"]
+        sources = ["outputs"]
+
+        # Provided entries
+        target_name, target_component, target_cname = target()
+        source_name, source_component, source_cname = source()
+        base_msg = (
+            f"'{target_name}.{target_component}.{target_cname}' cannot be connected with "
+            f"'{source_name}.{source_component}.{source_cname}')."
+        )
+
+        # Check if target & source are validly chosen
+        assert target_component in targets, f"{base_msg} '{target_component}' cannot be a target."
+        assert source_component in sources, f"{base_msg} '{source_component}' cannot be a source."
+
+        # Check if combinations are valid.
+        if source_component in ["outputs", "sensors"]:
+            valid = ["inputs", "feedthroughs", "actuators"]
+            msg = f"{base_msg} '{source_component}' can only be connected to any of the components in '{valid}'."
+            assert target_component in valid, msg
+        else:  # source_component == "states":
+            valid = ["targets"]
+            msg = f"{base_msg} '{source_component}' can only be connected to any of the components in '{valid}'."
+            assert target_component in valid, msg
+
+            # Check that the state corresponds to an object (i.e. is an engine state)
+            msg = (
+                f"{base_msg} Only '{source_component}' of Objects can be connected to targets. '{source_name}' "
+                "is not of type Object."
+            )
+            assert "node_type" not in state["nodes"][source_name], msg
 
     @staticmethod
     def _correct_signature(

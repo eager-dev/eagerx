@@ -6,7 +6,7 @@ from std_msgs.msg import Float32MultiArray, Bool, Float32
 from sensor_msgs.msg import Image
 
 # EAGERx IMPORTS
-from eagerx.bridges.openai_gym.bridge import GymBridge
+from eagerx.engines.openai_gym.engine import GymEngine
 from eagerx.core.entities import Object, EngineNode, SpaceConverter
 from eagerx.core.specs import ObjectSpec
 from eagerx.core.graph_engine import EngineGraph
@@ -59,9 +59,6 @@ class GymObject(Object):
         render_shape: Optional[List[int]] = None,
     ):
         """Object spec of GymObject"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        GymObject.initialize_spec(spec)
-
         # Set default node params
         spec.config.name = name
         spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "done"]
@@ -76,11 +73,11 @@ class GymObject(Object):
         GymObject.agnostic(spec, rate)
 
     @staticmethod
-    @register.bridge(entity_id, GymBridge)  # This decorator pre-initializes bridge implementation with default object_params
+    @register.engine(entity_id, GymEngine)  # This decorator pre-initializes engine implementation with default object_params
     def openai_gym(spec: ObjectSpec, graph: EngineGraph):
-        """Engine-specific implementation (GymBridge) of the object."""
-        # Set bridge arguments (nothing to set here in this case)
-        spec.GymBridge.env_id = spec.config.env_id
+        """Engine-specific implementation (GymEngine) of the object."""
+        # Set engine arguments (nothing to set here in this case)
+        spec.GymEngine.env_id = spec.config.env_id
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)

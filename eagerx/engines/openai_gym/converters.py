@@ -26,9 +26,6 @@ class GymSpace_Float32MultiArray(SpaceConverter):
         shape=None,
         dtype="float32",
     ):
-        # Initialize converter
-        spec.initialize(GymSpace_Float32MultiArray)
-
         spec.config.gym_id = gym_id
         spec.config.space = space
         spec.config.low = low

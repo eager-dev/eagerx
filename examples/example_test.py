@@ -1,5 +1,5 @@
 # EAGERx imports
-from eagerx import Object, Bridge, Node, ResetNode, Converter, BaseConverter
+from eagerx import Object, Engine, Node, ResetNode, Converter, BaseConverter
 from eagerx import initialize, log, process
 
 # Environment imports
@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     # Process configuration (optional)
     node_p = process.NEW_PROCESS
-    bridge_p = process.NEW_PROCESS
+    engine_p = process.NEW_PROCESS
     rate = 7
 
     # todo: TODAY
@@ -131,18 +131,18 @@ if __name__ == "__main__":
     graph.save("./test.graph")
     graph.load("./test.graph")
 
-    # Define bridge
-    bridge = Bridge.make("TestBridge", rate=20, sync=True, real_time_factor=0, process=bridge_p)
+    # Define engine
+    engine = Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=engine_p)
 
     # Initialize Environment
     env = EagerxEnv(
         name="rx",
         rate=rate,
         graph=graph,
-        bridge=bridge,
+        engine=engine,
         # reset_fn=lambda env: {
         #     "obj/N9": env.state_space.sample()["obj/N9"],
-        #     "bridge/param_1": env.state_space.sample()["bridge/param_1"],
+        #     "engine/param_1": env.state_space.sample()["engine/param_1"],
         # },
     )
     env = Flatten(env)
@@ -168,10 +168,10 @@ if __name__ == "__main__":
     #  - Currently, we assume that **all** nodes & objects are registered and initialized before the user calls reset.
     #  Hence, we cannot adaptively register new objects or controllers after some episodes.
     #  - If we have **kwargs in callback/reset signature, the node.py implementation supports adding inputs/states.
-    #  - Only objects can have nonreactive inputs. In that case, the bridge is responsible for sending flag msgs (num_msgs_send).
-    #  The bridges knows which inputs are nonreactive when the object is registered.
+    #  - Only objects can have nonreactive inputs. In that case, the engine is responsible for sending flag msgs (num_msgs_send).
+    #  The engines knows which inputs are nonreactive when the object is registered.
     #  - Nodes **must** at all times publish an output. Even, when a node did not received any new inputs and wishes to not publish.
     #  Perhaps, this constraint could be softened in the async setting, however the nodes that send "None", would then
     #  not be agnostic (as they would break in the case sync=True).
-    #  - In the bridge definition of an object, there cannot be converters defined for the components related to the sensor and actuator.
+    #  - In the engine definition of an object, there cannot be converters defined for the components related to the sensor and actuator.
     #  Reason for this is that if a converter would already be defined there, then it is not possible anymore to add another one in the agnostic graph.

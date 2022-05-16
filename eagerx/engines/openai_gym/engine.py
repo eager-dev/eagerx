@@ -9,18 +9,18 @@ from std_msgs.msg import UInt64
 # RX IMPORTS
 from eagerx.core.constants import process, ERROR
 import eagerx.core.register as register
-from eagerx.core.entities import Bridge
-from eagerx.core.specs import BridgeSpec
+from eagerx.core.entities import Engine
+from eagerx.core.specs import EngineSpec
 
 
-class GymBridge(Bridge):
+class GymEngine(Engine):
     def initialize(self):
         self.simulator = dict()
 
     @staticmethod
-    @register.spec("GymBridge", Bridge)
+    @register.spec("GymEngine", Engine)
     def spec(
-        spec: BridgeSpec,
+        spec: EngineSpec,
         rate,
         process: Optional[int] = process.NEW_PROCESS,
         sync: Optional[bool] = True,
@@ -28,11 +28,8 @@ class GymBridge(Bridge):
         simulate_delays: Optional[bool] = True,
         log_level: Optional[int] = ERROR,
     ):
-        """TestBridge spec"""
-        # Performs all the steps to fill-in the params with registered info about all functions.
-        spec.initialize(GymBridge)
-
-        # Modify default bridge params
+        """TestEngine spec"""
+        # Modify default engine params
         spec.config.rate = rate
         spec.config.process = process
         spec.config.sync = sync
@@ -41,13 +38,13 @@ class GymBridge(Bridge):
         spec.config.log_level = log_level
         spec.config.color = "magenta"
 
-    @register.bridge_config(env_id=None)
-    def add_object(self, config, bridge_config, node_params, state_params):
+    @register.engine_config(env_id=None)
+    def add_object(self, config, engine_config, node_params, state_params):
         """
         Adds an object whose dynamics are governed by a registered OpenAI gym environment.
 
         :param config: The (agnostic) config of the :class:`~eagerx.core.entities.Object` that is to be added.
-        :param bridge_config: The bridge-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
+        :param engine_config: The engine-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
                               This dict contains the registered parameters:
 
                               - **env_id**: A string ID of the OpenAI gym environment.
@@ -63,7 +60,7 @@ class GymBridge(Bridge):
 
         # Extract relevant object_params
         obj_name = config["name"]
-        id = bridge_config["env_id"]
+        id = engine_config["env_id"]
 
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(

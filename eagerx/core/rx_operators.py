@@ -1020,10 +1020,10 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
         must_sync = len([i["name"] for i in params["inputs"] if i["name"] == "tick"]) > 0
         for i in params["outputs"]:
             count += 1
-            # Only add output as input to bridge if:
+            # Only add output as input to engine if:
             #  1. `tick` is an input to the engine node (ie, we require input-output synchronization).
-            #  2. It is the final output of the object, and no other output was added to the bridge yet.
-            #     This is required, else the bridge might not have any output.
+            #  2. It is the final output of the object, and no other output was added to the engine yet.
+            #     This is required, else the engine might not have any output.
             if not (must_sync or ((not has_output) and count == num_outputs)):
                 continue
             ros_msg_type = get_opposite_msg_cls(i["msg_type"], i["converter"])
@@ -1070,7 +1070,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
                 # Initialize rx reset output for reactive input
                 i["reset"] = Subject()
 
-                # Create a new output topic for each SimNode reactive input (bridge sends reset msg)
+                # Create a new output topic for each SimNode reactive input (engine sends reset msg)
                 o = dict()
                 o.update(i)
                 reactive_proxy.append(o)

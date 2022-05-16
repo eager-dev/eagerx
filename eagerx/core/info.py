@@ -36,18 +36,18 @@ def get_info(entity, id, methods=None, no_cls=False, return_msg=False):
     msg += indent(f"file: `{inspect.getfile(cls)}`\n", tab)
     msg += "\n"
 
-    # Objects: Add supported bridges
+    # Objects: Add supported engines
     if entity.__qualname__ == "Object":
         if len(REGISTRY[entity][id].keys()) == 2:
-            bridge_msg = "Supported bridges: <Nothing registered>\n"
+            engine_msg = "Supported engines: <Nothing registered>\n"
         else:
-            bridge_msg = "Supported bridges:\n"
-            for bridge_id in REGISTRY[entity][id].keys():
-                if bridge_id in ["spec", "cls"]:
+            engine_msg = "Supported engines:\n"
+            for engine_id in REGISTRY[entity][id].keys():
+                if engine_id in ["spec", "cls"]:
                     continue
-                bridge_msg += indent(f"{bridge_id}\n", tab[2:] + "- ")
+                engine_msg += indent(f"{engine_id}\n", tab[2:] + "- ")
 
-        msg += bridge_msg + "\n"
+        msg += engine_msg + "\n"
 
     # Converters: Add conversions
     if entity.__qualname__ in ["Converter", "SpaceConverter", "Processor"]:

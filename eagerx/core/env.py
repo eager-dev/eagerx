@@ -7,7 +7,7 @@ from std_msgs.msg import UInt64
 from std_srvs.srv import Trigger, TriggerResponse, TriggerRequest
 
 # EAGERX
-from eagerx.core.specs import NodeSpec, ObjectSpec, BridgeSpec
+from eagerx.core.specs import NodeSpec, ObjectSpec, EngineSpec
 from eagerx.core.entities import Node
 from eagerx.core.graph import Graph
 from eagerx.utils.node_utils import (
@@ -16,7 +16,7 @@ from eagerx.utils.node_utils import (
     substitute_args,
 )
 from eagerx.core.executable_node import RxNode
-from eagerx.core.executable_bridge import RxBridge
+from eagerx.core.executable_engine import RxEngine
 from eagerx.core.supervisor import Supervisor, SupervisorNode
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.core.constants import process
@@ -45,7 +45,7 @@ class Env(gym.Env):
         supervisor.config.outputs = ["step"]
         return supervisor
 
-    def __init__(self, name: str, rate: float, graph: Graph, bridge: BridgeSpec, force_start: bool) -> None:
+    def __init__(self, name: str, rate: float, graph: Graph, engine: EngineSpec, force_start: bool) -> None:
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = "/" + name
@@ -53,23 +53,23 @@ class Env(gym.Env):
         self.initialized = False
         self.has_shutdown = False
 
-        # Take deepcopy of bridge
-        bridge = BridgeSpec(bridge.params)
-        self._bridge_name = bridge.params["config"]["entity_id"]
+        # Take deepcopy of engine
+        engine = EngineSpec(engine.params)
+        self._engine_name = engine.params["config"]["entity_id"]
 
         # Register graph
         self.graph = graph
         nodes, objects, actions, observations, self.render_node = graph.register()
 
-        # Add bridge implementation
-        [o.add_bridge(self._bridge_name) for o in objects]
+        # Add engine implementation
+        [o.add_engine(self._engine_name) for o in objects]
 
         # Initialize supervisor node
-        self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(bridge, nodes, objects, force_start)
+        self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(engine, nodes, objects, force_start)
         self._is_initialized = self.supervisor_node.is_initialized
 
-        # Initialize bridge
-        self._init_bridge(bridge, nodes)
+        # Initialize engine
+        self._init_engine(engine, nodes)
 
         # Create environment node
         self.env_node, self.env = self._init_environment(actions, observations, self.supervisor_node, self.mb)
@@ -88,12 +88,12 @@ class Env(gym.Env):
         self._shutdown_srv = rospy.Service(f"{self.ns}/environment/shutdown", Trigger, self._remote_shutdown)
         atexit.register(self.shutdown)
 
-    def _init_supervisor(self, bridge: BridgeSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
+    def _init_supervisor(self, engine: EngineSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
         # Initialize supervisor
         supervisor = self.create_supervisor()
 
         # Get all states from objects & nodes
-        for i in [bridge] + nodes + objects:
+        for i in [engine] + nodes + objects:
             if "states" not in i.params["config"]:
                 continue
             for cname in i.params["config"]["states"]:
@@ -116,7 +116,7 @@ class Env(gym.Env):
             if isinstance(i, ObjectSpec):
                 obj_name = i.config.name
                 context = {"ns": {"obj_name": obj_name}, "config": i.config.to_dict()}
-                for node_name, params_simnode in i.params[self._bridge_name]["nodes"].items():
+                for node_name, params_simnode in i.params[self._engine_name]["nodes"].items():
                     if "states" in params_simnode["config"]:
                         for cname in params_simnode["config"]["states"]:
                             comp_params = params_simnode["states"][cname]
@@ -127,7 +127,7 @@ class Env(gym.Env):
                             space_converter = comp_params["space_converter"]
 
                             rospy.logwarn(
-                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under bridge implementation "{self._bridge_name}" for more info.'
+                                f'Adding state "{name}" to simulation node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
                             )
                             assert (
                                 name not in supervisor.params["states"]
@@ -172,10 +172,10 @@ class Env(gym.Env):
         # Initialize message broker
         mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"))
 
-        # Get info from bridge on reactive properties
-        sync = bridge.config.sync
-        real_time_factor = bridge.config.real_time_factor
-        simulate_delays = bridge.config.simulate_delays
+        # Get info from engine on reactive properties
+        sync = engine.config.sync
+        real_time_factor = engine.config.real_time_factor
+        simulate_delays = engine.config.simulate_delays
 
         # Create supervisor node
         name = supervisor.config.name
@@ -195,17 +195,17 @@ class Env(gym.Env):
         mb.connect_io()
         return mb, rx_supervisor.node, rx_supervisor
 
-    def _init_bridge(self, bridge: BridgeSpec, nodes: List[NodeSpec]) -> None:
+    def _init_engine(self, engine: EngineSpec, nodes: List[NodeSpec]) -> None:
         # Check that reserved keywords are not already defined.
         assert (
-            "node_names" not in bridge.params["config"]
-        ), f'Keyword "{"node_names"}" is a reserved keyword within the bridge params and cannot be used twice.'
+            "node_names" not in engine.params["config"]
+        ), f'Keyword "{"node_names"}" is a reserved keyword within the engine params and cannot be used twice.'
         assert (
-            "target_addresses" not in bridge.params["config"]
-        ), f'Keyword "{"target_addresses"}" is a reserved keyword within the bridge params and cannot be used twice.'
+            "target_addresses" not in engine.params["config"]
+        ), f'Keyword "{"target_addresses"}" is a reserved keyword within the engine params and cannot be used twice.'
         assert (
-            not bridge.params["config"]["process"] == process.BRIDGE
-        ), "Cannot initialize the bridge inside the bridge process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}."
+            not engine.params["config"]["process"] == process.ENGINE
+        ), "Cannot initialize the engine inside the engine process, because it has not been launched yet. You can choose process.{ENVIRONMENT, EXTERNAL, NEW_PROCESS}."
 
         # Extract node_names
         node_names = ["environment", "env/supervisor"]
@@ -216,21 +216,21 @@ class Env(gym.Env):
                 for cname in i.params["config"]["targets"]:
                     address = i.params["targets"][cname]["address"]
                     target_addresses.append(address)
-        with bridge.config as d:
+        with engine.config as d:
             d.node_names = node_names
             d.target_addresses = target_addresses
 
         initialize_nodes(
-            bridge,
+            engine,
             process.ENVIRONMENT,
             self.ns,
             self.mb,
             self.supervisor_node.is_initialized,
             self.supervisor_node.sp_nodes,
             self.supervisor_node.launch_nodes,
-            rxnode_cls=RxBridge,
+            rxnode_cls=RxEngine,
         )
-        wait_for_node_initialization(self._is_initialized)  # Proceed after bridge is initialized
+        wait_for_node_initialization(self._is_initialized)  # Proceed after engine is initialized
 
     def _init_environment(self, actions: NodeSpec, observations: NodeSpec, supervisor_node, message_broker):
         # Check that env has at least one input & output.
@@ -463,7 +463,7 @@ class Env(gym.Env):
             objects = [objects]
 
         # Register objects
-        [self.supervisor_node.register_object(o, self._bridge_name) for o in objects]
+        [self.supervisor_node.register_object(o, self._engine_name) for o in objects]
 
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         """A method to start rendering (i.e. open the render window).
@@ -567,7 +567,7 @@ class EagerxEnv(Env):
     """The main EAGERx environment class that follows the OpenAI gym's Env API.
 
     Users can directly use this class, but may also choose to subclass it and inline the environment construction
-    (e.g. node creation, graph connecting, bridge selection, etc...) into :func:`~eagerx.core.env.EagerxEnv.__init__`.
+    (e.g. node creation, graph connecting, engine selection, etc...) into :func:`~eagerx.core.env.EagerxEnv.__init__`.
 
      A subclass may implement/overwrite the following methods:
 
@@ -583,7 +583,7 @@ class EagerxEnv(Env):
         name: str,
         rate: float,
         graph: Graph,
-        bridge: BridgeSpec,
+        engine: EngineSpec,
         step_fn: Callable = lambda prev_obs, obs, action, steps: (obs, 0.0, False, {}),
         reset_fn: Callable = lambda env: env.state_space.sample(),  # noqa: B008
         exclude: Optional[List[str]] = None,
@@ -595,9 +595,9 @@ class EagerxEnv(Env):
                      (parameters, topics, nodes, etc...) will be registered under namespace: "`/name`".
         :param rate: The rate (Hz) at which the environment will run.
         :param graph: The graph consisting of nodes and objects that describe the environment's dynamics.
-        :param bridge: The physics engine that will govern the environment's dynamics.
+        :param engine: The physics engine that will govern the environment's dynamics.
                        For every :class:`~eagerx.core.entities.Object` in the graph,
-                       the corresponding bridge implementations is chosen.
+                       the corresponding engine implementations is chosen.
         :param step_fn: A callable that provides the tuple (observation, reward, done, info) after the environment has run one timestep.
                         As arguments, the provided callable receives the previous observation, current observation, applied action,
                         and number of timesteps since the last reset.
@@ -621,7 +621,7 @@ class EagerxEnv(Env):
         #: Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
         #: May also be an empty dictionary if no states need to be reset.
         self.reset_fn = reset_fn
-        super(EagerxEnv, self).__init__(name, rate, graph, bridge, force_start=force_start)
+        super(EagerxEnv, self).__init__(name, rate, graph, engine, force_start=force_start)
 
         # Determine set of observations to exclude
         exclude = exclude if isinstance(exclude, list) else []

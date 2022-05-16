@@ -139,7 +139,7 @@ def initialize_nodes(
             launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name, object_name)
         elif params["process"] == process.EXTERNAL:
             rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
-        # else: node is launched in another (already launched) node's process (e.g. bridge process).
+        # else: node is launched in another (already launched) node's process (e.g. engine process).
 
 
 def wait_for_node_initialization(is_initialized, wait_time=0.3):

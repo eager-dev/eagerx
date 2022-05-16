@@ -8,9 +8,6 @@ class TestEngineState(EngineState):
     @staticmethod
     @register.spec("TestEngineState", EngineState)
     def spec(spec, test_arg: Optional[str] = "test_argument"):
-        # Initialize simstate
-        spec.initialize(TestEngineState)
-
         # Modify parameters based on arguments
         spec.config.test_arg = test_arg
         spec.config.test_arg = spec.config.test_arg

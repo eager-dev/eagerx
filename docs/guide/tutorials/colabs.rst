@@ -34,7 +34,7 @@ The following tutorials are currently available:
 This tutorial covers:
 
 - Creating a :class:`~eagerx.core.graph.Graph` with an :class:`~eagerx.core.entities.Object`.
-- How to use this :class:`~eagerx.core.graph.Graph` and a :class:`~eagerx.core.entities.Bridge` to create an :class:`~eagerx.core.env.EagerxEnv`.
+- How to use this :class:`~eagerx.core.graph.Graph` and a :class:`~eagerx.core.entities.Engine` to create an :class:`~eagerx.core.env.EagerxEnv`.
 - How to train a policy with the :class:`~eagerx.core.env.EagerxEnv`.
 
 .. image:: /_static/img/colab-badge.svg
@@ -85,7 +85,7 @@ This tutorial covers:
 This tutorial covers:
 
 - Adding an engine-specific implementation to an :class:`~eagerx.core.entities.Object`
-- Initializing the corresponding :class:`~eagerx.core.entities.Bridge`
+- Initializing the corresponding :class:`~eagerx.core.entities.Engine`
 - Train with the newly added engine-specific implementation
 
 .. image:: /_static/img/colab-badge.svg

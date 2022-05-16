@@ -19,7 +19,7 @@ def graph_engine(idx):
 
     # Define unique name for test environment
     node_p = p
-    bridge_p = p
+    engine_p = p
     rate = 17
 
     # Define nodes
@@ -68,8 +68,8 @@ def graph_engine(idx):
     # Open GUI (only opens if eagerx-gui installed)
     graph.gui()
 
-    # Define bridge
-    bridge = eagerx.Bridge.make("TestBridge", rate=20, sync=sync, real_time_factor=rtf, process=bridge_p)
+    # Define engine
+    engine = eagerx.Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
 
     # Initialize Environment
     name = str(time.time()).replace(".", "_")
@@ -77,10 +77,10 @@ def graph_engine(idx):
         name=f"rx_{name}",
         rate=rate,
         graph=graph,
-        bridge=bridge,
+        engine=engine,
         reset_fn=lambda env: {
             "obj/N9": env.state_space.sample()["obj/N9"],
-            "bridge/param_1": env.state_space.sample()["bridge/param_1"],
+            "engine/param_1": env.state_space.sample()["engine/param_1"],
         },
     )
     env = eagerx.wrappers.Flatten(env)

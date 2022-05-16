@@ -23,7 +23,7 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
 ::
 
   # ROS packages required
-  from eagerx import Object, Bridge, Node, initialize, log, process
+  from eagerx import Object, Engine, Node, initialize, log, process
 
   initialize("eagerx_core", anonymous=True, log_level=log.INFO)
 
@@ -34,7 +34,7 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
 
   # Implementation specific
   import eagerx.nodes  # Registers butterworth_filter
-  import eagerx_ode  # Registers OdeBridge
+  import eagerx_ode  # Registers OdeEngine
   import eagerx_dcsc_setups.pendulum  # Registers Pendulum
 
 
