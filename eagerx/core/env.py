@@ -32,19 +32,7 @@ import gym
 import logging
 
 
-class Env(gym.Env):
-    @staticmethod
-    def create_supervisor():
-        entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
-        supervisor = Node.pre_make("N/a", entity_type)
-        supervisor.add_output("step", msg_type=UInt64)
-
-        supervisor.config.name = "env/supervisor"
-        supervisor.config.color = "yellow"
-        supervisor.config.process = process.ENVIRONMENT
-        supervisor.config.outputs = ["step"]
-        return supervisor
-
+class BaseEnv(gym.Env):
     def __init__(self, name: str, rate: float, graph: Graph, engine: EngineSpec, force_start: bool) -> None:
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
@@ -79,10 +67,10 @@ class Env(gym.Env):
             nodes = [self.render_node] + nodes
 
         # Register nodes
-        self.register_nodes(nodes)
+        self._register_nodes(nodes)
 
         # Register objects
-        self.register_objects(objects)
+        self._register_objects(objects)
 
         # Implement clean up
         self._shutdown_srv = rospy.Service(f"{self.ns}/environment/shutdown", Trigger, self._remote_shutdown)
@@ -90,7 +78,7 @@ class Env(gym.Env):
 
     def _init_supervisor(self, engine: EngineSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
         # Initialize supervisor
-        supervisor = self.create_supervisor()
+        supervisor = self._create_supervisor()
 
         # Get all states from objects & nodes
         for i in [engine] + nodes + objects:
@@ -278,7 +266,37 @@ class Env(gym.Env):
         return rx_env.node, rx_env
 
     @property
-    def observation_space(self) -> gym.spaces.Dict:
+    def observation_space(self) -> gym.spaces.Space:
+        """The Space object corresponding to valid observations.
+
+        Per default, the observation space of all registered observations in the graph is used.
+        """
+        return self._observation_space
+
+    @property
+    def action_space(self) -> gym.spaces.Space:
+        """The Space object corresponding to valid actions
+
+        Per default, the action space of all registered actions in the graph is used.
+        """
+        return self._action_space
+
+    @property
+    def state_space(self) -> gym.spaces.Dict:
+        """Infers the state space from the :class:`~eagerx.core.entities.SpaceConverter` of every state.
+
+        This space defines the format of valid states that can be set before the start of an episode.
+
+        :returns: A dictionary with *key* = *state* and *value* = :class:`Space`
+                  obtained with :func:`~eagerx.core.entities.SpaceConverter.get_space`.
+        """
+        state_space = dict()
+        for name, buffer in self.supervisor_node.state_buffer.items():
+            state_space[name] = buffer["converter"].get_space()
+        return gym.spaces.Dict(spaces=state_space)
+
+    @property
+    def _observation_space(self) -> gym.spaces.Dict:
         """Infers the observation space from the :class:`~eagerx.core.entities.SpaceConverter` of every observation.
 
         This space defines the format of valid observations.
@@ -303,7 +321,7 @@ class Env(gym.Env):
         return gym.spaces.Dict(spaces=observation_space)
 
     @property
-    def action_space(self) -> gym.spaces.Dict:
+    def _action_space(self) -> gym.spaces.Dict:
         """Infers the action space from the :class:`~eagerx.core.entities.SpaceConverter` of every action.
 
         This space defines the format of valid actions.
@@ -316,20 +334,6 @@ class Env(gym.Env):
         for name, buffer in self.env_node.action_buffer.items():
             action_space[name] = buffer["converter"].get_space()
         return gym.spaces.Dict(spaces=action_space)
-
-    @property
-    def state_space(self) -> gym.spaces.Dict:
-        """Infers the state space from the :class:`~eagerx.core.entities.SpaceConverter` of every state.
-
-        This space defines the format of valid states that can be set before the start of an episode.
-
-        :returns: A dictionary with *key* = *state* and *value* = :class:`Space`
-                  obtained with :func:`~eagerx.core.entities.SpaceConverter.get_space`.
-        """
-        state_space = dict()
-        for name, buffer in self.supervisor_node.state_buffer.items():
-            state_space[name] = buffer["converter"].get_space()
-        return gym.spaces.Dict(spaces=state_space)
 
     def _set_action(self, action) -> None:
         # Set actions in buffer
@@ -375,44 +379,6 @@ class Env(gym.Env):
         self.initialized = True
         rospy.loginfo("Pipelines initialized.")
 
-    def _reset(self, states: Dict) -> Dict:
-        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.reset()`.
-
-        :param states: The desired states to be set before the start an episode.
-                       May also be an empty dict if no states need to be reset.
-        :returns: The initial observation.
-        """
-        assert not self.has_shutdown, "This environment has been shutdown."
-        # Initialize environment
-        if not self.initialized:
-            self._initialize(states)
-
-        # Set desired reset states
-        self._set_state(states)
-
-        # Perform reset
-        self.supervisor_node.reset()
-        obs = self._get_observation()
-        return obs
-
-    def _step(self, action: Dict) -> Dict:
-        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.step()`.
-
-        :param action: The actions to be applied in the next timestep.
-                       Should include all registered actions.
-        :returns: The observation of the current timestep.
-        """
-        # Check that nodes were previously initialized.
-        assert self.initialized, "Not yet initialized. Call .reset() before calling .step()."
-        assert not self.has_shutdown, "This environment has been shutdown."
-
-        # Set actions in buffer
-        self._set_action(action)
-
-        # Call step
-        self.supervisor_node.step()
-        return self._get_observation()
-
     def _remote_shutdown(self, req):
         if not self.has_shutdown:
             rospy.loginfo(f"Starting remote shutdown procedure for environment `{self.ns}`.")
@@ -447,7 +413,7 @@ class Env(gym.Env):
                 rospy.logwarn(e)
             self.has_shutdown = True
 
-    def register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
+    def _register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
         assert not self.has_shutdown, "This environment has been shutdown."
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(nodes, list):
@@ -456,7 +422,7 @@ class Env(gym.Env):
         # Register nodes
         [self.supervisor_node.register_node(n) for n in nodes]
 
-    def register_objects(self, objects: Union[List[ObjectSpec], ObjectSpec]) -> None:
+    def _register_objects(self, objects: Union[List[ObjectSpec], ObjectSpec]) -> None:
         assert not self.has_shutdown, "This environment has been shutdown."
         # Look-up via <env_name>/<obj_name>/nodes/<component_type>/<component>: /rx/obj/nodes/sensors/pos_sensors
         if not isinstance(objects, list):
@@ -464,6 +430,98 @@ class Env(gym.Env):
 
         # Register objects
         [self.supervisor_node.register_object(o, self._engine_name) for o in objects]
+
+    @staticmethod
+    def _create_supervisor():
+        entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
+        supervisor = Node.pre_make("N/a", entity_type)
+        supervisor.add_output("step", msg_type=UInt64)
+
+        supervisor.config.name = "env/supervisor"
+        supervisor.config.color = "yellow"
+        supervisor.config.process = process.ENVIRONMENT
+        supervisor.config.outputs = ["step"]
+        return supervisor
+
+    def _reset(self, states: Dict) -> Dict:
+        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.reset()`.
+
+        :param states: The desired states to be set before the start an episode.
+                       May also be an (empty) subset of registered states if not all states require a reset.
+        :returns: The initial observation.
+        """
+        assert not self.has_shutdown, "This environment has been shutdown."
+        # Initialize environment
+        if not self.initialized:
+            self._initialize(states)
+
+        # Set desired reset states
+        self._set_state(states)
+
+        # Perform reset
+        self.supervisor_node.reset()
+        obs = self._get_observation()
+        return obs
+
+    @abc.abstractmethod
+    def reset(self) -> Union[Dict, np.ndarray]:
+        """An abstract method that resets the environment to an initial state and returns an initial observation.
+
+        .. note:: To reset the graph, the private method :func:`~eagerx.core.env.BaseEnv._reset` must be called with the
+                   desired initial states. The spaces of all states (of Objects and Nodes in the graph) are stored in
+                  :func:`~eagerx.core.env.BaseEnv.state_space`.
+
+        :returns: The initial observation that is complies with the :func:`~eagerx.core.env.BaseEnv.observation_space`.
+        """
+        pass
+
+    def _step(self, action: Dict) -> Dict:
+        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.step()`.
+
+        :param action: The actions to be applied in the next timestep.
+                       Should include all registered actions.
+        :returns: The observation of the current timestep that comply with the graph's observation space.
+        """
+        # Check that nodes were previously initialized.
+        assert self.initialized, "Not yet initialized. Call .reset() before calling .step()."
+        assert not self.has_shutdown, "This environment has been shutdown."
+
+        # Set actions in buffer
+        self._set_action(action)
+
+        # Call step
+        self.supervisor_node.step()
+        return self._get_observation()
+
+    @abc.abstractmethod
+    def step(self, action: Union[Dict, np.ndarray]) -> Tuple[Union[Dict, np.ndarray], float, bool, Dict]:
+        """An abstract method that runs one timestep of the environment's dynamics.
+
+        .. note:: To run one timestep of the graph dynamics (that essentially define the environment dynamics),
+                  this method must call the private method :func:`~eagerx.core.BaseEnv._step` with the actions that comply
+                  with :attr:`~eagerx.core.BaseEnv._action_space`.
+
+        When the end of an episode is reached, the user is responsible for calling :func:`~eagerx.core.BaseEnv.reset`
+        to reset this environment's state.
+
+        :params action: Actions provided by the agent. Should comply with the :func:`~eagerx.core.env.BaseEnv.action_space`.
+
+        :returns: A tuple (observation, reward, done, info).
+
+                  - observation: Observations of the current timestep that comply with
+                                 the :func:`~eagerx.core.env.BaseEnv.observation_space`.
+
+                  - reward: amount of reward returned after previous action
+
+                  - done: whether the episode has ended, in which case further step() calls will return undefined results
+
+                  - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
+        """
+        pass
+
+    def gui(self):
+        """Opens the gui of the graph that was used to initialize this environment."""
+        self.graph.gui()
 
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         """A method to start rendering (i.e. open the render window).
@@ -505,35 +563,6 @@ class Env(gym.Env):
             else:
                 return
 
-    @abc.abstractmethod
-    def reset(self) -> Dict:
-        """An abstract method that resets the environment to an initial state and returns an initial observation.
-
-        :returns: The initial observation.
-        """
-        pass
-
-    @abc.abstractmethod
-    def step(self, action: Dict) -> Tuple[Dict, float, bool, Dict]:
-        """An abstract method that runs one timestep of the environment's dynamics.
-
-        When the end of an episode is reached, you are responsible for calling :func:`~eagerx.core.Env.reset`
-        to reset this environment's state.
-
-        :params action: A dictionary of actions provided by the agent. Should include all registered actions.
-
-        :returns: A tuple (observation, reward, done, info).
-
-                  - observation: Dictionary of observations of the current timestep.
-
-                  - reward: amount of reward returned after previous action
-
-                  - done: whether the episode has ended, in which case further step() calls will return undefined results
-
-                  - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
-        """
-        pass
-
     def close(self):
         """A method to stop rendering (i.e. close the render window).
 
@@ -563,7 +592,7 @@ class Env(gym.Env):
         self._shutdown()
 
 
-class EagerxEnv(Env):
+class EagerxEnv(BaseEnv):
     """The main EAGERx environment class that follows the OpenAI gym's Env API.
 
     Users can directly use this class, but may also choose to subclass it and inline the environment construction
@@ -611,6 +640,7 @@ class EagerxEnv(Env):
                             first shutdown by calling the :func:`~eagerx.core.env.EagerxEnv` method before initializing this
                             environment.
         """
+        rospy.logwarn_once("eagerx.EagerxEnv will be removed in the next release. Please subclass eagerx.BaseEnv instead.")
         self.steps = None
         self.prev_observation = None
         #: A callable that provides the tuple (observation, reward, done, info) after the environment has run one timestep.
