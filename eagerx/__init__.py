@@ -1,4 +1,4 @@
-__version__ = "0.1.23"
+__version__ = "0.1.24"
 
 from eagerx.core.constants import process, log  # noqa: F401  # pylint: disable=unused-import
 from eagerx.utils.node_utils import initialize  # noqa # pylint: disable=unused-import
