@@ -4,7 +4,7 @@ Graph
 
 In this section we will discuss the concept of a :class:`~eagerx.core.graph.Graph`.
 A :class:`~eagerx.core.graph.Graph` object can be created to connect inputs and outputs of different entities of types :class:`~eagerx.core.entities.Node`, :class:`~eagerx.core.entities.ResetNode` and :class:`~eagerx.core.entities.Object`.
-This :class:`~eagerx.core.graph.Graph` can be used to initialize an :class:`~eagerx.core.env.EagerxEnv`.
+This :class:`~eagerx.core.graph.Graph` can be used to initialize an :class:`~eagerx.core.env.BaseEnv`.
 Here, we will show an example of how to create such a :class:`~eagerx.core.graph.Graph`.
 We will connect a `Pendulum <https://github.com/eager-dev/eagerx_dcsc_setups/blob/master/eagerx_dcsc_setups/pendulum/objects.py>`_ :class:`~eagerx.core.entities.Object` and `ButterworthFilter <https://github.com/eager-dev/eagerx/blob/master/eagerx/nodes/butterworth_filter.py>`_ :class:`~eagerx.core.entities.Node`.
 Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.Graph.render` method.
@@ -18,7 +18,7 @@ Also, we will render the *Pendulum* object, using the :func:`~eagerx.core.graph.
 
   In this section we will discuss the concept of a :class:`~eagerx.core.graph.Graph`.
   A :class:`~eagerx.core.graph.Graph` consists of a collection of entities of type :class:`~eagerx.core.entities.Node` and :class:`~eagerx.core.entities.Object`.
-  The graph is engine-agnostic and should be provided to the :class:`~eagerx.core.env.EagerxEnv`, such that communication pipelines can be set up correctly.
+  The graph is engine-agnostic and should be provided to the :class:`~eagerx.core.env.BaseEnv`, such that communication pipelines can be set up correctly.
 
 ::
 

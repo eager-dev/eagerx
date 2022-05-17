@@ -34,8 +34,8 @@ The following tutorials are currently available:
 This tutorial covers:
 
 - Creating a :class:`~eagerx.core.graph.Graph` with an :class:`~eagerx.core.entities.Object`.
-- How to use this :class:`~eagerx.core.graph.Graph` and a :class:`~eagerx.core.entities.Engine` to create an :class:`~eagerx.core.env.EagerxEnv`.
-- How to train a policy with the :class:`~eagerx.core.env.EagerxEnv`.
+- How to use this :class:`~eagerx.core.graph.Graph` and a :class:`~eagerx.core.entities.Engine` to create an :class:`~eagerx.core.env.BaseEnv`.
+- How to train a policy with the :class:`~eagerx.core.env.BaseEnv`.
 
 .. image:: /_static/img/colab-badge.svg
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb
@@ -46,8 +46,8 @@ This tutorial covers:
 
 This tutorial covers:
 
-- Extracting observations in the :attr:`~eagerx.core.env.EagerxEnv.step_fn`
-- Resetting states using the :attr:`~eagerx.core.env.EagerxEnv.reset_fn`
+- Extracting observations in the :attr:`~eagerx.core.env.BaseEnv.step_fn`
+- Resetting states using :func:`~eagerx.core.env.BaseEnv._reset`
 - The `window` argument of the :func:`~eagerx.core.graph.Graph.connect` method
 - Simulating delays using the `delay` argument of the :func:`~eagerx.core.graph.Graph.connect` method
 

@@ -33,7 +33,37 @@ import logging
 
 
 class BaseEnv(gym.Env):
+    """The base class for all EAGERx environments that follows the OpenAI gym's Env API.
+
+    - Be sure to call :func:`super().__init__` inside the subclass' constructor with the required arguments (name, graph, etc...).
+
+    A subclass should implement the following methods:
+
+    - :func:`~eagerx.core.env.BaseEnv.step`: Be sure to call :func:`~eagerx.core.env.BaseEnv._step` inside this method to perform the step.
+
+    - :func:`~eagerx.core.env.BaseEnv.reset`: Be sure to call :func:`~eagerx.core.env.BaseEnv._reset` inside this method to perform the reset.
+
+    A subclass can optionally overwrite the following properties:
+
+    - :attr:`~eagerx.core.env.BaseEnv.observation_space`: Per default, the observations, registered in the graph, are taken.
+
+    - :attr:`~eagerx.core.env.BaseEnv.action_space`: Per default, the actions, registered in the graph, are taken.
+    """
+
     def __init__(self, name: str, rate: float, graph: Graph, engine: EngineSpec, force_start: bool) -> None:
+        """Initializes an environment with EAGERx dynamics.
+
+        :param name: The name of the environment. Everything related to this environment
+                     (parameters, topics, nodes, etc...) will be registered under namespace: "`/name`".
+        :param rate: The rate (Hz) at which the environment will run.
+        :param graph: The graph consisting of nodes and objects that describe the environment's dynamics.
+        :param engine: The physics engine that will govern the environment's dynamics.
+                       For every :class:`~eagerx.core.entities.Object` in the graph,
+                       the corresponding engine implementations is chosen.
+        :param force_start: If there already exists an environment with the same name, the existing environment is
+                            first shutdown by calling the :func:`~eagerx.core.env.BaseEnv` method before initializing this
+                            environment.
+        """
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = "/" + name
@@ -444,7 +474,7 @@ class BaseEnv(gym.Env):
         return supervisor
 
     def _reset(self, states: Dict) -> Dict:
-        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.reset()`.
+        """A private method that should be called within :func:`~eagerx.core.env.BaseEnv.reset()`.
 
         :param states: The desired states to be set before the start an episode.
                        May also be an (empty) subset of registered states if not all states require a reset.
@@ -476,7 +506,7 @@ class BaseEnv(gym.Env):
         pass
 
     def _step(self, action: Dict) -> Dict:
-        """A private method that should be called within :func:`~eagerx.core.env.EagerxEnv.step()`.
+        """A private method that should be called within :func:`~eagerx.core.env.BaseEnv.step()`.
 
         :param action: The actions to be applied in the next timestep.
                        Should include all registered actions.
@@ -527,7 +557,7 @@ class BaseEnv(gym.Env):
         """A method to start rendering (i.e. open the render window).
 
         A message of type :class:`std_msgs.msg.Bool` is sent to topic address
-        ":attr:`~eagerx.core.env.EagerxEnv.name` */env/render/toggle*", which toggles the rendering on/off.
+        ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*", which toggles the rendering on/off.
 
         :param mode: - human: render and return nothing. Usually for human consumption.
                      - rgb_array: Return a numpy.ndarray with shape (x, y, 3),
@@ -567,13 +597,13 @@ class BaseEnv(gym.Env):
         """A method to stop rendering (i.e. close the render window).
 
         A message of type :class:`std_msgs.msg.Bool` is sent to topic address
-        ":attr:`~eagerx.core.env.EagerxEnv.name` */env/render/toggle*", which toggles the rendering on/off.
+        ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*", which toggles the rendering on/off.
 
         .. note:: Depending on the source node that is producing the images that are rendered,
                   images may still be produced, even when the render window is not visible.
                   This may add computational overhead and influence the run speed.
 
-                  Optionally, users may subscribe to topic address ":attr:`~eagerx.core.env.EagerxEnv.name` */env/render/toggle*"
+                  Optionally, users may subscribe to topic address ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*"
                   in the node that is producing the images to stop the production and output empty
                   :class:`sensor_msgs.msg.Image` messages instead.
         """
@@ -583,7 +613,7 @@ class BaseEnv(gym.Env):
     def shutdown(self):
         """A method to shutdown the environment.
 
-        - Clear the parameters on the ROS parameter under the namespace /:attr:`~eagerx.core.env.EagerxEnv.name`.
+        - Clear the parameters on the ROS parameter under the namespace /:attr:`~eagerx.core.env.BaseEnv.name`.
 
         - Close nodes (i.e. release resources and perform :class:`~eagerx.core.entities.Node.close` procedure).
 
@@ -596,15 +626,15 @@ class EagerxEnv(BaseEnv):
     """The main EAGERx environment class that follows the OpenAI gym's Env API.
 
     Users can directly use this class, but may also choose to subclass it and inline the environment construction
-    (e.g. node creation, graph connecting, engine selection, etc...) into :func:`~eagerx.core.env.EagerxEnv.__init__`.
+    (e.g. node creation, graph connecting, engine selection, etc...) into :func:`~eagerx.core.env.BaseEnv.__init__`.
 
      A subclass may implement/overwrite the following methods:
 
-    - :func:`~eagerx.core.env.EagerxEnv.__init__`: Be sure to call :func:`super().__init__` inside this method with the required arguments.
+    - :func:`~eagerx.core.env.BaseEnv.__init__`: Be sure to call :func:`super().__init__` inside this method with the required arguments.
 
-    - :func:`~eagerx.core.env.EagerxEnv.step`: Be sure to call :func:`~eagerx.core.env.EagerxEnv._step` inside this method to perform the step.
+    - :func:`~eagerx.core.env.BaseEnv.step`: Be sure to call :func:`~eagerx.core.env.BaseEnv._step` inside this method to perform the step.
 
-    - :func:`~eagerx.core.env.EagerxEnv.reset`: Be sure to call :func:`~eagerx.core.env.EagerxEnv._reset` inside this method to perform the reset.
+    - :func:`~eagerx.core.env.BaseEnv.reset`: Be sure to call :func:`~eagerx.core.env.BaseEnv._reset` inside this method to perform the reset.
     """
 
     def __init__(
@@ -631,13 +661,13 @@ class EagerxEnv(BaseEnv):
                         As arguments, the provided callable receives the previous observation, current observation, applied action,
                         and number of timesteps since the last reset.
         :param reset_fn: A callable that returns a dictionary with the desired states to be set before the start an episode.
-                         Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
+                         Valid states are described by :attr:`~eagerx.core.env.BaseEnv.state_space`.
         :param exclude: Key names of the observations that are excluded from the observation space. In other words,
                         the observations that will not be returned as part of the dict when the agent calls
                         :func:`~eagerx.core.EagerxEnv.reset` and :func:`~eagerx.core.EagerxEnv.step`.
                         Observations with `window=0` are already excluded.
         :param force_start: If there already exists an environment with the same name, the existing environment is
-                            first shutdown by calling the :func:`~eagerx.core.env.EagerxEnv` method before initializing this
+                            first shutdown by calling the :func:`~eagerx.core.env.BaseEnv` method before initializing this
                             environment.
         """
         rospy.logwarn_once("eagerx.EagerxEnv will be removed in the next release. Please subclass eagerx.BaseEnv instead.")
@@ -648,7 +678,7 @@ class EagerxEnv(BaseEnv):
         #: and number of timesteps since the last reset.
         self.step_fn = step_fn
         #: A callable that returns a dictionary with the desired states to be set before the start an episode.
-        #: Valid states are described by :attr:`~eagerx.core.env.EagerxEnv.state_space`.
+        #: Valid states are described by :attr:`~eagerx.core.env.BaseEnv.state_space`.
         #: May also be an empty dictionary if no states need to be reset.
         self.reset_fn = reset_fn
         super(EagerxEnv, self).__init__(name, rate, graph, engine, force_start=force_start)
@@ -693,11 +723,11 @@ class EagerxEnv(BaseEnv):
         to reset this environment's state.
 
         After the action is applied and the environment's dynamics have run one timestep,
-        :attr:`~eagerx.core.env.EagerxEnv.step_fn` is called that returns the tuple (observation, reward, done, info).
+        :attr:`~eagerx.core.env.BaseEnv.step_fn` is called that returns the tuple (observation, reward, done, info).
 
         .. note:: Observations with :attr:`~eagerx.core.specs.RxInput.window` = 0 are excluded from the observation
                   dictionary returned to the agent.
-                  However, they are nonetheless available in :attr:`~eagerx.core.env.EagerxEnv.step_fn` to,
+                  However, they are nonetheless available in :attr:`~eagerx.core.env.BaseEnv.step_fn` to,
                   for example, calculate the reward or the episode termination condition.
 
         :params action: A dictionary of actions provided by the agent.
@@ -733,7 +763,7 @@ class EagerxEnv(BaseEnv):
         """Resets the environment to an initial state and returns an initial
         observation.
 
-        The initial state is set with the return value of :attr:`~eagerx.core.env.EagerxEnv.reset_fn`.
+        The initial state is set with the return value of :attr:`~eagerx.core.env.BaseEnv.reset_fn`.
 
         :returns: The initial observation.
         """

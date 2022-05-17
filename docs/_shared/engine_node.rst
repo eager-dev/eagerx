@@ -24,7 +24,7 @@ This class has six abstract methods:
   :figclass: align-center
 
   In this section we will discuss the concept of a :class:`~eagerx.core.entities.Engine`.
-  The :class:`~eagerx.core.entities.Engine` connects the :class:`~eagerx.core.env.EagerxEnv`, :class:`~eagerx.core.graph_engine.EngineGraph` and :class:`~eagerx.core.entities.EngineState` to the physics engine/real world.
+  The :class:`~eagerx.core.entities.Engine` connects the :class:`~eagerx.core.env.BaseEnv`, :class:`~eagerx.core.graph_engine.EngineGraph` and :class:`~eagerx.core.entities.EngineState` to the physics engine/real world.
 
 spec
 ####

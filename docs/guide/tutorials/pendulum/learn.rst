@@ -21,7 +21,7 @@ After creating the :mod:`~eagerx.core.graph.Graph`, we will also :func:`~eagerx.
 EagerxEnv
 #########
 
-Next, we will create a :attr:`~eagerx.core.env.EagerxEnv.step_fn` function.
+Next, we will create a :attr:`~eagerx.core.env.BaseEnv.step` function.
 Here we will calculate the reward and check for termination conditions.
 We terminate the episode if the number of steps is larger than 500.
 
@@ -46,7 +46,7 @@ We terminate the episode if the number of steps is larger than 500.
   Therefore, we this data is stored under the key "observation".
 
 
-We will then initialize two times a :mod:`~eagerx.core.env.EagerxEnv`: one with the *OdeEngine* and one with the *RealEngine*.
+We will then initialize two times a :mod:`~eagerx.core.env.BaseEnv`: one with the *OdeEngine* and one with the *RealEngine*.
 
 ::
 
