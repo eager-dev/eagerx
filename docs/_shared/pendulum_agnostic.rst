@@ -109,7 +109,7 @@ More information on these parameters is available at the API Reference sections 
 spec
 ####
 
-The :func:`~eagerx.core.specs.ObjectSpec` specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the object.
+The :func:`~eagerx.core.specs.ObjectSpec` specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
 Here we can for example specify what :attr:`~eagerx.core.specs.ObjectSpec.actuators`, :attr:`~eagerx.core.specs.ObjectSpec.sensors` and :attr:`~eagerx.core.specs.ObjectSpec.states` should be used by default, because this does not necessarily have to be all of them.
 Per default, we will e.g. use the *model_state* :class:`~eagerx.core.entities.EngineState` only.
 

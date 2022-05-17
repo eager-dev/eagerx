@@ -14,7 +14,7 @@ from eagerx.core.entities import (  # noqa: F401  # pylint: disable=unused-impor
     EngineState,
     EngineNode,
 )
-from eagerx.core.env import EagerxEnv  # noqa # pylint: disable=unused-import
+from eagerx.core.env import BaseEnv, EagerxEnv  # noqa # pylint: disable=unused-import
 from eagerx.core.graph import Graph  # noqa # pylint: disable=unused-import
 from eagerx.core.graph_engine import EngineGraph  # noqa # pylint: disable=unused-import
 import eagerx.core.register as register  # noqa # pylint: disable=unused-import

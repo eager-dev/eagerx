@@ -131,7 +131,7 @@ class BaseNode(Entity):
 
         Optional arguments are added, and may not necessarily be uploaded to the rosparam server.
         """
-        #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.EagerxEnv`.
+        #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
         self.ns: str = ns
         #: User specified node name. Can be set in :func:`~eagerx.core.entities.Node.spec`.
         self.name: str = name
@@ -626,7 +626,7 @@ class ResetNode(Node):
 
         - :func:`eagerx.core.register.targets` to register the targets.
 
-        .. note:: This callback is skipped until the user calls :func:`~eagerx.core.env.EagerxEnv.reset`.
+        .. note:: This callback is skipped until the user calls :func:`~eagerx.core.env.BaseEnv.reset`.
                   Until then, the messages coming in via the connected *feedthroughs* are fed through as
                   the outputs instead. For every registered output that was registered (& selected) with the
                   :func:`eagerx.core.register.outputs` decorator by the subclass, there must be a connected *feedthrough*.
@@ -1663,7 +1663,7 @@ class EngineState(Entity):
         print_mode="termcolor",
         **kwargs,
     ):
-        #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.EagerxEnv`.
+        #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
         self.ns = ns
         self.name = name
 
@@ -1741,9 +1741,9 @@ class EngineState(Entity):
     def reset(self, state: Any, done: bool) -> None:
         """An abstract method to reset the engine state of an :class:`~eagerx.core.entities.Object`.
 
-        :param state: The desired state that the user can specify before calling :func:`~eagerx.core.env.EagerxEnv.reset`.
+        :param state: The desired state that the user can specify before calling :func:`~eagerx.core.env.BaseEnv.reset`.
         :param done: A flag whether to reset the state. If True, the state might have  already been reset by a
                      :class:`~eagerx.core.entities.ResetNode`, or the user has not specified any desired state before
-                     calling :func:`~eagerx.core.env.EagerxEnv.reset`.
+                     calling :func:`~eagerx.core.env.BaseEnv.reset`.
         """
         pass
