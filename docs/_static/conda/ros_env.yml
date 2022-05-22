@@ -231,7 +231,6 @@ dependencies:
   - python-gnupg=0.4.8=pyhd8ed1ab_0
   - python-orocos-kdl=1.4.0=py38h709712a_0
   - python_abi=3.8=2_cp38
-  - pytorch-mutex=1.0=cpu
   - pyyaml=6.0=py38h0a891b7_4
   - qt=5.12.9=hda022c4_4
   - readline=8.1.2=h7f8727e_1
@@ -487,12 +486,12 @@ dependencies:
     - debugpy==1.6.0
     - decorator==5.1.1
     - docutils==0.17.1
-    - eagerx==0.1.22
-    - eagerx-gui==0.2.4
-    - eagerx-ode==0.1.11
+    - eagerx==0.1.24
+    - eagerx-gui==0.2.5
+    - eagerx-ode==0.1.12
     - eagerx-pybullet==0.1.7
-    - eagerx-reality==0.1.6
-    - eagerx-tutorials==0.1.10
+    - eagerx-reality==0.1.7
+    - eagerx-tutorials==0.1.17
     - entrypoints==0.4
     - executing==0.8.3
     - fastjsonschema==2.15.3
@@ -500,6 +499,7 @@ dependencies:
     - flake8==4.0.1
     - flake8-bugbear==22.3.23
     - gym==0.21.0
+    - huggingface-sb3==2.1.0
     - html5lib==1.1
     - idna==3.3
     - imageio==2.16.1
@@ -605,7 +605,6 @@ dependencies:
     - tinycss2==1.1.1
     - tokenize-rt==4.2.1
     - tomlkit==0.10.1
-    - torch==1.11.0+cpu
     - traitlets==5.1.1
     - typing==3.7.4.3
     - typing-extensions==4.1.1
