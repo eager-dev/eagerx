@@ -42,6 +42,8 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 `Full documentation and tutorials available here <https://eagerx.readthedocs.io/en/master/>`_.
 
+**We are currently working towards a first stable release!**
+
 ..
     TODO: ADD code example with gifs?
     Example
@@ -107,6 +109,8 @@ A number of tutorials are available in the form of Google Colabs:
 - `Tutorial 5: Adding Engine Support for an Object <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/5_engine_implementation.ipynb>`_
 - `Tutorial 6: More Informative Rendering <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_rendering.ipynb>`_
 - `Tutorial 7: Reset Routines <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/7_reset_routine.ipynb>`_
+- Tutorial 8: Defining new objects (coming soon).
+- Tutorial 9: Speeding-up training with multi-processing (coming soon).
 
 For more information see the `docs <https://eagerx.readthedocs.io/en/master/guide/tutorials/colabs.html>`_ or the `eagerx_tutorials package <https://github.com/eager-dev/eagerx_tutorials>`_.
 
