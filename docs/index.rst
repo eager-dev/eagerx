@@ -37,6 +37,8 @@ A single RL pipeline that works with both the simulated and real robots eliminat
 The defined task follows the OpenAI Gym interface, so one can plug in algorithms from established RL libraries
 (e.g., `Stable-baselines3 <https://github.com/DLR-RM/stable-baselines3>`_ ) to solve the task afterward, again minimizing implementation errors.
 
+**We are currently working towards a first stable release!**
+
 ..
     TODO: ADD code example with gifs?
     Example

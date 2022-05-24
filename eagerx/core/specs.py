@@ -44,7 +44,7 @@ class EntitySpec(object):
 
 
 class ConverterSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the converter."""
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the converter."""
 
     def initialize(self, spec_cls):
         # Set default params
@@ -76,7 +76,7 @@ class ConverterSpec(EntitySpec):
 
 
 class EngineStateSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the engine state."""
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
 
     def initialize(self, spec_cls):
         # Set default params
@@ -486,7 +486,7 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node.
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
               in the spec. This may be useful when there must exist a coupling between
@@ -503,7 +503,7 @@ class NodeSpec(BaseNodeSpec):
 
 
 class ResetNodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the node.
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
               in the spec. This may be useful when there must exist a coupling between
@@ -563,7 +563,7 @@ class ResetNodeSpec(BaseNodeSpec):
 
 
 class EngineSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the engine."""
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
 
     @property
     def config(self) -> Union[SpecView, GraphView]:
@@ -615,7 +615,7 @@ class EngineSpec(BaseNodeSpec):
 
 
 class ObjectSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.EagerxEnv` should initialize the object.
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
               in the spec. This may be useful when there must exist a coupling between

@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.24 (2022-05-17)
+### Fix
+* Refactor `Env` to `BaseEnv`, add deprecation warnings ([`c632978`](https://github.com/eager-dev/eagerx/commit/c63297870afe587a3c10b6e1c4d063a9ffbb7b0a))
+
+### Documentation
+* Refactor `EagerxEnv` to `BaseEnv`. ([`4473354`](https://github.com/eager-dev/eagerx/commit/447335445cc9c1812a735084e80a66a276d162cd))
+
 ## v0.1.23 (2022-05-16)
 ### Fix
 * Refactor bridge to engine ([`372e71c`](https://github.com/eager-dev/eagerx/commit/372e71ccd2782ffa80b9fb657b5e84b560cb17af))

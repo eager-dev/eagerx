@@ -16,6 +16,8 @@ The following tutorials are currently available:
 - `Tutorial 5: Adding Engine Support for an Object <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/5_engine_implementation.ipynb>`_
 - `Tutorial 6: More Informative Rendering <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_rendering.ipynb>`_
 - `Tutorial 7: Reset Routines <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/7_reset_routine.ipynb>`_
+- Tutorial 8: Defining new objects (coming soon).
+- Tutorial 9: Speeding-up training with multi-processing (coming soon).
 
 .. figure:: /_static/gif/pendulum.GIF
   :align: center
@@ -34,8 +36,8 @@ The following tutorials are currently available:
 This tutorial covers:
 
 - Creating a :class:`~eagerx.core.graph.Graph` with an :class:`~eagerx.core.entities.Object`.
-- How to use this :class:`~eagerx.core.graph.Graph` and a :class:`~eagerx.core.entities.Engine` to create an :class:`~eagerx.core.env.EagerxEnv`.
-- How to train a policy with the :class:`~eagerx.core.env.EagerxEnv`.
+- How to use this :class:`~eagerx.core.graph.Graph` and a :class:`~eagerx.core.entities.Engine` to create an :class:`~eagerx.core.env.BaseEnv`.
+- How to train a policy with the :class:`~eagerx.core.env.BaseEnv`.
 
 .. image:: /_static/img/colab-badge.svg
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb
@@ -46,8 +48,8 @@ This tutorial covers:
 
 This tutorial covers:
 
-- Extracting observations in the :attr:`~eagerx.core.env.EagerxEnv.step_fn`
-- Resetting states using the :attr:`~eagerx.core.env.EagerxEnv.reset_fn`
+- Extracting observations in the :attr:`~eagerx.core.env.BaseEnv.step_fn`
+- Resetting states using :func:`~eagerx.core.env.BaseEnv._reset`
 - The `window` argument of the :func:`~eagerx.core.graph.Graph.connect` method
 - Simulating delays using the `delay` argument of the :func:`~eagerx.core.graph.Graph.connect` method
 
