@@ -1,1 +1,1 @@
-.. include:: /_shared/space_converter.rst
+../../developer_guide/converter/space_converter.rst

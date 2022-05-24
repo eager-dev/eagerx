@@ -1,1 +1,1 @@
-.. include:: /_shared/engine_node.rst
+../../developer_guide/bridge/engine_node.rst
