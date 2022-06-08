@@ -300,6 +300,8 @@ class RenderNode(eagerx.Node):
     def callback(self, t_n: float, image: Optional[Msg] = None):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
+        else:
+            return dict(done=np.array(0, dtype="float32"))
         empty = len(image.msgs[-1]) == 0
         if not empty and self.display and self.render_toggle:
             self.cv_image = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)

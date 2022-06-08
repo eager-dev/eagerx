@@ -12,7 +12,6 @@ from std_msgs.msg import (
     Int16MultiArray,
     Int32MultiArray,
     Int64MultiArray,
-    ByteMultiArray,
     UInt8MultiArray,
 )
 
@@ -38,12 +37,14 @@ NUMPY_TO_ROS["int8"] = Int8MultiArray
 NUMPY_TO_ROS["int16"] = Int16MultiArray
 NUMPY_TO_ROS["int32"] = Int32MultiArray
 NUMPY_TO_ROS["int64"] = Int64MultiArray
-NUMPY_TO_ROS["uint8"] = ByteMultiArray
+NUMPY_TO_ROS["uint8"] = UInt8MultiArray
 NUMPY_TO_ROS["uint16"] = UInt16MultiArray
 NUMPY_TO_ROS["uint32"] = UInt32MultiArray
 NUMPY_TO_ROS["uint64"] = UInt64MultiArray
 
 NUMPY_COMPATIBLE_MESSAGES = [val for _, val in NUMPY_TO_ROS.items()]
+
+ROS_TO_NUMPY = {val: key for key, val in NUMPY_TO_ROS.items()}
 
 
 def space_to_dict(space):

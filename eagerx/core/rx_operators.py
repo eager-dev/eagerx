@@ -1,6 +1,7 @@
 # ROS IMPORTS
 import rospy
-from std_msgs.msg import Bool, UInt64, MultiArrayDimension
+from sensor_msgs.msg import Image
+from std_msgs.msg import Bool, UInt64, MultiArrayDimension, UInt8MultiArray
 
 # RX IMPORTS
 import rx
@@ -30,6 +31,8 @@ from eagerx.utils.utils import (
     Stamp,
     dtype_to_ros_msg_type,
     NUMPY_COMPATIBLE_MESSAGES,
+    ROS_TO_NUMPY,
+    NUMPY_TO_ROS,
 )
 
 # OTHER IMPORTS
@@ -1314,13 +1317,12 @@ def convert(msg_type, space, processor, name, node, direction="out", converter=N
                     if converter is not None:
                         res = converter.convert(recv)
                     else:
-                        # HACK! UInt8MultiArray is not supported by ros_numpy. Convert Bytes to UInt8.
-                        # if "Int8MultiArray" in type(recv).__name__:
-                        if "ByteMultiArray" in type(recv).__name__:
-                            recv.data = recv.data.astype("uint8", copy=False)
-                        s = [d.size for d in recv.layout.dim]
-                        # res = np.array(recv.data).reshape(s)
-                        res = recv.data.reshape(s)
+                        if "UInt8MultiArray" in type(recv).__name__:
+                            s = [d.size for d in recv.layout.dim]
+                            res = np.frombuffer(bytes(recv.data), dtype="uint8").reshape(s)
+                        else:
+                            s = [d.size for d in recv.layout.dim]
+                            res = np.array(recv.data, dtype=ROS_TO_NUMPY[type(recv)]).reshape(s)
 
                     # Preprocess numpy array
                     if processor is not None:
@@ -1397,13 +1399,15 @@ def convert(msg_type, space, processor, name, node, direction="out", converter=N
                         f"(processed) message ({res.dtype}) is incompatible"
                         f" with the registered msg_type ({msg_type})"
                     )
-                    # HACK! UInt8MultiArray is not supported by ros_numpy. Convert uint8 to int8 (without copy).
+
+                    # Convert array to ROS messages
+                    shape = res.shape
                     if res.dtype.name == "uint8":
-                        res = res.astype("int8", copy=False)
+                        msg = msg_type(data=res.tobytes("C"))
+                    else:
+                        msg = msg_type(data=res.reshape(-1))
 
                     # Prepare output
-                    shape = res.shape
-                    msg = msg_type(data=res.reshape(-1))
                     for i, d in enumerate(shape):
                         dim = MultiArrayDimension(label=str(i), size=d, stride=sum(shape[i:]))
                         msg.layout.dim.append(dim)

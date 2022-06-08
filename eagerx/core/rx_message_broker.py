@@ -22,8 +22,8 @@ from eagerx.core.constants import DEBUG
 
 def _wrap_np(msg_type):
     if msg_type in NUMPY_COMPATIBLE_MESSAGES:
-        return numpy_msg(msg_type)
-        # return msg_type
+        # return numpy_msg(msg_type)
+        return msg_type
     else:
         return msg_type
 

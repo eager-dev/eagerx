@@ -82,7 +82,6 @@ class GymEngine(Engine):
             sim["buffer_reward"] = []
             sim["buffer_done"] = []
 
-    @register.outputs(tick=Discrete(999999))
     def callback(self, t_n: float):
         for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]

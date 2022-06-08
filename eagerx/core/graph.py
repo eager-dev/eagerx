@@ -9,7 +9,6 @@ import rospy
 from eagerx.utils.utils import (
     substitute_args,
     supported_types,
-    space_to_dict,
     dtype_to_ros_msg_type,
 )
 from eagerx.utils.network_utils import (
@@ -323,7 +322,6 @@ class Graph:
         target: GraphView = None,
         action: str = None,
         observation: str = None,
-        space: Optional[gym.spaces.Space] = None,
         processor: Optional[ConverterSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
@@ -342,7 +340,6 @@ class Graph:
                        :attr:`~eagerx.core.specs.ResetNodeSpec.feedthroughs`.
         :param action: Name of the action to connect (and add).
         :param observation: Name of the observation to connect (and add).
-        :param space: Defines the observation or action space.
         :param processor: Processes the received message before passing it
                           to the target node's :func:`~eagerx.core.entities.Node.callback`.
         :param window: A non-negative number that specifies the number of messages to pass to the node's :func:`~eagerx.core.entities.Node.callback`.
@@ -370,26 +367,19 @@ class Graph:
         )
         assert not (observation and action), "You cannot connect an action directly to an observation."
 
-        if space is not None:
-            assert observation or action, "A space can only be provided when connecting actions or observations."
-
         # Convert processors, spaces
         if isinstance(processor, ConverterSpec):
             processor = processor.params
         elif isinstance(processor, (GraphView, SpecView)):
             processor = processor.to_dict()
-        if isinstance(space, (GraphView, SpecView)):
-            space = space.to_dict()
-        elif isinstance(space, gym.spaces.Space):
-            space = space_to_dict(space)
 
         if action:  # source = action
             self.add_component(action=action)
-            self._connect_action(action, target, space)
+            self._connect_action(action, target)
             source = self.get_view("env/actions", ["outputs", action])
         elif observation:  # target = observation
             self.add_component(observation=observation)
-            self._connect_observation(source, observation, space=space)
+            self._connect_observation(source, observation)
             target = self.get_view("env/observations", ["inputs", observation])
         self._connect(source, target, processor, window, delay, skip)
 
@@ -445,7 +435,7 @@ class Graph:
         connect = [list(source()), list(target())]
         self._state["connects"].append(connect)
 
-    def _connect_action(self, action, target, space):
+    def _connect_action(self, action, target):
         """Method to connect a (previously added) action, that *precedes* self._connect(source, target)."""
         params_action = self._state["nodes"]["env/actions"]
         assert action in params_action["outputs"], f'Action "{action}" must be added, before you can connect it.'
@@ -461,40 +451,35 @@ class Graph:
 
         # Set properties in node params of 'env/actions'
         if len(params_action["outputs"][action]) > 0:  # Action already registered
-            space_state = params_action["outputs"][action]["space"]
-            if space is None and not target.space == space_state:
+            space_action = params_action["outputs"][action]["space"]
+            space_target = target.space.to_dict()
+            if not space_target == space_action:
                 rospy.logwarn(
-                    f'Conflicting space ({space}) for action "{action}". ' f"Not using the space of {name}.{component}.{cname}"
-                )
-            else:
-                rospy.logwarn(
-                    f'Conflicting space ({space}) for action "{action}". '
-                    f"Overwriting the space that was previously associated with this action."
+                    f'Conflicting space ({space_action}) for action "{action}". '
+                    f'Not using the space ({space_target}) of {name}.{component}.{cname}'
                 )
         else:
-            space = target.space if space is None else space
-            assert space is not None, f'"{cname}" does not have a space registered for {component} in the spec of "{name}".'
+            assert target.space is not None, f'"{name}.{component}.{cname}" does not have a space registered in the spec of "{name}". ' \
+                                             f'Specify a space before connecting the action.'
             mapping = dict(
                 msg_type=None,
                 rate="$(config rate)",
                 processor=None,
-                space=space,
+                space=target.space,
             )
             self._set(params_action["outputs"], {action: mapping})
 
-    def _connect_observation(self, source, observation, space):
+    def _connect_observation(self, source, observation):
         """Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target)."""
 
         params_obs = self._state["nodes"]["env/observations"]
-        assert observation in params_obs["inputs"], 'Observation "%s" must be added, before you can connect it.' % observation
+        assert observation in params_obs["inputs"], f'Observation "{observation}" must be added, before you can connect it.'
         name, component, cname = source()
 
-        assert space is not None or source.space is not None, (
-            f'"{name}.{component}.{cname}" does not have a space '
-            f'registered in the spec of "{name}". '
-            f'Either specify it there, or specify a space when connecting observation "{observation}".'
+        assert source.space is not None, (
+            f'"{name}.{component}.{cname}" does not have a space registered in the spec of "{name}". '
+            f'Specify a space before connecting the observation.'
         )
-        space = space if space is not None else source.space
 
         # Set properties in node params of 'env/observations'
         assert len(params_obs["inputs"][observation]) == 0, 'Observation "%s" already connected.' % observation
@@ -506,7 +491,7 @@ class Graph:
             external_rate=None,
             processor=None,
             converter=None,
-            space=space,
+            space=source.space,
             address=None,
         )
         self._set(params_obs["inputs"], {observation: mapping})

@@ -469,7 +469,8 @@ class BaseEnv(gym.Env):
     def _create_supervisor():
         entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
         supervisor = Node.pre_make("N/a", entity_type)
-        supervisor.add_output("step", msg_type=UInt64)
+        supervisor.add_output("step", space=Discrete(np.iinfo("int32").max))
+        supervisor.outputs.step.msg_type = dtype_to_ros_msg_type(supervisor.outputs.step.space.dtype)
 
         supervisor.config.name = "env/supervisor"
         supervisor.config.color = "yellow"

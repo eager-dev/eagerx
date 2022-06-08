@@ -265,7 +265,7 @@ class EngineGraph:
                     "because there is already one specified in the agnostic graph definition. "
                     "You can only have one processor."
                 )
-                assert source.processor is not None, msg
+                assert source.processor is None, msg
             assert window is None, (
                 f'Cannot specify a window when connecting actuator "{actuator}". '
                 f"You can only do that in the agnostic object definition."
