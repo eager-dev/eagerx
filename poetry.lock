@@ -149,7 +149,7 @@ python-versions = ">=3.6"
 name = "dataclasses"
 version = "0.8"
 description = "A backport of the dataclasses module for Python 3.6"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.6, <3.7"
 
@@ -216,28 +216,38 @@ dev = ["coverage", "hypothesis", "hypothesmith (>=0.2)", "pre-commit"]
 
 [[package]]
 name = "gym"
-version = "0.21.0"
-description = "Gym: A universal API for reinforcement learning environments."
+version = "0.24.1"
+description = "Gym: A universal API for reinforcement learning environments"
 category = "main"
 optional = false
 python-versions = ">=3.6"
 
 [package.dependencies]
 cloudpickle = ">=1.2.0"
-importlib_metadata = {version = ">=4.8.1", markers = "python_version < \"3.8\""}
+dataclasses = {version = "0.8", markers = "python_version == \"3.6\""}
+gym_notices = ">=0.0.4"
+importlib_metadata = {version = ">=4.8.0", markers = "python_version < \"3.10\""}
 numpy = ">=1.18.0"
 
 [package.extras]
 accept-rom-license = ["autorom[accept-rom-license] (>=0.4.2,<0.5.0)"]
-all = ["mujoco_py (>=1.50,<2.0)", "lz4 (>=3.1.0)", "opencv-python (>=3)", "ale-py (>=0.7.1,<0.8.0)", "pyglet (>=1.4.0)", "scipy (>=1.4.1)", "box2d-py (==2.3.5)", "pyglet (>=1.4.0)", "ale-py (>=0.7.1,<0.8.0)", "lz4 (>=3.1.0)", "opencv-python (>=3)", "pyglet (>=1.4.0)", "box2d-py (==2.3.5)", "pyglet (>=1.4.0)", "scipy (>=1.4.1)", "mujoco_py (>=1.50,<2.0)"]
-atari = ["ale-py (>=0.7.1,<0.8.0)"]
-box2d = ["box2d-py (==2.3.5)", "pyglet (>=1.4.0)"]
-classic_control = ["pyglet (>=1.4.0)"]
-mujoco = ["mujoco_py (>=1.50,<2.0)"]
-nomujoco = ["lz4 (>=3.1.0)", "opencv-python (>=3)", "ale-py (>=0.7.1,<0.8.0)", "pyglet (>=1.4.0)", "scipy (>=1.4.1)", "box2d-py (==2.3.5)", "pyglet (>=1.4.0)"]
-other = ["lz4 (>=3.1.0)", "opencv-python (>=3)"]
-robotics = ["mujoco_py (>=1.50,<2.0)"]
-toy_text = ["scipy (>=1.4.1)"]
+all = ["ale-py (>=0.7.5,<0.8.0)", "box2d-py (==2.3.5)", "mujoco_py (>=2.1,<2.2)", "imageio (>=2.14.1)", "mock", "pygame (==2.1.0)", "mujoco (==2.2.0)", "opencv-python (>=3.0)", "lz4 (>=3.1.0)", "matplotlib (>=3.0)", "pytest"]
+atari = ["ale-py (>=0.7.5,<0.8.0)"]
+box2d = ["box2d-py (==2.3.5)", "pygame (==2.1.0)"]
+classic_control = ["pygame (==2.1.0)"]
+mujoco = ["mujoco (==2.2.0)", "imageio (>=2.14.1)"]
+mujoco_py = ["mujoco_py (>=2.1,<2.2)"]
+other = ["lz4 (>=3.1.0)", "opencv-python (>=3.0)", "matplotlib (>=3.0)"]
+testing = ["box2d-py (==2.3.5)", "mujoco_py (>=2.1,<2.2)", "imageio (>=2.14.1)", "pygame (==2.1.0)", "mujoco (==2.2.0)", "opencv-python (>=3.0)", "lz4 (>=3.1.0)", "matplotlib (>=3.0)", "pytest", "mock"]
+toy_text = ["pygame (==2.1.0)"]
+
+[[package]]
+name = "gym-notices"
+version = "0.0.7"
+description = "Notices for gym"
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "idna"
@@ -417,22 +427,6 @@ python-versions = ">=3.6"
 
 [package.dependencies]
 numpy = ">=1.13.3"
-
-[[package]]
-name = "opencv-python"
-version = "4.5.5.64"
-description = "Wrapper package for OpenCV python bindings."
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-numpy = [
-    {version = ">=1.13.3", markers = "python_version < \"3.7\""},
-    {version = ">=1.19.3", markers = "python_version >= \"3.6\" and platform_system == \"Linux\" and platform_machine == \"aarch64\" or python_version >= \"3.9\""},
-    {version = ">=1.14.5", markers = "python_version >= \"3.7\""},
-    {version = ">=1.17.3", markers = "python_version >= \"3.8\""},
-]
 
 [[package]]
 name = "packaging"
@@ -959,7 +953,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.2"
-content-hash = "40006ca607b9561ea6c264763ed8f0c6c78034469521015d7e9dcb91ba74686e"
+content-hash = "4c737e36a1a71bdf509c06765419f5ea674a8cc7c43f5d6b410ed5e8911ca2a1"
 
 [metadata.files]
 alabaster = [
@@ -1109,7 +1103,11 @@ flake8-bugbear = [
     {file = "flake8_bugbear-22.4.25-py3-none-any.whl", hash = "sha256:ec374101cddf65bd7a96d393847d74e58d3b98669dbf9768344c39b6290e8bd6"},
 ]
 gym = [
-    {file = "gym-0.21.0.tar.gz", hash = "sha256:0fd1ce165c754b4017e37a617b097c032b8c3feb8a0394ccc8777c7c50dddff3"},
+    {file = "gym-0.24.1.tar.gz", hash = "sha256:9b23bbaa96ba0771a16a9f80062edb79b6f176ffdc84f39ea4645b03a8b72291"},
+]
+gym-notices = [
+    {file = "gym-notices-0.0.7.tar.gz", hash = "sha256:254b667412dbe205135213595c963cd830668382ce57b68a0c282a238eeb35b9"},
+    {file = "gym_notices-0.0.7-py3-none-any.whl", hash = "sha256:8da0c511d0b957405054cd1119c59e046013639c1bd55f67f410324f2570f7b3"},
 ]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
@@ -1373,13 +1371,6 @@ opencv-python = [
     {file = "opencv_python-4.5.2.54-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:8cf81f53ac5ad900ca443a8252c4e0bc1256f1c2cb2d8459df2ba1ac014dfa36"},
     {file = "opencv_python-4.5.2.54-cp39-cp39-win32.whl", hash = "sha256:a8020cc6145c6934192189058743a55189750df6dff894396edb8b35a380cc48"},
     {file = "opencv_python-4.5.2.54-cp39-cp39-win_amd64.whl", hash = "sha256:0a3aef70b7c53bbd22ade86a4318b8a2ad98d3c3ed3d0c315f18bf1a2d868709"},
-    {file = "opencv-python-4.5.5.64.tar.gz", hash = "sha256:f65de0446a330c3b773cd04ba10345d8ce1b15dcac3f49770204e37602d0b3f7"},
-    {file = "opencv_python-4.5.5.64-cp36-abi3-macosx_10_15_x86_64.whl", hash = "sha256:a512a0c59b6fec0fac3844b2f47d6ecb1a9d18d235e6c5491ce8dbbe0663eae8"},
-    {file = "opencv_python-4.5.5.64-cp36-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ca6138b6903910e384067d001763d40f97656875487381aed32993b076f44375"},
-    {file = "opencv_python-4.5.5.64-cp36-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b293ced62f4360d9f11cf72ae7e9df95320ff7bf5b834d87546f844e838c0c35"},
-    {file = "opencv_python-4.5.5.64-cp36-abi3-win32.whl", hash = "sha256:6247e584813c00c3b9ed69a795da40d2c153dc923d0182e957e1c2f00a554ac2"},
-    {file = "opencv_python-4.5.5.64-cp36-abi3-win_amd64.whl", hash = "sha256:408d5332550287aa797fd06bef47b2dfed163c6787668cc82ef9123a9484b56a"},
-    {file = "opencv_python-4.5.5.64-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:7787bb017ae93d5f9bb1b817ac8e13e45dd193743cb648498fcab21d00cf20a3"},
 ]
 packaging = [
     {file = "packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522"},
