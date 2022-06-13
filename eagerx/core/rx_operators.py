@@ -1,8 +1,3 @@
-# ROS IMPORTS
-import rospy
-from sensor_msgs.msg import Image
-from std_msgs.msg import Bool, UInt64, MultiArrayDimension, UInt8MultiArray
-
 # RX IMPORTS
 import rx
 from rx import Observable, typing, operators as ops
@@ -11,28 +6,23 @@ from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
+import eagerx.core.ros1 as bnd
+import eagerx.utils.utils
 from eagerx.core.specs import RxInput
 from eagerx.core.constants import (
-    SILENT,
+    SILENT,  # noqa
     DEBUG,
     INFO,
     ERROR,
     WARN,
-    FATAL,
-    TERMCOLOR,
-    ROS,
+    FATAL,  # noqa
 )
 from eagerx.utils.utils import (
-    get_attribute_from_module,
-    initialize_converter,
-    get_param_with_blocking,
+    initialize_processor,
+    dict_to_space,
     Info,
     Msg,
     Stamp,
-    dtype_to_ros_msg_type,
-    NUMPY_COMPATIBLE_MESSAGES,
-    ROS_TO_NUMPY,
-    NUMPY_TO_ROS,
 )
 
 # OTHER IMPORTS
@@ -40,22 +30,11 @@ import time
 from collections import deque
 from termcolor import cprint
 import datetime
-import logging
 import traceback
 from os import getpid
 from threading import current_thread, RLock
 from typing import Callable, Optional, List, Any
 import numpy as np
-
-print_modes = {TERMCOLOR: "eagerx_core.TERMCOLOR", ROS: "eagerx_core.ROS"}
-ros_log_fns = {
-    SILENT: lambda print_str: None,
-    DEBUG: rospy.logdebug,
-    INFO: rospy.loginfo,
-    WARN: rospy.logwarn,
-    ERROR: rospy.logerr,
-    FATAL: rospy.logfatal,
-}
 
 
 def cb_ft(cb_input, sync):
@@ -78,45 +57,32 @@ def print_info(
     trace_type=None,
     value=None,
     date=None,
-    print_mode=TERMCOLOR,
     log_level=DEBUG,
 ):
-    if print_mode == TERMCOLOR:
-        if date:
-            cprint("[" + str(date)[:40].ljust(20) + "]", color, end="")
-        cprint("[" + str(getpid())[:5].ljust(5) + "]", color, end="")
-        cprint(
-            "[" + current_thread().name.split("/")[-1][:15].ljust(15) + "]",
-            color,
-            end="",
-        )
-        cprint(
-            "[" + node_name.split("/")[-1][:12].ljust(12) + "]",
-            color,
-            end="",
-            attrs=["bold"],
-        )
-        if id:
-            cprint("[" + id.split("/")[-1][:12].ljust(12) + "]", color, end="")
-        cprint((" %s: %s" % (trace_type, value)), color)
-    elif print_mode == ROS:
-        print_str = ""
-        print_str += "[" + str(getpid())[:5].ljust(5) + "]"
-        print_str += "[" + current_thread().name.split("/")[-1][:15].ljust(15) + "]"
-        print_str += "[" + node_name.split("/")[-1][:12].ljust(12) + "]"
-        if id:
-            print_str += "[" + id.split("/")[-1][:12].ljust(12) + "]"
-        print_str += " %s: %s" % (trace_type, value)
-        ros_log_fns[log_level](print_str)
-    else:
-        raise ValueError("Print mode not recognized. Only print_modes %s are available." % (print_modes.values()))
+    if date:
+        cprint("[" + str(date)[:40].ljust(20) + "]", color, end="")
+    cprint("[" + str(getpid())[:5].ljust(5) + "]", color, end="")
+    cprint(
+        "[" + current_thread().name.split("/")[-1][:15].ljust(15) + "]",
+        color,
+        end="",
+    )
+    cprint(
+        "[" + node_name.split("/")[-1][:12].ljust(12) + "]",
+        color,
+        end="",
+        attrs=["bold"],
+    )
+    if id:
+        cprint("[" + id.split("/")[-1][:12].ljust(12) + "]", color, end="")
+    cprint((" %s: %s" % (trace_type, value)), color)
 
 
 def spy(id: str, node, log_level: int = DEBUG, mapper: Callable = lambda msg: msg):
     node_name = node.ns_name
     color = node.color
-    print_mode = node.print_mode
-    effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
+
+    effective_log_level = bnd.get_log_level()
 
     def _spy(source):
         def subscribe(observer, scheduler=None):
@@ -129,7 +95,6 @@ def spy(id: str, node, log_level: int = DEBUG, mapper: Callable = lambda msg: ms
                         id,
                         trace_type="",
                         value=str(mapper(value)),
-                        print_mode=print_mode,
                         log_level=log_level,
                     )
                 observer.on_next(value)
@@ -151,7 +116,6 @@ def trace_observable(
 ):
     node_name = node.ns_name
     color = node.color
-    print_mode = node.print_mode
 
     def _trace(source):
         def on_subscribe(observer, scheduler):
@@ -165,7 +129,6 @@ def trace_observable(
                             "on_next",
                             value,
                             date=date or datetime.datetime.now(),
-                            print_mode=print_mode,
                             log_level=DEBUG,
                         )
                     else:
@@ -176,7 +139,6 @@ def trace_observable(
                             "on_next",
                             "",
                             date=date or datetime.datetime.now(),
-                            print_mode=print_mode,
                             log_level=DEBUG,
                         )
                 observer.on_next(value)
@@ -190,7 +152,6 @@ def trace_observable(
                     "on_completed",
                     value,
                     date=date or datetime.datetime.now(),
-                    print_mode=print_mode,
                     log_level=DEBUG,
                 )
                 observer.on_completed()
@@ -217,8 +178,7 @@ def trace_observable(
                         "on_error",
                         error,
                         date=date or datetime.datetime.now(),
-                        print_mode=print_mode,
-                        log_level=rospy.ERROR,
+                        log_level=ERROR,
                     )
                 observer.on_error(error)
 
@@ -232,7 +192,6 @@ def trace_observable(
                         "dispose",
                         value,
                         date=date or datetime.datetime.now(),
-                        print_mode=print_mode,
                         log_level=DEBUG,
                     )
                 disposable.dispose()
@@ -246,7 +205,6 @@ def trace_observable(
                     "on_subscribe",
                     value,
                     date=date or datetime.datetime.now(),
-                    print_mode=print_mode,
                     log_level=DEBUG,
                 )
             disposable = source.subscribe(
@@ -265,7 +223,7 @@ def flag_dict(name):
     def _init_flag_dict(source):
         def subscribe(observer, scheduler=None):
             def on_next(value):
-                flag_dict = {name: value.data}
+                flag_dict = {name: value}
                 observer.on_next(flag_dict)
 
             return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
@@ -419,7 +377,6 @@ def remap_cb_input(mode=0):
 def regroup_inputs(node, rate_node=1, is_input=True, perform_checks=True):
     node_name = node.ns_name
     color = node.color
-    print_mode = node.print_mode
 
     def _regroup_inputs(source):
         def subscribe(observer, scheduler=None):
@@ -447,8 +404,7 @@ def regroup_inputs(node, rate_node=1, is_input=True, perform_checks=True):
                                 "regroup_inputs",
                                 trace_type="",
                                 value="Not all node_ticks are the same: %s" % str(value),
-                                print_mode=print_mode,
-                                log_level=rospy.ERROR,
+                                log_level=ERROR,
                             )
 
                 # Send regrouped input
@@ -561,7 +517,7 @@ def generate_msgs(
             # Determine Nc logic
             def on_next_Nc(x):
                 if sync:
-                    # Caculate expected number of message to be received
+                    # Calculate expected number of message to be received
                     delay = params["delay"] if simulate_delays else 0.0
                     num_msgs = expected_inputs(x - skip, rate_in, rate_node, delay)
                     num_queue.append(num_msgs)
@@ -621,17 +577,14 @@ def create_channel(
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
         ops.observe_on(scheduler),
-        convert(inpt["msg_type"], inpt["space"], inpt["processor"], name, node, direction="in", converter=inpt["converter"]),
+        convert(inpt["space"], inpt["processor"], name, node, direction="in"),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),
     )
 
     # Get rate from rosparam server
-    if inpt["external_rate"] and inpt["external_rate"] > 0:
-        rate = inpt["external_rate"]
-    else:
-        rate_str = "%s/rate/%s" % (ns, inpt["address"][len(ns) + 1 :])
-        rate = get_param_with_blocking(rate_str)
+    rate_str = "%s/rate/%s" % (ns, inpt["address"][len(ns) + 1 :])
+    rate = eagerx.utils.utils.get_param_with_blocking(rate_str)
 
     # Create input channel
     if real_time_factor == 0:
@@ -658,7 +611,7 @@ def create_channel(
     flag = Ir.pipe(
         ops.map(lambda val: val[0] + 1),
         ops.start_with(0),
-        ops.combine_latest(Is.pipe(ops.map(lambda msg: msg.data))),  # Depends on ROS reset msg type
+        ops.combine_latest(Is),  # Depends on ROS reset msg type
         ops.filter(lambda value: not sync or value[0] == value[1]),
         ops.map(lambda x: {name: x[0]}),
     )
@@ -736,7 +689,7 @@ def init_real_reset(
     if real_reset:
         for i in feedthrough:
             rate_str = "%s/rate/%s" % (ns, i["address"][len(ns) + 1 :])
-            rate_in = get_param_with_blocking(rate_str)
+            rate_in = eagerx.utils.utils.get_param_with_blocking(rate_str)
             if not rate_in == rate_node:
                 raise ValueError(
                     "Rate of the reset node (%s) must be exactly the same as the feedthrough node rate (%s)."
@@ -781,7 +734,7 @@ def init_target_channel(states, scheduler, node):
     channels = []
     for s in states:
         c = s["msg"].pipe(
-            convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="in", converter=None),
+            convert(s["space"], s["processor"], s["name"], node, direction="in"),
             ops.share(),
             ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
             remap_target(s["name"], node.sync, node.real_time_factor),
@@ -803,11 +756,10 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node):
         channels = []
         for s in state_inputs:
             d = s["done"].pipe(
-                ops.map(lambda msg: bool(msg.data)),
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="in", converter=None),
+                convert(s["space"], s["processor"], s["name"], node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -841,11 +793,10 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
 
         for s in state_inputs:
             d = s["done"].pipe(
-                ops.map(lambda msg: bool(msg.data)),
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                convert(s["msg_type"], s["space"], s["processor"], s["name"], node, direction="in", converter=None),
+                convert(s["space"], s["processor"], s["name"], node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -929,23 +880,21 @@ def init_callback_pipeline(
     return d_msg, output_stream
 
 
-def get_node_params(msg):
-    node_name = msg.data
-    node_params = get_param_with_blocking(node_name)
+def get_node_params(node_name):
+    node_params = eagerx.utils.utils.get_param_with_blocking(node_name)
     if node_params is None:
-        rospy.logwarn(
+        bnd.logwarn(
             "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
-            % (msg.data, msg.data)
+            % (node_name, node_name)
         )
     return node_params
 
 
 def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
     name = node_params["name"]
-    nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), msg_type=Bool)
+    nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
     return dict(
         inputs=[],
-        reactive_proxy=[],
         state_inputs=[],
         node_flags=[nf],
         sp_nodes=sp_nodes,
@@ -953,14 +902,12 @@ def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
     )
 
 
-def get_object_params(msg):
-    obj_name = msg.data
-
-    obj_params = get_param_with_blocking(obj_name)
+def get_object_params(obj_name):
+    obj_params = eagerx.utils.utils.get_param_with_blocking(obj_name)
     if obj_params is None:
-        rospy.logwarn(
+        bnd.logwarn(
             "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
-            % (msg.data, msg.data)
+            % (obj_name, obj_name)
         )
         return None
 
@@ -970,25 +917,21 @@ def get_object_params(msg):
     # Get parameters from ROS param server
     node_params = []
     for node_name in obj_params["node_names"]:
-        params = get_param_with_blocking(node_name)
+        params = eagerx.utils.utils.get_param_with_blocking(node_name)
         node_params.append(params)
     return obj_params, node_params, state_params
 
 
-def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, launch_nodes):
+def extract_inputs(ns, node_params, state_params, sp_nodes, launch_nodes):
     inputs = []
     state_inputs = []
-    reactive_proxy = []
     node_flags = []
 
     # Process states
     for i in state_params:
-        name = i["name"]
-
         # Convert to classes
-        i["msg_type"] = get_attribute_from_module(i["msg_type"])
         if "processor" in i and isinstance(i["processor"], dict):
-            i["processor"] = initialize_converter(i["processor"])
+            i["processor"] = initialize_processor(i["processor"])
 
         # Initialize rx objects
         i["msg"] = Subject()  # S
@@ -1011,7 +954,7 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
             name=name,
             address="%s/%s/end_reset" % (ns, name),
             msg=Subject(),
-            msg_type=Bool,
+            dtype="bool",
         )
         node_flags.append(nf)
 
@@ -1030,59 +973,28 @@ def extract_inputs_and_reactive_proxy(ns, node_params, state_params, sp_nodes, l
             n = RxInput(
                 name=i["address"],
                 address=i["address"],
-                msg_type=i["msg_type"],
-                external_rate=None,
                 processor=None,
                 window=0,
-                space=None,
+                space=i["space"],
+                dtype=i["dtype"],
             ).build()
 
-            # Convert to classes
-            n["msg_type"] = get_attribute_from_module(n["msg_type"])
+            # initialize space
+            if "space" in n and isinstance(n["space"], dict):
+                n["space"] = dict_to_space(i["space"])
 
             # Initialize rx objects
             n["msg"] = Subject()  # Ir
             n["reset"] = Subject()  # Is
             inputs.append(n)
 
-        for i in params["inputs"]:
-            if i["external_rate"]:
-                # Convert to classes
-                i["msg_type"] = get_attribute_from_module(i["msg_type"])
-                if isinstance(i["converter"], dict):
-                    i["converter"] = initialize_converter(i["converter"])
-
-                # Initialize rx reset output for reactive input
-                i["reset"] = Subject()
-
-                # Create a new output topic for each SimNode reactive input (engine sends reset msg)
-                o = dict()
-                o.update(i)
-                reactive_proxy.append(o)
-
     return dict(
         inputs=inputs,
-        reactive_proxy=reactive_proxy,
         state_inputs=state_inputs,
         node_flags=node_flags,
         sp_nodes=sp_nodes,
         launch_nodes=launch_nodes,
     )
-
-
-def initialize_reactive_proxy_reset(rate_node, RM, reactive_proxy, node):
-    for rp in reactive_proxy:
-        if "disposable" in rp:
-            continue
-        rate_in = rp["external_rate"]
-        rp["disposable"] = RM.pipe(
-            ops.map(lambda msg: msg.data),
-            ops.map(
-                lambda idx_n: 1 + int((idx_n - 1) * rate_in // rate_node)
-            ),  # We subtract -1 from msg to account for the initial tick.
-            ops.map(lambda i: UInt64(data=i)),
-        ).subscribe(rp["reset"])
-    return None
 
 
 def switch_with_check_pipeline(init_ho=None):
@@ -1135,8 +1047,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
     time_fn = time.perf_counter
     node_name = node.ns_name
     color = node.color
-    print_mode = node.print_mode
-    effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
+    effective_log_level = bnd.get_log_level()
     log_time = 2  # [s]
 
     def _throttle_with_time(source):
@@ -1193,7 +1104,6 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
                             f"last {log_window:.2f} s",
                             trace_type="",
                             value=print_str,
-                            print_mode=print_mode,
                             log_level=WARN,
                         )
                     elif node.log_level >= effective_log_level and log_level >= effective_log_level:
@@ -1204,7 +1114,6 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
                             f"last {log_window:.2f} s",
                             trace_type="",
                             value=print_str,
-                            print_mode=print_mode,
                             log_level=log_level,
                         )
 
@@ -1301,7 +1210,7 @@ class NotSet:
         return "NotSet"
 
 
-def convert(msg_type, space, processor, name, node, direction="out", converter=None):
+def convert(space, processor, name, node, direction="out"):
     OUTPUT = True if direction == "out" else False
     INPUT = True if direction == "in" else False
     space_checked = [False]
@@ -1310,108 +1219,79 @@ def convert(msg_type, space, processor, name, node, direction="out", converter=N
         def subscribe(observer, scheduler=None):
             def on_next(recv):
                 if INPUT:
-                    if converter is None and not isinstance(recv, tuple(NUMPY_COMPATIBLE_MESSAGES)):
-                        rospy.logwarn(f"[{node.ns_name}][incoming][{name}]: type(recv)=", type(recv))
-                        rospy.sleep(10000000)
-                    # Convert input message to numpy array
-                    if converter is not None:
-                        res = converter.convert(recv)
-                    else:
-                        if "UInt8MultiArray" in type(recv).__name__:
-                            s = [d.size for d in recv.layout.dim]
-                            res = np.frombuffer(bytes(recv.data), dtype="uint8").reshape(s)
-                        else:
-                            s = [d.size for d in recv.layout.dim]
-                            res = np.array(recv.data, dtype=ROS_TO_NUMPY[type(recv)]).reshape(s)
-
-                    # Preprocess numpy array
+                    # Preprocess input message
                     if processor is not None:
-                        res = processor.convert(res)
+                        recv = processor.convert(recv)
 
                     # Check if message complies with space (after conversion)
                     if space is not None and not space_checked[0]:
                         space_checked[0] = True
                         try:
-                            if not res.shape == space.shape:
-                                msg = (
-                                    f"[{node.ns_name}][incoming][{name}]: Different shapes "
-                                    f"detected between the message (before processing) ({res.shape}) "
-                                    f"and its corresponding space ({space.shape})."
-                                )
-                                rospy.logwarn_once(msg)
-                            elif not space.contains(res):
-                                msg = (
-                                    f"[{node.ns_name}][incoming][{name}]: The message (before processing) is"
-                                    f" outside of the bounds of the corresponding space."
-                                )
-                                rospy.logwarn_once(msg)
-                            if not res.dtype == space.dtype:
-                                msg = (
-                                    f"[{node.ns_name}][incoming][{name}]: Different dtypes "
-                                    f"detected between the message (before processing) ({res.dtype}) "
-                                    f"and its corresponding space ({space.dtype})."
-                                )
-                                rospy.logwarn_once(msg)
-                        except AttributeError as e:
-                            raise AttributeError(f"[{node.ns_name}][outgoing][{name}]: space is probably not initialized: {e}")
-                    observer.on_next(res)
-                elif OUTPUT:
-                    # Check if message complies with space (before conversion)
-                    if not isinstance(recv, (np.ndarray, np.number)):
-                        rospy.logwarn(f"[{node.ns_name}][outgoing][{name}]: type(recv)=", type(recv))
-                        rospy.sleep(10000000)
-                    if space is not None and not space_checked[0]:
-                        space_checked[0] = True
-                        try:
                             if not recv.shape == space.shape:
                                 msg = (
-                                    f"[{node.ns_name}][outgoing][{name}]: Different shapes "
+                                    f"[subscriber][{node.ns_name}][{name}]: Different shapes "
                                     f"detected between the message (before processing) ({recv.shape}) "
                                     f"and its corresponding space ({space.shape})."
                                 )
-                                rospy.logwarn_once(msg)
+                                bnd.logwarn_once(msg)
                             elif not space.contains(recv):
                                 msg = (
-                                    f"[{node.ns_name}][outgoing][{name}]: The message (before processing) is"
+                                    f"[subscriber][{node.ns_name}][{name}]: The message (before processing) is"
                                     f" outside of the bounds of the corresponding space."
                                 )
-                                rospy.logwarn_once(msg)
+                                bnd.logwarn_once(msg)
                             if not recv.dtype == space.dtype:
                                 msg = (
-                                    f"[{node.ns_name}][outgoing][{name}]: Different dtypes "
+                                    f"[subscriber][{node.ns_name}][{name}]: Different dtypes "
                                     f"detected between the message (before processing) ({recv.dtype}) "
                                     f"and its corresponding space ({space.dtype})."
                                 )
-                                rospy.logwarn_once(msg)
+                                bnd.logwarn_once(msg)
                         except AttributeError as e:
-                            raise AttributeError(f"[{node.ns_name}][outgoing][{name}]: space is probably not initialized: {e}")
+                            raise AttributeError(f"[subscriber][{node.ns_name}][{name}]: space is probably not initialized: {e}")
+                    observer.on_next(recv)
+                elif OUTPUT:
+                    if space is not None and not space_checked[0]:
+                        space_checked[0] = True
+
+                        # Convert python native types to numpy arrays.
+                        if isinstance(recv, float):
+                            recv = np.array(recv, dtype="float32")
+                        elif isinstance(recv, bool):
+                            recv = np.array(recv, dtype="bool")
+                        elif isinstance(recv, int):
+                            recv = np.array(recv, dtype="int64")
+
+                        try:
+                            if not recv.shape == space.shape:
+                                msg = (
+                                    f"[publisher][{node.ns_name}]{name}]: Different shapes "
+                                    f"detected between the message (before processing) ({recv.shape}) "
+                                    f"and its corresponding space ({space.shape})."
+                                )
+                                bnd.logwarn_once(msg)
+                            elif not space.contains(recv):
+                                msg = (
+                                    f"[publisher][{node.ns_name}]{name}]: The message (before processing) is"
+                                    f" outside of the bounds of the corresponding space."
+                                )
+                                bnd.logwarn_once(msg)
+                            if not recv.dtype == space.dtype:
+                                msg = (
+                                    f"[publisher][{node.ns_name}]{name}]: Different dtypes "
+                                    f"detected between the message (before processing) ({recv.dtype}) "
+                                    f"and its corresponding space ({space.dtype})."
+                                )
+                                bnd.logwarn_once(msg)
+                        except AttributeError as e:
+                            raise AttributeError(f"[publisher][{node.ns_name}][{name}]: space is probably not initialized: {e}")
 
                     # Process message
                     if processor is not None:
-                        res = processor.convert(recv)
+                        recv = processor.convert(recv)
                     else:
-                        res = recv
-
-                    # Make sure that dtype of processed message corresponds to outgoing message_type
-                    dtype_msg_type = dtype_to_ros_msg_type(res.dtype, module_type_string=False)
-                    assert dtype_msg_type == msg_type, (
-                        f"[{node.ns_name}][outgoing][{name}]: dtype of "
-                        f"(processed) message ({res.dtype}) is incompatible"
-                        f" with the registered msg_type ({msg_type})"
-                    )
-
-                    # Convert array to ROS messages
-                    shape = res.shape
-                    if res.dtype.name == "uint8":
-                        msg = msg_type(data=res.tobytes("C"))
-                    else:
-                        msg = msg_type(data=res.reshape(-1))
-
-                    # Prepare output
-                    for i, d in enumerate(shape):
-                        dim = MultiArrayDimension(label=str(i), size=d, stride=sum(shape[i:]))
-                        msg.layout.dim.append(dim)
-                    observer.on_next(msg)
+                        recv = recv
+                    observer.on_next(recv)
                 else:
                     raise NotImplementedError(f"Direction not implemented: {direction}.")
 
@@ -1420,25 +1300,3 @@ def convert(msg_type, space, processor, name, node, direction="out", converter=N
         return rx.create(subscribe)
 
     return _convert
-
-
-def numpy_to_UInt64(dtype, inverse=False):
-    def _numpy_to_UInt64(source):
-        def subscribe(observer, scheduler=None):
-            if inverse:
-
-                def on_next(uint64):
-                    msg = np.array(uint64.data, dtype=dtype)
-                    observer.on_next(msg)
-
-            else:
-
-                def on_next(msg):
-                    uint64 = UInt64(data=msg.item())
-                    observer.on_next(uint64)
-
-            return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
-
-        return rx.create(subscribe)
-
-    return _numpy_to_UInt64

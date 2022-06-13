@@ -1,11 +1,12 @@
+import eagerx.core.ros1 as bnd
 from eagerx import register
-from eagerx import Node, ResetNode, EngineNode, SpaceConverter
+from eagerx import Node, ResetNode, EngineNode
 from eagerx.utils.utils import Msg
 from eagerx import process
 
 # OTHER IMPORTS
-import rospy
-from std_msgs.msg import UInt64, String, Bool
+from gym.spaces import Box, Discrete
+import numpy as np
 from typing import Optional, List
 from math import isclose
 
@@ -42,32 +43,21 @@ class RealResetNode(ResetNode):
         # Modify extra params
         spec.config.test_arg = test_arg
 
-        # Test NodeSPec
-        spec.add_target("target_test", UInt64)
-        spec.remove_target("target_test")
-
         # set input parameters
-        spec.inputs.in_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.inputs.in_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.inputs.in_1.window = 0
         spec.inputs.in_2.window = 0
-
-        # Set outputs parameters
-        spec.outputs.out_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.outputs.out_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-
-        # Set states parameters
-        spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         return spec
 
-    @register.states(state_1=UInt64)
-    def reset(self, state_1: Optional[UInt64] = None) -> None:
+    @register.states(state_1=Discrete(99))
+    def reset(self, state_1: Optional[int] = None) -> None:
         if "in_1" in [i["name"] for i in self.inputs]:
             self.set_delay(0.0, "inputs", "in_1")
 
-    @register.inputs(in_1=UInt64, in_2=UInt64)
-    @register.outputs(out_1=UInt64, out_2=UInt64)
-    @register.targets(target_1=UInt64)
+    @register.inputs(in_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.outputs(out_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                      out_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.targets(target_1=Box(low=0, high=100, shape=(1,), dtype="uint64"))
     def callback(
         self,
         t_n: float,
@@ -89,24 +79,22 @@ class RealResetNode(ResetNode):
             if name in inputs:
                 t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
+                    bnd.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
         Nc = self.num_ticks
         for i in self.outputs:
             name = i["name"]
-            output_msgs[name] = UInt64(data=Nc)
+            output_msgs[name] = np.array([Nc], dtype="uint64")
 
         # Fill state done msg with number of node ticks
         for i in self.targets:
             name = i["name"]
-            msg = Bool()
             if self.num_ticks > 5:
-                msg.data = True
+                output_msgs[name + "/done"] = True
             else:
-                msg.data = False
-            output_msgs[name + "/done"] = msg
+                output_msgs[name + "/done"] = False
         return output_msgs
 
 
@@ -114,12 +102,17 @@ class TestNode(EngineNode):
     def initialize(self, test_arg):
         pass
 
-    @register.states(state_1=UInt64, state_2=UInt64)
-    def reset(self, state_1: Optional[UInt64] = None, state_2: Optional[UInt64] = None) -> None:
+    @register.states(state_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                     state_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    def reset(self, state_1=None, state_2=None) -> None:
         return
 
-    @register.inputs(in_1=UInt64, in_2=UInt64, in_3=String, tick=UInt64)
-    @register.outputs(out_1=UInt64, out_2=UInt64)
+    @register.inputs(in_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_2=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_3=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                     tick=Discrete(9999))
+    @register.outputs(out_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                      out_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
     def callback(
         self,
         t_n: float,
@@ -128,7 +121,7 @@ class TestNode(EngineNode):
         in_3: Optional[Msg] = None,
         tick: Optional[Msg] = None,
     ):
-        inputs = {"in_1": in_1, "in_2": in_2, "tick": tick}
+        inputs = {"in_1": in_1, "in_2": in_2, "in_3": in_3, "tick": tick}
         pop_keys = []
         for key, value in inputs.items():
             if value is None:
@@ -138,7 +131,7 @@ class TestNode(EngineNode):
         # Verify that # of ticks equals internal counter
         node_tick = t_n * self.rate
         if self.sync and not isclose(self.num_ticks, node_tick):
-            rospy.logerr(
+            bnd.logerr(
                 f"[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)})."
             )
             pass
@@ -150,14 +143,14 @@ class TestNode(EngineNode):
             if name in inputs:
                 t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    rospy.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
+                    bnd.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
         Nc = self.num_ticks
         for i in self.outputs:
             name = i["name"]
-            output_msgs[name] = UInt64(data=Nc)
+            output_msgs[name] = np.array([Nc], dtype="uint64")
         return output_msgs
 
 
@@ -189,21 +182,10 @@ class ProcessNode(TestNode):
         spec.config.test_arg = test_arg
 
         # set input parameters
-        spec.inputs.in_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.inputs.in_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.inputs.in_3.space_converter = SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
         spec.inputs.in_1.window = 0
         spec.inputs.in_2.window = 0
         spec.inputs.in_3.window = 0
         spec.inputs.tick.window = 0
-
-        # Set outputs parameters
-        spec.outputs.out_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.outputs.out_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-
-        # Set states parameters
-        spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.states.state_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         return spec
 
 
@@ -234,40 +216,12 @@ class KalmanNode(TestNode):
         # Modify extra params
         spec.config.test_arg = test_arg
 
-        # Test NodeSpec adding & removing of components
-        spec.add_input("in_test", UInt64)
-        spec.add_output("out_test", UInt64)
-        spec.add_state(
-            "state_test", UInt64, space_converter=SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        )
-        try:
-            spec.add_target("target_test", UInt64)
-        except AssertionError as e:
-            print(e)
-        spec.remove_input("in_test")
-        spec.remove_output("out_test")
-        spec.remove_state("state_test")
-
         # Test getting parameters
-        _ = spec.inputs.tick.msg_type
-
-        # Remove unused inputs
-        spec.remove_input("tick")
-        spec.remove_input("in_3")
+        _ = spec.inputs.tick.window
 
         # Set input parameters
-        spec.inputs.in_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.inputs.in_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         spec.inputs.in_1.window = 0
         spec.inputs.in_2.window = 0
-
-        # Set outputs parameters
-        spec.outputs.out_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.outputs.out_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-
-        # Set states parameters
-        spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.states.state_2.space_converter = SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
         return spec
 
 
@@ -295,10 +249,6 @@ class TestActuator(TestNode):
 
         # Modify extra params
         spec.config.test_arg = test_arg
-
-        # Set state parameters
-        spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
-        spec.states.state_2.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
         return spec
 
 
@@ -328,8 +278,4 @@ class TestSensor(TestNode):
 
         # Modify extra params
         spec.config.test_arg = test_arg
-
-        # Set state parameters
-        spec.states.state_1.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
-        spec.states.state_2.space_converter = SpaceConverter.make("Space_RosUInt64", low=[0], high=[100], dtype="uint64")
         return spec

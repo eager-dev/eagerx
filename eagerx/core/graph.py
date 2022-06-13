@@ -1,16 +1,16 @@
 import os
-import gym
 import yaml
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Optional, Any
-import rospy
+import eagerx.core.ros1 as bnd
 from eagerx.utils.utils import (
-    substitute_args,
+    is_compatible,
+    get_output_dtype,
     supported_types,
-    dtype_to_ros_msg_type,
 )
+from eagerx.utils.utils_sub import substitute_args
 from eagerx.utils.network_utils import (
     reset_graph,
     episode_graph,
@@ -25,7 +25,7 @@ from eagerx.core.view import GraphView, SpecView
 from eagerx.core.specs import (
     ResetNodeSpec,
     ObjectSpec,
-    ConverterSpec,
+    ProcessorSpec,
     EntitySpec,
     NodeSpec,
 )
@@ -322,7 +322,7 @@ class Graph:
         target: GraphView = None,
         action: str = None,
         observation: str = None,
-        processor: Optional[ConverterSpec] = None,
+        processor: Optional[ProcessorSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -368,7 +368,7 @@ class Graph:
         assert not (observation and action), "You cannot connect an action directly to an observation."
 
         # Convert processors, spaces
-        if isinstance(processor, ConverterSpec):
+        if isinstance(processor, ProcessorSpec):
             processor = processor.params
         elif isinstance(processor, (GraphView, SpecView)):
             processor = processor.to_dict()
@@ -431,7 +431,6 @@ class Graph:
             self.set({"skip": skip}, target)
 
         # Add connection
-        # Graph.check_msg_type(source, target, self._state)
         connect = [list(source()), list(target())]
         self._state["connects"].append(connect)
 
@@ -454,15 +453,16 @@ class Graph:
             space_action = params_action["outputs"][action]["space"]
             space_target = target.space.to_dict()
             if not space_target == space_action:
-                rospy.logwarn(
+                bnd.logwarn(
                     f'Conflicting space ({space_action}) for action "{action}". '
-                    f'Not using the space ({space_target}) of {name}.{component}.{cname}'
+                    f"Not using the space ({space_target}) of {name}.{component}.{cname}"
                 )
         else:
-            assert target.space is not None, f'"{name}.{component}.{cname}" does not have a space registered in the spec of "{name}". ' \
-                                             f'Specify a space before connecting the action.'
+            assert target.space is not None, (
+                f'"{name}.{component}.{cname}" does not have a space registered in the spec of "{name}". '
+                f"Specify a space before connecting the action."
+            )
             mapping = dict(
-                msg_type=None,
                 rate="$(config rate)",
                 processor=None,
                 space=target.space,
@@ -478,19 +478,16 @@ class Graph:
 
         assert source.space is not None, (
             f'"{name}.{component}.{cname}" does not have a space registered in the spec of "{name}". '
-            f'Specify a space before connecting the observation.'
+            f"Specify a space before connecting the observation."
         )
 
         # Set properties in node params of 'env/observations'
         assert len(params_obs["inputs"][observation]) == 0, 'Observation "%s" already connected.' % observation
         mapping = dict(
-            msg_type=None,
             delay=0.0,
             window=1,
             skip=False,
-            external_rate=None,
             processor=None,
-            converter=None,
             space=source.space,
             address=None,
         )
@@ -745,7 +742,7 @@ class Graph:
             if parameter:
                 getattr(entry, parameter)  # Check if parameter exists
             if parameter == "processor":
-                if isinstance(value, ConverterSpec):
+                if isinstance(value, ProcessorSpec):
                     value = value.params
                 elif isinstance(value, GraphView):
                     value = value.to_dict()
@@ -763,7 +760,6 @@ class Graph:
                         "outputs",
                     ], "You cannot modify component parameters with this function. Use _add/remove_component(..) instead."
                     assert parameter not in ["name"], f"You cannot rename '{name}'."
-                    assert parameter not in ["msg_type"], f"You cannot modify msg_type '{value}'."
                     p = self._state["nodes"][name]["config"]
                 else:
                     name, component, cname = entry()
@@ -772,7 +768,7 @@ class Graph:
 
     def _set_processor(self, entry: GraphView, processor: Dict):
         """Replaces the processor specified for a node's/object's input."""
-        if isinstance(processor, ConverterSpec):
+        if isinstance(processor, ProcessorSpec):
             processor = processor.params
         elif isinstance(processor, GraphView):
             processor = processor.to_dict()
@@ -818,18 +814,6 @@ class Graph:
         assert self.is_valid(plot=False), "Graph not valid."
         state = deepcopy(self._state)
 
-        # Add message types to outputs
-        for _node_name, params in state["nodes"].items():
-            components = ["states"]
-            if "node_type" in params:
-                components.append("outputs")
-            else:
-                components.append("sensors")
-            for component in components:
-                for _cname, cname_params in params[component].items():
-                    source_dtype = "float32" if cname_params["space"] is None else cname_params["space"]["dtype"]
-                    cname_params["msg_type"] = dtype_to_ros_msg_type(source_dtype)
-
         # Add addresses based on connections
         for source, target in state["connects"]:
             source_name, source_comp, source_cname = source
@@ -852,24 +836,26 @@ class Graph:
                 address = "%s/%s/%s" % (source_name, source_comp, source_cname)
             state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
-            # Determine msg_type
+            # check if dtypes match
             source_params = state["nodes"][source_name][source_comp][source_cname]
             target_params = state["nodes"][target_name][target_comp][target_cname]
             source_dtype = "float32" if source_params["space"] is None else source_params["space"]["dtype"]
             target_dtype = "float32" if target_params["space"] is None else target_params["space"]["dtype"]
-            if not source_dtype == target_dtype:
+            source_processor = state["nodes"][source_name][source_comp][source_cname]["processor"]
+            target_processor = state["nodes"][target_name][target_comp][target_cname]["processor"]
+            topic_dtype = get_output_dtype(source_dtype, source_processor)
+            state["nodes"][target_name][target_comp][target_cname]["dtype"] = topic_dtype
+            try:
+                # if source=states, ignore the processor.
+                if source_comp == "states":
+                    source_processor = None
+                is_compatible(source_dtype, target_dtype, source_processor, target_processor)
+            except AssertionError as e:
                 msg = (
-                    f"{source_name}.{source_comp}.{source_cname}.space.dtype ({source_dtype}) and "
-                    f"{target_name}.{target_comp}.{target_cname}.space.dtype ({target_dtype}) are inconsistent."
+                    f"Incorrect connection of (source={source_name}.{source_comp}.{source_cname}) with "
+                    f"(target={target_name}.{target_comp}.{target_cname}): {e}"
                 )
-                rospy.logwarn(msg)
-            msg_type = dtype_to_ros_msg_type(source_dtype)
-            state["nodes"][target_name][target_comp][target_cname]["msg_type"] = msg_type
-
-            # Check message types
-            source_msg_type = state["nodes"][source_name][source_comp][source_cname]["msg_type"]
-            msg = f"Msg types not the same. source={source}.msg_type={source_msg_type} || target={target}.msg_type={msg_type}."
-            assert msg_type == source_msg_type, msg
+                raise IOError(msg)
 
         # Initialize param objects
         nodes = []
@@ -898,7 +884,7 @@ class Graph:
         self,
         source: GraphView,
         rate: float,
-        processor: Optional[ConverterSpec] = None,
+        processor: Optional[ProcessorSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -948,6 +934,7 @@ class Graph:
                 entity_id = "Render"
         render = Node.make(entity_id, rate=rate, process=process, **kwargs)
         render.inputs.image.space = source.space
+        render.inputs.image.space.dtype = "uint8"
         self.add(render)
 
         # Create connection
@@ -1001,7 +988,7 @@ class Graph:
         try:
             from eagerx_gui import launch_gui
         except ImportError as e:
-            rospy.logwarn(
+            bnd.logwarn(
                 f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
             )
             return
@@ -1089,50 +1076,17 @@ class Graph:
     @staticmethod
     def _is_valid(state, plot=True):
         state = deepcopy(state)
-        # Graph.check_msg_types_are_consistent(state)
         Graph.check_inputs_have_address(state)
         Graph.check_graph_is_acyclic(state, plot=plot)
-        # Graph.check_exists_compatible_engine(state)
         return True
 
     @staticmethod
     def check_msg_type(source, target, state):
-        raise NotImplementedError("Msg_types are inferred from spaces.")
-        # Convert the source msg_type to target msg_type with converters:
-        # msg_type_source --> output_converter --> msg_type_ROS --> input_converter --> msg_type_target
-        # msg_type_out = get_cls_from_string(source.msg_type)
-        # converter_out = source.converter.to_dict()
-        # msg_type_ros = get_opposite_msg_cls(msg_type_out, converter_out)
-        # converter_in = target.converter.to_dict()
-        # msg_type_in = get_opposite_msg_cls(msg_type_ros, converter_in)
-        #
-        # # Verify that this msg_type_in is the same as the msg_type specified in the target
-        # target_name, target_comp, target_cname = target()
-        # if target_comp == "feedthroughs":
-        #     msg_type_in_registered = get_cls_from_string(state["nodes"][target_name]["outputs"][target_cname]["msg_type"])
-        # else:
-        #     msg_type_in_registered = get_cls_from_string(target.msg_type)
-        #
-        # msg_type_str = msg_type_error(
-        #     source(),
-        #     target(),
-        #     msg_type_out,
-        #     converter_out,
-        #     msg_type_ros,
-        #     converter_in,
-        #     msg_type_in,
-        #     msg_type_in_registered,
-        # )
-        # assert msg_type_in == msg_type_in_registered, msg_type_str
+        raise NotImplementedError("Msg_types are inferred from space dtypes.")
 
     @staticmethod
     def check_msg_types_are_consistent(state):
-        raise NotImplementedError("Msg_types are inferred from spaces.")
-        # for source, target in state["connects"]:
-        #     source = Graph._get_view(state, source[0], source[1:])
-        #     target = Graph._get_view(state, target[0], target[1:])
-        #     Graph.check_msg_type(source, target, state)
-        # return True
+        raise NotImplementedError("Msg_types are inferred from space dtypes.")
 
     @staticmethod
     def check_inputs_have_address(state):

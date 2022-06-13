@@ -1,9 +1,10 @@
 import functools
 import inspect
-import rospy
 import copy
-# from unittest.mock import MagicMock
-from eagerx.utils.utils import deepcopy, load, SUPPORTED_SPACES
+
+import eagerx.core.ros1 as bnd
+from eagerx.utils.utils import deepcopy, load
+from eagerx.core.constants import SUPPORTED_SPACES
 from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict, Optional
 import os
 
@@ -55,14 +56,14 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
 
     def _register(func):
         entry = func.__module__ + "/" + func.__qualname__
-        rospy.logdebug("[register]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entry))
+        bnd.logdebug("[register]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entry))
 
         @functools.wraps(func)
         def _spec(*args, **kwargs):
             """Make an entity with the registered spec function"""
             entity_type = func.__module__ + "/" + func.__qualname__[:-5]
             if not entity_id == "Identity":
-                rospy.logdebug("[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type))
+                bnd.logdebug("[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type))
             spec = entity_cls.pre_make(entity_id, entity_type)
 
             # Initialize spec
@@ -130,7 +131,7 @@ def _register_types(TYPE_REGISTER, component, cnames, func, space_only=True):
             assert (
                 flag
             ), f'TYPE REGISTRATION ERROR: [{cls_name}][{fn_name}][{component}]: "{space}" is an invalid space. Please provide a valid space for "{key}"instead.'
-    rospy.logdebug(f"[{cls_name}][{fn_name}]: {component}={cnames}, entry={entry}")
+    bnd.logdebug(f"[{cls_name}][{fn_name}]: {component}={cnames}, entry={entry}")
 
     @functools.wraps(func)
     def registered_fn(*args, **kwargs):
@@ -143,7 +144,7 @@ def _register_types(TYPE_REGISTER, component, cnames, func, space_only=True):
 
     if component in TYPE_REGISTER[cls_name]:
         """Check if already registered component of duplicate function matches."""
-        rospy.logdebug(f"[{cls_name}][{component}]: {component}={cnames}, entry={entry}")
+        bnd.logdebug(f"[{cls_name}][{component}]: {component}={cnames}, entry={entry}")
         flag = cnames == TYPE_REGISTER[cls_name][component] or bool(eval(os.environ.get("EAGERX_RELOAD", "0")))
         assert (
             flag
@@ -272,7 +273,7 @@ def engine(entity_id: str, engine_cls: "Engine") -> Callable:
             cls_name = "N/A"
             fn_name = name_split[0]
         entry = func.__module__ + "/" + func.__qualname__
-        rospy.logdebug(f"[{cls_name}][{fn_name}]: engine_id={engine_id}, entry={entry}")
+        bnd.logdebug(f"[{cls_name}][{fn_name}]: engine_id={engine_id}, entry={entry}")
 
         @functools.wraps(func)
         def _engine(spec):

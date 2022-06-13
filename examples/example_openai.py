@@ -7,11 +7,14 @@ initialize("eagerx_core", anonymous=True, log_level=log.INFO)
 # Environment imports
 from eagerx.core.graph import Graph
 
+
 # Implementation specific
 import eagerx.engines.openai_gym as eagerx_gym
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
+    # todo: make sure all tests pass again.
+    # todo: refactor tests.test.node.py
     # Define rate (depends on rate of gym env)
     rate = 20
 
@@ -39,7 +42,7 @@ if __name__ == "__main__":
     graph.load("./test.graph")
 
     # Define engine
-    engine = Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=1, process=process.ENVIRONMENT)
+    engine = Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=1, process=process.NEW_PROCESS)
 
     env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, engine=engine)
     env.render(mode="human")

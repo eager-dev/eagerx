@@ -7,7 +7,7 @@ from eagerx.core.graph import Graph
 # Implementation specific
 import eagerx.engines.openai_gym as eagerx_gym
 import eagerx.nodes  # noqa: F401
-import eagerx.converters  # noqa: F401
+import eagerx.processors  # noqa: F401
 
 import time
 

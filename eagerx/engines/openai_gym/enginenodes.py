@@ -4,14 +4,10 @@ import numpy as np
 import gym
 from pyvirtualdisplay import Display
 import os
-
-# IMPORT ROS
-import rospy
 from gym.spaces import Discrete, Box
-from std_msgs.msg import Bool
-from sensor_msgs.msg import Image
 
 # IMPORT EAGERX
+import eagerx.core.ros1 as bnd
 import eagerx.core.register as register
 from eagerx.utils.utils import Msg
 from eagerx.core.entities import EngineNode
@@ -52,7 +48,7 @@ class ObservationSensor(EngineNode):
     def reset(self):
         self.last_obs = None
 
-    @register.inputs(tick=None)
+    @register.inputs(tick=Discrete(99999))
     @register.outputs(observation=None)
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
@@ -102,7 +98,7 @@ class RewardSensor(EngineNode):
     def reset(self):
         self.last_reward = 0.0
 
-    @register.inputs(tick=None)
+    @register.inputs(tick=Discrete(99999))
     @register.outputs(reward=None)
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
@@ -152,7 +148,7 @@ class DoneSensor(EngineNode):
     def reset(self):
         self.last_done = False
 
-    @register.inputs(tick=None)
+    @register.inputs(tick=Discrete(99999))
     @register.outputs(done=Discrete(2))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
@@ -220,7 +216,7 @@ class ActionActuator(EngineNode):
         # This controller is stateless (in contrast to e.g. a PID controller).
         self.simulator[self.obj_name]["next_action"] = self.zero_action
 
-    @register.inputs(tick=None, action=None)
+    @register.inputs(tick=Discrete(99999), action=None)
     @register.outputs(action_applied=None)
     def callback(
         self,
@@ -235,7 +231,7 @@ class ActionActuator(EngineNode):
         # Set action in simulator for next step.
         if len(action.msgs) > 0:
             self.simulator[self.obj_name]["next_action"] = (
-                int(action.msgs[-1].data[0]) if self.is_discrete else action.msgs[-1].data
+                int(action.msgs[-1].item()) if self.is_discrete else action.msgs[-1].data
             )
         else:
             self.simulator[self.obj_name]["next_action"] = self.zero_action
@@ -273,7 +269,7 @@ class GymImage(EngineNode):
         # Modify custom node params
         spec.config.shape = shape if isinstance(shape, list) else [200, 200]
         spec.config.always_render = always_render
-        spec.outputs.image.space = Box(low=0, high=255, shape=spec.config.shape)
+        spec.outputs.image.space = Box(low=0, high=255, shape=spec.config.shape + [3], dtype="uint8")
 
     def initialize(self, shape, always_render):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
@@ -285,7 +281,7 @@ class GymImage(EngineNode):
         self.render_toggle = False
         self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
-        self.render_toggle_pub = rospy.Subscriber("%s/env/render/toggle" % self.ns, Bool, self._set_render_toggle)
+        self.sub_toggle = bnd.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
 
         # Setup virtual display for rendering.
         self.display = Display(visible=False, backend="xvfb")
@@ -299,7 +295,7 @@ class GymImage(EngineNode):
         # This sensor is stateless (in contrast to e.g. a Kalman filter).
         pass
 
-    @register.inputs(tick=None)
+    @register.inputs(tick=Discrete(99999))
     @register.outputs(image=None)
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
@@ -310,20 +306,17 @@ class GymImage(EngineNode):
             rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
             os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
 
-            # Resize image if not matching desired self.shape (defined in .yaml)
+            # Resize image if not matching desired self.shape
             if rgb.shape[:2] != tuple(self.shape):
                 kwargs = dict(output_shape=self.shape, mode="edge", order=1, preserve_range=True)
                 rgb = skimage.transform.resize(rgb, **kwargs).astype(rgb.dtype)
-
-            # Prepare ROS msg
-            height = rgb.shape[0]
-            width = rgb.shape[1]
-            data = rgb.tobytes("C")
-            msg = Image(data=data, height=height, width=width, encoding="rgb8")
-            # self._show_ros_image(msg)
         else:
-            msg = Image()
-        return dict(image=msg)
+            rgb = np.zeros((self.shape[0], self.shape[1], 3), np.uint8)
+        return dict(image=rgb)
+
+    def shutdown(self):
+        bnd.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.sub_toggle.unregister()
 
     def _show_ros_image(self, msg):
         import matplotlib.pyplot as plt
@@ -334,8 +327,8 @@ class GymImage(EngineNode):
 
     def _set_render_toggle(self, msg):
         if msg.data:
-            rospy.loginfo("[%s] START RENDERING!" % self.name)
+            bnd.logdebug("[%s] START RENDERING!" % self.name)
         else:
             self.simulator[self.obj_name]["env"].close()
-            rospy.loginfo("[%s] STOPPED RENDERING!" % self.name)
+            bnd.logdebug("[%s] STOPPED RENDERING!" % self.name)
         self.render_toggle = msg.data

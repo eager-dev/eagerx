@@ -1,6 +1,7 @@
 from yaml import dump
 import copy
-from eagerx.utils.utils import is_supported_type, space_to_dict, SUPPORTED_SPACES
+from eagerx.utils.utils import is_supported_type, space_to_dict
+from eagerx.core.constants import SUPPORTED_SPACES
 from typing import Dict, Any, Optional
 
 supported_types = (str, int, list, float, bool, dict)

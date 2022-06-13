@@ -1,21 +1,20 @@
 from typing import Optional, List
 from threading import Event, Thread, Condition
 import signal
+
+import gym.spaces
 import time
 import sys
 
 import numpy as np
-from gym.spaces import Discrete
-import rospy
-from std_msgs.msg import Bool
-from sensor_msgs.msg import Image
-import cv_bridge
+from gym.spaces import Discrete, Box
 import cv2
 
 import eagerx
+import eagerx.core.ros1 as bnd
 import eagerx.core.register as register
 from eagerx.core.specs import NodeSpec
-from eagerx.utils.utils import initialize_converter, Msg, dict_to_space
+from eagerx.utils.utils import initialize_processor, Msg, dict_to_space
 
 
 class EnvNode(eagerx.Node):
@@ -40,7 +39,7 @@ class EnvNode(eagerx.Node):
             if i["name"] == "actions_set":
                 continue
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
                 processor = i["processor"]
             else:
                 processor = i["processor"]
@@ -67,7 +66,7 @@ class EnvNode(eagerx.Node):
 
         # Graceful signal handler
         def signal_handler(sig, frame):
-            print("SIGINT caught!")
+            bnd.logdebug("SIGINT caught!")
             self.obs_event.set()
             self.action_event.set()
             sys.exit(0)
@@ -80,7 +79,7 @@ class EnvNode(eagerx.Node):
             if i["name"] == "set":
                 continue
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
                 processor = i["processor"]
             else:
                 processor = i["processor"]
@@ -131,7 +130,7 @@ class EnvNode(eagerx.Node):
                 if not flag:
                     raise KeyboardInterrupt
             except (KeyboardInterrupt, SystemExit):
-                print(f"[{self.ns_name}] KEYBOARD INTERRUPT")
+                bnd.logdebug(f"[{self.ns_name}] KEYBOARD INTERRUPT")
                 raise
 
         if self.must_reset:
@@ -239,20 +238,14 @@ class RenderNode(eagerx.Node):
         spec.inputs.image.window = 0
 
     def initialize(self, display, encoding):
-        self.cv_bridge = cv_bridge.CvBridge()
-        self.window = None
         self.display = display
+        self.window = None
         self.encoding = encoding
-        self.last_image = Image(data=[])
+        self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
-        self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
-        self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
-        self.pub_set = rospy.Publisher(
-            "%s/%s/set_last_image" % (self.ns, self.name),
-            Image,
-            queue_size=0,
-            latch=True,
-        )
+        self.sub_toggle = bnd.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
+        self.sub_get = bnd.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
+        self.pub_set = bnd.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
         # Setup async imshow (opening, closing, and imshow must all be in the same thread).
         self.window_open = False
@@ -283,11 +276,11 @@ class RenderNode(eagerx.Node):
             self.window_open = True
 
     def _set_render_toggle(self, msg):
-        if msg.data:
-            rospy.loginfo("START RENDERING!")
+        if msg:
+            bnd.logdebug("START RENDERING!")
         else:
-            rospy.loginfo("STOP RENDERING!")
-        self.render_toggle = msg.data
+            bnd.logdebug("STOP RENDERING!")
+        self.render_toggle = msg
 
     def _get_last_image(self, msg):
         self.pub_set.publish(self.last_image)
@@ -301,7 +294,7 @@ class RenderNode(eagerx.Node):
         if len(image.msgs) > 0:
             self.last_image = image.msgs[-1]
         else:
-            return dict(done=np.array(0, dtype="float32"))
+            return dict(done=0)
         empty = len(image.msgs[-1]) == 0
         if not empty and self.display and self.render_toggle:
             self.cv_image = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
@@ -309,11 +302,11 @@ class RenderNode(eagerx.Node):
             self.img_event.set()  # Signal async_imshow thread
 
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=np.array(0, dtype="float32"))
+        output_msgs = dict(done=1)
         return output_msgs
 
     def shutdown(self):
-        rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        bnd.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()
@@ -342,6 +335,7 @@ class ColabRender(eagerx.Node):
         subsample: bool = True,
         log_level: int = eagerx.log.WARN,
         color: str = "grey",
+        encoding="bgr",
     ):
         """ColabRender spec"""
         # Modify default node params
@@ -356,6 +350,7 @@ class ColabRender(eagerx.Node):
         spec.config.states = []
 
         # Custom params
+        spec.config.encoding = encoding
         spec.config.fps = fps
         spec.config.shape = shape if isinstance(shape, list) else [64, 64]
         spec.config.maxlen = maxlen
@@ -364,7 +359,7 @@ class ColabRender(eagerx.Node):
         # Pre-set window
         spec.inputs.image.window = 0
 
-    def initialize(self, fps, maxlen, shape, subsample):
+    def initialize(self, encoding, fps, maxlen, shape, subsample):
         # todo: Overwrite fps if higher than rate
         # todo: Subsample if fps lower than rate * real_time_factor
         # todo: set node_fps either slightly higher or lower than js_fps?
@@ -375,7 +370,7 @@ class ColabRender(eagerx.Node):
             # Store cls as attribute so that it can be initialized in the callback
             self.window_cls = InlineRender
         except ImportError as e:
-            rospy.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
+            bnd.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
             raise
         self.dt_fps = 1 / fps
         self.subsample = subsample
@@ -383,29 +378,25 @@ class ColabRender(eagerx.Node):
         self.shape = shape
         self.maxlen = maxlen
         self.window = None
-        self.last_image = Image(data=[])
+        self.encoding = encoding
+        self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
-        self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
-        self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
-        self.pub_set = rospy.Publisher(
-            "%s/%s/set_last_image" % (self.ns, self.name),
-            Image,
-            queue_size=0,
-            latch=True,
-        )
+        self.sub_toggle = bnd.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
+        self.sub_get = bnd.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
+        self.pub_set = bnd.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
     def _set_render_toggle(self, msg):
-        if msg.data:
-            rospy.loginfo("START RENDERING!")
+        if msg:
+            bnd.logdebug("START RENDERING!")
         else:
-            rospy.loginfo("STOP RENDERING!")
-        self.render_toggle = msg.data
+            bnd.logdebug("STOP RENDERING!")
+        self.render_toggle = msg
 
     def _get_last_image(self, msg):
         self.pub_set.publish(self.last_image)
 
     def reset(self):
-        self.last_image = Image(data=[])
+        self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
 
     @register.inputs(image=None)
     @register.outputs(done=Discrete(2))
@@ -421,16 +412,10 @@ class ColabRender(eagerx.Node):
         elif not time.time() > (self.dt_fps + self.window.timestamp):
             return output_msgs
         # Check if frame is not empty
-        empty = self.last_image.height == 0 or self.last_image.width == 0
+        empty = len(self.last_image.data) == 0
         if not empty and self.render_toggle:
-            # Convert image to np array
-            if isinstance(self.last_image.data, bytes):
-                img = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(
-                    self.last_image.height, self.last_image.width, -1
-                )
-            else:
-                img = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
             # Convert to rgb (from bgr)
+            img = self.last_image
             if "bgr" in self.last_image.encoding:
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             # Add image to buffer (where it is send async to javascript window)
@@ -438,7 +423,7 @@ class ColabRender(eagerx.Node):
         return output_msgs
 
     def shutdown(self):
-        rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        bnd.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()

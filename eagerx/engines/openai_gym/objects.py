@@ -17,22 +17,21 @@ class GymObject(Object):
     entity_id = "GymObject"
 
     @staticmethod
-    @register.sensors(observation=None, reward=None, done=None, image=None)
+    @register.sensors(observation=None, reward=None, done=Discrete(2), image=None)
     @register.actuators(action=None)
     @register.engine_states()
     @register.config(env_id=None, always_render=False, default_action=None, render_shape=[200, 200])
     def agnostic(spec: ObjectSpec, rate):
         """Agnostic definition of the GymObject"""
-        # Register standard converters, space_converters, and processors
-        import eagerx.converters  # noqa # pylint: disable=unused-import
+        import eagerx.processors  # noqa # pylint: disable=unused-import
 
-        # Set observation space_converters
+        # Set spaces
         env = gym.make(spec.config.env_id)
         spec.sensors.observation.space = env.observation_space
-        spec.sensors.reward.space = Box(low=env.reward_range[0], high=env.reward_range[1], dtype="float32")
-        spec.sensors.done.space = Discrete(2)
-        spec.sensors.image.space = Box(low=0, high=1, shape=spec.config.render_shape, dtype="float32")
         spec.actuators.action.space = env.action_space
+        spec.sensors.reward.space = Box(low=env.reward_range[0], high=env.reward_range[1], shape=tuple(), dtype="float32")
+        shape = (spec.config.render_shape[0], spec.config.render_shape[1], 3)
+        spec.sensors.image.space = Box(low=0, high=255, shape=shape, dtype="uint8")
 
         # Set rates
         spec.sensors.observation.rate = rate
@@ -77,6 +76,7 @@ class GymObject(Object):
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
         obs = EngineNode.make("ObservationSensor", "obs", rate=spec.sensors.observation.rate, process=2)
+        obs.outputs.observation.space = spec.sensors.observation.space
         rwd = EngineNode.make("RewardSensor", "rwd", rate=spec.sensors.reward.rate, process=2)
         done = EngineNode.make("DoneSensor", "done", rate=spec.sensors.done.rate, process=2)
         image = EngineNode.make(
@@ -93,6 +93,7 @@ class GymObject(Object):
         action = EngineNode.make(
             "ActionActuator", "action", rate=spec.actuators.action.rate, process=2, zero_action=spec.config.default_action
         )
+        action.outputs.action_applied.space = spec.actuators.action.space
 
         # Connect all engine nodes
         graph.add([obs, rwd, done, image, action])

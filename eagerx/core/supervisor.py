@@ -1,12 +1,6 @@
-from __future__ import print_function
-
-# ROS imports
-import rospy
-import rosparam
-from std_msgs.msg import UInt64, String, Bool
-from sensor_msgs.msg import Image
-
 # Rx imports
+import eagerx.core.ros1 as bnd
+import eagerx.utils.utils
 from eagerx.core.constants import process
 from eagerx.core.executable_node import RxNode
 import eagerx.core.rx_message_broker
@@ -15,10 +9,9 @@ import eagerx.core.rx_pipelines
 from eagerx.core.entities import BaseNode
 from eagerx.core.specs import NodeSpec, ObjectSpec
 from eagerx.utils.utils import (
-    get_attribute_from_module,
-    initialize_converter,
-    get_param_with_blocking,
-    dict_to_space,
+    load,
+    initialize_processor,
+    dict_to_space, get_param_with_blocking,
 )
 from eagerx.utils.node_utils import initialize_nodes
 from eagerx.core.nodes import EnvNode
@@ -37,9 +30,9 @@ class SupervisorNode(BaseNode):
         self.last_image = None
         self._image_event = Event()
         self.render_toggle = False
-        self.pub_get_last_image = rospy.Publisher("%s/env/render/get_last_image" % ns, Bool, queue_size=0, latch=True)
-        self.sub_set_last_image = rospy.Subscriber("%s/env/render/set_last_image" % ns, Image, self._last_image_callback)
-        self.render_toggle_pub = rospy.Publisher("%s/env/render/toggle" % ns, Bool, queue_size=0, latch=True)
+        self.pub_get_last_image = bnd.Publisher("%s/env/render/get_last_image" % ns, "bool")
+        self.sub_set_last_image = bnd.Subscriber("%s/env/render/set_last_image" % ns, "uint8", self._last_image_callback)
+        self.render_toggle_pub = bnd.Publisher("%s/env/render/toggle" % ns, "bool")
 
         # Initialize nodes
         self.cum_registered = 0
@@ -51,7 +44,7 @@ class SupervisorNode(BaseNode):
         self.state_buffer = dict()
         for i in states:
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
                 processor = i["processor"]
             else:
                 processor = i["processor"]
@@ -75,16 +68,16 @@ class SupervisorNode(BaseNode):
     def start_render(self):
         if not self.render_toggle:
             self.render_toggle = True
-            self.render_toggle_pub.publish(Bool(data=self.render_toggle))
+            self.render_toggle_pub.publish(self.render_toggle)
 
     def stop_render(self):
         if self.render_toggle:
             self.render_toggle = False
-            self.render_toggle_pub.publish(Bool(data=self.render_toggle))
+            self.render_toggle_pub.publish(self.render_toggle)
 
     def get_last_image(self):
         self._image_event.clear()
-        self.pub_get_last_image.publish(Bool())
+        self.pub_get_last_image.publish(True)
         self._image_event.wait()
         return self.last_image
 
@@ -108,7 +101,7 @@ class SupervisorNode(BaseNode):
             self.launch_nodes,
             rxnode_cls=RxNode,
         )
-        self.subjects["register_node"].on_next(String(self.ns + "/" + node_name))
+        self.subjects["register_node"].on_next(self.ns + "/" + node_name)
 
     def register_object(self, object: ObjectSpec, engine_name: str):
         # Increase cumulative registered counter. Is send as '/start_reset' message.
@@ -117,12 +110,12 @@ class SupervisorNode(BaseNode):
         # Check if object name is unique
         obj_name = object.config.name
         assert (
-            rospy.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
+                bnd.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
         ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
 
-        # Upload object params to rosparam server
+        # Upload object params to param server
         params, nodes = object.build(ns=self.ns, engine_id=engine_name)
-        rosparam.upload_params(self.ns, params)
+        bnd.upload_params(self.ns, params)
 
         # Set node args
         node_args = dict(
@@ -141,16 +134,16 @@ class SupervisorNode(BaseNode):
             node_args=node_args,
             object_name=obj_name,
         )
-        self.subjects["register_object"].on_next(String(f"{self.ns}/{obj_name}"))
+        self.subjects["register_object"].on_next(f"{self.ns}/{obj_name}")
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states
         msgs = dict()
         for name, buffer in self.state_buffer.items():
             if buffer["msg"] is None:
-                msgs[name + "/done"] = Bool(data=True)
+                msgs[name + "/done"] = True
             else:
-                msgs[name + "/done"] = Bool(data=False)
+                msgs[name + "/done"] = False
                 msgs[name] = buffer["msg"]
                 buffer["msg"] = None  # After sending state, set msg to None
         return msgs
@@ -159,7 +152,7 @@ class SupervisorNode(BaseNode):
         self.env_node.obs_event.clear()
         self.env_node.must_reset = True
         self.env_node.action_event.set()
-        self.subjects["start_reset"].on_next(UInt64(data=self.cum_registered))
+        self.subjects["start_reset"].on_next(self.cum_registered)
         self._step_counter = 0
         try:
             flag = self.env_node.obs_event.wait()
@@ -168,7 +161,7 @@ class SupervisorNode(BaseNode):
         except (KeyboardInterrupt, SystemExit):
             print("[reset] KEYBOARD INTERRUPT")
             raise
-        rospy.logdebug("FIRST OBS RECEIVED!")
+        bnd.logdebug("FIRST OBS RECEIVED!")
 
     def step(self):
         self.env_node.obs_event.clear()
@@ -181,7 +174,7 @@ class SupervisorNode(BaseNode):
         except (KeyboardInterrupt, SystemExit):
             print("[step] KEYBOARD INTERRUPT")
             raise
-        rospy.logdebug("STEP END")
+        bnd.logdebug("STEP END")
 
     def shutdown(self):
         self.env_node.action_event.set()
@@ -211,18 +204,18 @@ class Supervisor(object):
 
     def node_initialized(self):
         # Notify env that node is initialized
-        self.init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
-        self.init_pub.publish(UInt64())
+        self.init_pub = bnd.Publisher(self.name + "/initialized", "int64")
+        self.init_pub.publish(0)
 
         if not self.initialized:
-            rospy.loginfo('Node "%s" initialized.' % self.name)
+            bnd.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
     def _prepare_io_topics(self, name, sync, real_time_factor, simulate_delays):
         params = get_param_with_blocking(name)
 
         # Get node
-        node_cls = get_attribute_from_module(params["node_type"])
+        node_cls = load(params["node_type"])
         node = node_cls(
             ns=self.ns,
             message_broker=self.mb,
@@ -234,30 +227,28 @@ class Supervisor(object):
 
         # Prepare output topics
         for i in params["outputs"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         return tuple(params["outputs"]), tuple(params["states"]), node
 
     def _shutdown(self):
-        rospy.logdebug(f"[{self.name}] Supervisor._shutdown() called.")
+        bnd.logdebug(f"[{self.name}] Supervisor._shutdown() called.")
         self.init_pub.unregister()
 
     def node_shutdown(self):
         if not self.has_shutdown:
-            rospy.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
-            rospy.loginfo(f"[{self.name}] Shutting down.")
+            bnd.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
+            bnd.loginfo(f"[{self.name}] Shutting down.")
             self._shutdown()
             self.node.shutdown()
             self.mb.shutdown()

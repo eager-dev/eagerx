@@ -1,60 +1,14 @@
-# ROS SPECIFIC
-import rospy
-import rosparam
-from std_msgs.msg import UInt64
-
 # RxEAGER
-from eagerx.utils.utils import substitute_args
-from eagerx.core.constants import process, log, log_levels_ROS
+import eagerx.core.ros1 as bnd
+import eagerx.utils.utils
+from eagerx.core.constants import process
 
 # OTHER
-import atexit
 import importlib
 import subprocess
 from time import sleep
 from typing import List, Dict, Union, Any
-from functools import partial, wraps
-
-
-@wraps(rospy.init_node)
-def initialize(*args, log_level=log.INFO, **kwargs):
-    roscore = launch_roscore()  # First launch roscore (if not already running)
-    try:
-        rospy.init_node(*args, log_level=log_levels_ROS[log_level], **kwargs)
-    except rospy.exceptions.ROSException as e:
-        rospy.logwarn(e)
-    if roscore:
-        atexit.register(roscore.shutdown)
-    return roscore
-
-
-def launch_roscore():
-    import roslaunch
-
-    uuid = roslaunch.rlutil.get_or_generate_uuid(options_runid=None, options_wait_for_master=False)
-    roslaunch.configure_logging(uuid)
-    roscore = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_files=[], is_core=True)
-
-    try:
-        roscore.start()
-    except roslaunch.core.RLException:
-        rospy.loginfo(
-            "Roscore cannot run as another roscore/master is already running. Continuing without re-initializing the roscore."
-        )
-        roscore = None
-    return roscore
-
-
-def launch_node(launch_file, args):
-    import roslaunch
-
-    cli_args = [substitute_args(launch_file)] + args
-    roslaunch_args = cli_args[1:]
-    roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
-    uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
-    # roslaunch.configure_logging(uuid)  # THIS RESETS the log level. Can we do without this line? Are ROS logs stil being made?
-    launch = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
-    return launch
+from functools import partial
 
 
 def launch_node_as_subprocess(executable: str, ns: str, name: str, object_name: str):
@@ -89,20 +43,19 @@ def initialize_nodes(
         nodes = [nodes]
 
     for node in nodes:
-        # Check if we still need to upload params to rosparam server (env)
+        # Check if we still need to upload params to param server (env)
         if not isinstance(node, dict):
             params = node.build(ns=ns)
 
             # Check if node name is unique
             name = node.config.name
-            assert (
-                rospy.get_param(("%s/%s/rate") % (ns, name), None) is None
-            ), 'Node name "%s" already exists. Node names must be unique.' % (ns + "/" + name)
+            assert bnd.get_param(f"{ns}/{name}/rate", None) is None, f"Node name '{ns + '/' + name}' already exists. " \
+                                                                     "Node names must be unique."
 
-            # Upload params to rosparam server
-            rosparam.upload_params(ns, params)
+            # Upload params to param server
+            bnd.upload_params(ns, params)
 
-            # Make params consistent when directly grabbing params from rosparam server
+            # Make params consistent when directly grabbing params from param server
             params = params[name]
         else:
             params = node
@@ -120,7 +73,7 @@ def initialize_nodes(
         def initialized(msg, name):
             is_initialized[name] = True
 
-        sub = rospy.Subscriber(node_address + "/initialized", UInt64, partial(initialized, name=name))
+        sub = bnd.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
         message_broker.subscribers.append(sub)
 
         # Initialize node
@@ -138,7 +91,7 @@ def initialize_nodes(
             )
             launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name, object_name)
         elif params["process"] == process.EXTERNAL:
-            rospy.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
+            bnd.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
         # else: node is launched in another (already launched) node's process (e.g. engine process).
 
 
@@ -157,6 +110,6 @@ def wait_for_node_initialization(is_initialized, wait_time=0.3):
             if not flag:
                 not_init.append(name)
         if len(not_init) > 0:
-            rospy.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
+            bnd.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break

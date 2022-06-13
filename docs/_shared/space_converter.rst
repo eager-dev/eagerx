@@ -40,7 +40,7 @@ The second message type will be a `Float32MultiArray <http://docs.ros.org/en/noe
   # RX IMPORTS
   import eagerx.core.register as register
   from eagerx import Processor, SpaceConverter
-  from eagerx.core.specs import ConverterSpec
+  from eagerx.core.specs import ProcessorSpec
   import numpy as np
   from gym.spaces import Box
 
@@ -53,13 +53,13 @@ spec
 ####
 
 The :func:`~eagerx.core.entities.SpaceConverter.spec` method can be used to specify with which arguments the :class:`~eagerx.core.entities.SpaceConverter` will be initialized.
-In our case, we add *low*, *high* and *dtype* to the :attr:`~eagerx.core.specs.ConverterSpec.config`.
+In our case, we add *low*, *high* and *dtype* to the :attr:`~eagerx.core.specs.ProcessorSpec.config`.
 
 ::
 
   @staticmethod
   @register.spec("Space_AngleDecomposition", SpaceConverter)
-  def spec(spec: ConverterSpec, low=None, high=None, dtype="float32"):
+  def spec(spec: ProcessorSpec, low=None, high=None, dtype="float32"):
       spec.config.update(low=low, high=high, dtype=dtype)
 
 .. note::

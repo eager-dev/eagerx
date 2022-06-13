@@ -1,6 +1,6 @@
 # OTHER IMPORTS
 from typing import Optional, List
-from std_msgs.msg import UInt64, String
+from gym.spaces import Box, Discrete
 
 # EAGERx IMPORTS
 import eagerx
@@ -13,29 +13,24 @@ class Arm(eagerx.Object):
     entity_id = "Arm"
 
     @staticmethod
-    @register.sensors(N6=UInt64, N7=UInt64)
-    @register.actuators(N8=String, ref_vel=UInt64, N12=UInt64)
-    @register.engine_states(N9=UInt64, N10=UInt64)
+    @register.sensors(N6=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                      N7=Box(low=0, high=100, shape=(1,), dtype="uint64"),)
+    @register.actuators(N8=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                        N12=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                        ref_vel=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.engine_states(N9=Box(low=0, high=100, shape=(1,), dtype="uint64"),
+                            N10=Box(low=0, high=100, shape=(1,), dtype="uint64"))
     @register.config(position=[0, 0, 0], orientation=[0, 0, 0], low=None, string=None, test_string=None, test_list=None)
     def agnostic(spec: specs.ObjectSpec, rate):
         """Agnostic definition of the Arm object"""
-        # Set state properties: space_converters
-        spec.sensors.N6.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        # spec.sensors.N7.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        # Set state properties
         spec.sensors.N6.rate = rate
         spec.sensors.N7.rate = 2
 
-        # Set actuator properties: space_converters
-        spec.actuators.N8.space_converter = eagerx.SpaceConverter.make("Space_RosString", [0], [100], dtype="uint64")
-        spec.actuators.N12.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.actuators.ref_vel.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
+        # Set actuator properties
         spec.actuators.N8.rate = rate
         spec.actuators.N12.rate = rate
         spec.actuators.ref_vel.rate = 1
-
-        # Set state properties: space_converters
-        spec.states.N9.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
-        spec.states.N10.space_converter = eagerx.SpaceConverter.make("Space_RosUInt64", [0], [100], dtype="uint64")
 
         # Test AgnosticSpec
         spec.actuators.N8.rate = spec.actuators.N8.rate
@@ -96,7 +91,7 @@ class Arm(eagerx.Object):
             "N6",
             rate=spec.sensors.N6.rate,
             process=2,
-            inputs=["tick", "in_1"],
+            inputs=["tick"],
             outputs=["out_1"],
             states=["state_1"],
             test_arg=spec.TestEngine.req_arg,
@@ -173,10 +168,10 @@ class Arm(eagerx.Object):
         graph.add([N6, N8])
         graph.connect(source=N6.outputs.out_1, sensor="N6")
         graph.connect(actuator="N8", target=N8.inputs.in_3)
-        graph.get(N6.outputs.out_1.converter)
+        graph.get(N6.outputs.out_1.window)
         graph.set({"test_arg": "NEW_ARG"}, N6.config)
-        graph.get(actuator="N8", parameter="converter")
-        graph.get(sensor="N6", parameter="converter")
+        graph.get(actuator="N8", parameter="window")
+        graph.get(sensor="N6", parameter="window")
         graph.get(sensor="N6")
         graph.get(actuator="N8")
         graph.get(N6.outputs.out_1)
@@ -198,27 +193,13 @@ class Arm(eagerx.Object):
         graph.connect(actuator="ref_vel", target=ref_vel.inputs.in_1)
 
         # Interconnect engine nodes
-        id = eagerx.BaseConverter.make("Identity")
         graph.connect(
             source=N8.outputs.out_1,
             target=N7.inputs.in_1,
             skip=True,
         )
-        graph.connect(source=N6.outputs.out_1, target=N8.inputs.in_2, window=1, converter=id)
+        graph.connect(source=N6.outputs.out_1, target=N8.inputs.in_2, window=1)
         graph.connect(source=N6.outputs.out_1, target=ref_vel.inputs.in_2, delay=0.0)
-
-        # Connect simnode with external address (cannot be actuator or sensor)
-        graph.connect(
-            address="$(ns env_name)/nonreactive_input_topic",
-            target=N6.inputs.in_1,
-            external_rate=20,
-        )
-        graph.disconnect(target=N6.inputs.in_1)
-        graph.connect(
-            address="$(ns env_name)/nonreactive_input_topic",
-            target=N6.inputs.in_1,
-            external_rate=20,
-        )
 
         # Test EngineGraph: Test acyclic check
         import matplotlib.pyplot as plt
@@ -311,7 +292,7 @@ class Viper(Arm):
             "N6",
             rate=spec.sensors.N6.rate,
             process=2,
-            inputs=["tick", "in_1"],
+            inputs=["tick"],
             outputs=["out_1"],
             states=["state_1"],
             test_arg=spec.TestEngine.req_arg,
@@ -351,7 +332,7 @@ class Viper(Arm):
 
         # Add IdentityProcessor to N6
         IdentityProcessor = eagerx.Processor.make("IdentityProcessor")
-        N6.outputs.out_1.converter = IdentityProcessor
+        N6.outputs.out_1.processor = IdentityProcessor
 
         # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])
@@ -373,19 +354,6 @@ class Viper(Arm):
         graph.connect(source=N6.outputs.out_1, target=N8.inputs.in_2)
         graph.connect(source=N6.outputs.out_1, target=ref_vel.inputs.in_2)
 
-        # Connect simnode with external address (cannot be actuator or sensor)
-        graph.connect(
-            address="$(ns env_name)/nonreactive_input_topic",
-            target=N6.inputs.in_1,
-            external_rate=20,
-        )
-        graph.disconnect(target=N6.inputs.in_1)
-        graph.connect(
-            address="$(ns env_name)/nonreactive_input_topic",
-            target=N6.inputs.in_1,
-            external_rate=20,
-        )
-
         # Test Adding converters to actuators
         N12 = eagerx.EngineNode.make(
             "TestActuator",
@@ -398,5 +366,4 @@ class Viper(Arm):
             color="green",
         )
         graph.add(N12)
-        RosString_RosUInt64 = eagerx.Converter.make("RosString_RosUInt64", test_arg="test")
-        graph.connect(actuator="N12", target=N12.inputs.in_3, converter=RosString_RosUInt64)
+        graph.connect(actuator="N12", target=N12.inputs.in_3)

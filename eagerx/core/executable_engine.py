@@ -8,23 +8,18 @@ if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
     site.addsitedir("/opt/ros/melodic/lib/python2.7/dist-packages")
     site.addsitedir("/usr/lib/python2.7/dist-packages")
 
-import rospy
-from std_msgs.msg import UInt64
-
 # Rx imports
 import eagerx.core.rx_message_broker
 import eagerx.core.rx_operators
 import eagerx.core.rx_pipelines
 from eagerx.utils.utils import (
-    get_attribute_from_module,
-    initialize_converter,
-    get_param_with_blocking,
-    get_opposite_msg_cls,
-    dict_to_space,
+    load,
+    initialize_processor,
+    dict_to_space, get_param_with_blocking,
 )
 from eagerx.core.executable_node import RxNode
 from eagerx.utils.node_utils import wait_for_node_initialization
-from eagerx.core.constants import log_levels_ROS
+import eagerx.core.ros1 as bnd
 
 # Other imports
 from threading import Condition
@@ -67,7 +62,7 @@ class RxEngine(object):
         self.cond_reg = Condition()
 
         # Prepare closing routine
-        rospy.on_shutdown(self.node_shutdown)
+        bnd.on_shutdown(self.node_shutdown)
 
     def node_initialized(self):
         with self.cond_reg:
@@ -76,9 +71,9 @@ class RxEngine(object):
 
             # Notify env that node is initialized
             if not self.initialized:
-                self.init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
-                self.init_pub.publish(UInt64(data=1))
-                rospy.loginfo('Node "%s" initialized.' % self.name)
+                self.init_pub = bnd.Publisher(self.name + "/initialized", "int64")
+                self.init_pub.publish(0)
+                bnd.loginfo('Node "%s" initialized.' % self.name)
                 self.initialized = True
 
     def _prepare_io_topics(self, name):
@@ -88,34 +83,27 @@ class RxEngine(object):
         rate = params["rate"]
 
         # Get node
-        node_cls = get_attribute_from_module(params["node_type"])
+        node_cls = load(params["node_type"])
         node = node_cls(ns=self.ns, message_broker=self.mb, **params)
 
         # Prepare input topics
         for i in params["inputs"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-            if i["converter"] is not None:
-                i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare output topics
         for i in params["outputs"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
@@ -130,21 +118,21 @@ class RxEngine(object):
         )
 
     def _shutdown(self):
-        rospy.logdebug(f"[{self.name}] RxEngine._shutdown() called.")
+        bnd.logdebug(f"[{self.name}] RxEngine._shutdown() called.")
         self.init_pub.unregister()
 
     def node_shutdown(self):
         if not self.has_shutdown:
-            rospy.logdebug(f"[{self.name}] RxEngine.node_shutdown() called.")
+            bnd.logdebug(f"[{self.name}] RxEngine.node_shutdown() called.")
             for address, node in self.engine.launch_nodes.items():
-                rospy.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
+                bnd.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()
             for _, rxnode in self.engine.sp_nodes.items():
                 rxnode: RxNode
                 if not rxnode.has_shutdown:
-                    rospy.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
+                    bnd.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
                     rxnode.node_shutdown()
-            rospy.loginfo(f"[{self.name}] Shutting down.")
+            bnd.loginfo(f"[{self.name}] Shutting down.")
             self._shutdown()
             self.engine.shutdown()
             self.mb.shutdown()
@@ -157,11 +145,7 @@ if __name__ == "__main__":
 
         log_level = get_param_with_blocking(ns + "/log_level")
 
-        rospy.init_node(
-            f"{name}".replace("/", "_"),
-            log_level=log_levels_ROS[log_level],
-            anonymous=True,
-        )
+        bnd.set_log_level(log_level)
 
         message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
@@ -171,8 +155,8 @@ if __name__ == "__main__":
 
         pnode.node_initialized()
 
-        rospy.spin()
+        bnd.spin()
     finally:
         if not pnode.has_shutdown:
-            rospy.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
-            rospy.signal_shutdown(f"[{ns}/{name}] Terminating '{ns}/{name}'.")
+            bnd.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
+            bnd.signal_shutdown(f"[{ns}/{name}] Terminating '{ns}/{name}'.")

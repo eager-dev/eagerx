@@ -2,31 +2,25 @@ from typing import List, Dict, Optional, Union, Any
 import gym
 import abc
 import inspect
-import logging
 import os
 import time
 from copy import deepcopy
-
-
 import numpy as np
 import psutil
-import rospy
 from genpy import Message
-from std_msgs.msg import Bool
 from tabulate import tabulate
 
-import eagerx.core.constants
-from eagerx.core.constants import TERMCOLOR, WARN, SILENT, process
+import eagerx.core.ros1 as bnd
+from eagerx.core.constants import WARN, SILENT, process
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx.utils.utils import (
     Msg,
     initialize_state,
     check_valid_rosparam_type,
-    get_param_with_blocking,
-    dtype_to_ros_msg_type,
     dict_to_space,
-    initialize_converter,
+    initialize_processor,
+    get_param_with_blocking,
 )
 
 from typing import TYPE_CHECKING
@@ -37,7 +31,7 @@ if TYPE_CHECKING:
         EntitySpec,
         EngineSpec,
         NodeSpec,
-        ConverterSpec,
+        ProcessorSpec,
         EngineStateSpec,
         ResetNodeSpec,
         ObjectSpec,
@@ -65,7 +59,7 @@ class Entity(object):
         :param entity_id: Name used to register the spec with the :func:`eagerx.core.register.spec` decorator by the subclass.
         :param args: Additional arguments to the subclass' spec function.
         :param kwargs: Additional optional arguments to the subclass' spec function.
-        :return: A spec that can be used to build and subsequently initialize the entity (e.g. node, object, converter, ...).
+        :return: A spec that can be used to build and subsequently initialize the entity (e.g. node, object, ...).
         """
         from eagerx.core import register
 
@@ -126,7 +120,6 @@ class BaseNode(Entity):
         *args,
         executable=None,
         color: str = "grey",
-        print_mode: int = TERMCOLOR,
         log_level: int = WARN,
         log_level_memory: int = SILENT,
         object_name: str = "",
@@ -188,14 +181,11 @@ class BaseNode(Entity):
         #: Check-out the termcolor documentation for the supported colors.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.color: str = color
-        #: Specifies the different modes for printing: {1: TERMCOLOR, 2: ROS}.
-        #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
-        self.print_mode: int = print_mode
         #: Specifies the log level for this node:
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.log_level: int = log_level
-        effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
+        effective_log_level = bnd.get_log_level()
         #: Specifies the log level for logging memory usage over time for this node:
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Note that `log_level` has precedent over the memory level set here.
@@ -203,9 +193,9 @@ class BaseNode(Entity):
         self.log_memory: int = log_level >= effective_log_level and log_level_memory >= effective_log_level
         self.initialize(*args, **kwargs)
 
-    @staticmethod
-    def get_msg_type(cls, component, cname):
-        return cls.msg_types[component][cname]
+    # @staticmethod
+    # def get_msg_type(cls, component, cname):
+    #     return cls.msg_types[component][cname]
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
@@ -220,7 +210,6 @@ class BaseNode(Entity):
             outputs=[],
             states=[],
             color="grey",
-            print_mode=TERMCOLOR,
             log_level=WARN,
             log_level_memory=SILENT,
             executable=None,
@@ -356,7 +345,7 @@ class Node(BaseNode):
             self.empty_outputs[name] = None
         for i in self.targets:
             name = i["name"]
-            self.empty_outputs[name + "/done"] = Bool(data=False)
+            self.empty_outputs[name + "/done"] = False
 
     def reset_cb(self, **kwargs: Optional[Message]):
         self.num_ticks = 0
@@ -429,7 +418,7 @@ class Node(BaseNode):
                             0,
                         ]
                     )
-                rospy.loginfo("\n" + tabulate(self.history, headers=self.headers))
+                bnd.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
 
         # Skip callback if not all inputs with window > 0 have received at least one input.
@@ -442,34 +431,30 @@ class Node(BaseNode):
                         continue
                     else:
                         self.skipped_cbs += 1
-                        rospy.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
+                        bnd.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
                         return self.empty_outputs
         output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
-        # Skip type check if node = "environment":
-        #  1. Because we actually do not output the registered msg_type, but a numpy array (so checks always fail)
-        #  2. The callback sometimes returns None, because .reset() was called instead of a .step().
-        if self.name == "environment":
-            return output
-        # Type check output of callback
-        for o in self.outputs:
-            if o["name"] not in output:
-                rospy.logwarn_once(
-                    f"The .callback(...) of `{self.name}` did not return the registered output `{o['name']}`. "
-                    "Downstream nodes, depending on this output for their callback, may deadlock. "
-                )
+        # We skip output type checks for node = "environment":
+        #  - The callback sometimes returns None, because .reset() was called instead of a .step().
+        if self.name != "environment":
+            for o in self.outputs:
+                if o["name"] not in output:
+                    bnd.logwarn_once(
+                        f"The .callback(...) of `{self.name}` did not return the registered output `{o['name']}`. "
+                        "Downstream nodes, depending on this output for their callback, may deadlock. "
+                    )
 
-        for i in self.targets:
-            cname_done = i["name"] + "/done"
-            assert cname_done in output, (
-                f"The .callback(...) of `{self.name}` did not return an output dict with key"
-                f"`{cname_done}` that communicates the reset status for the registered target."
-            )
-            assert isinstance(output[cname_done], (bool, np.bool, np.bool_)), (
-                f"The message type of target {cname_done}` ({type(output[cname_done])}), returned by the .callback(...) of "
-                f"`{self.name}`, should be of type `bool`."
-            )
-            output[cname_done] = Bool(data=output[cname_done])
+            for i in self.targets:
+                cname_done = i["name"] + "/done"
+                assert cname_done in output, (
+                    f"The .callback(...) of `{self.name}` did not return an output dict with key"
+                    f"`{cname_done}` that communicates the reset status for the registered target."
+                )
+                assert isinstance(output[cname_done], (bool, np.bool, np.bool_)), (
+                    f"The message type of target {cname_done}` ({type(output[cname_done])}), returned by the .callback(...) of "
+                    f"`{self.name}`, should be of type `bool`."
+                )
         return output
 
     def set_delay(self, delay: float, component: str, cname: str) -> None:
@@ -717,7 +702,7 @@ class EngineNode(Node):
         if object_name:
             config = get_param_with_blocking(object_name)
             if config is None:
-                rospy.logwarn(
+                bnd.logwarn(
                     f"Parameters for object registry request ({object_name}) not found on parameter server. "
                     f"Timeout: object ({object_name}) not registered."
                 )
@@ -937,7 +922,7 @@ class Engine(BaseNode):
             i["state"]["ns"] = self.ns
             i["state"] = initialize_state(i["state"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
@@ -1047,8 +1032,8 @@ class Engine(BaseNode):
                             0,
                         ]
                     )
-                eagerx.core.constants.ros_log_fns[self.log_level]("\n" + tabulate(self.history, headers=self.headers))
-                # rospy.loginfo("\n" + tabulate(self.history, headers=self.headers))
+                bnd.get_log_fn(self.log_level)("\n" + tabulate(self.history, headers=self.headers))
+                # bnd.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
@@ -1072,7 +1057,6 @@ class Engine(BaseNode):
         # Add tick as output
         space = gym.spaces.discrete.Discrete(np.iinfo("int32").max)
         spec.add_output("tick", space=space)
-        spec.outputs.tick.msg_type = dtype_to_ros_msg_type(spec.outputs.tick.space.dtype)
         spec.config.outputs.append("tick")
         from eagerx.core.specs import EngineSpec  # noqa: F811
 
@@ -1302,89 +1286,10 @@ class Object(Entity):
         raise NotImplementedError("This is a mock engine implementation for documentation purposes.")
 
 
-class BaseConverter(Entity):
-    """Baseclass for converters and processors."""
-
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]):
-        self.yaml_args = kwargs
-        argspec = inspect.getfullargspec(self.__init__).args
-        argspec.remove("self")
-        for key, value in zip(argspec, args):
-            self.yaml_args[key] = value
-        check_valid_rosparam_type(self.yaml_args)
-        self.initialize(*args, **kwargs)
-
-    def get_yaml_definition(self) -> Dict:
-        converter_type = self.__module__ + "/" + self.__class__.__name__
-        yaml_dict = dict(converter_type=converter_type)
-        yaml_dict.update(deepcopy(self.yaml_args))
-        return yaml_dict
-
-    @abc.abstractmethod
-    def initialize(
-        self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]
-    ) -> None:
-        """An abstract method to initialize the converter.
-
-        :param args: Arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
-        :param kwargs: Optional arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
-        """
-        pass
-
-    @abc.abstractmethod
-    def convert(self, msg: Any) -> Any:
-        """An abstract method to convert (or process) messages.
-
-        :param msg: Message to convert.
-        :return: Converter message.
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def spec(spec: "ConverterSpec", *args: Any, **kwargs: Any) -> None:
-        """An abstract method that creates the converter/processor's specification
-        that is used to initialize the subclass at run-time.
-
-        See :class:`~eagerx.core.specs.ConverterSpec` how the default config parameters can be modified.
-
-        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        .. note:: Users should not call :func:`~eagerx.core.entities.BaseConverter.spec` directly to make the
-                  converter/processor's spec. Instead, users should call :func:`~eagerx.core.entities.BaseConverter.make`.
-
-        :param spec: A (mutable) specification.
-        :param args: Additional arguments as specified by the subclass.
-        :param kwargs: Additional optional arguments as specified by the subclass.
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def get_opposite_msg_type(cls, msg_type: Any) -> Any:
-        pass
-
-    @classmethod
-    def pre_make(cls, entity_id: str, entity_type: "Entity"):
-        spec = super().pre_make(entity_id, entity_type)
-        params = spec.params
-        params["converter_type"] = params.pop("entity_type")
-        params.pop("entity_id")
-        from eagerx.core.specs import ConverterSpec  # noqa: F811
-
-        return ConverterSpec(params)
-
-    @classmethod
-    def check_spec(cls, spec):
-        super().check_spec(spec)
-
-
-class Processor(BaseConverter):
+class Processor(Entity):
     """Baseclass for processors.
 
-    Use this baseclass to implement processor that do **not** change the message type.
+    Use this baseclass to implement processor that preprocess an input/output message.
     This baseclass only supports one-way processing.
 
     Users must call :func:`~eagerx.core.entities.Processor.make` to make the registered subclass'
@@ -1400,13 +1305,7 @@ class Processor(BaseConverter):
 
     Subclasses must set the following static class properties:
 
-    - :attr:`~eagerx.core.entities.Processor.MSG_TYPE`
-
-    Use baseclass :class:`~eagerx.core.entities.SpaceConverter` instead, for converters that are used for
-    actions/observations/states and change the message type.
-
-    Use baseclass :class:`~eagerx.core.entities.Converter` instead, for message conversion
-    where the message type changes. This baseclass supports two-way conversion.
+    - :attr:`~eagerx.core.entities.Processor.DTYPE`
     """
 
     INFO = {
@@ -1415,236 +1314,78 @@ class Processor(BaseConverter):
         "convert": [],
     }
 
-    #: Supported message type
+    #: The dtype after processing.
     MSG_TYPE: Any
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]):
+        self.yaml_args = kwargs
+        argspec = inspect.getfullargspec(self.__init__).args
+        argspec.remove("self")
+        for key, value in zip(argspec, args):
+            self.yaml_args[key] = value
+        check_valid_rosparam_type(self.yaml_args)
+        self.initialize(*args, **kwargs)
 
     @staticmethod
-    def get_opposite_msg_type(cls, msg_type):
-        if msg_type == cls.MSG_TYPE:
-            return cls.MSG_TYPE
-        else:
-            raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_type "%s" is supported.'
-                % (msg_type, cls.MSG_TYPE)
-            )
+    @abc.abstractmethod
+    def spec(spec: "ProcessorSpec", *args: Any, **kwargs: Any) -> None:
+        """An abstract method that creates the processor's specification
+        that is used to initialize the subclass at run-time.
+
+        See :class:`~eagerx.core.specs.ProcessorSpec` how the default config parameters can be modified.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
+
+        .. note:: Users should not call :func:`~eagerx.core.entities.Processor.spec` directly to make the
+                  processor's spec. Instead, users should call :func:`~eagerx.core.entities.processor.make`.
+
+        :param spec: A (mutable) specification.
+        :param args: Additional arguments as specified by the subclass.
+        :param kwargs: Additional optional arguments as specified by the subclass.
+        """
+        pass
+
+    @abc.abstractmethod
+    def initialize(
+        self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]
+    ) -> None:
+        """An abstract method to initialize the processor.
+
+        :param args: Arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        :param kwargs: Optional arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        """
+        pass
+
+    @abc.abstractmethod
+    def convert(self, msg: Any) -> Any:
+        """An abstract method to preprocess messages.
+
+        :param msg: Raw message.
+        :return: Preprocessed message.
+        """
+        pass
 
     @classmethod
-    def pre_make(cls, entity_id, entity_type):
+    def pre_make(cls, entity_id: str, entity_type: "Entity"):
         spec = super().pre_make(entity_id, entity_type)
         params = spec.params
-        from eagerx.core.specs import ConverterSpec  # noqa: F811
+        params["processor_type"] = params.pop("entity_type")
+        params.pop("entity_id")
+        from eagerx.core.specs import ProcessorSpec  # noqa: F811
 
-        return ConverterSpec(params)
+        return ProcessorSpec(params)
 
     @classmethod
     def check_spec(cls, spec):
         super().check_spec(spec)
 
-
-class Converter(BaseConverter):
-    """Baseclass for converters.
-
-    Use this baseclass to implement converters that change the message type.
-    This baseclass supports two-way conversion.
-
-    Users must call :func:`~eagerx.core.entities.Converter.make` to make the registered subclass'
-    :func:`~eagerx.core.entities.Converter.spec`. See :func:`~eagerx.core.entities.Converter.make` for more info.
-
-    Subclasses must implement the following methods:
-
-    - :func:`~eagerx.core.entities.Converter.spec`
-
-    - :func:`~eagerx.core.entities.Converter.initialize`
-
-    - :func:`~eagerx.core.entities.Converter.A_to_B`
-
-    - :func:`~eagerx.core.entities.Converter.B_to_A`
-
-    Subclasses must set the following static class properties:
-
-    - :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`
-
-    - :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`
-
-    .. note:: :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A` != :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
-
-    Use baseclass :class:`~eagerx.core.entities.SpaceConverter` instead, for converters that are used for
-    actions/observations/states and change the message type.
-
-    Use baseclass :class:`~eagerx.core.entities.Processor` instead, for message conversion
-    where the message type remains the same. This baseclass only supports one-way conversion.
-    """
-
-    INFO = {
-        "spec": [],
-        "initialize": [],
-        "A_to_B": [],
-        "B_to_A": [],
-    }
-
-    #: Supported message type
-    MSG_TYPE_A: Any
-    #: Supported message type
-    MSG_TYPE_B: Any
-
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def get_opposite_msg_type(cls, msg_type):
-        if msg_type == cls.MSG_TYPE_A:
-            return cls.MSG_TYPE_B
-        elif msg_type == cls.MSG_TYPE_B:
-            return cls.MSG_TYPE_A
-        else:
-            raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.'
-                % (msg_type, cls.MSG_TYPE_A, cls.MSG_TYPE_B)
-            )
-
-    def convert(self, msg) -> Any:
-        if isinstance(msg, self.MSG_TYPE_A):
-            return self.A_to_B(msg)
-        elif isinstance(msg, self.MSG_TYPE_B):
-            return self.B_to_A(msg)
-        else:
-            raise ValueError(
-                'Message type "%s" not supported by this converter. Only msg_types "%s" and "%s" are supported.'
-                % (type(msg), self.MSG_TYPE_A, self.MSG_TYPE_B)
-            )
-
-    @abc.abstractmethod
-    def A_to_B(self, msg: Any) -> Any:
-        """An abstract method to convert
-        :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A` -> :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
-
-        :param msg: Message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`.
-        :return: Converter message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
-        """
-        pass
-
-    @abc.abstractmethod
-    def B_to_A(self, msg) -> Any:
-        """An abstract method to convert
-        :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B` -> :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`.
-
-        :param msg: Message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
-        :return: Converter message of type :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A`.
-        """
-        pass
-
-    @classmethod
-    def pre_make(cls, entity_id, entity_type):
-        spec = super().pre_make(entity_id, entity_type)
-        params = spec.params
-        from eagerx.core.specs import ConverterSpec  # noqa: F811
-
-        return ConverterSpec(params)
-
-    @classmethod
-    def check_spec(cls, spec):
-        super().check_spec(spec)
-
-
-class SpaceConverter(Converter):
-    """Baseclass for space converters.
-
-    Use this baseclass to implement converters that are used for actions/observations/states and change the message type.
-
-    Users must call :func:`~eagerx.core.entities.Converter.make` to make the registered subclass'
-    :func:`~eagerx.core.entities.Converter.spec`. See :func:`~eagerx.core.entities.Converter.make` for more info.
-
-    Subclasses must implement the following methods:
-
-    - :func:`~eagerx.core.entities.SpaceConverter.spec`
-
-    - :func:`~eagerx.core.entities.SpaceConverter.initialize`
-
-    - :func:`~eagerx.core.entities.SpaceConverter.A_to_B`
-
-    - :func:`~eagerx.core.entities.SpaceConverter.B_to_A`
-
-    - :func:`~eagerx.core.entities.SpaceConverter.get_space`
-
-    Subclasses must set the following static class properties:
-
-    - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_A`
-
-    - :attr:`~eagerx.core.entities.SpaceConverter.MSG_TYPE_B`
-
-    .. note:: :attr:`~eagerx.core.entities.Converter.MSG_TYPE_A` != :attr:`~eagerx.core.entities.Converter.MSG_TYPE_B`.
-
-    Use baseclass :class:`~eagerx.core.entities.Converter` instead, for message conversion
-    where the message type changes without requiring gym space support. This baseclass supports two-way conversion.
-
-    Use baseclass :class:`~eagerx.core.entities.Processor` instead, for message conversion
-    where the message type remains the same. This baseclass only supports one-way conversion.
-    """
-
-    INFO = {
-        "spec": [],
-        "initialize": [],
-        "get_space": [],
-        "A_to_B": [],
-        "B_to_A": [],
-    }
-
-    #: Supported message type
-    MSG_TYPE_A: Any
-    #: Supported message type
-    MSG_TYPE_B: Any
-
-    def __init__(self, *args, initial_obs=None, **kwargs):
-        self._initial_obs = initial_obs
-        super().__init__(*args, **kwargs)
-        if self._initial_obs is not None:
-            self._initial_obs = np.array(self._initial_obs, dtype=self.get_space().dtype)
-            assert self._initial_obs.shape == self.get_space().shape, (
-                "The shape of the initial observation does not match the "
-                f"space of a SpaceConverter of type {self.__qualname__}"
-            )
-
-    @property
-    def initial_obs(self) -> np.ndarray:
-        """An observation that is used on t=0 if this space converter corresponds to an observation that is skipped at t=0
-        with `window` > 0.
-
-        The provided initial observation must comply with the space returned by
-        :func:`~eagerx.core.entities.SpaceConverter.get_space`. This ensures that at t=0, the observation to the agent
-        complies with the environment's observation space when the corresponding connected output (providing the observation)
-        is skipped at t=0.
-
-        .. note:: An initial observation (default=`None`) is added to :func:`~eagerx.core.entities.SpaceConverter.spec` for
-                  users to set. In addition, users can also set/overwrite the observation when connecting the observation with
-                  :func:`~eagerx.core.graph.Graph.connect`.
-
-        :return: The initial observation.
-        """
-        return self._initial_obs
-
-    @abc.abstractmethod
-    def get_space(self) -> gym.Space:
-        """An abstract method that returns the OpenAI's gym space related to converted message."""
-        pass
-
-    @classmethod
-    def pre_make(cls, entity_id, entity_type):
-        spec = super().pre_make(entity_id, entity_type)
-        params = spec.params
-        from eagerx.core.specs import ConverterSpec  # noqa: F811
-
-        return ConverterSpec(params)
-
-    @classmethod
-    def check_spec(cls, spec):
-        super().check_spec(spec)
+    def get_yaml_definition(self) -> Dict:
+        processor_type = self.__module__ + "/" + self.__class__.__name__
+        yaml_dict = dict(processor_type=processor_type)
+        yaml_dict.update(deepcopy(self.yaml_args))
+        return yaml_dict
 
 
 class EngineState(Entity):
@@ -1710,9 +1451,6 @@ class EngineState(Entity):
         #: Check-out the termcolor documentation for the supported colors.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.EngineState.spec`.
         self.color = color
-        #: Specifies the different modes for printing: {1: TERMCOLOR, 2: ROS}.
-        #: Can be set in the subclass' :func:`~eagerx.core.entities.EngineState.spec`.
-        self.print_mode = print_mode
         self.initialize(*args, **kwargs)
 
     @staticmethod

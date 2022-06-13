@@ -47,13 +47,13 @@ spec
 ####
 
 The :func:`~eagerx.core.entities.SpaceConverter.spec` method can be used to specify with which arguments the :class:`~eagerx.core.entities.Converter` will be initialized.
-In our case, we add *dtype* to the :attr:`~eagerx.core.specs.ConverterSpec.config`.
+In our case, we add *dtype* to the :attr:`~eagerx.core.specs.ProcessorSpec.config`.
 
 ::
 
   @staticmethod
   @register.spec("Ndarray_Float32MultiArray", Converter)
-  def spec(spec: ConverterSpec, dtype="float32"):
+  def spec(spec: ProcessorSpec, dtype="float32"):
       spec.config.dtype = dtype
 
 .. note::

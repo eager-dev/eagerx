@@ -9,20 +9,14 @@ if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
     site.addsitedir("/opt/ros/melodic/lib/python2.7/dist-packages")
     site.addsitedir("/usr/lib/python2.7/dist-packages")
 
-# ROS imports
-import rospy
-from std_msgs.msg import UInt64
-
 # Rx imports
-from eagerx.core.constants import log_levels_ROS
+import eagerx.core.ros1 as bnd
 import eagerx.core.rx_message_broker
 import eagerx.core.rx_pipelines
 from eagerx.utils.utils import (
-    get_attribute_from_module,
-    initialize_converter,
-    get_param_with_blocking,
-    get_opposite_msg_cls,
-    dict_to_space,
+    load,
+    initialize_processor,
+    dict_to_space, get_param_with_blocking,
 )
 
 # Other imports
@@ -62,15 +56,15 @@ class RxNode(object):
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
         # Prepare closing routine
-        rospy.on_shutdown(self.node_shutdown)
+        bnd.on_shutdown(self.node_shutdown)
 
     def node_initialized(self):
         # Notify env that node is initialized
-        self.init_pub = rospy.Publisher(self.name + "/initialized", UInt64, queue_size=0, latch=True)
-        self.init_pub.publish(UInt64())
+        self.init_pub = bnd.Publisher(self.name + "/initialized", "int64")
+        self.init_pub.publish(0)
 
         if not self.initialized:
-            rospy.loginfo('Node "%s" initialized.' % self.name)
+            bnd.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
     def _prepare_io_topics(self, name, **kwargs):
@@ -83,7 +77,7 @@ class RxNode(object):
         simulate_delays = get_param_with_blocking(self.ns + "/engine/simulate_delays")
 
         # Get node
-        node_cls = get_attribute_from_module(params["node_type"])
+        node_cls = load(params["node_type"])
         node = node_cls(
             ns=self.ns,
             message_broker=self.mb,
@@ -96,49 +90,36 @@ class RxNode(object):
 
         # Prepare input topics
         for i in params["inputs"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-            if i["converter"] is not None:
-                i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare output topics
         for i in params["outputs"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare target topics
         for i in params["targets"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare feedthrough topics
         for i in params["feedthroughs"]:
-            i["msg_type"] = get_attribute_from_module(i["msg_type"])
-            if isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-            if i["converter"] is not None:
-                i["msg_type"] = get_opposite_msg_cls(i["msg_type"], i["converter"])
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_converter(i["processor"])
+                i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
@@ -153,13 +134,13 @@ class RxNode(object):
         )
 
     def _shutdown(self):
-        rospy.logdebug(f"[{self.name}] RxNode._shutdown() called.")
+        bnd.logdebug(f"[{self.name}] RxNode._shutdown() called.")
         self.init_pub.unregister()
 
     def node_shutdown(self):
         if not self.has_shutdown:
-            rospy.logdebug(f"[{self.name}] RxNode.node_shutdown() called.")
-            rospy.loginfo(f"[{self.name}] Shutting down.")
+            bnd.logdebug(f"[{self.name}] RxNode.node_shutdown() called.")
+            bnd.loginfo(f"[{self.name}] Shutting down.")
             self._shutdown()
             self.node.shutdown()
             self.mb.shutdown()
@@ -172,11 +153,7 @@ if __name__ == "__main__":
 
         log_level = get_param_with_blocking(ns + "/log_level")
 
-        rospy.init_node(
-            f"{name}".replace("/", "_"),
-            log_level=log_levels_ROS[log_level],
-            anonymous=True,
-        )
+        bnd.set_log_level(log_level)
 
         message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
 
@@ -186,8 +163,8 @@ if __name__ == "__main__":
 
         pnode.node_initialized()
 
-        rospy.spin()
+        bnd.spin()
     finally:
         if not pnode.has_shutdown:
-            rospy.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
-            rospy.signal_shutdown(f"Terminating '{ns}/{name}'")
+            bnd.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
+            bnd.signal_shutdown(f"Terminating '{ns}/{name}'")
