@@ -266,7 +266,7 @@ def register_environment(name: str, force_start: bool, shutdown_fn: Callable):
                 "want to shutdown the existing environment."
             )
             logerr(msg)
-            raise rospy.ROSException(msg)
+            raise BackendException
 
     # Setup remote shutdown procedure for environment
     def _remote_shutdown(req: TriggerRequest):

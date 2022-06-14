@@ -1,12 +1,3 @@
-from eagerx import Object, Engine, Node, ResetNode
-from eagerx import log, process
-
-# Environment imports
-import eagerx.core.ros1 as bnd
-from eagerx.core.env import BaseEnv
-from eagerx.core.graph import Graph
-from eagerx.wrappers import Flatten
-
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
 
@@ -15,7 +6,9 @@ import pytest
 
 @pytest.mark.timeout(60)
 def test_graph():
-    bnd.set_log_level(log.INFO)
+    import eagerx
+
+    eagerx.bnd.set_log_level(eagerx.INFO)
 
     rate = 7
 
@@ -27,16 +20,16 @@ def test_graph():
     eagerx.Object.info("Viper", method=["spec"])
 
     # Define nodes
-    N0 = Node.make("Process", "N0", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    N1 = Node.make("Process", "N1", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    N2 = Node.make("Process", "N2", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    KF = Node.make("KalmanFilter", "KF", rate=rate, process=process.NEW_PROCESS, inputs=["in_1", "in_2"],
+    N0 = eagerx.Node.make("Process", "N0", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N1 = eagerx.Node.make("Process", "N1", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N2 = eagerx.Node.make("Process", "N2", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    KF = eagerx.Node.make("KalmanFilter", "KF", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"],
                    outputs=["out_1", "out_2"])
-    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=process.NEW_PROCESS, inputs=["in_1", "in_2"],
+    N3 = eagerx.ResetNode.make("RealReset", "N3", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"],
                         targets=["target_1"])
 
     # Define object
-    viper = Object.make("Viper", "obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
+    viper = eagerx.Object.make("Viper", "obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Test SpecView
     with N3.inputs.unlocked:
@@ -55,7 +48,7 @@ def test_graph():
     _ = len(N3.inputs)
 
     # Define graphs in different ways
-    _ = Graph.create(nodes=N0).__str__()
+    _ = eagerx.Graph.create(nodes=N0).__str__()
     _ = N0.inputs.__repr__()
     _ = N0.inputs.__str__()
     try:
@@ -63,7 +56,7 @@ def test_graph():
     except AttributeError as e:
         print("Must fail! ", e)
 
-    graph = Graph.create(nodes=[N3, KF], objects=viper)
+    graph = eagerx.Graph.create(nodes=[N3, KF], objects=viper)
 
     # Get specs
     graph.get_spec("KF")
@@ -212,10 +205,10 @@ def test_graph():
     graph.is_valid(plot=True)
 
     # Define engine
-    engine = Engine.make("TestEngine", rate=20, sync=True, real_time_factor=5.5, process=process.ENVIRONMENT)
+    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=5.5, process=eagerx.ENVIRONMENT)
 
     # Define environment
-    class TestEnv(BaseEnv):
+    class TestEnv(eagerx.BaseEnv):
         def __init__(self, name, rate, graph, engine):
             super().__init__(name, rate, graph, engine, force_start=True)
 
@@ -231,7 +224,6 @@ def test_graph():
 
     # Initialize Environment
     env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine)
-    env = Flatten(env)
 
     # Test message broker
     env.env.mb.print_io_status()
