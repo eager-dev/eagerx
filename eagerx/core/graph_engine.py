@@ -389,11 +389,6 @@ class EngineGraph:
         :param entry: The entry whose parameters are mutated.
         :param parameter: If only a single value needs to be set. See documentation for *mapping*.
         """
-        # """
-        # Sets parameters in self._state, based on the node/object name. If a component and cname are specified, the
-        # parameter will be set there. Else, the parameter is set under the "config" key.
-        # For objects, parameters are set under their agnostic definitions of the components (so not engine specific).
-        # """
         assert not entry()[0] == "actuators", (
             "Cannot change the actuator parameters here, "
             "in an engine specific implementation. That is only possible in the "
@@ -414,7 +409,7 @@ class EngineGraph:
         for parameter, value in mapping.items():
             if parameter:
                 getattr(entry, parameter)  # Check if parameter exists
-            elif parameter == "processor":
+            if parameter == "processor":
                 msg = (
                     "Skipping processor. Cannot change the processor with this method. "
                     "Add output processors before connecting, and input processors when making a connection."

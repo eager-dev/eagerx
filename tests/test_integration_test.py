@@ -1,18 +1,14 @@
-from eagerx import Object, Engine, Node, ResetNode, Converter
-from eagerx import initialize, log, process
+import eagerx
 
-# Environment imports
-from eagerx.core.env import EagerxEnv
-from eagerx.core.graph import Graph
-from eagerx.wrappers import Flatten
 
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
+import eagerx.processors  # noqa # pylint: disable=unused-import
 
 import pytest
 
-NP = process.NEW_PROCESS
-ENV = process.ENVIRONMENT
+NP = eagerx.NEW_PROCESS
+ENV = eagerx.ENVIRONMENT
 
 
 @pytest.mark.timeout(60)
@@ -22,7 +18,7 @@ ENV = process.ENVIRONMENT
 )
 def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Start roscore
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
+    eagerx.bnd.set_log_level(eagerx.DEBUG)
 
     # Define unique name for test environment
     name = f"{eps}_{steps}_{sync}_{p}"
@@ -31,19 +27,16 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     rate = 17
 
     # Define nodes
-    N1 = Node.make("Process", "N1", rate=18, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1"])
-    KF = Node.make("KalmanFilter", "KF", rate=19, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
-    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
+    N1 = eagerx.Node.make("Process", "N1", rate=18, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1"])
+    KF = eagerx.Node.make("KalmanFilter", "KF", rate=19, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
+    N3 = eagerx.ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
 
     # Define object
-    viper = Object.make("Viper", "obj", actuators=["N8"], sensors=["N6", "N7"], states=["N9"])
-
-    # Define converter (optional)
-    RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
-    RosImage_RosUInt64 = Converter.make("RosImage_RosUInt64", test_arg="test")
+    viper = eagerx.Object.make("Viper", "obj", actuators=["N8"], sensors=["N6", "N7"], states=["N9"])
+    # viper = eagerx.Object.make("Viper", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define graph
-    graph = Graph.create(nodes=[N1, N3, KF], objects=[viper])
+    graph = eagerx.Graph.create(nodes=[N1, N3, KF], objects=[viper])
 
     # Connect outputs KF
     graph.connect(source=KF.outputs.out_1, observation="obs_2")
@@ -61,32 +54,38 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Connect outputs N1
     graph.connect(source=N1.outputs.out_1, observation="obs_3")
     graph.connect(source=viper.sensors.N7, target=N1.inputs.in_2)
+    # graph.connect(source=viper.sensors.N6, target=N1.inputs.in_2)
 
     # Connect outputs & targets N3
-    graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8, converter=RosString_RosUInt64)
+    graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8)
     graph.connect(source=viper.states.N9, target=N3.targets.target_1)
 
     # Define render
-    graph.render(source=viper.sensors.N6, rate=1, converter=RosImage_RosUInt64)
+    graph.render(source=viper.sensors.N6, rate=1, processor=eagerx.Processor.make("ToUint8"))
 
     # Open GUI (only opens if eagerx-gui installed)
     graph.gui()
 
     # Define engine
-    engine = Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
+    engine = eagerx.Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
+
+    # Define environment
+    class TestEnv(eagerx.BaseEnv):
+        def __init__(self, name, rate, graph, engine):
+            super().__init__(name, rate, graph, engine, force_start=True)
+
+        def step(self, action):
+            obs = self._step(action)
+            return obs, 0, False, {}
+
+        def reset(self):
+            sampled = self.state_space.sample()
+            states = {"obj/N9": sampled["obj/N9"], "engine/param_1": sampled["engine/param_1"]}
+            obs = self._reset(states)
+            return obs
 
     # Initialize Environment
-    env = EagerxEnv(
-        name=name,
-        rate=rate,
-        graph=graph,
-        engine=engine,
-        reset_fn=lambda env: {
-            "obj/N9": env.state_space.sample()["obj/N9"],
-            "engine/param_1": env.state_space.sample()["engine/param_1"],
-        },
-    )
-    env = Flatten(env)
+    env = TestEnv(name=name, rate=rate, graph=graph, engine=engine)
 
     # First reset
     env.reset()
@@ -100,6 +99,11 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
         env.reset()
     print("\n[Finished]")
     env.shutdown()
-    if roscore:
-        roscore.shutdown()
     print("\n[Shutdown]")
+
+
+if __name__ == "__main__":
+    test_integration_test_engine(3, 3, True, 0, ENV)
+    test_integration_test_engine(20, 40, True, 0, NP)
+    test_integration_test_engine(20, 40, False, 4, NP)
+    test_integration_test_engine(3, 3, False, 4, ENV)

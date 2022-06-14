@@ -1,19 +1,18 @@
+import eagerx
+
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
+import eagerx.processors  # noqa # pylint: disable=unused-import
 
 import pytest
 
 
 @pytest.mark.timeout(60)
 def test_graph():
-    import eagerx
-
     eagerx.bnd.set_log_level(eagerx.INFO)
-
     rate = 7
 
     # Get info on various specs.
-    import eagerx.processors
     eagerx.Processor.info("GetIndex")
     eagerx.Object.info("Viper")
     eagerx.Object.info("Viper", method="spec")
@@ -68,6 +67,7 @@ def test_graph():
         source=viper.sensors.N6,
         rate=1,
         display=False,
+        processor=eagerx.Processor.make("ToUint8")
     )
     graph.render(
         source=viper.sensors.N6,
