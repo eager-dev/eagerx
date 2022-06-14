@@ -1233,34 +1233,34 @@ def convert(space, processor, name, node, direction="out"):
                                     f"detected between the message (before processing) ({recv.shape}) "
                                     f"and its corresponding space ({space.shape})."
                                 )
-                                bnd.logwarn_once(msg)
+                                bnd.logwarn(msg)
                             elif not space.contains(recv):
                                 msg = (
                                     f"[subscriber][{node.ns_name}][{name}]: The message (before processing) is"
                                     f" outside of the bounds of the corresponding space."
                                 )
-                                bnd.logwarn_once(msg)
+                                bnd.logwarn(msg)
                             if not recv.dtype == space.dtype:
                                 msg = (
                                     f"[subscriber][{node.ns_name}][{name}]: Different dtypes "
                                     f"detected between the message (before processing) ({recv.dtype}) "
                                     f"and its corresponding space ({space.dtype})."
                                 )
-                                bnd.logwarn_once(msg)
+                                bnd.logwarn(msg)
                         except AttributeError as e:
                             raise AttributeError(f"[subscriber][{node.ns_name}][{name}]: space is probably not initialized: {e}")
                     observer.on_next(recv)
                 elif OUTPUT:
+                    # Convert python native types to numpy arrays.
+                    if isinstance(recv, float):
+                        recv = np.array(recv, dtype="float32")
+                    elif isinstance(recv, bool):
+                        recv = np.array(recv, dtype="bool")
+                    elif isinstance(recv, int):
+                        recv = np.array(recv, dtype="int64")
+
                     if space is not None and not space_checked[0]:
                         space_checked[0] = True
-
-                        # Convert python native types to numpy arrays.
-                        if isinstance(recv, float):
-                            recv = np.array(recv, dtype="float32")
-                        elif isinstance(recv, bool):
-                            recv = np.array(recv, dtype="bool")
-                        elif isinstance(recv, int):
-                            recv = np.array(recv, dtype="int64")
 
                         try:
                             if not recv.shape == space.shape:
@@ -1269,22 +1269,27 @@ def convert(space, processor, name, node, direction="out"):
                                     f"detected between the message (before processing) ({recv.shape}) "
                                     f"and its corresponding space ({space.shape})."
                                 )
-                                bnd.logwarn_once(msg)
+                                bnd.logwarn(msg)
                             elif not space.contains(recv):
                                 msg = (
                                     f"[publisher][{node.ns_name}]{name}]: The message (before processing) is"
                                     f" outside of the bounds of the corresponding space."
                                 )
-                                bnd.logwarn_once(msg)
+                                bnd.logwarn(msg)
                             if not recv.dtype == space.dtype:
                                 msg = (
                                     f"[publisher][{node.ns_name}]{name}]: Different dtypes "
                                     f"detected between the message (before processing) ({recv.dtype}) "
                                     f"and its corresponding space ({space.dtype})."
                                 )
-                                bnd.logwarn_once(msg)
+                                bnd.logwarn(msg)
                         except AttributeError as e:
-                            raise AttributeError(f"[publisher][{node.ns_name}][{name}]: space is probably not initialized: {e}")
+                            if not hasattr(recv, "shape"):
+                                raise AttributeError(f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}")
+                            elif not hasattr(recv, "dtype"):
+                                raise AttributeError(f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}")
+                            else:
+                                raise AttributeError(f"[publisher][{node.ns_name}][{name}]: space is probably not initialized: {e}")
 
                     # Process message
                     if processor is not None:

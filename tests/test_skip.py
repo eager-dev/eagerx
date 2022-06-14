@@ -65,3 +65,9 @@ def test_skip_observation(force_start):
             env.render(mode="rgb_array")
         env.reset()
     print("\n[Finished]")
+
+
+if __name__ == "__main__":
+    test_skip_observation(True)
+    test_skip_observation(True)
+    test_skip_observation(False)

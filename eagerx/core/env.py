@@ -134,8 +134,9 @@ class BaseEnv(gym.Env):
                             processor = None  # todo: only add processor (comp_params["processor"]) once at input side.
                             space = comp_params["space"]
 
-                            bnd.logwarn(
-                                f'Adding state "{name}" to engine node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
+                            bnd.logwarn_once(
+                                # f'Adding state "{name}" to engine node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
+                                f'Adding states to engine nodes can potentially make the environment engine-specific.'
                             )
                             assert (
                                 name not in supervisor.params["states"]
@@ -373,14 +374,14 @@ class BaseEnv(gym.Env):
         # Initialize single process communication
         self.mb.connect_io(print_status=True)
 
-        bnd.loginfo("Nodes initialized.")
+        bnd.logdebug("Nodes initialized.")
 
         # Perform first reset
         self.supervisor_node.reset()
 
         # Nodes initialized
         self.initialized = True
-        bnd.loginfo("Pipelines initialized.")
+        bnd.loginfo("Communication initialized.")
 
     def _remote_shutdown(self):
         if not self.has_shutdown:

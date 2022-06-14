@@ -33,7 +33,6 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
 
     # Define object
     viper = eagerx.Object.make("Viper", "obj", actuators=["N8"], sensors=["N6", "N7"], states=["N9"])
-    # viper = eagerx.Object.make("Viper", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define graph
     graph = eagerx.Graph.create(nodes=[N1, N3, KF], objects=[viper])
@@ -54,7 +53,6 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Connect outputs N1
     graph.connect(source=N1.outputs.out_1, observation="obs_3")
     graph.connect(source=viper.sensors.N7, target=N1.inputs.in_2)
-    # graph.connect(source=viper.sensors.N6, target=N1.inputs.in_2)
 
     # Connect outputs & targets N3
     graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8)

@@ -1,19 +1,17 @@
 from typing import Optional
 from scipy.signal import butter, sosfilt
-
-# IMPORT ROS
-from std_msgs.msg import Float32MultiArray
+import numpy as np
+from gym.spaces import Box
 
 # IMPORT EAGERX
+import eagerx
 import eagerx.core.register as register
 from eagerx.utils.utils import Msg
-from eagerx.core.entities import Node, Processor, SpaceConverter
-from eagerx.core.constants import process
 
 
-class ButterworthFilter(Node):
+class ButterworthFilter(eagerx.Node):
     @staticmethod
-    @register.spec("ButterworthFilter", Node)
+    @register.spec("ButterworthFilter", eagerx.Node)
     def spec(
         spec,
         name: str,
@@ -22,7 +20,7 @@ class ButterworthFilter(Node):
         N: int = 2,
         Wn: float = 1,
         btype: str = "lowpass",
-        process: Optional[int] = process.NEW_PROCESS,
+        process: Optional[int] = eagerx.NEW_PROCESS,
         color: Optional[str] = "grey",
     ):
         """
@@ -47,8 +45,7 @@ class ButterworthFilter(Node):
 
         # Add converter & space_converter
         spec.inputs.signal.window = "$(config N)"
-        spec.inputs.signal.converter = Processor.make("GetIndex_Float32MultiArray", index=index)
-        spec.inputs.signal.space_converter = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
+        spec.inputs.signal.processor = eagerx.Processor.make("GetIndex", index=index)
 
     def initialize(self, N, Wn, btype):
         for i in self.inputs:
@@ -63,15 +60,12 @@ class ButterworthFilter(Node):
     def reset(self):
         pass
 
-    @register.inputs(signal=Float32MultiArray)
-    @register.outputs(filtered=Float32MultiArray)
+    @register.inputs(signal=Box(low=-3, high=-3, shape=(1,), dtype="float32"))
+    @register.outputs(filtered=Box(low=-3, high=-3, shape=(1,), dtype="float32"))
     def callback(self, t_n: float, signal: Optional[Msg] = None):
-        msgs = signal.msgs
-        if len(msgs) >= self.N:
-            unfiltered = [msgs[i].data[0] for i in range(-self.N, 0)]
-            filtered = msgs[-1].data if None in unfiltered else [sosfilt(self.filter, unfiltered)[-1]]
-        elif len(msgs) > 0:
-            filtered = msgs[-1].data
+        if len(signal.msgs) >= self.N:
+            unfiltered = [signal.msgs[i][0] for i in range(-self.N, 0)]
+            filtered = np.array([sosfilt(self.filter, unfiltered)[-1]], dtype="float32")
         else:
-            filtered = [0.0]
-        return dict(filtered=Float32MultiArray(data=filtered))
+            filtered = signal.msgs[-1]
+        return dict(filtered=filtered)

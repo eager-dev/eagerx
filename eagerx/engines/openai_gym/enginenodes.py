@@ -161,7 +161,7 @@ class DoneSensor(EngineNode):
         else:
             done = any(done) or self.last_done
             self.last_done = done
-        return dict(done=done)
+        return dict(done=int(done))
 
 
 class ActionActuator(EngineNode):
@@ -231,7 +231,7 @@ class ActionActuator(EngineNode):
         # Set action in simulator for next step.
         if len(action.msgs) > 0:
             self.simulator[self.obj_name]["next_action"] = (
-                int(action.msgs[-1].item()) if self.is_discrete else action.msgs[-1].data
+                int(action.msgs[-1].item()) if self.is_discrete else action.msgs[-1]
             )
         else:
             self.simulator[self.obj_name]["next_action"] = self.zero_action

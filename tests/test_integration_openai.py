@@ -1,10 +1,6 @@
-from eagerx import Object, Engine, Node, Processor, SpaceConverter
-from eagerx import initialize, log, process
-
-# Environment imports
-from eagerx.core.graph import Graph
 
 # Implementation specific
+import eagerx
 import eagerx.engines.openai_gym as eagerx_gym
 import eagerx.nodes  # noqa: F401
 import eagerx.processors  # noqa: F401
@@ -12,8 +8,8 @@ import eagerx.processors  # noqa: F401
 import pytest
 
 zero_action = {"Pendulum-v0": [0.0], "Pendulum-v1": [0.0], "Acrobot-v1": 0}
-NP = process.NEW_PROCESS
-ENV = process.ENVIRONMENT
+NP = eagerx.NEW_PROCESS
+ENV = eagerx.ENVIRONMENT
 
 
 @pytest.mark.timeout(60)
@@ -22,7 +18,7 @@ ENV = process.ENVIRONMENT
     [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
 def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
+    eagerx.bnd.set_log_level(eagerx.WARN)
 
     # Define rate (depends on rate of gym env)
     rate = 20
@@ -30,21 +26,20 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     za = zero_action[gym_id]
 
     # Get signature of object
-    Object.info("GymObject")
+    eagerx.Object.info("GymObject")
 
     # Create object
-    obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
+    obj = eagerx.Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
 
     # Define graph
-    graph = Graph.create(objects=[obj])
+    graph = eagerx.Graph.create(objects=[obj])
 
     # Add butterworth filter
-    get_index = Processor.make("GetIndex_Float32MultiArray", index=0)
-    bf = Node.make("ButterworthFilter", name="bf", rate=rate, N=2, Wn=4, process=process.ENVIRONMENT)
+    get_index = eagerx.Processor.make("GetIndex", index=0)
+    bf = eagerx.Node.make("ButterworthFilter", name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
     graph.add(bf)
-    graph.connect(source=obj.sensors.observation, target=bf.inputs.signal, converter=get_index)
-    sc = SpaceConverter.make("Space_Float32MultiArray", [-3], [3], dtype="float32")
-    graph.connect(source=bf.outputs.filtered, observation="filtered", converter=sc)
+    graph.connect(source=obj.sensors.observation, target=bf.inputs.signal, processor=get_index)
+    graph.connect(source=bf.outputs.filtered, observation="filtered")
 
     # Connect gym object
     graph.connect(source=obj.sensors.observation, observation="observation", window=1)
@@ -56,7 +51,7 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
 
     # Define engine
     obj.gui("GymEngine")
-    engine = Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
+    engine = eagerx.Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Initialize Environment
     env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine)
@@ -76,9 +71,11 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
         _obs = env.reset()
         done = False
     print("\n[Finished]")
-
-    # Shutdown
     env.shutdown()
-    if roscore:
-        roscore.shutdown()
     print("\n[Shutdown]")
+
+
+if __name__ == "__main__":
+    test_integration_openai_engine("Acrobot-v1", 2, True, 0, ENV)
+    test_integration_openai_engine("Pendulum-v1", 2, True, 0, ENV)
+    test_integration_openai_engine("Pendulum-v1", 2, True, 0, NP)
