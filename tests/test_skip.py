@@ -1,14 +1,8 @@
-import rospy
-
 import eagerx
 
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
 import pytest
-
-
-# Start roscore
-roscore = eagerx.initialize("eagerx_core", anonymous=True, log_level=eagerx.log.INFO)
 
 
 @pytest.mark.timeout(20)
@@ -27,19 +21,33 @@ def test_skip_observation(force_start):
     # Connect sensors (= outputs of object)
     graph.connect(action="act_1", target=N1.inputs.in_1)
     graph.connect(source=N1.outputs.out_1, target=arm.actuators.ref_vel)
-    graph.connect(source=N1.outputs.out_2, observation="maf_state", skip=True, window=1, initial_obs=[666])
+    graph.connect(source=N1.outputs.out_2, observation="maf_state", skip=True, window=1)
     graph.connect(source=arm.sensors.N6, observation="sens_1")
 
     # Define engine
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0,
                                 process=eagerx.process.ENVIRONMENT)
 
+    # Define environment
+    class TestEnv(eagerx.BaseEnv):
+        def __init__(self, name, rate, graph, engine, force_start):
+            super().__init__(name, rate, graph, engine, force_start=force_start)
+
+        def step(self, action):
+            obs = self._step(action)
+            return obs, 0, False, {}
+
+        def reset(self):
+            states = self.state_space.sample()
+            obs = self._reset(states)
+            return obs
+
     # Initialize Environment
     try:
-        env = eagerx.EagerxEnv(name="rx", rate=7, graph=graph, engine=engine, force_start=force_start)
+        env = TestEnv(name="rx", rate=7, graph=graph, engine=engine, force_start=force_start)
         msg = "We should have exited the environment here. IMPORTANT!!! The test with force_start=False cannot be the first test."
         assert force_start, msg
-    except rospy.ROSException:
+    except eagerx.core.constants.BackendException:
         if not force_start:
             print("Successfully exited environment initialization, because environment already exists and force_start=False")
             return
@@ -57,8 +65,3 @@ def test_skip_observation(force_start):
             env.render(mode="rgb_array")
         env.reset()
     print("\n[Finished]")
-
-    # Shutdown test
-    # if roscore:
-    #     roscore.shutdown()
-    # print("\n[Shutdown]")
