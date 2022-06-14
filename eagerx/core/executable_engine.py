@@ -15,7 +15,8 @@ import eagerx.core.rx_pipelines
 from eagerx.utils.utils import (
     load,
     initialize_processor,
-    dict_to_space, get_param_with_blocking,
+    dict_to_space,
+    get_param_with_blocking,
 )
 from eagerx.core.executable_node import RxNode
 from eagerx.utils.node_utils import wait_for_node_initialization

@@ -472,8 +472,10 @@ class RxMessageBroker(object):
 def from_topic(dtype: Any, address: str, node_name, subscribers: list) -> Observable:
     def _subscribe(observer, scheduler=None) -> Disposable:
         try:
+
             def cb_from_topic(msg):
                 observer.on_next(msg)
+
             sub = bnd.Subscriber(address, dtype, callback=cb_from_topic)
             subscribers.append(sub)
         except Exception as e:

@@ -11,7 +11,8 @@ from eagerx.core.specs import NodeSpec, ObjectSpec
 from eagerx.utils.utils import (
     load,
     initialize_processor,
-    dict_to_space, get_param_with_blocking,
+    dict_to_space,
+    get_param_with_blocking,
 )
 from eagerx.utils.node_utils import initialize_nodes
 from eagerx.core.nodes import EnvNode
@@ -110,7 +111,7 @@ class SupervisorNode(BaseNode):
         # Check if object name is unique
         obj_name = object.config.name
         assert (
-                bnd.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
+            bnd.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
         ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
 
         # Upload object params to param server

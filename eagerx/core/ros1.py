@@ -49,7 +49,7 @@ def get_log_level():
 
 
 def set_log_level(log_level):
-    logger = logging.getLogger('rosout')
+    logger = logging.getLogger("rosout")
     logger.setLevel(log_level)
 
 
@@ -179,11 +179,11 @@ class Publisher:
             logerr(f"[publisher][{self._name}]: type(recv)={type(msg)}")
             time.sleep(10000000)
 
-        # Check dtypes of processed message matches outgoing message_type
+        # Check if dtypes of processed message matches outgoing message_type
         msg_dtype = msg.dtype.name if isinstance(msg, (np.ndarray, np.number)) else type(msg).__name__
         msg_type = _dtype_to_ros1_msg_type(msg_dtype)
         if not msg_type == self._msg_type:
-            assert False, (
+            raise AssertionError(
                 f"[publisher][{self._name}]: "
                 f"(processed) message dtype ({msg_dtype}) corresponds to msg_type ({msg_type} which is incompatible"
                 f" with the registered dtype ({self._dtype}) that corresponds to msg_type ({self._msg_type})."
@@ -272,6 +272,7 @@ def register_environment(name: str, force_start: bool, shutdown_fn: Callable):
     def _remote_shutdown(req: TriggerRequest):
         shutdown_msg = shutdown_fn()
         return TriggerResponse(success=True, message=shutdown_msg)
+
     shutdown_srv = rospy.Service(f"{name}/environment/shutdown", Trigger, _remote_shutdown)
     return shutdown_srv
 
@@ -306,7 +307,11 @@ def upload_params(ns: str, values: Dict, verbose: bool = False):
     return rosparam.upload_params(ns, values, verbose=verbose)
 
 
-def get_param(name: str, default: Any = Unspecified()):
+# A singleton that is used to check if an argument was specified.
+_unspecified = Unspecified()
+
+
+def get_param(name: str, default: Any = _unspecified):
     """
     Retrieve a parameter from the param server
 

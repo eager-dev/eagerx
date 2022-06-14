@@ -892,7 +892,8 @@ class Graph:
         process: int = eagerx.process.NEW_PROCESS,
         **kwargs,
     ):
-        """Render the :class:`sensor_msgs.msg.Image` messages produced by a node/sensor in the graph.
+        """Visualize rgb images produced by a node/sensor in the graph. The rgb images must be of `dtype=uint8` and
+        `shape=(height, width, 3)`.
 
         :param source: Compatible source types are :attr:`~eagerx.core.specs.NodeSpec.outputs` and
                        :attr:`~eagerx.core.specs.ObjectSpec.sensors`.

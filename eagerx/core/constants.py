@@ -44,8 +44,20 @@ class process:
     EXTERNAL: int = EXTERNAL
 
 
-COMPATIBLE_DTYPES = ["float32", "float64", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
-                     "bool", "str"]
+COMPATIBLE_DTYPES = [
+    "float32",
+    "float64",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "bool",
+    "str",
+]
 SUPPORTED_SPACES = (gym.spaces.box.Box, gym.spaces.discrete.Discrete)
 
 
@@ -53,6 +65,7 @@ class BackendException(Exception):
     """
     Base class for exceptions in backend routines
     """
+
     pass
 
 

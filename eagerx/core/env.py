@@ -74,7 +74,9 @@ class BaseEnv(gym.Env):
         [o.add_engine(self._engine_name) for o in objects]
 
         # Initialize supervisor node
-        self._shutdown_srv, self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(engine, nodes, objects, force_start)
+        self._shutdown_srv, self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(
+            engine, nodes, objects, force_start
+        )
         self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize engine
@@ -136,7 +138,7 @@ class BaseEnv(gym.Env):
 
                             bnd.logwarn_once(
                                 # f'Adding state "{name}" to engine node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
-                                f'Adding states to engine nodes can potentially make the environment engine-specific.'
+                                "Adding states to engine nodes can potentially make the environment engine-specific."
                             )
                             assert (
                                 name not in supervisor.params["states"]
@@ -525,8 +527,8 @@ class BaseEnv(gym.Env):
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         """A method to start rendering (i.e. open the render window).
 
-        A message of type :class:`std_msgs.msg.Bool` is sent to topic address
-        ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*", which toggles the rendering on/off.
+        A bool message to topic address ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*",
+        which toggles the rendering on/off.
 
         :param mode: - human: render and return nothing. Usually for human consumption.
                      - rgb_array: Return a numpy.ndarray with shape (x, y, 3),
@@ -554,16 +556,15 @@ class BaseEnv(gym.Env):
     def close(self):
         """A method to stop rendering (i.e. close the render window).
 
-        A message of type :class:`std_msgs.msg.Bool` is sent to topic address
-        ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*", which toggles the rendering on/off.
+        A bool message to topic address ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*",
+        which toggles the rendering on/off.
 
         .. note:: Depending on the source node that is producing the images that are rendered,
                   images may still be produced, even when the render window is not visible.
                   This may add computational overhead and influence the run speed.
 
                   Optionally, users may subscribe to topic address ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*"
-                  in the node that is producing the images to stop the production and output empty
-                  :class:`sensor_msgs.msg.Image` messages instead.
+                  in the node that is producing the images to stop the production and output empty images instead.
         """
         assert not self.has_shutdown, "This environment has been shutdown."
         self.supervisor_node.stop_render()

@@ -6,7 +6,7 @@ import tests.test  # noqa # pylint: disable=unused-import
 import pytest
 
 
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(20)
 def test_graph_engine():
     eagerx.bnd.set_log_level(eagerx.WARN)
 

@@ -118,8 +118,10 @@ def is_compatible(dtype_source, dtype_target, processor_source=None, processor_t
     if processor_target is not None:
         if isinstance(processor_target, dict):
             processor_target = load(processor_target["processor_type"])
-        msg = f"Dtype of target after processing ({processor_target.DTYPE}) does not match with " \
-              f"the dtype defined by its space ({dtype_target})."
+        msg = (
+            f"Dtype of target after processing ({processor_target.DTYPE}) does not match with "
+            f"the dtype defined by its space ({dtype_target})."
+        )
         assert dtype_target == processor_target.DTYPE, msg
     else:
         msg = (
@@ -266,7 +268,11 @@ def get_default_params(func):
     return defaults
 
 
-def get_param_with_blocking(name, default=Unspecified(), timeout=2.0):
+# A singleton that is used to check if an argument was specified.
+_unspecified = Unspecified()
+
+
+def get_param_with_blocking(name, default=_unspecified, timeout=2.0):
     params = Unspecified()
     start = time.time()
     while isinstance(params, Unspecified):

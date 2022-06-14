@@ -9,13 +9,13 @@ from rx.internal.concurrency import synchronized
 import eagerx.core.ros1 as bnd
 import eagerx.utils.utils
 from eagerx.core.specs import RxInput
-from eagerx.core.constants import (
-    SILENT,  # noqa
+from eagerx.core.constants import (  # noqa
+    SILENT,
     DEBUG,
     INFO,
     ERROR,
     WARN,
-    FATAL,  # noqa
+    FATAL,
 )
 from eagerx.utils.utils import (
     initialize_processor,
@@ -1248,7 +1248,9 @@ def convert(space, processor, name, node, direction="out"):
                                 )
                                 bnd.logwarn(msg)
                         except AttributeError as e:
-                            raise AttributeError(f"[subscriber][{node.ns_name}][{name}]: space is probably not initialized: {e}")
+                            raise AttributeError(
+                                f"[subscriber][{node.ns_name}][{name}]: space is probably not initialized: {e}"
+                            )
                     observer.on_next(recv)
                 elif OUTPUT:
                     # Convert python native types to numpy arrays.
@@ -1285,11 +1287,17 @@ def convert(space, processor, name, node, direction="out"):
                                 bnd.logwarn(msg)
                         except AttributeError as e:
                             if not hasattr(recv, "shape"):
-                                raise AttributeError(f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}")
+                                raise AttributeError(
+                                    f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}"
+                                )
                             elif not hasattr(recv, "dtype"):
-                                raise AttributeError(f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}")
+                                raise AttributeError(
+                                    f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}"
+                                )
                             else:
-                                raise AttributeError(f"[publisher][{node.ns_name}][{name}]: space is probably not initialized: {e}")
+                                raise AttributeError(
+                                    f"[publisher][{node.ns_name}][{name}]: space is probably not initialized: {e}"
+                                )
 
                     # Process message
                     if processor is not None:

@@ -1,6 +1,5 @@
 # RxEAGER
 import eagerx.core.ros1 as bnd
-import eagerx.utils.utils
 from eagerx.core.constants import process
 
 # OTHER
@@ -49,8 +48,9 @@ def initialize_nodes(
 
             # Check if node name is unique
             name = node.config.name
-            assert bnd.get_param(f"{ns}/{name}/rate", None) is None, f"Node name '{ns + '/' + name}' already exists. " \
-                                                                     "Node names must be unique."
+            assert bnd.get_param(f"{ns}/{name}/rate", None) is None, (
+                f"Node name '{ns + '/' + name}' already exists. " "Node names must be unique."
+            )
 
             # Upload params to param server
             bnd.upload_params(ns, params)

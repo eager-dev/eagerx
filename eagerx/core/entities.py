@@ -624,8 +624,8 @@ class ResetNode(Node):
         :param inputs_and_targets: Inputs and targets that were registered (& selected) with the :func:`eagerx.core.register.inputs`
                                    and :func:`eagerx.core.register.targets` decorators by the subclass.
         :return: Dictionary with outputs that were registered (& selected) with the :func:`eagerx.core.register.outputs`
-                 decorator by the subclass. In addition, the dictionary must contain a :class:`~std_msgs.msg.Bool` message
-                 that states whether the request *target* was reached.
+                 decorator by the subclass. In addition, the dictionary must contain message of type bool
+                 that specifies whether the requested *target* was reached.
         """
         pass
 
@@ -1145,15 +1145,9 @@ class Engine(BaseNode):
         """
         The engine callback that is performed at the specified rate.
 
-        This method should be decorated with :func:`eagerx.core.register.outputs` to register
-        `tick` = :class:`std_msgs.msg.UInt64` as the only output. This `tick` output synchronizes every
-        :class:`~eagerx.core.entities.EngineNode` that specifies this tick as an input.
+        This callback is steps the simulator by 1/:attr:`~eagerx.core.entities.Engine.rate`.
 
-        This callback is often used to step the simulator by 1/:attr:`~eagerx.core.entities.Engine.rate`.
-
-        .. note:: The engine **only** outputs the registered 'tick' message after each callback. However, the user is not responsible
-                  for creating this message. This is taken care of outside this method. Subclasses cannot register any
-                  other output for this callback with the :func:`eagerx.core.register.outputs` decorator.
+        .. note:: The engine does not have any output messages.
                   If you wish to broadcast other output messages based on properties of the simulator,
                   a separate :class:`~eagerx.core.entities.EngineNode` should be created.
 
