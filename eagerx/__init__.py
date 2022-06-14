@@ -1,6 +1,20 @@
 __version__ = "0.1.24"
 
-from eagerx.core.constants import process, log  # noqa: F401  # pylint: disable=unused-import
+import eagerx.core.ros1 as bnd
+from eagerx.core.constants import (  # noqa: F401  # pylint: disable=unused-import
+    process,
+    log,
+    SILENT,
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR,
+    NEW_PROCESS,
+    ENVIRONMENT,
+    ENGINE,
+    EXTERNAL,
+)
+
 from eagerx.core.entities import (  # noqa: F401  # pylint: disable=unused-import
     Object,
     Engine,

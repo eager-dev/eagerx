@@ -9,6 +9,12 @@ ERROR = 40
 FATAL = 50
 
 
+NEW_PROCESS = 0
+ENVIRONMENT = 1
+ENGINE = 2
+EXTERNAL = 3
+
+
 class log:
     SILENT = SILENT
     DEBUG = DEBUG
@@ -22,20 +28,20 @@ class log:
 class process:
     #: Spawn the node/engine in a separate process.
     #: Allows parallelization, but increases communication overhead due to the (de)serialization of messages.
-    NEW_PROCESS: int = 0
+    NEW_PROCESS: int = NEW_PROCESS
     #: Spawn the node/engine in the process of the environment.
-    ENVIRONMENT: int = 1
+    ENVIRONMENT: int = ENVIRONMENT
     #: Spawn a node in the process of the engine.
     #: If an :class:`~eagerx.core.entities.EngineNode` requires direct access to the
     #: :attr:`~eagerx.core.entities.Engine.simulator`,
     #: :attr:`~eagerx.core.entities.EngineNode.config`, and
     #: :attr:`~eagerx.core.entities.EngineNode.engine_config`,
     #: it must be spawned in the same process as the engine.
-    ENGINE: int = 2
+    ENGINE: int = ENGINE
     #: Spawn the node/engine in a separate process. This process is not spawned by the environment.
     #: Instead, the user is responsible for running the executable script with the appropriate arguments.
     #: This allows nodes to run distributed.
-    EXTERNAL: int = 3
+    EXTERNAL: int = EXTERNAL
 
 
 COMPATIBLE_DTYPES = ["float32", "float64", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
