@@ -2,9 +2,11 @@
 try:
     from google.colab.output import eval_js
     from IPython.display import display, Javascript
-except ImportError as e:
-    Warning("It seems that you are trying to use this package outside of  google colab. Using a mock version instead, "
-            "that does not do anything.")
+except ImportError:
+    Warning(
+        "It seems that you are trying to use this package outside of  google colab. Using a mock version instead, "
+        "that does not do anything."
+    )
 
     def mock_fn(*args, **kwargs):
         pass

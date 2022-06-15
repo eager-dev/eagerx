@@ -4,7 +4,6 @@ import abc
 import inspect
 import os
 import time
-from copy import deepcopy
 import numpy as np
 import psutil
 from genpy import Message

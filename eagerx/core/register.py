@@ -1,5 +1,4 @@
 import functools
-import inspect
 import copy
 
 import eagerx.core.ros1 as bnd
