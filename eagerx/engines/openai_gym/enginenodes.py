@@ -1,9 +1,12 @@
 from typing import Optional, List
+
+import pyglet.gl.lib
 import skimage.transform
 import numpy as np
 import gym
 from pyvirtualdisplay import Display
 import os
+import threading
 from gym.spaces import Discrete, Box
 
 # IMPORT EAGERX
@@ -277,6 +280,7 @@ class GymImage(EngineNode):
         self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
         self.sub_toggle = bnd.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
+        self._cond = threading.Condition()
 
         # Setup virtual display for rendering.
         self.display = Display(visible=False, backend="xvfb")
@@ -296,17 +300,22 @@ class GymImage(EngineNode):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
         )
-        if self.always_render or self.render_toggle:
-            os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
-            rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
-            os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
+        with self._cond:
+            if self.always_render or self.render_toggle:
+                os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
+                try:
+                    rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
+                except pyglet.gl.lib.GLException as e:
+                    bnd.logwarn(e)
+                    raise e
+                os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
 
-            # Resize image if not matching desired self.shape
-            if rgb.shape[:2] != tuple(self.shape):
-                kwargs = dict(output_shape=self.shape, mode="edge", order=1, preserve_range=True)
-                rgb = skimage.transform.resize(rgb, **kwargs).astype(rgb.dtype)
-        else:
-            rgb = np.zeros((self.shape[0], self.shape[1], 3), np.uint8)
+                # Resize image if not matching desired self.shape
+                if rgb.shape[:2] != tuple(self.shape):
+                    kwargs = dict(output_shape=self.shape, mode="edge", order=1, preserve_range=True)
+                    rgb = skimage.transform.resize(rgb, **kwargs).astype(rgb.dtype)
+            else:
+                rgb = np.zeros((self.shape[0], self.shape[1], 3), np.uint8)
         return dict(image=rgb)
 
     def shutdown(self):
@@ -321,9 +330,10 @@ class GymImage(EngineNode):
         plt.show()
 
     def _set_render_toggle(self, msg):
-        if msg:
-            bnd.logdebug("[%s] START RENDERING!" % self.name)
-        else:
-            self.simulator[self.obj_name]["env"].close()
-            bnd.logdebug("[%s] STOPPED RENDERING!" % self.name)
-        self.render_toggle = msg
+        with self._cond:
+            if msg:
+                bnd.logdebug("[%s] START RENDERING!" % self.name)
+            else:
+                self.simulator[self.obj_name]["env"].close()
+                bnd.logdebug("[%s] STOPPED RENDERING!" % self.name)
+            self.render_toggle = msg

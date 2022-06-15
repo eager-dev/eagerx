@@ -247,7 +247,7 @@ class Subscriber:
 
 
 def register_environment(name: str, force_start: bool, shutdown_fn: Callable):
-    """Checks if environmen already exists and registers shutdown procedure."""
+    """Checks if environment already exists and registers shutdown procedure."""
     # Check if there already exists an environment
     services = rosservice.get_service_list()
     if f"{name}/environment/shutdown" in services:

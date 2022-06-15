@@ -26,9 +26,6 @@ def test_render(colab: bool):
     name = gym_id.split("-")[0]
     za = zero_action[gym_id]
 
-    # Get signature of object
-    eagerx.Object.info("GymObject")
-
     # Create object
     obj = eagerx.Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
     obj.config.sensors.append("image")
@@ -72,8 +69,9 @@ def test_render(colab: bool):
         env.render()
         while iter < 30:  # and iter < 10:
             iter += 1
-            if iter == 28:  # Close render window
+            if iter == 14:  # Close render window
                 env.close()
+            print(f"[eps={j}][iter={iter}]")
             action = env.action_space.sample()
             _obs, _reward, _done, _info = env.step(action)
         _obs = env.reset()
