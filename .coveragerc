@@ -5,6 +5,7 @@ omit =
     tests/*
     examples/*
     scripts/*
+    eagerx/utils/utils_sub.py
 
 [report]
 exclude_lines =

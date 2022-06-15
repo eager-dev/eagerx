@@ -56,11 +56,8 @@ class ObservationSensor(EngineNode):
         )
         obs = self.simulator[self.obj_name]["buffer_obs"]
         self.simulator[self.obj_name]["buffer_obs"] = []
-        if len(obs) == 0:
-            obs = self.last_obs
-        else:
-            obs = obs[-1]
-            self.last_obs = obs
+        obs = self.last_obs if len(obs) == 0 else obs[-1]
+        self.last_obs = obs
         return dict(observation=obs)
 
 
@@ -324,9 +321,9 @@ class GymImage(EngineNode):
         plt.show()
 
     def _set_render_toggle(self, msg):
-        if msg.data:
+        if msg:
             bnd.logdebug("[%s] START RENDERING!" % self.name)
         else:
             self.simulator[self.obj_name]["env"].close()
             bnd.logdebug("[%s] STOPPED RENDERING!" % self.name)
-        self.render_toggle = msg.data
+        self.render_toggle = msg

@@ -113,7 +113,7 @@ def trace_observable(
     trace_next_payload=False,
     trace_subscribe=False,
     date=None,
-):
+):  # pragma: no cover
     node_name = node.ns_name
     color = node.color
 

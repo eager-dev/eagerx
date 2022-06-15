@@ -50,9 +50,6 @@ class ProcessorSpec(EntitySpec):
         # Set default params
         defaults = get_default_params(spec_cls.initialize)
         with self.config as d:
-            if hasattr(spec_cls, "initial_obs"):
-                assert "initial_obs" not in defaults, "Argument clash! `initial_obs` is a reserved argument name."
-                defaults["initial_obs"] = None
             d.update(defaults)
 
     @property

@@ -108,13 +108,6 @@ def make(entity, id, *args, **kwargs):
     return REGISTRY[entity][id]["spec"](*args, **kwargs)
 
 
-def get_spec(entity, id, verbose=True):
-    """Get information on the entity's spec function"""
-    if verbose:
-        help(REGISTRY[entity][id]["spec"])
-    return inspect.signature(REGISTRY[entity][id]["spec"])
-
-
 # TYPES
 
 

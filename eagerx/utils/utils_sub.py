@@ -1,3 +1,7 @@
+"""
+Adapted from the roslaunch.substitution_args package.
+"""
+
 import yaml
 import math
 import ast

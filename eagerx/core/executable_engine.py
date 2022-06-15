@@ -88,11 +88,7 @@ class RxEngine(object):
         node = node_cls(ns=self.ns, message_broker=self.mb, **params)
 
         # Prepare input topics
-        for i in params["inputs"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+        assert len(params["inputs"]) == 0, "Engine inputs are dynamically added."
 
         # Prepare output topics
         for i in params["outputs"]:

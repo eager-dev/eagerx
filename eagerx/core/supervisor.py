@@ -46,15 +46,9 @@ class SupervisorNode(BaseNode):
         for i in states:
             if isinstance(i["processor"], dict):
                 i["processor"] = initialize_processor(i["processor"])
-                processor = i["processor"]
-            else:
-                processor = i["processor"]
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
-                space = i["space"]
-            else:
-                space = i["space"]
-            self.state_buffer[i["name"]] = {"msg": None, "processor": processor, "space": space}
+            self.state_buffer[i["name"]] = {"msg": None, "processor": i["processor"], "space": i["space"]}
 
         # Required for reset
         self._step_counter = 0

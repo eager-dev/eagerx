@@ -894,12 +894,6 @@ class Engine(BaseNode):
             sp_nodes,
             launch_nodes,
         )
-        for _name, node in sp_nodes.items():
-            # Set simulator
-            if hasattr(node.node, "set_simulator"):
-                node.node.set_simulator(self.simulator)
-            # Initialize
-            node.node_initialized()
         wait_for_node_initialization(self.is_initialized)
         self.sp_nodes.update(sp_nodes)
         self.launch_nodes.update(launch_nodes)
@@ -1375,11 +1369,11 @@ class Processor(Entity):
     def check_spec(cls, spec):
         super().check_spec(spec)
 
-    def get_yaml_definition(self) -> Dict:
-        processor_type = self.__module__ + "/" + self.__class__.__name__
-        yaml_dict = dict(processor_type=processor_type)
-        yaml_dict.update(deepcopy(self.yaml_args))
-        return yaml_dict
+    # def get_yaml_definition(self) -> Dict:
+    #     processor_type = self.__module__ + "/" + self.__class__.__name__
+    #     yaml_dict = dict(processor_type=processor_type)
+    #     yaml_dict.update(deepcopy(self.yaml_args))
+    #     return yaml_dict
 
 
 class EngineState(Entity):

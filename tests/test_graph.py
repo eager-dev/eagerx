@@ -4,17 +4,32 @@ import eagerx
 import tests.test  # noqa # pylint: disable=unused-import
 import eagerx.processors  # noqa # pylint: disable=unused-import
 
+# Test reloading spec in eagerx.core.register.py.
+import eagerx.processors  # noqa # pylint: disable=unused-import
+
 import pytest
 
 
 @pytest.mark.timeout(60)
 def test_graph():
     eagerx.bnd.set_log_level(eagerx.INFO)
+    _ = eagerx.bnd.get_log_fn(eagerx.INFO)
     rate = 7
 
     # Get info on various specs.
     eagerx.Processor.info("GetIndex")
     eagerx.Object.info("Viper")
+    try:
+        eagerx.Object.info("UknownEntity")
+    except KeyError as e:
+        print(f"Must fail! {e}")
+
+    # Misspecify spec
+    try:
+        eagerx.Processor.make("GetIndex")
+    except TypeError as e:
+        print(f"Must fail! {e}")
+
     eagerx.Object.info("Viper", method="spec")
     eagerx.Object.info("Viper", method=["spec"])
 
@@ -223,7 +238,14 @@ def test_graph():
             return obs
 
     # Initialize Environment
+    from eagerx.wrappers.flatten import Flatten
     env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine)
+    env = Flatten(env)
+
+    # Get spaces
+    _ = env.observation_space
+    _ = env.action_space
+    _ = env.state_space
 
     # Test message broker
     env.env.mb.print_io_status()
@@ -240,6 +262,9 @@ def test_graph():
             env.render(mode="rgb_array")
         env.reset()
     print("\n[Finished]")
+
+    # Stop rendering
+    env.close()
 
     # Test acyclic graph
     graph.remove_component(action="act_1")

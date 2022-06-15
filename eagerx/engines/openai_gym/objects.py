@@ -62,6 +62,7 @@ class GymObject(Object):
         spec.config.render_shape = render_shape if render_shape else [200, 200]
         spec.config.env_id = env_id
         spec.config.always_render = always_render
+        spec.config.default_action = default_action
 
         # Add agnostic definition
         GymObject.agnostic(spec, rate)

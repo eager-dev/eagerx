@@ -742,10 +742,6 @@ class Graph:
             if parameter:
                 getattr(entry, parameter)  # Check if parameter exists
             if parameter == "processor":
-                if isinstance(value, ProcessorSpec):
-                    value = value.params
-                elif isinstance(value, GraphView):
-                    value = value.to_dict()
                 self._set_processor(entry, value)
             else:
                 t = entry()
@@ -1411,6 +1407,4 @@ class Graph:
         return GraphView(Graph(state), depth=depth, name=name)
 
     def get_view(self, name: str, depth: Optional[List[str]] = None):
-        depth = depth if depth else []
-        depth = [name] + depth
-        return GraphView(self, depth=depth, name=name)
+        return self._get_view(self._state, name, depth)

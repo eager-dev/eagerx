@@ -8,20 +8,21 @@ import eagerx.processors  # noqa: F401
 import pytest
 
 zero_action = {"Pendulum-v0": [0.0], "Pendulum-v1": [0.0], "Acrobot-v1": 0}
-NP = eagerx.NEW_PROCESS
-ENV = eagerx.ENVIRONMENT
 
 
 @pytest.mark.timeout(40)
-@pytest.mark.parametrize(
-    "gym_id, eps, sync, rtf, p",
-    [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
-)
-def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
-    eagerx.bnd.set_log_level(eagerx.DEBUG)
+@pytest.mark.parametrize("colab", [(True,), (False,)])
+def test_render(colab: bool):
+    # Start virtual display
+    from pyvirtualdisplay import Display
+    display = Display(visible=False, backend="xvfb")
+    display.start()
+
+    eagerx.bnd.set_log_level(eagerx.WARN)
 
     # Define rate (depends on rate of gym env)
     rate = 20
+    gym_id = "Pendulum-v1"
     name = gym_id.split("-")[0]
     za = zero_action[gym_id]
 
@@ -30,9 +31,10 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
 
     # Create object
     obj = eagerx.Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
+    obj.config.sensors.append("image")
 
     # Define graph
-    graph = eagerx.Graph.create(objects=[obj])
+    graph = eagerx.Graph.create(objects=obj)
 
     # Add butterworth filter
     get_index = eagerx.Processor.make("GetIndex", index=0)
@@ -47,37 +49,39 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     graph.connect(source=obj.sensors.done, observation="done", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
-    name = f"{name}_{eps}_{sync}_{p}"
+    # Add rendering
+    if not colab:
+        graph.render(obj.sensors.image, rate=rate)
+    else:
+        graph.render(obj.sensors.image, rate=rate, entity_id="ColabRender", process=eagerx.ENVIRONMENT)
 
     # Define engine
     obj.gui("GymEngine")
-    engine = eagerx.Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
+    engine = eagerx.Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine)
+    env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine)
 
     # First reset
-    _done = False
     _obs = env.reset()
 
     # Run for several episodes
-    for j in range(eps):
+    for j in range(2):
         print("\n[Episode %s]" % j)
         iter = 0
+        env.render()
         while iter < 30:  # and iter < 10:
             iter += 1
+            if iter == 28:  # Close render window
+                env.close()
             action = env.action_space.sample()
             _obs, _reward, _done, _info = env.step(action)
         _obs = env.reset()
-        _done = False
+
     print("\n[Finished]")
     env.shutdown()
     print("\n[Shutdown]")
 
 
 if __name__ == "__main__":
-    # for _ in range(100):
-    #     test_integration_openai_engine("Pendulum-v1", 2, True, 0, 0)
-    test_integration_openai_engine("Acrobot-v1", 2, True, 0, ENV)
-    test_integration_openai_engine("Pendulum-v1", 2, True, 0, ENV)
-    test_integration_openai_engine("Pendulum-v1", 2, True, 0, NP)
+    test_render(colab=True)

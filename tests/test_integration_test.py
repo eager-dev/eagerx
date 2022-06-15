@@ -11,7 +11,7 @@ NP = eagerx.NEW_PROCESS
 ENV = eagerx.ENVIRONMENT
 
 
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(40)
 @pytest.mark.parametrize(
     "eps, steps, sync, rtf, p",
     [(3, 3, True, 0, ENV), (20, 40, True, 0, NP), (3, 3, True, 4, NP), (20, 40, False, 4, NP), (3, 3, False, 4, ENV)],
@@ -59,7 +59,7 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     graph.connect(source=viper.states.N9, target=N3.targets.target_1)
 
     # Define render
-    graph.render(source=viper.sensors.N6, rate=1, processor=eagerx.Processor.make("ToUint8"))
+    # graph.render(source=viper.sensors.N6, rate=1, processor=eagerx.Processor.make("ToUint8"))
 
     # Open GUI (only opens if eagerx-gui installed)
     graph.gui()

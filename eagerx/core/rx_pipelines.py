@@ -529,14 +529,7 @@ def init_engine(
         i["reset"] = Subject()
 
     # Prepare input topics
-    for i in inputs_init:
-        # Subscribe to input topic
-        Ir = Subject()
-        i["msg"] = Ir
-
-        # Subscribe to input reset topic
-        Is = Subject()
-        i["reset"] = Is
+    assert len(inputs_init) == 0, "The inputs to engines are dynamically added."
 
     # Prepare state topics
     for i in state_inputs:
@@ -988,7 +981,6 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     d = (
         end_reset["msg"]
         .pipe(
-            # numpy_to_UInt64(dtype, inverse=True),
             spy("RESET END", node, log_level=DEBUG),
             convert(space, None, "tick", node, direction="out"),
         )

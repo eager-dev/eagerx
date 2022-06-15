@@ -35,27 +35,16 @@ class EnvNode(eagerx.Node):
         # Define observation buffers
         self.observation_buffer = dict()
         for i in self.inputs:
-            if i["name"] == "actions_set":
-                continue
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-                processor = i["processor"]
-            else:
-                processor = i["processor"]
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
-                space = i["space"]
-            else:
-                space = i["space"]
-            assert space is not None, f'No space defined for observation {i["name"]}.'
-
+            assert i["space"] is not None, f'No space defined for observation {i["name"]}.'
             name = i["name"]
             window = i["window"]
             self.observation_buffer[name] = {
                 "msgs": None,
-                "processor": processor,
+                "processor": i["processor"],
                 "window": window,
-                "space": space,
+                "space": i["space"],
             }
 
         # Synchronization event
@@ -75,21 +64,13 @@ class EnvNode(eagerx.Node):
         # Define action buffers
         self.action_buffer = dict()
         for i in self.outputs:
-            if i["name"] == "set":
-                continue
             if isinstance(i["processor"], dict):
                 i["processor"] = initialize_processor(i["processor"])
-                processor = i["processor"]
-            else:
-                processor = i["processor"]
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
-                space = i["space"]
-            else:
-                space = i["space"]
-            assert space is not None, f'No space defined for observation {i["name"]}.'
+            assert i["space"] is not None, f'No space defined for observation {i["name"]}.'
 
-            self.action_buffer[i["name"]] = {"msg": None, "processor": processor, "space": space}
+            self.action_buffer[i["name"]] = {"msg": None, "processor": i["processor"], "space": i["space"]}
 
     def reset(self):
         self.must_reset = False
@@ -234,7 +215,7 @@ class RenderNode(eagerx.Node):
         spec.config.encoding = encoding
 
         # Pre-set window
-        spec.inputs.image.window = 0
+        spec.inputs.image.window = 1
 
     def initialize(self, display, encoding):
         self.display = display
@@ -290,10 +271,7 @@ class RenderNode(eagerx.Node):
     @register.inputs(image=None)
     @register.outputs(done=Discrete(2))
     def callback(self, t_n: float, image: Optional[Msg] = None):
-        if len(image.msgs) > 0:
-            self.last_image = image.msgs[-1]
-        else:
-            return dict(done=0)
+        self.last_image = image.msgs[-1]
         empty = len(image.msgs[-1]) == 0
         if not empty and self.display and self.render_toggle:
             self.cv_image = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
@@ -356,7 +334,7 @@ class ColabRender(eagerx.Node):
         spec.config.subsample = True
 
         # Pre-set window
-        spec.inputs.image.window = 0
+        spec.inputs.image.window = 1
 
     def initialize(self, encoding, fps, maxlen, shape, subsample):
         # todo: Overwrite fps if higher than rate
@@ -403,8 +381,7 @@ class ColabRender(eagerx.Node):
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=0)
         # Grab latest image
-        if len(image.msgs) > 0:
-            self.last_image = image.msgs[-1]
+        self.last_image = image.msgs[-1]
         # If too little time has passed, do not add frame (avoid buffer overflowing)
         if self.window is None:
             self.window = self.window_cls(fps=self.fps, maxlen=self.maxlen, shape=self.shape)
@@ -414,9 +391,7 @@ class ColabRender(eagerx.Node):
         empty = len(self.last_image.data) == 0
         if not empty and self.render_toggle:
             # Convert to rgb (from bgr)
-            img = self.last_image
-            if "bgr" in self.last_image.encoding:
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = self.last_image if self.encoding == "bgr" else cv2.cvtColor(self.last_image, cv2.COLOR_RGB2BGR)
             # Add image to buffer (where it is send async to javascript window)
             self.window.buffer_images(img)
         return output_msgs

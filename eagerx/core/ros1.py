@@ -155,15 +155,12 @@ def _dtype_to_ros1_msg_type(dtype: str):
 
 
 class Publisher:
-    def __init__(self, address: str, dtype: str, node=None):
+    def __init__(self, address: str, dtype: str):
         self._address = address
         self._dtype = dtype
         self._msg_type = _dtype_to_ros1_msg_type(dtype)
         self._pub = rospy.Publisher(address, self._msg_type, queue_size=0, latch=True)
-        if node is not None:
-            self._name = f"{node.ns_name}][{self._address}"
-        else:
-            self._name = f"{self._address}"
+        self._name = f"{self._address}"
 
     def publish(self, msg):
         # Convert python native types to numpy arrays.
@@ -210,17 +207,14 @@ class Publisher:
 
 
 class Subscriber:
-    def __init__(self, address: str, dtype: str, callback, callback_args=tuple(), node=None):
+    def __init__(self, address: str, dtype: str, callback, callback_args=tuple()):
         self._address = address
         self._dtype = dtype
         self._msg_type = _dtype_to_ros1_msg_type(dtype)
         self._cb_wrapped = callback
         self._cb_args = callback_args
         self._sub = rospy.Subscriber(address, self._msg_type, callback=self.callback)
-        if node is not None:
-            self._name = f"{node.ns_name}][{self._address}"
-        else:
-            self._name = f"{self._address}"
+        self._name = f"{self._address}"
 
     def callback(self, msg):
         if not isinstance(msg, tuple(_ROS_TO_NUMPY)):
@@ -238,6 +232,8 @@ class Subscriber:
             msg = np.array(msg.data, dtype=_ROS_TO_NUMPY[type(msg)]).reshape(s)
 
         try:
+            # if self._address == "/Pendulum_2_True_0/env/supervisor/end_reset":
+            #     print(f"[subscriber][{self._name}]: supervisor node_flag received!")
             self._cb_wrapped(msg, *self._cb_args)
         except rospy.exceptions.ROSException as e:
             self.unregister()
