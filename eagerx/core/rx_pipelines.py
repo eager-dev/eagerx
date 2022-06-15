@@ -563,6 +563,11 @@ def init_engine(
     ###########################################################################
     init_node_flags = []
     for i in node_names:
+        if i == "env/supervisor":
+            # todo: skipping is a HACK!
+            #  - node_flag:env/supervisor/end_reset is received in engine Subscriber
+            #  - However, the message does not come through in node_reset_flags(...)
+            continue
         nf = dict(name=i, address="%s/%s/end_reset" % (ns, i), msg=Subject(), dtype="bool")
         node_inputs.append(nf)
         init_node_flags.append(nf)
@@ -942,6 +947,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     )
 
     # Reset pipeline
+    # todo: HACK! The Engine currently does not wait for this message.
     d = R.pipe(ops.map(lambda x: True)).subscribe(node_reset["msg"], scheduler=tp_scheduler)
     reset_disp.add(d)
 
