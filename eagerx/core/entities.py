@@ -1408,7 +1408,6 @@ class EngineState(Entity):
         engine_config,
         *args,
         color="grey",
-        print_mode="termcolor",
         **kwargs,
     ):
         #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
@@ -1483,12 +1482,9 @@ class EngineState(Entity):
         pass
 
     @abc.abstractmethod
-    def reset(self, state: Any, done: bool) -> None:
+    def reset(self, state: Any) -> None:
         """An abstract method to reset the engine state of an :class:`~eagerx.core.entities.Object`.
 
         :param state: The desired state that the user can specify before calling :func:`~eagerx.core.env.BaseEnv.reset`.
-        :param done: A flag whether to reset the state. If True, the state might have  already been reset by a
-                     :class:`~eagerx.core.entities.ResetNode`, or the user has not specified any desired state before
-                     calling :func:`~eagerx.core.env.BaseEnv.reset`.
         """
         pass

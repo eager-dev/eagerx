@@ -38,3 +38,18 @@ class ToUint8(Processor):
 
     def convert(self, msg: np.ndarray):
         return msg.astype(self.DTYPE)
+
+
+class IdentityProcessor(Processor):
+    DTYPE = "uint64"
+
+    @staticmethod
+    @register.spec("IdentityProcessor", Processor)
+    def spec(spec):
+        pass
+
+    def initialize(self):
+        pass
+
+    def convert(self, msg):
+        return msg

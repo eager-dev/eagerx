@@ -28,7 +28,7 @@ from eagerx.utils.utils import (
 # OTHER IMPORTS
 import time
 from collections import deque
-from termcolor import cprint
+from termcolor import colored
 import datetime
 import traceback
 from os import getpid
@@ -59,23 +59,18 @@ def print_info(
     date=None,
     log_level=DEBUG,
 ):
+    msg = ""
     if date:
-        cprint("[" + str(date)[:40].ljust(20) + "]", color, end="")
-    cprint("[" + str(getpid())[:5].ljust(5) + "]", color, end="")
-    cprint(
-        "[" + current_thread().name.split("/")[-1][:15].ljust(15) + "]",
-        color,
-        end="",
-    )
-    cprint(
-        "[" + node_name.split("/")[-1][:12].ljust(12) + "]",
-        color,
-        end="",
-        attrs=["bold"],
-    )
+        msg += f"[{str(date)[:40].ljust(20)}]"
+    # Add process ID
+    msg += f"[{str(getpid())[:5].ljust(5)}]"
+    # Add thread ID
+    msg += f"[{current_thread().name.split('/')[-1][:15].ljust(15)}]"
+    msg += f"[{node_name.split('/')[-1][:12].ljust(12)}]"
     if id:
-        cprint("[" + id.split("/")[-1][:12].ljust(12) + "]", color, end="")
-    cprint((" %s: %s" % (trace_type, value)), color)
+        msg += f"[{id.split('/')[-1][:12].ljust(12)}]"
+    msg += f" {trace_type}: {value}"
+    print(colored(msg, color))
 
 
 def spy(id: str, node, log_level: int = DEBUG, mapper: Callable = lambda msg: msg):
@@ -777,7 +772,7 @@ def call_state_reset(state):
     def _call_state_reset(source):
         def subscribe(observer, scheduler=None):
             def on_next(state_msg):
-                state.reset(state=state_msg.msgs[0], done=state_msg.info.done)
+                state.reset(state=state_msg.msgs[0])
                 observer.on_next(state_msg)
 
             return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
@@ -793,9 +788,11 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
 
         for s in state_inputs:
             d = s["done"].pipe(
+                spy("D [%s]" % s["name"].split("/")[-1][:12].ljust(4), node),
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
+                spy("C [%s]" % s["name"].split("/")[-1][:12].ljust(4), node),
                 convert(s["space"], s["processor"], s["name"], node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),

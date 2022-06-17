@@ -199,7 +199,10 @@ class Publisher:
         for i, d in enumerate(shape):
             dim = std_msgs.msg.MultiArrayDimension(label=str(i), size=d, stride=sum(shape[i:]))
             msg.layout.dim.append(dim)
-
+        # if self._address == "/rx/obj/states/N9/set":
+        #     print(f"[publisher][{self._name}]: N9 sent!")
+        # elif self._address == "/rx/obj/states/N9/done":
+        #     print(f"[publisher][{self._name}]: N9/done sent!")
         return self._pub.publish(msg)
 
     def unregister(self):
@@ -233,7 +236,10 @@ class Subscriber:
 
         try:
             # if self._address == "/Pendulum_2_True_0/env/supervisor/end_reset":
-            #     print(f"[subscriber][{self._name}]: supervisor node_flag received!")
+            # if self._address == "/rx/obj/states/N9/set":
+            #     print(f"[subscriber][{self._name}]: N9 received={msg}!")
+            # elif self._address == "/rx/obj/states/N9/done":
+            #     print(f"[subscriber][{self._name}]: N9/done received={msg}!")
             self._cb_wrapped(msg, *self._cb_args)
         except rospy.exceptions.ROSException as e:
             self.unregister()

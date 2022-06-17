@@ -706,8 +706,9 @@ def init_engine(
     node_outputs.append(end_register)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
+    # todo: If simstate_inputs is not added here, EngineState reset sometimes blocks (done flag not received).
     d = (
-        rx.zip(check_F_init, check_NF, check_simSS)
+        rx.zip(check_F_init, simstate_inputs, check_NF, check_simSS)
         .pipe(ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: 0))
         .subscribe(ER)
     )
@@ -847,12 +848,12 @@ def init_engine(
         # ops.map(lambda x: x[0].dispose()),
         ops.start_with(None),
         ops.zip(
-            ss_cl,
-            reset_obs,
-            simSS,
-            NF.pipe(spy("NF", node)),
-            check_SS,
-            check_SS_CL,
+            ss_cl.pipe(spy("ER-ss_cl", node)),
+            reset_obs.pipe(spy("ER-obs", node)),
+            simSS.pipe(spy("ER-simSS", node)),
+            NF.pipe(spy("ER-NF", node)),
+            check_SS.pipe(spy("ER-ch_SS", node)),
+            check_SS_CL.pipe(spy("ER-ch_SS_CL", node)),
         ),
         ops.map(lambda x: node.reset_cb(**x[1])),
         spy("POST-RESET", node, log_level=DEBUG),
