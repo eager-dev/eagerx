@@ -1,9 +1,7 @@
 import eagerx
 
-
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
-import eagerx.processors  # noqa # pylint: disable=unused-import
 
 import pytest
 

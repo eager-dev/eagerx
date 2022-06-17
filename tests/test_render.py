@@ -2,8 +2,8 @@
 # Implementation specific
 import eagerx
 import eagerx.engines.openai_gym as eagerx_gym
-import eagerx.nodes  # noqa: F401
-import eagerx.processors  # noqa: F401
+import tests.test.butterworth_filter  # noqa: F401
+import tests.test.processors  # noqa: F401
 
 import pytest
 
@@ -82,4 +82,9 @@ def test_render(colab: bool):
 
 
 if __name__ == "__main__":
-    test_render(colab=True)
+    # TODO: FIX RENDER BLOCKING....
+    for i in range(30):
+        colab = bool(i % 2)
+        print(f"ARE WE USING COLAB? {colab}")
+        test_render(colab=colab)
+    # test_render(colab=True)

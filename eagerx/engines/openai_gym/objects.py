@@ -23,8 +23,6 @@ class GymObject(Object):
     @register.config(env_id=None, always_render=False, default_action=None, render_shape=[200, 200])
     def agnostic(spec: ObjectSpec, rate):
         """Agnostic definition of the GymObject"""
-        import eagerx.processors  # noqa # pylint: disable=unused-import
-
         # Set spaces
         env = gym.make(spec.config.env_id)
         spec.sensors.observation.space = env.observation_space

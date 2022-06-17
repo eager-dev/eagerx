@@ -8,6 +8,14 @@ import pytest
 @pytest.mark.timeout(20)
 @pytest.mark.parametrize("force_start", [True, True, False])
 def test_skip_observation(force_start):
+    # todo: NOT ENTERING SIMSTATES --> simSS not getting through,
+    #  - Check if only happens during first reset, or randomly between episodes.
+    #  - Either N9/set & N9/done or both are sometimes not received.
+    #  - We even deadlocked DURING and episode --> very concerning... Revert back to include proxy checks?
+    #  - Rewrite bridge to statically initialize nodes & object? Then we can remove a lot of checks.
+    #  - Only happens with Object("Arm") --> Why not with "Viper"??
+    eagerx.bnd.set_log_level(eagerx.DEBUG)
+
     # Define object
     arm = eagerx.Object.make("Arm", "obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
 
@@ -68,6 +76,9 @@ def test_skip_observation(force_start):
 
 
 if __name__ == "__main__":
+    for i in range(30):
+        print(f"ITERATION {i}")
+        test_skip_observation(True)
     test_skip_observation(True)
     test_skip_observation(True)
     test_skip_observation(False)

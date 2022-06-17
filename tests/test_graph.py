@@ -2,10 +2,9 @@ import eagerx
 
 # Implementation specific
 import tests.test  # noqa # pylint: disable=unused-import
-import eagerx.processors  # noqa # pylint: disable=unused-import
 
 # Test reloading spec in eagerx.core.register.py.
-import eagerx.processors  # noqa # pylint: disable=unused-import
+import tests.test  # noqa # pylint: disable=unused-import
 
 import pytest
 
