@@ -18,7 +18,7 @@ def test_render(colab: bool):
     display = Display(visible=False, backend="xvfb")
     display.start()
 
-    eagerx.bnd.set_log_level(eagerx.WARN)
+    eagerx.set_log_level(eagerx.WARN)
 
     # Define rate (depends on rate of gym env)
     rate = 20
@@ -56,8 +56,12 @@ def test_render(colab: bool):
     obj.gui("GymEngine")
     engine = eagerx.Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
+    # Make backend
+    from eagerx.core.ros1 import Ros1
+    backend = Ros1.spec()
+
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine)
+    env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine, backend=backend)
 
     # First reset
     _obs = env.reset()

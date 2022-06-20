@@ -10,7 +10,6 @@ import json
 import gym
 
 from eagerx.core.constants import SUPPORTED_SPACES, BackendException, Unspecified
-from eagerx.core.ros1 import get_param
 
 
 def space_to_dict(space):
@@ -272,12 +271,12 @@ def get_default_params(func):
 _unspecified = Unspecified()
 
 
-def get_param_with_blocking(name, default=_unspecified, timeout=2.0):
+def get_param_with_blocking(name, backend, default=_unspecified, timeout=2.0):
     params = Unspecified()
     start = time.time()
     while isinstance(params, Unspecified):
         try:
-            params = get_param(name, default=default)
+            params = backend.get_param(name, default=default)
         except (BackendException, KeyError):
             if not isinstance(default, Unspecified):
                 return default

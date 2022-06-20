@@ -8,7 +8,7 @@ import pytest
 
 @pytest.mark.timeout(20)
 def test_graph_engine():
-    eagerx.bnd.set_log_level(eagerx.WARN)
+    eagerx.set_log_level(eagerx.WARN)
 
     # Define object
     arm = eagerx.Object.make("Arm", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
@@ -23,10 +23,14 @@ def test_graph_engine():
     # Define engine
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=eagerx.ENVIRONMENT)
 
+    # Define backend
+    from eagerx.core.ros1 import Ros1
+    backend = Ros1.spec()
+
     # Define environment
     class TestEnv(eagerx.BaseEnv):
-        def __init__(self, name, rate, graph, engine):
-            super().__init__(name, rate, graph, engine, force_start=True)
+        def __init__(self, name, rate, graph, engine, backend):
+            super().__init__(name, rate, graph, engine, backend, force_start=True)
 
         def step(self, action):
             obs = self._step(action)
@@ -38,7 +42,7 @@ def test_graph_engine():
             return obs
 
     # Initialize Environment
-    env = TestEnv(name="graph_engine", rate=7, graph=graph, engine=engine)
+    env = TestEnv(name="graph_engine", rate=7, graph=graph, engine=engine, backend=backend)
 
     # First reset
     env.reset()

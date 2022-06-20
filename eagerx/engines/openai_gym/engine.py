@@ -3,7 +3,6 @@ from typing import Optional
 import gym
 
 # RX IMPORTS
-import eagerx.core.ros1 as bnd
 from eagerx.core.constants import process, ERROR
 import eagerx.core.register as register
 from eagerx.core.entities import Engine
@@ -53,7 +52,7 @@ class GymEngine(Engine):
                              :class:`~eagerx.core.entities.EngineState` that is to be added.
         """
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        bnd.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
+        self.backend.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
 
         # Extract relevant object_params
         obj_name = config["name"]

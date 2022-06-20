@@ -2,6 +2,8 @@
 
 import os
 
+from eagerx.core.entities import Backend
+
 if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
     import site
 
@@ -14,15 +16,16 @@ import eagerx.core.rx_operators
 import eagerx.core.rx_pipelines
 from eagerx.utils.utils import (
     load,
+    replace_None,
     initialize_processor,
     dict_to_space,
     get_param_with_blocking,
 )
 from eagerx.core.executable_node import RxNode
 from eagerx.utils.node_utils import wait_for_node_initialization
-import eagerx.core.ros1 as bnd
 
 # Other imports
+import yaml
 from threading import Condition
 import sys
 
@@ -32,6 +35,7 @@ class RxEngine(object):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
+        self.backend = message_broker.bnd
         self.initialized = False
         self.has_shutdown = False
 
@@ -63,22 +67,22 @@ class RxEngine(object):
         self.cond_reg = Condition()
 
         # Prepare closing routine
-        bnd.on_shutdown(self.node_shutdown)
+        self.backend.on_shutdown(self.node_shutdown)
 
     def node_initialized(self):
         with self.cond_reg:
             # Wait for all nodes to be initialized
-            wait_for_node_initialization(self.engine.is_initialized)
+            wait_for_node_initialization(self.engine.is_initialized, self.backend)
 
             # Notify env that node is initialized
             if not self.initialized:
-                self.init_pub = bnd.Publisher(self.name + "/initialized", "int64")
+                self.init_pub = self.backend.Publisher(self.name + "/initialized", "int64")
                 self.init_pub.publish(0)
-                bnd.loginfo('Node "%s" initialized.' % self.name)
+                self.backend.loginfo('Node "%s" initialized.' % self.name)
                 self.initialized = True
 
     def _prepare_io_topics(self, name):
-        params = get_param_with_blocking(name)
+        params = get_param_with_blocking(name, self.backend)
         node_names = params["node_names"]
         target_addresses = params["target_addresses"]
         rate = params["rate"]
@@ -115,21 +119,21 @@ class RxEngine(object):
         )
 
     def _shutdown(self):
-        bnd.logdebug(f"[{self.name}] RxEngine._shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] RxEngine._shutdown() called.")
         self.init_pub.unregister()
 
     def node_shutdown(self):
         if not self.has_shutdown:
-            bnd.logdebug(f"[{self.name}] RxEngine.node_shutdown() called.")
+            self.backend.logdebug(f"[{self.name}] RxEngine.node_shutdown() called.")
             for address, node in self.engine.launch_nodes.items():
-                bnd.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
+                self.backend.loginfo(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()
             for _, rxnode in self.engine.sp_nodes.items():
                 rxnode: RxNode
                 if not rxnode.has_shutdown:
-                    bnd.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
+                    self.backend.loginfo(f"[{self.name}] Shutting down '{rxnode.name}'.")
                     rxnode.node_shutdown()
-            bnd.loginfo(f"[{self.name}] Shutting down.")
+            self.backend.loginfo(f"[{self.name}] Shutting down.")
             self._shutdown()
             self.engine.shutdown()
             self.mb.shutdown()
@@ -137,23 +141,23 @@ class RxEngine(object):
 
 
 if __name__ == "__main__":
+
+    executable, bnd_params, ns, name, _ = sys.argv[0], sys.argv[-4], sys.argv[-3], sys.argv[-2], sys.argv[-1]
+
+    bnd_params = replace_None(yaml.safe_load(bnd_params), to_null=False)
+    backend = Backend.from_params(ns, bnd_params)
+
+    message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}", backend=backend)
+
     try:
-        executable, ns, name, _ = sys.argv[0], sys.argv[-3], sys.argv[-2], sys.argv[-1]
-
-        log_level = get_param_with_blocking(ns + "/log_level")
-
-        bnd.set_log_level(log_level)
-
-        message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}")
-
         pnode = RxEngine(name=f"{ns}/{name}", message_broker=message_broker)
 
         message_broker.connect_io()
 
         pnode.node_initialized()
 
-        bnd.spin()
+        backend.spin()
     finally:
         if not pnode.has_shutdown:
-            bnd.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
-            bnd.signal_shutdown(f"[{ns}/{name}] Terminating '{ns}/{name}'.")
+            backend.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
+            backend.signal_shutdown(f"[{ns}/{name}] Terminating '{ns}/{name}'.")

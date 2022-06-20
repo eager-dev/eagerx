@@ -1,6 +1,7 @@
-from typing import List, Dict, Optional, Union, Any
+from typing import List, Dict, Optional, Union, Any, Callable
 import gym
 import abc
+import yaml
 import inspect
 import os
 import time
@@ -8,13 +9,26 @@ import numpy as np
 import psutil
 from genpy import Message
 from tabulate import tabulate
+from termcolor import colored
 
-import eagerx.core.ros1 as bnd
-from eagerx.core.constants import WARN, SILENT, process
+import eagerx
+import eagerx.core.log as log
+from eagerx.core.constants import (
+    ENGINE,
+    SILENT,
+    DEBUG,
+    INFO,
+    ERROR,
+    WARN,
+    FATAL,
+    Unspecified,
+)
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
 from eagerx.utils.utils import (
     Msg,
+    load,
+    replace_None,
     initialize_state,
     check_valid_rosparam_type,
     dict_to_space,
@@ -34,7 +48,12 @@ if TYPE_CHECKING:
         EngineStateSpec,
         ResetNodeSpec,
         ObjectSpec,
+        BackendSpec,
     )
+
+
+# A singleton that is used to check if an argument was specified.
+_unspecified = Unspecified()
 
 
 class Entity(object):
@@ -63,11 +82,6 @@ class Entity(object):
         from eagerx.core import register
 
         spec = register.make(cls, entity_id, *args, **kwargs)
-        try:
-            cls.check_spec(spec)
-        except AssertionError as e:
-            print(e)
-            raise
         return spec
 
     @classmethod
@@ -96,6 +110,280 @@ class Entity(object):
     @classmethod
     def check_spec(cls, spec):
         pass
+
+
+class Backend(Entity):
+    """Baseclass for backends.
+
+    Use this baseclass to implement backends that implement the communication.
+
+    Users must call :func:`~eagerx.core.entities.Backend.make` to make the registered subclass'
+    :func:`~eagerx.core.entities.Backend.spec`. See :func:`~eagerx.core.entities.Backend.make` for more info.
+
+    Subclasses must implement the following methods:
+
+    - :func:`~eagerx.core.entities.Backend.spec`
+
+    - :func:`~eagerx.core.entities.Backend.initialize`
+
+    - :func:`~eagerx.core.entities.Backend.Publisher`
+
+    - :func:`~eagerx.core.entities.Backend.Subscriber`
+
+    - :func:`~eagerx.core.entities.Backend.register_environment`
+
+    - :func:`~eagerx.core.entities.Backend.delete_param`
+
+    - :func:`~eagerx.core.entities.Backend.upload_params`
+
+    - :func:`~eagerx.core.entities.Backend.get_param`
+
+    - :func:`~eagerx.core.entities.Backend.spin`
+
+    - :func:`~eagerx.core.entities.Backend.on_shutdown`
+
+    - :func:`~eagerx.core.entities.Backend.signal_shutdown`
+
+    Subclasses must set the following static class properties:
+
+    - :func:`~eagerx.core.entities.Backend.BACKEND`
+
+    - :func:`~eagerx.core.entities.Backend.DISTRIBUTED_SUPPORT`
+
+    - :func:`~eagerx.core.entities.Backend.COLAB_SUPPORT`
+    """
+
+    INFO = {
+        "spec": [],
+        "initialize": [],
+    }
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(
+        self,
+        ns: str,
+        spec_string: str,
+        backend_type: str,
+        entity_id: str,
+        log_level: int = WARN,
+        **kwargs: Union[bool, int, float, str, List, Dict],
+    ):
+        #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
+        self.ns: str = ns
+        #: The spec, used to initialize the backend, in string format.
+        self.spec_string = spec_string
+        #: A unique entity_id with which the backend is registered with the :func:`eagerx.core.register.spec` decorator by the subclass.
+        #: Can be set in :func:`eagerx.core.register.spec` that decorates the subclass' :func:`~eagerx.core.entities.Node.spec`.
+        self.entity_id: str = entity_id
+        #: The class definition of the subclass. Follows naming convention *<module>/<BackendClassName>*.
+        #: Cannot be modified.
+        self.backend_type: str = backend_type
+        #: Specifies the effective log level:
+        #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
+        #: Can be set in the subclass' :func:`~eagerx.core.entities.Backend.spec`.
+        self.log_level: int = log_level
+
+        # Record once logged messages.
+        self._logging_once = log.LoggingOnce()
+
+        # Call subclass'
+        self.initialize(**kwargs)
+
+    @staticmethod
+    @abc.abstractmethod
+    def spec(spec: "BackendSpec", *args: Any, **kwargs: Any) -> None:
+        """An abstract method that creates the backend's specification that is used to initialize the subclass at run-time.
+
+        See :class:`~eagerx.core.specs.BackendSpec` how the default config parameters can be modified.
+
+        This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
+
+        .. note:: Users should not call :func:`~eagerx.core.entities.Backend.spec` directly to make the
+                  backend's spec. Instead, users should call :func:`~eagerx.core.entities.backend.make`.
+
+        :param spec: A (mutable) specification.
+        :param args: Additional arguments as specified by the subclass.
+        :param kwargs: Additional optional arguments as specified by the subclass.
+        """
+        pass
+
+    @abc.abstractmethod
+    def initialize(
+        self, *args: Union[bool, int, float, str, List, Dict], **kwargs: Union[bool, int, float, str, List, Dict]
+    ) -> None:
+        """An abstract method to initialize the backend.
+
+        :param args: Arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        :param kwargs: Optional arguments as specified by the subclass. Only booleans, ints, floats, strings, lists, and dicts are supported.
+        """
+        pass
+
+    @classmethod
+    def pre_make(cls, entity_id: str, entity_type: "Entity"):
+        spec = super().pre_make(entity_id, entity_type)
+        params = spec.params
+        params["config"] = dict(
+            log_level=eagerx.get_log_level(),
+            entity_id=params.pop("entity_id"),
+        )
+        params["backend_type"] = params.pop("entity_type")
+        from eagerx.core.specs import BackendSpec  # noqa: F811
+
+        return BackendSpec(params)
+
+    @classmethod
+    def check_spec(cls, spec):
+        super().check_spec(spec)
+
+    @staticmethod
+    def from_params(ns, params: Dict):
+        backend_type = params["backend_type"]
+        backend_cls = load(backend_type)
+        spec_string = yaml.dump(replace_None(params))
+        backend = backend_cls(ns, spec_string, backend_type, **params["config"])
+        return backend
+
+    @property
+    @abc.abstractmethod
+    def BACKEND(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def DISTRIBUTED_SUPPORT(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def COLAB_SUPPORT(self):
+        pass
+
+    @abc.abstractmethod
+    def Publisher(self, address: str, dtype: str):
+        """Creates a publisher"""
+        pass
+
+    @abc.abstractmethod
+    def Subscriber(self, address: str, dtype: str, callback, callback_args=tuple()):
+        """Creates a subscriber"""
+        pass
+
+    @abc.abstractmethod
+    def register_environment(self, name: str, force_start: bool, shutdown_fn: Callable):
+        """Checks if environment already exists and registers shutdown procedure."""
+        pass
+
+    @abc.abstractmethod
+    def delete_param(self, param: str, level: int = 1) -> None:
+        """
+        :param param:
+        :param level: 2=pass, 1=warn, 0=error
+        """
+        pass
+
+    @abc.abstractmethod
+    def upload_params(self, ns: str, values: Dict, verbose: bool = False) -> None:
+        """
+        Upload params to the Parameter Server
+        :param values: key/value dictionary, where keys are parameter names and values are parameter values, ``dict``
+        :param ns: namespace to load parameters into, ``str``
+        :param verbose: verbosity level.
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_param(self, name: str, default: Any = _unspecified):
+        """
+        Retrieve a parameter from the param server
+
+        @return: parameter value
+        @raise BackendException: if parameter server reports an error
+        @raise KeyError: if value not set and default is not given
+        """
+        pass
+
+    @abc.abstractmethod
+    def spin(self):
+        """
+        Blocks until node is shutdown. Yields activity to other threads.
+        """
+        pass
+
+    @abc.abstractmethod
+    def on_shutdown(self, h):
+        """
+        Register function to be called on shutdown.
+        @param h: Function with zero args to be called on shutdown.
+        @type  h: fn()
+        """
+        pass
+
+    @abc.abstractmethod
+    def signal_shutdown(self, reason):
+        """
+        Initiates shutdown process.
+        @param reason: human-readable shutdown reason, if applicable
+        @type  reason: str
+        """
+        pass
+
+    def logdebug_once(self, msg, *args, **kwargs):
+        return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow", once=True)
+
+    def loginfo_once(self, msg, *args, **kwargs):
+        return self._log(f"[INFO]: {msg}", INFO, "green", once=True)
+
+    def logwarn_once(self, msg, *args, **kwargs):
+        return self._log(f"[WARN]: {msg}", WARN, "red", once=True)
+
+    def logerr_once(self, msg, *args, **kwargs):
+        return self._log(f"[ERROR]: {msg}", ERROR, "red", once=True)
+
+    def logfatal_once(self, msg, *args, **kwargs):
+        return self._log(f"[FATAL]: {msg}", FATAL, "red", once=True)
+
+    def logdebug(self, msg, *args, **kwargs):
+        return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow")
+
+    def loginfo(self, msg, *args, **kwargs):
+        return self._log(f"[INFO]: {msg}", INFO, "green")
+
+    def logwarn(self, msg, *args, **kwargs):
+        return self._log(f"[WARN]: {msg}", WARN, "red")
+
+    def logerr(self, msg, *args, **kwargs):
+        return self._log(f"[ERROR]: {msg}", ERROR, "red")
+
+    def logfatal(self, msg, *args, **kwargs):
+        return self._log(f"[FATAL]: {msg}", FATAL, "red")
+
+    def _log(self, msg, level, color, once=False):
+        if level >= self.log_level:
+            if once:
+                caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
+                if self._logging_once(caller_id):
+                    print(colored(msg, color))
+            else:
+                print(colored(msg, color))
+
+    def get_log_fn(self, log_level):
+        if log_level == DEBUG:
+            return self.logdebug
+        elif log_level == INFO:
+            return self.loginfo
+        elif log_level == WARN:
+            return self.logwarn
+        elif log_level == ERROR:
+            return self.logerr
+        elif log_level == FATAL:
+            return self.logfatal
+        else:
+
+            def logsilent(msg, *args, **kwargs):
+                pass
+
+            return logsilent
 
 
 class BaseNode(Entity):
@@ -140,6 +428,9 @@ class BaseNode(Entity):
         #: Responsible for all I/O communication within this process.
         #: Nodes inside the same process share the same message broker. Cannot be modified.
         self.message_broker: RxMessageBroker = message_broker
+        #: Responsible for all I/O communication within this process.
+        #: Nodes inside the same process share the same message broker. Cannot be modified.
+        self.backend: Backend = message_broker.bnd
         #: A unique entity_id with which the node is registered with the :func:`eagerx.core.register.spec` decorator by the subclass.
         #: Can be set in :func:`eagerx.core.register.spec` that decorates the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.entity_id: str = entity_id
@@ -184,7 +475,7 @@ class BaseNode(Entity):
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.log_level: int = log_level
-        effective_log_level = bnd.get_log_level()
+        effective_log_level = log.get_log_level()
         #: Specifies the log level for logging memory usage over time for this node:
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Note that `log_level` has precedent over the memory level set here.
@@ -417,7 +708,7 @@ class Node(BaseNode):
                             0,
                         ]
                     )
-                bnd.loginfo("\n" + tabulate(self.history, headers=self.headers))
+                log.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
 
         # Skip callback if not all inputs with window > 0 have received at least one input.
@@ -430,7 +721,7 @@ class Node(BaseNode):
                         continue
                     else:
                         self.skipped_cbs += 1
-                        bnd.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
+                        log.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
                         return self.empty_outputs
         output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
@@ -439,7 +730,7 @@ class Node(BaseNode):
         if self.name != "environment":
             for o in self.outputs:
                 if o["name"] not in output:
-                    bnd.logwarn_once(
+                    log.logwarn_once(
                         f"The .callback(...) of `{self.name}` did not return the registered output `{o['name']}`. "
                         "Downstream nodes, depending on this output for their callback, may deadlock. "
                     )
@@ -697,11 +988,11 @@ class EngineNode(Node):
     Use baseclass :class:`~eagerx.core.entities.ResetNode` instead, for reset routines.
     """
 
-    def __init__(self, object_name: str = None, simulator: Any = None, **kwargs: Any):
+    def __init__(self, object_name: str = None, simulator: Any = None, message_broker: RxMessageBroker = None, **kwargs: Any):
         if object_name:
-            config = get_param_with_blocking(object_name)
+            config = get_param_with_blocking(object_name, message_broker.bnd)
             if config is None:
-                bnd.logwarn(
+                log.logwarn(
                     f"Parameters for object registry request ({object_name}) not found on parameter server. "
                     f"Timeout: object ({object_name}) not registered."
                 )
@@ -734,7 +1025,7 @@ class EngineNode(Node):
         self.engine_config: Dict = engine_config
 
         # Call baseclass constructor (which eventually calls .initialize())
-        super().__init__(**kwargs)
+        super().__init__(message_broker=message_broker, **kwargs)
 
     @abc.abstractmethod
     def reset(self, **states: Any) -> None:
@@ -886,14 +1177,14 @@ class Engine(BaseNode):
         launch_nodes = dict()
         initialize_nodes(
             node_params,
-            process.ENGINE,
+            ENGINE,
             self.ns,
             self.message_broker,
             self.is_initialized,
             sp_nodes,
             launch_nodes,
         )
-        wait_for_node_initialization(self.is_initialized)
+        wait_for_node_initialization(self.is_initialized, self.backend)
         self.sp_nodes.update(sp_nodes)
         self.launch_nodes.update(launch_nodes)
         return node_params, sp_nodes, launch_nodes
@@ -928,7 +1219,7 @@ class Engine(BaseNode):
         )
         initialize_nodes(
             node_params,
-            process.ENGINE,
+            ENGINE,
             self.ns,
             self.message_broker,
             self.is_initialized,
@@ -941,7 +1232,7 @@ class Engine(BaseNode):
             node.node_initialized()
         self.sp_nodes.update(sp_nodes)
         self.launch_nodes.update(launch_nodes)
-        wait_for_node_initialization(self.is_initialized)
+        wait_for_node_initialization(self.is_initialized, self.backend)
         return state_params, sp_nodes, launch_nodes
 
     def pre_reset_cb(self, **kwargs):
@@ -1025,7 +1316,7 @@ class Engine(BaseNode):
                             0,
                         ]
                     )
-                bnd.get_log_fn(self.log_level)("\n" + tabulate(self.history, headers=self.headers))
+                log.get_log_fn(self.log_level)("\n" + tabulate(self.history, headers=self.headers))
                 # bnd.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
@@ -1302,7 +1593,7 @@ class Processor(Entity):
     }
 
     #: The dtype after processing.
-    MSG_TYPE: Any
+    DTYPE: Any
 
     __metaclass__ = abc.ABCMeta
 

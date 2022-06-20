@@ -6,7 +6,6 @@ from rx.subject import Subject, BehaviorSubject
 from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
-import eagerx.core.ros1 as bnd
 import eagerx.utils.utils
 from eagerx.core.specs import RxInput
 from eagerx.core.constants import (  # noqa
@@ -77,7 +76,7 @@ def spy(id: str, node, log_level: int = DEBUG, mapper: Callable = lambda msg: ms
     node_name = node.ns_name
     color = node.color
 
-    effective_log_level = bnd.get_log_level()
+    effective_log_level = node.backend.log_level
 
     def _spy(source):
         def subscribe(observer, scheduler=None):
@@ -579,7 +578,7 @@ def create_channel(
 
     # Get rate from rosparam server
     rate_str = "%s/rate/%s" % (ns, inpt["address"][len(ns) + 1 :])
-    rate = eagerx.utils.utils.get_param_with_blocking(rate_str)
+    rate = eagerx.utils.utils.get_param_with_blocking(rate_str, node.backend)
 
     # Create input channel
     if real_time_factor == 0:
@@ -684,7 +683,7 @@ def init_real_reset(
     if real_reset:
         for i in feedthrough:
             rate_str = "%s/rate/%s" % (ns, i["address"][len(ns) + 1 :])
-            rate_in = eagerx.utils.utils.get_param_with_blocking(rate_str)
+            rate_in = eagerx.utils.utils.get_param_with_blocking(rate_str, node.backend)
             if not rate_in == rate_node:
                 raise ValueError(
                     "Rate of the reset node (%s) must be exactly the same as the feedthrough node rate (%s)."
@@ -877,10 +876,10 @@ def init_callback_pipeline(
     return d_msg, output_stream
 
 
-def get_node_params(node_name):
-    node_params = eagerx.utils.utils.get_param_with_blocking(node_name)
+def get_node_params(node, node_name):
+    node_params = eagerx.utils.utils.get_param_with_blocking(node_name, node.backend)
     if node_params is None:
-        bnd.logwarn(
+        raise ValueError(
             "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
             % (node_name, node_name)
         )
@@ -899,14 +898,13 @@ def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
     )
 
 
-def get_object_params(obj_name):
-    obj_params = eagerx.utils.utils.get_param_with_blocking(obj_name)
+def get_object_params(node, obj_name):
+    obj_params = eagerx.utils.utils.get_param_with_blocking(obj_name, node.backend)
     if obj_params is None:
-        bnd.logwarn(
+        raise ValueError(
             "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
             % (obj_name, obj_name)
         )
-        return None
 
     # Get state parameters from ROS param server
     state_params = obj_params["states"]
@@ -914,7 +912,7 @@ def get_object_params(obj_name):
     # Get parameters from ROS param server
     node_params = []
     for node_name in obj_params["node_names"]:
-        params = eagerx.utils.utils.get_param_with_blocking(node_name)
+        params = eagerx.utils.utils.get_param_with_blocking(node_name, node.backend)
         node_params.append(params)
     return obj_params, node_params, state_params
 
@@ -1044,7 +1042,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
     time_fn = time.perf_counter
     node_name = node.ns_name
     color = node.color
-    effective_log_level = bnd.get_log_level()
+    effective_log_level = node.backend.log_level
     log_time = 2  # [s]
 
     def _throttle_with_time(source):
@@ -1230,20 +1228,20 @@ def convert(space, processor, name, node, direction="out"):
                                     f"detected between the message (before processing) ({recv.shape}) "
                                     f"and its corresponding space ({space.shape})."
                                 )
-                                bnd.logwarn(msg)
+                                node.backend.logwarn_once(msg)
                             elif not space.contains(recv):
                                 msg = (
                                     f"[subscriber][{node.ns_name}][{name}]: The message (before processing) is"
                                     f" outside of the bounds of the corresponding space."
                                 )
-                                bnd.logwarn(msg)
+                                node.backend.logwarn_once(msg)
                             if not recv.dtype == space.dtype:
                                 msg = (
                                     f"[subscriber][{node.ns_name}][{name}]: Different dtypes "
                                     f"detected between the message (before processing) ({recv.dtype}) "
                                     f"and its corresponding space ({space.dtype})."
                                 )
-                                bnd.logwarn(msg)
+                                node.backend.logwarn_once(msg)
                         except AttributeError as e:
                             raise AttributeError(
                                 f"[subscriber][{node.ns_name}][{name}]: space is probably not initialized: {e}"
@@ -1268,20 +1266,20 @@ def convert(space, processor, name, node, direction="out"):
                                     f"detected between the message (before processing) ({recv.shape}) "
                                     f"and its corresponding space ({space.shape})."
                                 )
-                                bnd.logwarn(msg)
+                                node.backend.logwarn_once(msg)
                             elif not space.contains(recv):
                                 msg = (
                                     f"[publisher][{node.ns_name}]{name}]: The message (before processing) is"
                                     f" outside of the bounds of the corresponding space."
                                 )
-                                bnd.logwarn(msg)
+                                node.backend.logwarn_once(msg)
                             if not recv.dtype == space.dtype:
                                 msg = (
                                     f"[publisher][{node.ns_name}]{name}]: Different dtypes "
                                     f"detected between the message (before processing) ({recv.dtype}) "
                                     f"and its corresponding space ({space.dtype})."
                                 )
-                                bnd.logwarn(msg)
+                                node.backend.logwarn_once(msg)
                         except AttributeError as e:
                             if not hasattr(recv, "shape"):
                                 raise AttributeError(

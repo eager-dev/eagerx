@@ -8,22 +8,22 @@ import pytest
 @pytest.mark.timeout(20)
 @pytest.mark.parametrize("force_start", [True, True, False])
 def test_skip_observation(force_start):
-    # todo: NOT ENTERING SIMSTATES --> simSS not getting through,
-    #  - Check if only happens during first reset, or randomly between episodes.
-    #  - Either N9/set & N9/done or both are sometimes not received.
-    #  - We even deadlocked DURING and episode --> very concerning... Revert back to include proxy checks?
-    #  - Rewrite bridge to statically initialize nodes & object? Then we can remove a lot of checks.
-    #  - Only happens with Object("Arm") --> Why not with "Viper"??
-    eagerx.bnd.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.DEBUG)
+
+    # todo: document Backend
+    # todo: create ROS1 backend.
 
     # Define object
-    arm = eagerx.Object.make("Arm", "obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
+    # TODO: update docs on make spec
+    # TODO: make typehints mask ObjectSpec here. Also, typehint return type to be ObjectSpec.
+    from tests.test.objects import Arm
+    arm = Arm.spec(name="obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
 
     # Define graph
     graph = eagerx.Graph.create(objects=[arm])
 
     # Create mean-average filter
-    N1 = eagerx.Node.make("Process", "N1", rate=1.0, inputs=["in_1"], outputs=["out_1", "out_2"])
+    N1 = eagerx.Node.make("Process", "N1", rate=1.0, inputs=["in_1"], outputs=["out_1", "out_2"], process=eagerx.ENGINE)
     graph.add(N1)
 
     # Connect sensors (= outputs of object)
@@ -34,12 +34,16 @@ def test_skip_observation(force_start):
 
     # Define engine
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0,
-                                process=eagerx.process.ENVIRONMENT)
+                                process=eagerx.NEW_PROCESS)
+
+    # Make backend
+    from eagerx.core.ros1 import Ros1
+    backend = Ros1.spec()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):
-        def __init__(self, name, rate, graph, engine, force_start):
-            super().__init__(name, rate, graph, engine, force_start=force_start)
+        def __init__(self, name, rate, graph, engine, backend, force_start):
+            super().__init__(name, rate, graph, engine, backend=backend, force_start=force_start)
 
         def step(self, action):
             obs = self._step(action)
@@ -52,7 +56,7 @@ def test_skip_observation(force_start):
 
     # Initialize Environment
     try:
-        env = TestEnv(name="rx", rate=7, graph=graph, engine=engine, force_start=force_start)
+        env = TestEnv("rx", 7, graph, engine, backend, force_start=force_start)
         msg = "We should have exited the environment here. IMPORTANT!!! The test with force_start=False cannot be the first test."
         assert force_start, msg
     except eagerx.core.constants.BackendException:

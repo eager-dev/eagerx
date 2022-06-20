@@ -1,5 +1,5 @@
 # EAGERX
-from eagerx.core.specs import NodeSpec, ObjectSpec, EngineSpec
+from eagerx.core.specs import NodeSpec, ObjectSpec, EngineSpec, BackendSpec
 from eagerx.core.entities import Node
 from eagerx.core.graph import Graph
 from eagerx.utils.utils_sub import substitute_args
@@ -12,7 +12,6 @@ from eagerx.core.executable_engine import RxEngine
 from eagerx.core.supervisor import Supervisor, SupervisorNode
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.core.constants import process
-import eagerx.core.ros1 as bnd
 
 # OTHER IMPORTS
 import atexit
@@ -41,7 +40,9 @@ class BaseEnv(gym.Env):
     - :attr:`~eagerx.core.env.BaseEnv.action_space`: Per default, the actions, registered in the graph, are taken.
     """
 
-    def __init__(self, name: str, rate: float, graph: Graph, engine: EngineSpec, force_start: bool) -> None:
+    def __init__(
+        self, name: str, rate: float, graph: Graph, engine: EngineSpec, backend: BackendSpec, force_start: bool
+    ) -> None:
         """Initializes an environment with EAGERx dynamics.
 
         :param name: The name of the environment. Everything related to this environment
@@ -51,6 +52,7 @@ class BaseEnv(gym.Env):
         :param engine: The physics engine that will govern the environment's dynamics.
                        For every :class:`~eagerx.core.entities.Object` in the graph,
                        the corresponding engine implementations is chosen.
+        :param backend: The backend that will govern the communication for this environment.
         :param force_start: If there already exists an environment with the same name, the existing environment is
                             first shutdown by calling the :func:`~eagerx.core.env.BaseEnv` method before initializing this
                             environment.
@@ -72,6 +74,9 @@ class BaseEnv(gym.Env):
 
         # Add engine implementation
         [o.add_engine(self._engine_name) for o in objects]
+
+        # Initialize backend
+        self.bnd = self._init_backend(backend)
 
         # Initialize supervisor node
         self._shutdown_srv, self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(
@@ -97,6 +102,13 @@ class BaseEnv(gym.Env):
 
         # Implement clean up
         atexit.register(self.shutdown)
+
+    def _init_backend(self, backend: BackendSpec):
+        # Initialize backend
+        from eagerx.core.entities import Backend
+
+        bnd = Backend.from_params(self.ns, backend.params)
+        return bnd
 
     def _init_supervisor(self, engine: EngineSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
         # Initialize supervisor
@@ -135,8 +147,7 @@ class BaseEnv(gym.Env):
                             address = f"{node_name_sub}/states/{cname}"
                             processor = None  # todo: only add processor (comp_params["processor"]) once at input side.
                             space = comp_params["space"]
-
-                            bnd.logwarn_once(
+                            self.bnd.logwarn_once(
                                 # f'Adding state "{name}" to engine node "{node_name_sub}" can potentially make the agnostic environment with object "{entity_name}" engine-specific. Check the spec of "{i.config.entity_id}" under engine implementation "{self._engine_name}" for more info.'
                                 "Adding states to engine nodes can potentially make the environment engine-specific."
                             )
@@ -153,18 +164,17 @@ class BaseEnv(gym.Env):
                                 d[name] = mapping
                             supervisor.config.states.append(name)
 
+        # Initialize message broker
+        mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.bnd)
+
         # Check if there already exists an environment
-        shutdown_srv = bnd.register_environment(self.ns, force_start, self._remote_shutdown)
+        shutdown_srv = self.bnd.register_environment(self.ns, force_start, self._remote_shutdown)
 
         # Delete pre-existing parameters
-        bnd.delete_param(f"/{self.name}", level=2)
+        self.bnd.delete_param(f"/{self.name}", level=2)
 
         # Upload log_level
-        log_level = bnd.get_log_level()
-        bnd.upload_params(self.ns, {"log_level": log_level})
-
-        # Initialize message broker
-        mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"))
+        self.bnd.upload_params(self.ns, {"log_level": self.bnd.log_level})
 
         # Get info from engine on reactive properties
         sync = engine.config.sync
@@ -175,7 +185,7 @@ class BaseEnv(gym.Env):
         name = supervisor.config.name
         supervisor.config.rate = self.rate
         supervisor_params = supervisor.build(ns=self.ns)
-        bnd.upload_params(self.ns, supervisor_params)
+        self.bnd.upload_params(self.ns, supervisor_params)
         rx_supervisor = Supervisor(
             "%s/%s" % (self.ns, name),
             mb,
@@ -224,7 +234,7 @@ class BaseEnv(gym.Env):
             self.supervisor_node.launch_nodes,
             rxnode_cls=RxEngine,
         )
-        wait_for_node_initialization(self._is_initialized)  # Proceed after engine is initialized
+        wait_for_node_initialization(self._is_initialized, self.bnd)  # Proceed after engine is initialized
 
     def _init_environment(self, actions: NodeSpec, observations: NodeSpec, supervisor_node, message_broker):
         # Check that env has at least one input & output.
@@ -262,7 +272,7 @@ class BaseEnv(gym.Env):
                 d[i].rate = self.rate
             env_spec.config.outputs.append(i)
         env_params = env_spec.build(ns=self.ns)
-        bnd.upload_params(self.ns, env_params)
+        self.bnd.upload_params(self.ns, env_params)
         rx_env = RxNode(name="%s/%s" % (self.ns, name), message_broker=message_broker)
         rx_env.node_initialized()
 
@@ -371,26 +381,26 @@ class BaseEnv(gym.Env):
 
         # Wait for nodes to be initialized
         [node.node_initialized() for name, node in self.supervisor_node.sp_nodes.items()]
-        wait_for_node_initialization(self._is_initialized)
+        wait_for_node_initialization(self._is_initialized, self.bnd)
 
         # Initialize single process communication
         self.mb.connect_io(print_status=True)
 
-        bnd.logdebug("Nodes initialized.")
+        self.bnd.logdebug("Nodes initialized.")
 
         # Perform first reset
         self.supervisor_node.reset()
 
         # Nodes initialized
         self.initialized = True
-        bnd.loginfo("Communication initialized.")
+        self.bnd.loginfo("Communication initialized.")
 
     def _remote_shutdown(self):
         if not self.has_shutdown:
-            bnd.loginfo(f"Starting remote shutdown procedure for environment `{self.ns}`.")
+            self.bnd.loginfo(f"Starting remote shutdown procedure for environment `{self.ns}`.")
             self.shutdown()
             msg = f"Remote shutdown procedure completed for environment `{self.ns}`."
-            bnd.loginfo(msg)
+            self.bnd.loginfo(msg)
         else:
             msg = f"Environment `{self.ns}` has already shutdown."
         return msg
@@ -399,19 +409,19 @@ class BaseEnv(gym.Env):
         if not self.has_shutdown:
             self._shutdown_srv.shutdown()
             for address, node in self.supervisor_node.launch_nodes.items():
-                bnd.logdebug(f"[{self.name}] Send termination signal to '{address}'.")
+                self.bnd.logdebug(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()
             for _, rxnode in self.supervisor_node.sp_nodes.items():
                 rxnode: RxNode
                 if not rxnode.has_shutdown:
-                    bnd.logdebug(f"[{self.name}][{rxnode.name}] Shutting down.")
+                    self.bnd.logdebug(f"[{self.name}][{rxnode.name}] Shutting down.")
                     rxnode.node_shutdown()
             if not self.supervisor.has_shutdown:
                 self.supervisor.node_shutdown()
             if not self.env.has_shutdown:
                 self.env.node_shutdown()
             self.mb.shutdown()
-            bnd.delete_param(f"/{self.name}", level=1)
+            self.bnd.delete_param(f"/{self.name}", level=1)
             self.has_shutdown = True
 
     def _register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:
@@ -547,7 +557,7 @@ class BaseEnv(gym.Env):
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)
         else:
-            bnd.logwarn_once("No render node active, so not rendering.")
+            self.bnd.logwarn_once("No render node active, so not rendering.")
             if mode == "rgb_array":
                 return np.empty((0, 0, 3), dtype="uint8")
             else:

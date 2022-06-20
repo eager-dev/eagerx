@@ -1,4 +1,5 @@
 # OTHER
+import functools
 from gym.spaces.discrete import Discrete
 
 # RX IMPORTS
@@ -591,9 +592,10 @@ def init_engine(
     node_inputs.append(node_registry)
 
     # Node registry pipeline
+    w_get_node_params = functools.partial(get_node_params, node)
     node_params = NR.pipe(
         spy("nodes", node, log_level=DEBUG),
-        ops.map(get_node_params),
+        ops.map(w_get_node_params),
         ops.filter(lambda params: params is not None),
         ops.map(node.register_node),
         ops.map(lambda args: extract_node_reset(ns, *args)),
@@ -606,8 +608,9 @@ def init_engine(
     node_inputs.append(object_registry)
 
     # Object registry pipeline
+    w_get_object_params = functools.partial(get_object_params, node)
     object_params = OR.pipe(
-        ops.map(get_object_params),
+        ops.map(w_get_object_params),
         ops.filter(lambda params: params is not None),
         ops.map(lambda params: (params[1],) + node.register_object(*params)),
         ops.map(lambda i: extract_inputs(ns, *i)),

@@ -18,7 +18,7 @@ ENV = eagerx.ENVIRONMENT
     [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
 def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
-    eagerx.bnd.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.DEBUG)
 
     # Define rate (depends on rate of gym env)
     rate = 20
@@ -53,8 +53,12 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     obj.gui("GymEngine")
     engine = eagerx.Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
+    # Define backend
+    from eagerx.core.ros1 import Ros1
+    backend = Ros1.spec()
+
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine)
+    env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine, backend=backend)
 
     # First reset
     _done = False

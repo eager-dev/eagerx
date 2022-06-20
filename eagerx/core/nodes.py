@@ -10,7 +10,6 @@ from gym.spaces import Discrete
 import cv2
 
 import eagerx
-import eagerx.core.ros1 as bnd
 import eagerx.core.register as register
 from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import initialize_processor, Msg, dict_to_space
@@ -54,7 +53,7 @@ class EnvNode(eagerx.Node):
 
         # Graceful signal handler
         def signal_handler(sig, frame):
-            bnd.logdebug("SIGINT caught!")
+            self.backend.logdebug("SIGINT caught!")
             self.obs_event.set()
             self.action_event.set()
             sys.exit(0)
@@ -110,7 +109,7 @@ class EnvNode(eagerx.Node):
                 if not flag:
                     raise KeyboardInterrupt
             except (KeyboardInterrupt, SystemExit):
-                bnd.logdebug(f"[{self.ns_name}] KEYBOARD INTERRUPT")
+                self.backend.logdebug(f"[{self.ns_name}] KEYBOARD INTERRUPT")
                 raise
 
         if self.must_reset:
@@ -223,9 +222,9 @@ class RenderNode(eagerx.Node):
         self.encoding = encoding
         self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
-        self.sub_toggle = bnd.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
-        self.sub_get = bnd.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
-        self.pub_set = bnd.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
+        self.sub_toggle = self.backend.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
+        self.sub_get = self.backend.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
+        self.pub_set = self.backend.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
         # Setup async imshow (opening, closing, and imshow must all be in the same thread).
         self.window_open = False
@@ -257,9 +256,9 @@ class RenderNode(eagerx.Node):
 
     def _set_render_toggle(self, msg):
         if msg:
-            bnd.logdebug("START RENDERING!")
+            self.backend.logdebug("START RENDERING!")
         else:
-            bnd.logdebug("STOP RENDERING!")
+            self.backend.logdebug("STOP RENDERING!")
         self.render_toggle = msg
 
     def _get_last_image(self, msg):
@@ -283,7 +282,7 @@ class RenderNode(eagerx.Node):
         return output_msgs
 
     def shutdown(self):
-        bnd.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()
@@ -347,7 +346,7 @@ class ColabRender(eagerx.Node):
             # Store cls as attribute so that it can be initialized in the callback
             self.window_cls = InlineRender
         except ImportError as e:
-            bnd.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
+            self.backend.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
             raise
         self.dt_fps = 1 / fps
         self.subsample = subsample
@@ -358,15 +357,15 @@ class ColabRender(eagerx.Node):
         self.encoding = encoding
         self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
-        self.sub_toggle = bnd.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
-        self.sub_get = bnd.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
-        self.pub_set = bnd.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
+        self.sub_toggle = self.backend.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
+        self.sub_get = self.backend.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
+        self.pub_set = self.backend.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
     def _set_render_toggle(self, msg):
         if msg:
-            bnd.logdebug("START RENDERING!")
+            self.backend.logdebug("START RENDERING!")
         else:
-            bnd.logdebug("STOP RENDERING!")
+            self.backend.logdebug("STOP RENDERING!")
         self.render_toggle = msg
 
     def _get_last_image(self, msg):
@@ -397,7 +396,7 @@ class ColabRender(eagerx.Node):
         return output_msgs
 
     def shutdown(self):
-        bnd.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()

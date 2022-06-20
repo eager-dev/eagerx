@@ -4,7 +4,6 @@ from gym.spaces import Discrete
 from yaml import dump
 import copy
 
-import eagerx.core.register as register
 from eagerx.core.view import SpecView, GraphView
 from eagerx.utils.utils import (
     get_output_dtype,
@@ -41,6 +40,28 @@ class EntitySpec(object):
     @property
     def graph(self):
         return self._graph
+
+
+class BackendSpec(EntitySpec):
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
+
+    def initialize(self, spec_cls):
+        # Set default params
+        defaults = get_default_params(spec_cls.initialize)
+        with self.config as d:
+            d.update(defaults)
+
+    @property
+    def config(self) -> SpecView:
+        """Provides an API to get/set the parameters to initialize.
+
+        The mutable parameters are:
+
+        - The arguments of the subclass' :func:`~eagerx.core.entities.Backend.initialize` method.
+
+        :return: (mutable) API to get/set parameters.
+        """
+        return SpecView(self, depth=["config"])
 
 
 class ProcessorSpec(EntitySpec):
@@ -217,6 +238,8 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("states")
 
     def initialize(self, spec_cls):
+        import eagerx.core.register as register
+
         try:
             params = register.LOOKUP_TYPES[spec_cls.callback]
         except KeyError:
@@ -744,6 +767,8 @@ class ObjectSpec(EntitySpec):
         raise NotImplementedError("This is a mock engine implementation for documentation purposes.")
 
     def initialize(self, spec_cls):
+        import eagerx.core.register as register
+
         agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
 
         # Set default agnostic params
@@ -826,6 +851,8 @@ class ObjectSpec(EntitySpec):
         substitute_args(self._params, context, only=["config"])  # Resolve rest of params
 
         # Add engine entry
+        import eagerx.core.register as register
+
         self._params[engine_id] = {}
         register.add_engine(self, engine_id)
 

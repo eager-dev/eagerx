@@ -4,7 +4,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Optional, Any
-import eagerx.core.ros1 as bnd
+import eagerx.core.log as log
 from eagerx.utils.utils import (
     is_compatible,
     get_output_dtype,
@@ -453,7 +453,7 @@ class Graph:
             space_action = params_action["outputs"][action]["space"]
             space_target = target.space.to_dict()
             if not space_target == space_action:
-                bnd.logwarn(
+                log.logwarn(
                     f'Conflicting space ({space_action}) for action "{action}". '
                     f"Not using the space ({space_target}) of {name}.{component}.{cname}"
                 )
@@ -985,7 +985,7 @@ class Graph:
         try:
             from eagerx_gui import launch_gui
         except ImportError as e:
-            bnd.logwarn(
+            log.logwarn(
                 f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
             )
             return

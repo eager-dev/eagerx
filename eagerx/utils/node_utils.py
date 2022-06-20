@@ -1,5 +1,4 @@
 # RxEAGER
-import eagerx.core.ros1 as bnd
 from eagerx.core.constants import process
 
 # OTHER
@@ -10,12 +9,12 @@ from typing import List, Dict, Union, Any
 from functools import partial
 
 
-def launch_node_as_subprocess(executable: str, ns: str, name: str, object_name: str):
+def launch_node_as_subprocess(executable: str, bnd_params: str, ns: str, name: str, object_name: str):
     node_type, file = executable.split(":=")
     if "python" in node_type:
         if ".py" not in file:
             file = importlib.import_module(file).__file__
-    p = subprocess.Popen([file] + [ns, name, object_name])
+    p = subprocess.Popen([file] + [bnd_params, ns, name, object_name])
     return p
 
 
@@ -48,12 +47,12 @@ def initialize_nodes(
 
             # Check if node name is unique
             name = node.config.name
-            assert bnd.get_param(f"{ns}/{name}/rate", None) is None, (
+            assert message_broker.bnd.get_param(f"{ns}/{name}/rate", None) is None, (
                 f"Node name '{ns + '/' + name}' already exists. " "Node names must be unique."
             )
 
             # Upload params to param server
-            bnd.upload_params(ns, params)
+            message_broker.bnd.upload_params(ns, params)
 
             # Make params consistent when directly grabbing params from param server
             params = params[name]
@@ -73,7 +72,7 @@ def initialize_nodes(
         def initialized(msg, name):
             is_initialized[name] = True
 
-        sub = bnd.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
+        sub = message_broker.bnd.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
         message_broker.subscribers.append(sub)
 
         # Initialize node
@@ -89,13 +88,16 @@ def initialize_nodes(
                 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.'
                 % name
             )
-            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], ns, name, object_name)
+            bnd_params = message_broker.bnd.spec_string
+            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], bnd_params, ns, name, object_name)
         elif params["process"] == process.EXTERNAL:
-            bnd.loginfo('Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name)
+            message_broker.bnd.loginfo(
+                'Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name
+            )
         # else: node is launched in another (already launched) node's process (e.g. engine process).
 
 
-def wait_for_node_initialization(is_initialized, wait_time=0.3):
+def wait_for_node_initialization(is_initialized, backend, wait_time=0.3):
     iter = 0
 
     # Wait for nodes to be initialized
@@ -110,6 +112,6 @@ def wait_for_node_initialization(is_initialized, wait_time=0.3):
             if not flag:
                 not_init.append(name)
         if len(not_init) > 0:
-            bnd.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
+            backend.loginfo_once('Waiting for nodes "%s" to be initialized.' % (str(not_init)))
         else:
             break

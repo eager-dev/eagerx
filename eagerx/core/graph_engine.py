@@ -19,7 +19,7 @@ from eagerx.utils.network_utils import (
 from eagerx.core.graph import merge
 from eagerx.core.specs import NodeSpec, ProcessorSpec, EntitySpec
 from eagerx.core.view import GraphView
-import eagerx.core.ros1 as bnd
+import eagerx.core.log as log
 
 yaml.Dumper.ignore_aliases = lambda *args: True
 
@@ -414,7 +414,7 @@ class EngineGraph:
                     "Skipping processor. Cannot change the processor with this method. "
                     "Add output processors before connecting, and input processors when making a connection."
                 )
-                bnd.logwarn_once(msg)
+                log.logwarn(msg)
             else:
                 t = entry()
                 name = t[0]
@@ -621,7 +621,7 @@ class EngineGraph:
         try:
             from eagerx_gui import launch_engine_gui
         except ImportError as e:
-            bnd.logwarn(
+            log.logwarn(
                 f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
             )
             return

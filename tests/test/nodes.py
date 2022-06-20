@@ -1,4 +1,3 @@
-import eagerx.core.ros1 as bnd
 from eagerx import register
 from eagerx import Node, ResetNode, EngineNode
 from eagerx.utils.utils import Msg
@@ -79,7 +78,7 @@ class RealResetNode(ResetNode):
             if name in inputs:
                 t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    bnd.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
+                    self.backend.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks
         output_msgs = dict()
@@ -131,7 +130,7 @@ class TestNode(EngineNode):
         # Verify that # of ticks equals internal counter
         node_tick = t_n * self.rate
         if self.sync and not isclose(self.num_ticks, node_tick):
-            bnd.logerr(
+            self.backend.logerr(
                 f"[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)})."
             )
             pass
@@ -143,7 +142,7 @@ class TestNode(EngineNode):
             if name in inputs:
                 t_i = inputs[name].info.t_in
                 if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
-                    bnd.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
+                    self.backend.logerr(f"[{self.name}][{name}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks
         output_msgs = dict()

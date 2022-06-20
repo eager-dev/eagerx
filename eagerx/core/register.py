@@ -1,7 +1,8 @@
 import functools
 import copy
 
-import eagerx.core.ros1 as bnd
+import eagerx.core.log as log
+from eagerx.core.specs import EntitySpec
 from eagerx.utils.utils import deepcopy, load
 from eagerx.core.constants import SUPPORTED_SPACES
 from typing import TYPE_CHECKING, Callable, Any, Union, List, Dict, Optional
@@ -51,23 +52,23 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
     :param entity_id: A unique string id.
     :param entity_cls: The entity's baseclass.
     """
-    # """Register a spec function to make an entity"""
 
     def _register(func):
         entry = func.__module__ + "/" + func.__qualname__
-        bnd.logdebug("[register]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entry))
+        log.logdebug("[register]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entry))
 
-        @functools.wraps(func)
-        def _spec(*args, **kwargs):
+        @functools.wraps(functools.partial(func, None))
+        def _spec(*args, **kwargs) -> EntitySpec:
             """Make an entity with the registered spec function"""
             entity_type = func.__module__ + "/" + func.__qualname__[:-5]
             if not entity_id == "Identity":
-                bnd.logdebug("[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type))
+                log.logdebug("[make]: entity_id=%s, entity=%s, entry=%s" % (entity_id, entity_cls.__name__, entity_type))
             spec = entity_cls.pre_make(entity_id, entity_type)
 
             # Initialize spec
             spec.initialize(load(entity_type))
 
+            # Make spec
             try:
                 func(spec, *args, **kwargs)
             except TypeError as e:
@@ -82,6 +83,13 @@ def spec(entity_id: str, entity_cls: "Entity") -> Callable:
                     raise TypeError(err) from e
                 else:
                     raise
+
+            # Check spec
+            try:
+                entity_cls.check_spec(spec)
+            except AssertionError as e:
+                print(e)
+                raise
             return spec
 
         if entity_cls not in REGISTRY:
@@ -104,7 +112,11 @@ def make(entity, id, *args, **kwargs):
     assert (
         id in REGISTRY[entity]
     ), f'No entities of type "{entity.__name__}" registered under entity_id "{id}". Available entities "{[s for s in list(REGISTRY[entity].keys())]}".'
-    return REGISTRY[entity][id]["spec"](*args, **kwargs)
+
+    # Make spec
+    spec = REGISTRY[entity][id]["spec"](*args, **kwargs)
+
+    return spec
 
 
 # TYPES
@@ -123,7 +135,7 @@ def _register_types(TYPE_REGISTER, component, cnames, func, space_only=True):
             assert (
                 flag
             ), f'TYPE REGISTRATION ERROR: [{cls_name}][{fn_name}][{component}]: "{space}" is an invalid space. Please provide a valid space for "{key}"instead.'
-    bnd.logdebug(f"[{cls_name}][{fn_name}]: {component}={cnames}, entry={entry}")
+    log.logdebug(f"[{cls_name}][{fn_name}]: {component}={cnames}, entry={entry}")
 
     @functools.wraps(func)
     def registered_fn(*args, **kwargs):
@@ -136,7 +148,7 @@ def _register_types(TYPE_REGISTER, component, cnames, func, space_only=True):
 
     if component in TYPE_REGISTER[cls_name]:
         """Check if already registered component of duplicate function matches."""
-        bnd.logdebug(f"[{cls_name}][{component}]: {component}={cnames}, entry={entry}")
+        log.logdebug(f"[{cls_name}][{component}]: {component}={cnames}, entry={entry}")
         flag = cnames == TYPE_REGISTER[cls_name][component] or bool(eval(os.environ.get("EAGERX_RELOAD", "0")))
         assert (
             flag
@@ -265,7 +277,7 @@ def engine(entity_id: str, engine_cls: "Engine") -> Callable:
             cls_name = "N/A"
             fn_name = name_split[0]
         entry = func.__module__ + "/" + func.__qualname__
-        bnd.logdebug(f"[{cls_name}][{fn_name}]: engine_id={engine_id}, entry={entry}")
+        log.logdebug(f"[{cls_name}][{fn_name}]: engine_id={engine_id}, entry={entry}")
 
         @functools.wraps(func)
         def _engine(spec):

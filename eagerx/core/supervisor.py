@@ -1,5 +1,4 @@
 # Rx imports
-import eagerx.core.ros1 as bnd
 import eagerx.utils.utils
 from eagerx.core.constants import process
 from eagerx.core.executable_node import RxNode
@@ -23,7 +22,9 @@ from threading import Event
 
 
 class SupervisorNode(BaseNode):
-    def __init__(self, ns, states, **kwargs):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
         self.subjects = None
         self.env_node: EnvNode = None
 
@@ -31,9 +32,11 @@ class SupervisorNode(BaseNode):
         self.last_image = None
         self._image_event = Event()
         self.render_toggle = False
-        self.pub_get_last_image = bnd.Publisher("%s/env/render/get_last_image" % ns, "bool")
-        self.sub_set_last_image = bnd.Subscriber("%s/env/render/set_last_image" % ns, "uint8", self._last_image_callback)
-        self.render_toggle_pub = bnd.Publisher("%s/env/render/toggle" % ns, "bool")
+        self.pub_get_last_image = self.backend.Publisher(f"{self.ns}/env/render/get_last_image", "bool")
+        self.sub_set_last_image = self.backend.Subscriber(
+            f"{self.ns}/env/render/set_last_image", "uint8", self._last_image_callback
+        )
+        self.render_toggle_pub = self.backend.Publisher(f"{self.ns}/env/render/toggle", "bool")
 
         # Initialize nodes
         self.cum_registered = 0
@@ -43,7 +46,7 @@ class SupervisorNode(BaseNode):
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
-        for i in states:
+        for i in self.states:
             if isinstance(i["processor"], dict):
                 i["processor"] = initialize_processor(i["processor"])
             if isinstance(i["space"], dict):
@@ -52,7 +55,6 @@ class SupervisorNode(BaseNode):
 
         # Required for reset
         self._step_counter = 0
-        super().__init__(ns=ns, states=states, **kwargs)
 
     def set_environment(self, env_node: EnvNode):
         self.env_node = env_node
@@ -105,12 +107,12 @@ class SupervisorNode(BaseNode):
         # Check if object name is unique
         obj_name = object.config.name
         assert (
-            bnd.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
+            self.backend.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
         ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
 
         # Upload object params to param server
         params, nodes = object.build(ns=self.ns, engine_id=engine_name)
-        bnd.upload_params(self.ns, params)
+        self.backend.upload_params(self.ns, params)
 
         # Set node args
         node_args = dict(
@@ -156,7 +158,7 @@ class SupervisorNode(BaseNode):
         except (KeyboardInterrupt, SystemExit):
             print("[reset] KEYBOARD INTERRUPT")
             raise
-        bnd.logdebug("FIRST OBS RECEIVED!")
+        self.backend.logdebug("FIRST OBS RECEIVED!")
 
     def step(self):
         self.env_node.obs_event.clear()
@@ -169,7 +171,7 @@ class SupervisorNode(BaseNode):
         except (KeyboardInterrupt, SystemExit):
             print("[step] KEYBOARD INTERRUPT")
             raise
-        bnd.logdebug("STEP END")
+        self.backend.logdebug("STEP END")
 
     def shutdown(self):
         self.env_node.action_event.set()
@@ -183,6 +185,7 @@ class Supervisor(object):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
+        self.backend = message_broker.bnd
         self.initialized = False
         self.sync = sync
         self.has_shutdown = False
@@ -199,15 +202,15 @@ class Supervisor(object):
 
     def node_initialized(self):
         # Notify env that node is initialized
-        self.init_pub = bnd.Publisher(self.name + "/initialized", "int64")
+        self.init_pub = self.backend.Publisher(self.name + "/initialized", "int64")
         self.init_pub.publish(0)
 
         if not self.initialized:
-            bnd.loginfo('Node "%s" initialized.' % self.name)
+            self.backend.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
     def _prepare_io_topics(self, name, sync, real_time_factor, simulate_delays):
-        params = get_param_with_blocking(name)
+        params = get_param_with_blocking(name, self.backend)
 
         # Get node
         node_cls = load(params["node_type"])
@@ -237,13 +240,13 @@ class Supervisor(object):
         return tuple(params["outputs"]), tuple(params["states"]), node
 
     def _shutdown(self):
-        bnd.logdebug(f"[{self.name}] Supervisor._shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] Supervisor._shutdown() called.")
         self.init_pub.unregister()
 
     def node_shutdown(self):
         if not self.has_shutdown:
-            bnd.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
-            bnd.loginfo(f"[{self.name}] Shutting down.")
+            self.backend.logdebug(f"[{self.name}] Supervisor.node_shutdown() called.")
+            self.backend.loginfo(f"[{self.name}] Shutting down.")
             self._shutdown()
             self.node.shutdown()
             self.mb.shutdown()

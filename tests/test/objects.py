@@ -1,6 +1,6 @@
 # OTHER IMPORTS
 from typing import Optional, List
-from gym.spaces import Box, Discrete
+from gym.spaces import Box
 
 # EAGERx IMPORTS
 import eagerx
@@ -50,7 +50,7 @@ class Arm(eagerx.Object):
         test_string: Optional[str] = "$(config string)",
         test_list: Optional[str] = "$(config orientation)",
         low: Optional[int] = 0,
-    ):
+    ) -> specs.ObjectSpec:
         """Object spec of Arm"""
         # Modify default agnostic params
         # Only allow changes to the agnostic params (rates, windows, (space)converters, etc...

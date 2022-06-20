@@ -11,8 +11,7 @@ import pytest
 
 @pytest.mark.timeout(60)
 def test_graph():
-    eagerx.bnd.set_log_level(eagerx.INFO)
-    _ = eagerx.bnd.get_log_fn(eagerx.INFO)
+    eagerx.set_log_level(eagerx.INFO)
     rate = 7
 
     # Get info on various specs.
@@ -221,10 +220,14 @@ def test_graph():
     # Define engine
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=5.5, process=eagerx.ENVIRONMENT)
 
+    # Define backend
+    from eagerx.core.ros1 import Ros1
+    backend = Ros1.spec()
+
     # Define environment
     class TestEnv(eagerx.BaseEnv):
-        def __init__(self, name, rate, graph, engine):
-            super().__init__(name, rate, graph, engine, force_start=True)
+        def __init__(self, name, rate, graph, engine, backend):
+            super().__init__(name, rate, graph, engine, backend, force_start=True)
 
         def step(self, action):
             obs = self._step(action)
@@ -238,7 +241,7 @@ def test_graph():
 
     # Initialize Environment
     from eagerx.wrappers.flatten import Flatten
-    env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine)
+    env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine, backend=backend)
     env = Flatten(env)
 
     # Get spaces

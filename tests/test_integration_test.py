@@ -16,7 +16,7 @@ ENV = eagerx.ENVIRONMENT
 )
 def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Start roscore
-    eagerx.bnd.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.DEBUG)
 
     # Define unique name for test environment
     name = f"{eps}_{steps}_{sync}_{p}"
@@ -65,10 +65,14 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Define engine
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
 
+    # Define backend
+    from eagerx.core.ros1 import Ros1
+    backend = Ros1.spec()
+
     # Define environment
     class TestEnv(eagerx.BaseEnv):
-        def __init__(self, name, rate, graph, engine):
-            super().__init__(name, rate, graph, engine, force_start=True)
+        def __init__(self, name, rate, graph, engine, backend):
+            super().__init__(name, rate, graph, engine, backend, force_start=True)
 
         def step(self, action):
             obs = self._step(action)
@@ -81,7 +85,7 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
             return obs
 
     # Initialize Environment
-    env = TestEnv(name=name, rate=rate, graph=graph, engine=engine)
+    env = TestEnv(name=name, rate=rate, graph=graph, engine=engine, backend=backend)
 
     # First reset
     env.reset()

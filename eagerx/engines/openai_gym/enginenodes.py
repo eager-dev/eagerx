@@ -10,7 +10,6 @@ import threading
 from gym.spaces import Discrete, Box
 
 # IMPORT EAGERX
-import eagerx.core.ros1 as bnd
 import eagerx.core.register as register
 from eagerx.utils.utils import Msg
 from eagerx.core.entities import EngineNode
@@ -279,7 +278,7 @@ class GymImage(EngineNode):
         self.render_toggle = False
         self.id = self.engine_config["env_id"]
         self.obj_name = self.config["name"]
-        self.sub_toggle = bnd.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
+        self.sub_toggle = self.backend.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
         self._cond = threading.Condition()
 
         # Setup virtual display for rendering.
@@ -306,7 +305,7 @@ class GymImage(EngineNode):
                 try:
                     rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
                 except pyglet.gl.lib.GLException as e:
-                    bnd.logwarn(e)
+                    self.backend.logwarn(e)
                     raise e
                 os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
 
@@ -319,7 +318,7 @@ class GymImage(EngineNode):
         return dict(image=rgb)
 
     def shutdown(self):
-        bnd.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
 
     def _show_ros_image(self, msg):
@@ -332,8 +331,8 @@ class GymImage(EngineNode):
     def _set_render_toggle(self, msg):
         with self._cond:
             if msg:
-                bnd.logdebug("[%s] START RENDERING!" % self.name)
+                self.backend.logdebug("[%s] START RENDERING!" % self.name)
             else:
                 self.simulator[self.obj_name]["env"].close()
-                bnd.logdebug("[%s] STOPPED RENDERING!" % self.name)
+                self.backend.logdebug("[%s] STOPPED RENDERING!" % self.name)
             self.render_toggle = msg
