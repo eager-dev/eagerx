@@ -30,7 +30,6 @@ from eagerx.core.graph_engine import EngineGraph  # noqa # pylint: disable=unuse
 import eagerx.core.register as register  # noqa # pylint: disable=unused-import
 import eagerx.core.specs as specs  # noqa: F401  # pylint: disable=unused-import
 import eagerx.wrappers as wrappers  # noqa: F401  # pylint: disable=unused-import
-import eagerx.core.log as log  # noqa: F401  # pylint: disable=unused-import
 from eagerx.core.log import (  # noqa: F401  # pylint: disable=unused-import
     get_log_level,
     set_log_level,

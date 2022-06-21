@@ -12,6 +12,7 @@ from tabulate import tabulate
 from termcolor import colored
 
 import eagerx
+import eagerx.core.log as log
 from eagerx.core.constants import (
     ENGINE,
     SILENT,
@@ -184,7 +185,7 @@ class Backend(Entity):
         self.log_level: int = log_level
 
         # Record once logged messages.
-        self._logging_once = eagerx.log.LoggingOnce()
+        self._logging_once = log.LoggingOnce()
 
         # Call subclass'
         self.initialize(**kwargs)
@@ -312,7 +313,9 @@ class Backend(Entity):
         pass
 
     @abc.abstractmethod
-    def upload_params(self, ns: str, values: Dict[str, Union[Dict, List, bool, float, int, str]], verbose: bool = False) -> None:
+    def upload_params(
+        self, ns: str, values: Dict[str, Union[Dict, List, bool, float, int, str]], verbose: bool = False
+    ) -> None:
         """Upload params to the parameter server.
 
         :param ns: Namespace to load parameters into, ``str``.
@@ -352,19 +355,29 @@ class Backend(Entity):
         pass
 
     def logdebug_once(self, msg) -> None:
-        return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow", once=True)
+        caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if self._logging_once(caller_id):
+            return self.logdebug(msg)
 
     def loginfo_once(self, msg) -> None:
-        return self._log(f"[INFO]: {msg}", INFO, "green", once=True)
+        caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if self._logging_once(caller_id):
+            return self.loginfo(msg)
 
     def logwarn_once(self, msg) -> None:
-        return self._log(f"[WARN]: {msg}", WARN, "red", once=True)
+        caller_id = log.frame_to_caller_id(inspect.currentframe().f_back)
+        if self._logging_once(caller_id):
+            return self.logwarn(msg)
 
     def logerr_once(self, msg) -> None:
-        return self._log(f"[ERROR]: {msg}", ERROR, "red", once=True)
+        caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if self._logging_once(caller_id):
+            return self.logerr(msg)
 
     def logfatal_once(self, msg) -> None:
-        return self._log(f"[FATAL]: {msg}", FATAL, "red", once=True)
+        caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if self._logging_once(caller_id):
+            return self.logfatal(msg)
 
     def logdebug(self, msg) -> None:
         return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow")
@@ -381,14 +394,9 @@ class Backend(Entity):
     def logfatal(self, msg: str) -> None:
         return self._log(f"[FATAL]: {msg}", FATAL, "red")
 
-    def _log(self, msg: str, level: int, color: str, once: bool =False) -> None:
+    def _log(self, msg: str, level: int, color: str) -> None:
         if level >= self.log_level:
-            if once:
-                caller_id = eagerx.log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
-                if self._logging_once(caller_id):
-                    print(colored(msg, color))
-            else:
-                print(colored(msg, color))
+            print(colored(msg, color))
 
     def get_log_fn(self, log_level: int) -> Callable:
         if log_level == DEBUG:
@@ -498,7 +506,7 @@ class BaseNode(Entity):
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.log_level: int = log_level
-        effective_log_level = eagerx.log.get_log_level()
+        effective_log_level = log.get_log_level()
         #: Specifies the log level for logging memory usage over time for this node:
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Note that `log_level` has precedent over the memory level set here.

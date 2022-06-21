@@ -1,5 +1,5 @@
 # RxEAGER
-from eagerx.core.constants import process
+from eagerx.core.constants import process, EXTERNAL, ENVIRONMENT, NEW_PROCESS, BackendException
 
 # OTHER
 import importlib
@@ -9,13 +9,14 @@ from typing import List, Dict, Union, Any
 from functools import partial
 
 
-def launch_node_as_subprocess(executable: str, bnd_params: str, ns: str, name: str, object_name: str):
+def get_launch_cmd(executable: str, bnd_params: str, ns: str, name: str, object_name: str, external: bool = False):
     node_type, file = executable.split(":=")
     if "python" in node_type:
         if ".py" not in file:
             file = importlib.import_module(file).__file__
-    p = subprocess.Popen([file] + [bnd_params, ns, name, object_name])
-    return p
+    if external:
+        file = "/".join(["<path>", "<to>", "<package>"] + file.split("/")[-3:])
+    return [file, bnd_params, ns, name, object_name]
 
 
 def initialize_nodes(
@@ -40,6 +41,8 @@ def initialize_nodes(
     if isinstance(nodes, (BaseNodeSpec, dict)):
         nodes = [nodes]
 
+    bnd = message_broker.bnd
+
     for node in nodes:
         # Check if we still need to upload params to param server (env)
         if not isinstance(node, dict):
@@ -50,6 +53,20 @@ def initialize_nodes(
             assert message_broker.bnd.get_param(f"{ns}/{name}/rate", None) is None, (
                 f"Node name '{ns + '/' + name}' already exists. " "Node names must be unique."
             )
+
+            # If no backend multiprocessing support, overwrite NEW_PROCESS to ENVIRONMENT
+            if node.config.process == NEW_PROCESS and not bnd.MULTIPROCESSING_SUPPORT:
+                bnd.logwarn_once(
+                    f"Backend '{bnd.BACKEND}' does not support multiprocessing, "
+                    "so all nodes are launched in the ENVIRONMENT process."
+                )
+                params[name]["process"] = ENVIRONMENT
+            elif node.config.process == EXTERNAL and not bnd.DISTRIBUTED_SUPPORT:
+                raise BackendException(
+                    f"Backend '{bnd.BACKEND}' does not support distributed computation. "
+                    f"Therefore, this backend is incompatible with node '{name}', "
+                    f"because {name}.config.process=EXTERNAL."
+                )
 
             # Upload params to param server
             message_broker.bnd.upload_params(ns, params)
@@ -89,11 +106,13 @@ def initialize_nodes(
                 % name
             )
             bnd_params = message_broker.bnd.spec_string
-            launch_nodes[node_address] = launch_node_as_subprocess(params["executable"], bnd_params, ns, name, object_name)
+            cmd = get_launch_cmd(params["executable"], bnd_params, ns, name, object_name, external=False)
+            launch_nodes[node_address] = subprocess.Popen(cmd)
         elif params["process"] == process.EXTERNAL:
-            message_broker.bnd.loginfo(
-                'Node "%s" must be manually launched as the process is specified as process.EXTERNAL' % name
-            )
+            bnd_params = message_broker.bnd.spec_string
+            cmd = get_launch_cmd(params["executable"], bnd_params, ns, name, object_name, external=True)
+            cmd_joined = " ".join(cmd).replace("\n", "\\n")
+            message_broker.bnd.loginfo(f'Launch node "{name}" externally with: {cmd_joined}')
         # else: node is launched in another (already launched) node's process (e.g. engine process).
 
 

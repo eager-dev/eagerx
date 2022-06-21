@@ -10,14 +10,8 @@ import pytest
 def test_skip_observation(force_start):
     eagerx.set_log_level(eagerx.DEBUG)
 
-    # todo: document Backend methods
     # todo: Implement numpy backend
     # todo: see if certain functions can be standardized (e.g. spin, signal shutdown, etc...).
-    # todo: do not multiprocess if not supported
-    # todo: do not allow external if not supported
-    # todo: print command needed to launch externally
-    # todo: test external launching
-    # todo: move colab sourcing to backend.
 
     # Define object
     from tests.test.objects import Arm
@@ -27,7 +21,7 @@ def test_skip_observation(force_start):
     graph = eagerx.Graph.create(objects=[arm])
 
     # Create mean-average filter
-    N1 = eagerx.Node.make("Process", "N1", rate=1.0, inputs=["in_1"], outputs=["out_1", "out_2"], process=eagerx.ENGINE)
+    N1 = eagerx.Node.make("Process", "N1", rate=1.0, inputs=["in_1"], outputs=["out_1", "out_2"], process=eagerx.NEW_PROCESS)
     graph.add(N1)
 
     # Connect sensors (= outputs of object)
@@ -37,8 +31,7 @@ def test_skip_observation(force_start):
     graph.connect(source=arm.sensors.N6, observation="sens_1")
 
     # Define engine
-    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0,
-                                process=eagerx.NEW_PROCESS)
+    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
     # Make backend
     from eagerx.core.ros1 import Ros1

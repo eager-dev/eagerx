@@ -65,7 +65,7 @@ def get_info(entity, id, methods=None, no_cls=False, return_msg=False):
     sig = inspect.signature(method_fn)
     # arg_entity_id = inspect.Parameter("entity_id", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str)
     # sig = sig.replace(parameters=(arg_entity_id,) + tuple(sig.parameters.values())[1:])
-    msg += f"Make this spec with:\n"
+    msg += "Make this spec with:\n"
     make_msg = f"spec = {method_fn.__wrapped__.func.__qualname__}{sig}\n"
     # make_msg = f"spec = {entity.__qualname__}.make{sig}\n"
     msg += indent(make_msg + "\n", tab)

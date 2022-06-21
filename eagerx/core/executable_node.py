@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # source ROS if in colab
-import os
-
+# import os
 # if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
 #     import site
 #

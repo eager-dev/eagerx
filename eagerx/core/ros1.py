@@ -76,30 +76,6 @@ class Ros1(eagerx.Backend):
     def logerr(msg, *args, **kwargs):
         return rospy.logerr(msg)
 
-    @staticmethod
-    def logdebug_once(msg, *args, **kwargs):
-        return rospy.logdebug_once(msg)
-
-    @staticmethod
-    def loginfo_once(msg, *args, **kwargs):
-        return rospy.loginfo_once(msg)
-
-    @staticmethod
-    def logwarn_once(msg, *args, **kwargs):
-        return rospy.logwarn_once(msg)
-
-    @staticmethod
-    def logerr_once(msg, *args, **kwargs):
-        return rospy.logerr_once(msg)
-
-    @staticmethod
-    def logfatal_once(msg, *args, **kwargs):
-        return rospy.logfatal_once(msg)
-
-    @staticmethod
-    def logfatal(msg, *args, **kwargs):
-        return rospy.logfatal(msg)
-
     def register_environment(self, name: str, force_start: bool, fn: typing.Callable):
         # Check if there already exists an environment
         services = rosservice.get_service_list()
