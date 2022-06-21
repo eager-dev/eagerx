@@ -2,15 +2,14 @@
 
 import os
 
-from eagerx.core.entities import Backend
-
-if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
-    import site
-
-    site.addsitedir("/opt/ros/melodic/lib/python2.7/dist-packages")
-    site.addsitedir("/usr/lib/python2.7/dist-packages")
+# if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
+#     import site
+#
+#     site.addsitedir("/opt/ros/melodic/lib/python2.7/dist-packages")
+#     site.addsitedir("/usr/lib/python2.7/dist-packages")
 
 # Rx imports
+from eagerx.core.entities import Backend
 import eagerx.core.rx_message_broker
 import eagerx.core.rx_operators
 import eagerx.core.rx_pipelines
