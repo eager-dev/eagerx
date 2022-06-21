@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Union, Any, Callable
+from typing import List, Dict, Optional, Union, Any, Callable, Tuple
 import gym
 import abc
 import yaml
@@ -12,7 +12,6 @@ from tabulate import tabulate
 from termcolor import colored
 
 import eagerx
-import eagerx.core.log as log
 from eagerx.core.constants import (
     ENGINE,
     SILENT,
@@ -85,15 +84,13 @@ class Entity(object):
         return spec
 
     @classmethod
-    def info(cls, entity_id: str, method: Optional[Union[List[str], str]] = None) -> None:
+    def info(cls, entity_id: str, method: Optional[Union[List[str], str]] = None) -> str:
         """A helper method to get info on a registered method of the specified subclass.
 
         :param entity_id: Name used to register the spec with the :func:`eagerx.core.register.spec` decorator by the subclass.
         :param method: The registered method we would like to receive info on. If no method is specified, it provides info on
                        the class itself.
-        :return: Signature of the subclass' method. By passing the :attr:`~eagerx.core.entities.Entity.entity_id`
-                 as the first argument to :func:`~eagerx.core.entities.Entity.make`,
-                 together with the arguments specified by this signature, the entity can be build.
+        :return: Info on the subclass' method.
         """
 
         # """A helper method to get info on the signature of the subclass' spec method."""
@@ -117,8 +114,8 @@ class Backend(Entity):
 
     Use this baseclass to implement backends that implement the communication.
 
-    Users must call :func:`~eagerx.core.entities.Backend.make` to make the registered subclass'
-    :func:`~eagerx.core.entities.Backend.spec`. See :func:`~eagerx.core.entities.Backend.make` for more info.
+    Users must call :func:`~eagerx.core.entities.Backend.spec` to make the registered subclass'
+    :func:`~eagerx.core.entities.Backend.spec`.
 
     Subclasses must implement the following methods:
 
@@ -146,11 +143,13 @@ class Backend(Entity):
 
     Subclasses must set the following static class properties:
 
-    - :func:`~eagerx.core.entities.Backend.BACKEND`
+    - :attr:`~eagerx.core.entities.Backend.BACKEND`
 
-    - :func:`~eagerx.core.entities.Backend.DISTRIBUTED_SUPPORT`
+    - :attr:`~eagerx.core.entities.Backend.DISTRIBUTED_SUPPORT`
 
-    - :func:`~eagerx.core.entities.Backend.COLAB_SUPPORT`
+    - :attr:`~eagerx.core.entities.Backend.MULTIPROCESSING_SUPPORT`
+
+    - :attr:`~eagerx.core.entities.Backend.COLAB_SUPPORT`
     """
 
     INFO = {
@@ -185,7 +184,7 @@ class Backend(Entity):
         self.log_level: int = log_level
 
         # Record once logged messages.
-        self._logging_once = log.LoggingOnce()
+        self._logging_once = eagerx.log.LoggingOnce()
 
         # Call subclass'
         self.initialize(**kwargs)
@@ -198,9 +197,6 @@ class Backend(Entity):
         See :class:`~eagerx.core.specs.BackendSpec` how the default config parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        .. note:: Users should not call :func:`~eagerx.core.entities.Backend.spec` directly to make the
-                  backend's spec. Instead, users should call :func:`~eagerx.core.entities.backend.make`.
 
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.
@@ -246,128 +242,155 @@ class Backend(Entity):
 
     @property
     @abc.abstractmethod
-    def BACKEND(self):
+    def BACKEND(self) -> str:
+        """Backend name in string format."""
         pass
 
     @property
     @abc.abstractmethod
-    def DISTRIBUTED_SUPPORT(self):
+    def DISTRIBUTED_SUPPORT(self) -> bool:
+        """Whether nodes can be launched on external platforms (i.e. distributed communication)."""
         pass
 
     @property
     @abc.abstractmethod
-    def COLAB_SUPPORT(self):
+    def MULTIPROCESSING_SUPPORT(self) -> bool:
+        """Whether nodes can be launched as separate processes."""
+        pass
+
+    @property
+    @abc.abstractmethod
+    def COLAB_SUPPORT(self) -> bool:
+        """Whether the backend supports running on Google colab."""
         pass
 
     @abc.abstractmethod
-    def Publisher(self, address: str, dtype: str):
-        """Creates a publisher"""
+    def Publisher(self, address: str, dtype: str) -> Any:
+        """Creates a publisher.
+
+        :param address: Topic name.
+        :param dtype: Dtype of message in string format (e.g. `float32`).
+        """
         pass
 
     @abc.abstractmethod
-    def Subscriber(self, address: str, dtype: str, callback, callback_args=tuple()):
-        """Creates a subscriber"""
+    def Subscriber(self, address: str, dtype: str, callback, callback_args: Optional[Tuple] = tuple()) -> Any:
+        """Creates a subscriber.
+
+        :param address: Topic name.
+        :param dtype: Dtype of message in string format (e.g. `float32`).
+        :param callback: Function to call ( fn(data)) when data is received. If callback_args is set, the function
+                         must accept the callback_args as a second argument, i.e. fn(data, callback_args).
+        :param callback_args: Additional arguments to pass to the callback.
+        """
         pass
 
     @abc.abstractmethod
-    def register_environment(self, name: str, force_start: bool, shutdown_fn: Callable):
-        """Checks if environment already exists and registers shutdown procedure."""
+    def register_environment(self, name: str, force_start: bool, fn: Callable):
+        """Checks if environment already exists and shuts it down if `force_restart` is set. Then, it registers
+        the remote shutdown procedure for the newly created environment.
+
+        :param name: Environment name (i.e. namespace of the environment).
+        :param force_start: Whether to shutdown any environment with the same name if it already exists.
+        :param fn: Function with zero args to be called on remote shutdown.
+        """
         pass
 
     @abc.abstractmethod
     def delete_param(self, param: str, level: int = 1) -> None:
-        """
-        :param param:
-        :param level: 2=pass, 1=warn, 0=error
+        """Deletes params from the parameter server.
+
+        :param param: Parameter name.
+        :param level: Determines what to do when the param does not exist:
+
+                      - 0=error: Raises a BackendException.
+
+                      - 1=warn: logs a warning and returns `None`.
+
+                      - 2=pass: passes silently and returns `None`.
         """
         pass
 
     @abc.abstractmethod
-    def upload_params(self, ns: str, values: Dict, verbose: bool = False) -> None:
-        """
-        Upload params to the Parameter Server
-        :param values: key/value dictionary, where keys are parameter names and values are parameter values, ``dict``
-        :param ns: namespace to load parameters into, ``str``
-        :param verbose: verbosity level.
+    def upload_params(self, ns: str, values: Dict[str, Union[Dict, List, bool, float, int, str]], verbose: bool = False) -> None:
+        """Upload params to the parameter server.
+
+        :param ns: Namespace to load parameters into, ``str``.
+        :param values: Key/value dictionary, where keys are parameter names and values are parameter values, ``dict``.
+        :param verbose: Verbosity level.
         """
         pass
 
     @abc.abstractmethod
-    def get_param(self, name: str, default: Any = _unspecified):
-        """
-        Retrieve a parameter from the param server
+    def get_param(self, name: str, default: Any = _unspecified) -> Union[Dict, List, bool, float, int, str]:
+        """Retrieve a parameter from the param server
 
-        @return: parameter value
-        @raise BackendException: if parameter server reports an error
-        @raise KeyError: if value not set and default is not given
+        :param name: Parameter name.
+        :param default: Default value to return.
         """
         pass
 
     @abc.abstractmethod
-    def spin(self):
-        """
-        Blocks until node is shutdown. Yields activity to other threads.
+    def spin(self) -> None:
+        """Blocks until node is shutdown. Yields activity to other threads."""
+        pass
+
+    @abc.abstractmethod
+    def on_shutdown(self, fn: Callable) -> None:
+        """Register function to be called on shutdown.
+
+        :param fn: Function with zero args to be called on shutdown.
         """
         pass
 
     @abc.abstractmethod
-    def on_shutdown(self, h):
-        """
-        Register function to be called on shutdown.
-        @param h: Function with zero args to be called on shutdown.
-        @type  h: fn()
+    def signal_shutdown(self, reason: str) -> None:
+        """Initiates shutdown process.
+
+        :param reason: Human-readable shutdown reason, if applicable.
         """
         pass
 
-    @abc.abstractmethod
-    def signal_shutdown(self, reason):
-        """
-        Initiates shutdown process.
-        @param reason: human-readable shutdown reason, if applicable
-        @type  reason: str
-        """
-        pass
-
-    def logdebug_once(self, msg, *args, **kwargs):
+    def logdebug_once(self, msg) -> None:
         return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow", once=True)
 
-    def loginfo_once(self, msg, *args, **kwargs):
+    def loginfo_once(self, msg) -> None:
         return self._log(f"[INFO]: {msg}", INFO, "green", once=True)
 
-    def logwarn_once(self, msg, *args, **kwargs):
+    def logwarn_once(self, msg) -> None:
         return self._log(f"[WARN]: {msg}", WARN, "red", once=True)
 
-    def logerr_once(self, msg, *args, **kwargs):
+    def logerr_once(self, msg) -> None:
         return self._log(f"[ERROR]: {msg}", ERROR, "red", once=True)
 
-    def logfatal_once(self, msg, *args, **kwargs):
+    def logfatal_once(self, msg) -> None:
         return self._log(f"[FATAL]: {msg}", FATAL, "red", once=True)
 
-    def logdebug(self, msg, *args, **kwargs):
+    def logdebug(self, msg) -> None:
         return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow")
 
-    def loginfo(self, msg, *args, **kwargs):
+    def loginfo(self, msg) -> None:
         return self._log(f"[INFO]: {msg}", INFO, "green")
 
-    def logwarn(self, msg, *args, **kwargs):
+    def logwarn(self, msg) -> None:
         return self._log(f"[WARN]: {msg}", WARN, "red")
 
-    def logerr(self, msg, *args, **kwargs):
+    def logerr(self, msg) -> None:
         return self._log(f"[ERROR]: {msg}", ERROR, "red")
 
-    def logfatal(self, msg, *args, **kwargs):
+    def logfatal(self, msg: str) -> None:
         return self._log(f"[FATAL]: {msg}", FATAL, "red")
 
-    def _log(self, msg, level, color, once=False):
+    def _log(self, msg: str, level: int, color: str, once: bool =False) -> None:
         if level >= self.log_level:
             if once:
-                caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
+                caller_id = eagerx.log.frame_to_caller_id(inspect.currentframe().f_back.f_back)
                 if self._logging_once(caller_id):
                     print(colored(msg, color))
             else:
                 print(colored(msg, color))
 
-    def get_log_fn(self, log_level):
+    def get_log_fn(self, log_level: int) -> Callable:
         if log_level == DEBUG:
             return self.logdebug
         elif log_level == INFO:
@@ -426,7 +449,7 @@ class BaseNode(Entity):
         #: User specified node name with the namespace prepended. Cannot be modified directly.
         self.ns_name: str = "%s/%s" % (ns, name)
         #: Responsible for all I/O communication within this process.
-        #: Nodes inside the same process share the same message broker. Cannot be modified.
+        #: Nodes inside the same process share the same backend. Cannot be modified.
         self.message_broker: RxMessageBroker = message_broker
         #: Responsible for all I/O communication within this process.
         #: Nodes inside the same process share the same message broker. Cannot be modified.
@@ -475,7 +498,7 @@ class BaseNode(Entity):
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Node.spec`.
         self.log_level: int = log_level
-        effective_log_level = log.get_log_level()
+        effective_log_level = eagerx.log.get_log_level()
         #: Specifies the log level for logging memory usage over time for this node:
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Note that `log_level` has precedent over the memory level set here.
@@ -560,8 +583,8 @@ class Node(BaseNode):
 
     Use this baseclass to implement nodes that will be added to the agnostic :class:`~eagerx.core.graph.Graph`.
 
-    Users must call :func:`~eagerx.core.entities.Node.make` to make the registered node subclass'
-    :func:`~eagerx.core.entities.Node.spec`. See :func:`~eagerx.core.entities.Node.make` for more info.
+    Users must call :func:`~eagerx.core.entities.Node.spec` to make the registered node subclass'
+    :func:`~eagerx.core.entities.Node.spec`.
 
     Subclasses must implement the following methods:
 
@@ -708,7 +731,7 @@ class Node(BaseNode):
                             0,
                         ]
                     )
-                log.loginfo("\n" + tabulate(self.history, headers=self.headers))
+                self.backend.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
 
         # Skip callback if not all inputs with window > 0 have received at least one input.
@@ -721,7 +744,7 @@ class Node(BaseNode):
                         continue
                     else:
                         self.skipped_cbs += 1
-                        log.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
+                        self.backend.logdebug(f"[{self.name}][{cname}]: skipped_cbs={self.skipped_cbs}")
                         return self.empty_outputs
         output = self.callback(t_n, **kwargs)
         self.num_ticks += 1
@@ -730,7 +753,7 @@ class Node(BaseNode):
         if self.name != "environment":
             for o in self.outputs:
                 if o["name"] not in output:
-                    log.logwarn_once(
+                    self.backend.logwarn_once(
                         f"The .callback(...) of `{self.name}` did not return the registered output `{o['name']}`. "
                         "Downstream nodes, depending on this output for their callback, may deadlock. "
                     )
@@ -769,9 +792,6 @@ class Node(BaseNode):
         input/output/state parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        .. note:: Users should not call :func:`~eagerx.core.entities.Node.spec` directly to make the node's spec.
-                  Instead, users should call :func:`~eagerx.core.entities.Node.make`.
 
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.
@@ -834,8 +854,8 @@ class ResetNode(Node):
 
     Use this baseclass to implement reset nodes that will be added to the agnostic :class:`~eagerx.core.graph.Graph`.
 
-    Users must call :func:`~eagerx.core.entities.ResetNode.make` to make the registered reset node subclass'
-    :func:`~eagerx.core.entities.ResetNode.spec`. See :func:`~eagerx.core.entities.ResetNode.make` for more info.
+    Users must call :func:`~eagerx.core.entities.ResetNode.spec` to make the registered reset node subclass'
+    :func:`~eagerx.core.entities.ResetNode.spec`.
 
     .. note:: Subclasses must always have at least one target registered with the :func:`eagerx.core.register.targets` decorator.
 
@@ -963,8 +983,8 @@ class EngineNode(Node):
     Use this baseclass to implement nodes that will be added to an :class:`~eagerx.core.graph_engine.EngineGraph`
     when specifying an engine implementation for an :class:`~eagerx.core.entities.Object`.
 
-    Users must call :func:`~eagerx.core.entities.EngineNode.make` to make the registered engine node subclass'
-    :func:`~eagerx.core.entities.EngineNode.spec`. See :func:`~eagerx.core.entities.EngineNode.make` for more info.
+    Users must call :func:`~eagerx.core.entities.EngineNode.spec` to make the registered engine node subclass'
+    :func:`~eagerx.core.entities.EngineNode.spec`.
 
     .. note:: Engine nodes only receive a reference to the :attr:`~eagerx.core.entities.EngineNode.simulator`
               when the engine nodes are launched within
@@ -992,7 +1012,7 @@ class EngineNode(Node):
         if object_name:
             config = get_param_with_blocking(object_name, message_broker.bnd)
             if config is None:
-                log.logwarn(
+                self.backend.logwarn(
                     f"Parameters for object registry request ({object_name}) not found on parameter server. "
                     f"Timeout: object ({object_name}) not registered."
                 )
@@ -1076,8 +1096,8 @@ class Engine(BaseNode):
 
     Use this baseclass to implement an engine that interfaces the simulator.
 
-    Users must call :func:`~eagerx.core.entities.Engine.make` to make the registered engine subclass'
-    :func:`~eagerx.core.entities.Engine.spec`. See :func:`~eagerx.core.entities.Engine.make` for more info.
+    Users must call :func:`~eagerx.core.entities.Engine.spec` to make the registered engine subclass'
+    :func:`~eagerx.core.entities.Engine.spec`.
 
     Subclasses must implement the following methods:
 
@@ -1316,7 +1336,7 @@ class Engine(BaseNode):
                             0,
                         ]
                     )
-                log.get_log_fn(self.log_level)("\n" + tabulate(self.history, headers=self.headers))
+                self.backend.get_log_fn(self.log_level)("\n" + tabulate(self.history, headers=self.headers))
                 # bnd.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
@@ -1445,8 +1465,8 @@ class Object(Entity):
 
     Use this baseclass to implement objets that consist of sensors, actuators, and/or engine states.
 
-    Users must call :func:`~eagerx.core.entities.Object.make` to make the registered node subclass'
-    :func:`~eagerx.core.entities.Object.spec`. See :func:`~eagerx.core.entities.Object.make` for more info.
+    Users must call :func:`~eagerx.core.entities.Object.spec` to make the registered node subclass'
+    :func:`~eagerx.core.entities.Object.spec`.
 
     Subclasses must implement the following methods:
 
@@ -1570,8 +1590,8 @@ class Processor(Entity):
     Use this baseclass to implement processor that preprocess an input/output message.
     This baseclass only supports one-way processing.
 
-    Users must call :func:`~eagerx.core.entities.Processor.make` to make the registered subclass'
-    :func:`~eagerx.core.entities.Processor.spec`. See :func:`~eagerx.core.entities.Processor.make` for more info.
+    Users must call :func:`~eagerx.core.entities.Processor.spec` to make the registered subclass'
+    :func:`~eagerx.core.entities.Processor.spec`.
 
     Subclasses must implement the following methods:
 
@@ -1615,9 +1635,6 @@ class Processor(Entity):
         See :class:`~eagerx.core.specs.ProcessorSpec` how the default config parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        .. note:: Users should not call :func:`~eagerx.core.entities.Processor.spec` directly to make the
-                  processor's spec. Instead, users should call :func:`~eagerx.core.entities.processor.make`.
 
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.
@@ -1671,8 +1688,8 @@ class EngineState(Entity):
 
     Use this baseclass to implement engine states for an :class:`~eagerx.core.entities.Object`.
 
-    Users must call :func:`~eagerx.core.entities.EngineState.make` to make the registered subclass'
-    :func:`~eagerx.core.entities.EngineState.spec`. See :func:`~eagerx.core.entities.EngineState.make` for more info.
+    Users must call :func:`~eagerx.core.entities.EngineState.spec` to make the registered subclass'
+    :func:`~eagerx.core.entities.EngineState.spec`.
 
     Subclasses must implement the following methods:
 
@@ -1738,9 +1755,6 @@ class EngineState(Entity):
         See :class:`~eagerx.core.specs.EngineStateSpec` how the default config parameters can be modified.
 
         This method must be decorated with :func:`eagerx.core.register.spec` to register the spec.
-
-        .. note:: Users should not call :func:`~eagerx.core.entities.EngineState.spec` directly to make the
-                  engine state's spec. Instead, users should call :func:`~eagerx.core.entities.EngineState.make`.
 
         :param spec: A (mutable) specification.
         :param args: Additional arguments as specified by the subclass.

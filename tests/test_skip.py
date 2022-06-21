@@ -10,12 +10,16 @@ import pytest
 def test_skip_observation(force_start):
     eagerx.set_log_level(eagerx.DEBUG)
 
-    # todo: document Backend
-    # todo: create ROS1 backend.
+    # todo: document Backend methods
+    # todo: Implement numpy backend
+    # todo: see if certain functions can be standardized (e.g. spin, signal shutdown, etc...).
+    # todo: do not multiprocess if not supported
+    # todo: do not allow external if not supported
+    # todo: print command needed to launch externally
+    # todo: test external launching
+    # todo: move colab sourcing to backend.
 
     # Define object
-    # TODO: update docs on make spec
-    # TODO: make typehints mask ObjectSpec here. Also, typehint return type to be ObjectSpec.
     from tests.test.objects import Arm
     arm = Arm.spec(name="obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
 

@@ -1,4 +1,4 @@
-Converter
+Processor
 =========
 
 .. autoclass:: eagerx.core.specs.ProcessorSpec

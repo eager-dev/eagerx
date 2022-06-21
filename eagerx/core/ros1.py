@@ -100,8 +100,7 @@ class Ros1(eagerx.Backend):
     def logfatal(msg, *args, **kwargs):
         return rospy.logfatal(msg)
 
-    def register_environment(self, name: str, force_start: bool, shutdown_fn: typing.Callable):
-        """Checks if environment already exists and registers shutdown procedure."""
+    def register_environment(self, name: str, force_start: bool, fn: typing.Callable):
         # Check if there already exists an environment
         services = rosservice.get_service_list()
         if f"{name}/environment/shutdown" in services:
@@ -120,48 +119,28 @@ class Ros1(eagerx.Backend):
 
         # Setup remote shutdown procedure for environment
         def _remote_shutdown(req: TriggerRequest):
-            shutdown_msg = shutdown_fn()
+            shutdown_msg = fn()
             return TriggerResponse(success=True, message=shutdown_msg)
 
         shutdown_srv = rospy.Service(f"{name}/environment/shutdown", Trigger, _remote_shutdown)
         return shutdown_srv
 
     def delete_param(self, param: str, level: int = 1) -> None:
-        """
-        :param param:
-        :param level: 2=pass, 1=warn, 0=error
-        """
         try:
             rosparam.delete_param(param)
             Ros1.loginfo(f'Parameters under namespace "{param}" deleted.')
         except rosgraph.masterapi.ROSMasterException as e:
             if level == 0:
-                raise e
+                raise BackendException(e)
             elif level == 1:
                 Ros1.logwarn(e)
             else:
                 pass
 
     def upload_params(self, ns: str, values: typing.Dict, verbose: bool = False) -> None:
-        """
-        Upload params to the Parameter Server
-        :param values: key/value dictionary, where keys are parameter names and values are parameter values, ``dict``
-        :param ns: namespace to load parameters into, ``str``
-        :param verbose: verbosity level.
-        """
         return rosparam.upload_params(ns, values, verbose=verbose)
 
     def get_param(self, name: str, default: typing.Any = _unspecified):
-        """
-        Retrieve a parameter from the param server
-
-        NOTE: this method is thread-safe.
-
-        @return: parameter value
-        @rtype: XmlRpcLegalValue
-        @raise BackendException: if parameter server reports an error
-        @raise KeyError: if value not set and default is not given
-        """
         try:
             if isinstance(default, Unspecified):
                 return rospy.get_param(name)
@@ -171,25 +150,12 @@ class Ros1(eagerx.Backend):
             raise BackendException(e)
 
     def spin(self):
-        """
-        Blocks until node is shutdown. Yields activity to other threads.
-        """
         return rospy.spin()
 
     def on_shutdown(self, h):
-        """
-        Register function to be called on shutdown.
-        @param h: Function with zero args to be called on shutdown.
-        @type  h: fn()
-        """
         return rospy.core.add_client_shutdown_hook(h)
 
     def signal_shutdown(self, reason):
-        """
-        Initiates shutdown process.
-        @param reason: human-readable shutdown reason, if applicable
-        @type  reason: str
-        """
         return rospy.signal_shutdown(reason)
 
 

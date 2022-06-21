@@ -1,4 +1,5 @@
 import inspect
+import functools
 from textwrap import indent
 from eagerx.core import register
 from eagerx.utils.utils import load
@@ -62,10 +63,11 @@ def get_info(entity, id, methods=None, no_cls=False, return_msg=False):
     # Make spec message
     method_fn = cls.spec
     sig = inspect.signature(method_fn)
-    arg_entity_id = inspect.Parameter("entity_id", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str)
-    sig = sig.replace(parameters=(arg_entity_id,) + tuple(sig.parameters.values())[1:])
-    msg += f'Make this spec with (use `entity_id: str = "{id}"`):\n'
-    make_msg = f"spec = {entity.__qualname__}.make{sig}\n"
+    # arg_entity_id = inspect.Parameter("entity_id", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str)
+    # sig = sig.replace(parameters=(arg_entity_id,) + tuple(sig.parameters.values())[1:])
+    msg += f"Make this spec with:\n"
+    make_msg = f"spec = {method_fn.__wrapped__.func.__qualname__}{sig}\n"
+    # make_msg = f"spec = {entity.__qualname__}.make{sig}\n"
     msg += indent(make_msg + "\n", tab)
 
     # Generate class
@@ -80,6 +82,10 @@ def get_info(entity, id, methods=None, no_cls=False, return_msg=False):
             method_fn = getattr(cls, method)
             sig = inspect.signature(method_fn)
             method_msg = f"{method}{sig}:\n"
+
+            # Replace if wrapped
+            if hasattr(method_fn, "__wrapped__") and isinstance(method_fn.__wrapped__, functools.partial):
+                method_fn = method_fn.__wrapped__.func
 
             for r in register_fns:
                 try:
