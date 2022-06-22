@@ -720,19 +720,9 @@ def init_engine(
     ###########################################################################
     # Real reset ##############################################################
     ###########################################################################
-    # Prepare real_reset output
+    # Prepare real_reset output. Previously, RR was both an input and subscribed to?
     real_reset_input = dict(name="real_reset", address=ns + "/real_reset", msg=RR, dtype="int64")
     node_inputs.append(real_reset_input)
-
-    # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    d = (
-        rx.zip(check_F_init, check_NF)
-        .pipe(
-            ops.map(lambda i: message_broker.connect_io()),
-        )
-        .subscribe(RR)
-    )
-    reset_disp.add(d)
 
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))

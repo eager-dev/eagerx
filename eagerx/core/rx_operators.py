@@ -68,8 +68,8 @@ def print_info(
     msg += f"[{node_name.split('/')[-1][:12].ljust(12)}]"
     if id:
         msg += f"[{id.split('/')[-1][:12].ljust(12)}]"
-    msg += f" {trace_type}: {value}"
-    print(colored(msg, color))
+    msg += f" {trace_type}: {value}\n"
+    print(colored(msg, color), end="")
 
 
 def spy(id: str, node, log_level: int = DEBUG, mapper: Callable = lambda msg: msg):
