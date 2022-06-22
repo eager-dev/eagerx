@@ -156,7 +156,7 @@ class SupervisorNode(BaseNode):
             if not flag:
                 raise KeyboardInterrupt
         except (KeyboardInterrupt, SystemExit):
-            print("[reset] KEYBOARD INTERRUPT")
+            self.backend.logdebug("[reset] KEYBOARD INTERRUPT")
             raise
         self.backend.logdebug("FIRST OBS RECEIVED!")
 

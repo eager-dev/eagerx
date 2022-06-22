@@ -275,6 +275,8 @@ def get_param_with_blocking(name, backend, default=_unspecified, timeout=2.0):
     params = Unspecified()
     start = time.time()
     while isinstance(params, Unspecified):
+        if time.time() - start > timeout:
+            raise KeyError(f"Timeout. Parameter '{name}' not available on parameter server.")
         try:
             params = backend.get_param(name, default=default)
         except (BackendException, KeyError):
@@ -282,6 +284,4 @@ def get_param_with_blocking(name, backend, default=_unspecified, timeout=2.0):
                 return default
             sleep_time = 0.01
             time.sleep(sleep_time)
-        if time.time() - start > timeout:
-            raise KeyError(f"Timeout. Parameter '{name}' not available on parameter server.")
     return replace_None(params, to_null=False)
