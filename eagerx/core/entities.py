@@ -13,6 +13,7 @@ from termcolor import colored
 
 import eagerx
 import eagerx.core.log as log
+from eagerx.core.pubsub import Publisher, Subscriber, ShutdownService
 from eagerx.core.constants import (
     ENGINE,
     SILENT,
@@ -266,7 +267,7 @@ class Backend(Entity):
         pass
 
     @abc.abstractmethod
-    def Publisher(self, address: str, dtype: str) -> Any:
+    def Publisher(self, address: str, dtype: str) -> Publisher:
         """Creates a publisher.
 
         :param address: Topic name.
@@ -275,19 +276,19 @@ class Backend(Entity):
         pass
 
     @abc.abstractmethod
-    def Subscriber(self, address: str, dtype: str, callback, callback_args: Optional[Tuple] = tuple()) -> Any:
+    def Subscriber(self, address: str, dtype: str, callback, callback_args: Optional[Tuple] = tuple()) -> Subscriber:
         """Creates a subscriber.
 
         :param address: Topic name.
         :param dtype: Dtype of message in string format (e.g. `float32`).
         :param callback: Function to call ( fn(data)) when data is received. If callback_args is set, the function
-                         must accept the callback_args as a second argument, i.e. fn(data, callback_args).
+                         must accept the callback_args as positional args, i.e. fn(data, *callback_args).
         :param callback_args: Additional arguments to pass to the callback.
         """
         pass
 
     @abc.abstractmethod
-    def register_environment(self, name: str, force_start: bool, fn: Callable):
+    def register_environment(self, name: str, force_start: bool, fn: Callable) -> ShutdownService:
         """Checks if environment already exists and shuts it down if `force_restart` is set. Then, it registers
         the remote shutdown procedure for the newly created environment.
 
@@ -380,10 +381,10 @@ class Backend(Entity):
             return self.logfatal(msg)
 
     def logdebug(self, msg) -> None:
-        return self._log(f"[DEBUG]: {msg}", DEBUG, "yellow")
+        return self._log(f"[DEBUG]: {msg}", DEBUG, None)
 
     def loginfo(self, msg) -> None:
-        return self._log(f"[INFO]: {msg}", INFO, "green")
+        return self._log(f"[INFO]: {msg}", INFO, None)
 
     def logwarn(self, msg) -> None:
         return self._log(f"[WARN]: {msg}", WARN, "red")
@@ -394,7 +395,7 @@ class Backend(Entity):
     def logfatal(self, msg: str) -> None:
         return self._log(f"[FATAL]: {msg}", FATAL, "red")
 
-    def _log(self, msg: str, level: int, color: str) -> None:
+    def _log(self, msg: str, level: int, color: Union[str, None]) -> None:
         if level >= self.log_level:
             print(colored(msg, color))
 

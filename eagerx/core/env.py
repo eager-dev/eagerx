@@ -407,7 +407,7 @@ class BaseEnv(gym.Env):
 
     def _shutdown(self):
         if not self.has_shutdown:
-            self._shutdown_srv.shutdown()
+            self._shutdown_srv.unregister()
             for address, node in self.supervisor_node.launch_nodes.items():
                 self.bnd.logdebug(f"[{self.name}] Send termination signal to '{address}'.")
                 node.terminate()

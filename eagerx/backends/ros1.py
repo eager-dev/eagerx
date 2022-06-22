@@ -19,6 +19,7 @@ from functools import wraps
 
 # EAGERx
 import eagerx
+from eagerx.core.pubsub import Publisher, Subscriber, ShutdownService
 from eagerx.core.constants import (
     SILENT,
     DEBUG,
@@ -99,7 +100,7 @@ class Ros1(eagerx.Backend):
             return TriggerResponse(success=True, message=shutdown_msg)
 
         shutdown_srv = rospy.Service(f"{name}/environment/shutdown", Trigger, _remote_shutdown)
-        return shutdown_srv
+        return _ShutdownService(shutdown_srv)
 
     def delete_param(self, param: str, level: int = 1) -> None:
         try:
@@ -225,7 +226,7 @@ def _dtype_to_ros1_msg_type(dtype: str):
 # Public Publisher/Subscriber functions
 
 
-class _Publisher:
+class _Publisher(Publisher):
     def __init__(self, address: str, dtype: str):
         self._address = address
         self._dtype = dtype
@@ -233,7 +234,7 @@ class _Publisher:
         self._pub = rospy.Publisher(address, self._msg_type, queue_size=0, latch=True)
         self._name = f"{self._address}"
 
-    def publish(self, msg):
+    def publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number]):
         # Convert python native types to numpy arrays.
         if isinstance(msg, float):
             msg = np.array(msg, dtype="float32")
@@ -280,7 +281,7 @@ class _Publisher:
         return self._pub.unregister()
 
 
-class _Subscriber:
+class _Subscriber(Subscriber):
     def __init__(self, address: str, dtype: str, callback, callback_args=tuple()):
         self._address = address
         self._dtype = dtype
@@ -318,6 +319,14 @@ class _Subscriber:
 
     def unregister(self):
         return self._sub.unregister()
+
+
+class _ShutdownService(ShutdownService):
+    def __init__(self, srv):
+        self._srv = srv
+
+    def unregister(self):
+        self._srv.shutdown()
 
 
 assert len(_UNSUPPORTED) == 0, f"Backend `{Ros1.BACKEND}` does not have support for the following dtypes: {_UNSUPPORTED}."
