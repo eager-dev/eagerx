@@ -8,9 +8,14 @@ import pytest
 @pytest.mark.timeout(20)
 @pytest.mark.parametrize("force_start", [True, True, False])
 def test_skip_observation(force_start):
-    eagerx.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.WARN)
 
-    # todo: Implement numpy backend
+    # todo: rendering requires NEW_PROCESS.
+    # todo: implement on_shutdown()
+    # todo: check latch (in or outside of condition)?
+    # todo: scheduling required with condition? --> separate registration and queue lock?
+    # todo: free resources when backend shutdown
+    # todo: check dtypes of published messages?
     # todo: see if certain functions can be standardized (e.g. spin, signal shutdown, etc...).
 
     # Define object
@@ -33,8 +38,8 @@ def test_skip_observation(force_start):
     # Define engine
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
-    # Make backend
-    from eagerx.core.ros1 import Ros1
+    # Make backend - SingleProcess breaks Assertion fail.
+    from eagerx.backends.ros1 import Ros1
     backend = Ros1.spec()
 
     # Define environment
@@ -53,7 +58,7 @@ def test_skip_observation(force_start):
 
     # Initialize Environment
     try:
-        env = TestEnv("rx", 7, graph, engine, backend, force_start=force_start)
+        env = TestEnv("rx", 20, graph, engine, backend, force_start=force_start)
         msg = "We should have exited the environment here. IMPORTANT!!! The test with force_start=False cannot be the first test."
         assert force_start, msg
     except eagerx.core.constants.BackendException:
@@ -64,14 +69,19 @@ def test_skip_observation(force_start):
             raise
 
     # First reset
+    import time
+    N = 50
+    eps = 2
     _ = env.reset()
     env.render(mode="human")
     action = env.action_space.sample()
-    for j in range(2):
+    for j in range(eps):
         print("\n[Episode %s]" % j)
-        for i in range(50):
+        start = time.time()
+        for i in range(N):
             _ = env.step(action)
             env.render(mode="rgb_array")
+        print(f"TIME: {N/(time.time() - start)}")
         env.reset()
     print("\n[Finished]")
 

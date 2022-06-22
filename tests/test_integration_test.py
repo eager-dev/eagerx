@@ -66,8 +66,10 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
 
     # Define backend
-    from eagerx.core.ros1 import Ros1
+    from eagerx.backends.ros1 import Ros1
     backend = Ros1.spec()
+    # from eagerx.backends.single_process import SingleProcess
+    # backend = SingleProcess.spec()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):

@@ -18,7 +18,7 @@ def test_render(colab: bool):
     display = Display(visible=False, backend="xvfb")
     display.start()
 
-    eagerx.set_log_level(eagerx.WARN)
+    eagerx.set_log_level(eagerx.DEBUG)
 
     # Define rate (depends on rate of gym env)
     rate = 20
@@ -57,8 +57,10 @@ def test_render(colab: bool):
     engine = eagerx.Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
     # Make backend
-    from eagerx.core.ros1 import Ros1
+    from eagerx.backends.ros1 import Ros1
     backend = Ros1.spec()
+    # from eagerx.backends.single_process import SingleProcess
+    # backend = SingleProcess.spec()
 
     # Initialize Environment
     env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine, backend=backend)
@@ -86,7 +88,6 @@ def test_render(colab: bool):
 
 
 if __name__ == "__main__":
-    # TODO: FIX RENDER BLOCKING....
     for i in range(30):
         colab = bool(i % 2)
         print(f"ARE WE USING COLAB? {colab}")

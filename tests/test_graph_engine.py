@@ -24,8 +24,10 @@ def test_graph_engine():
     engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=eagerx.ENVIRONMENT)
 
     # Define backend
-    from eagerx.core.ros1 import Ros1
-    backend = Ros1.spec()
+    # from eagerx.backends.ros1 import Ros1
+    # backend = Ros1.spec()
+    from eagerx.backends.single_process import SingleProcess
+    backend = SingleProcess.spec()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):
