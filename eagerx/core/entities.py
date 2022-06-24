@@ -139,10 +139,6 @@ class Backend(Entity):
 
     - :func:`~eagerx.core.entities.Backend.spin`
 
-    - :func:`~eagerx.core.entities.Backend.on_shutdown`
-
-    - :func:`~eagerx.core.entities.Backend.signal_shutdown`
-
     Subclasses must set the following static class properties:
 
     - :attr:`~eagerx.core.entities.Backend.BACKEND`
@@ -188,7 +184,10 @@ class Backend(Entity):
         # Record once logged messages.
         self._logging_once = log.LoggingOnce()
 
-        # Call subclass'
+        # Backend shutdown flag
+        self._has_shutdown = False
+
+        # Call subclass' initialize method
         self.initialize(**kwargs)
 
     @staticmethod
@@ -235,7 +234,7 @@ class Backend(Entity):
         super().check_spec(spec)
 
     @staticmethod
-    def from_params(ns, params: Dict):
+    def from_params(ns: str, params: Dict) -> "Backend":
         backend_type = params["backend_type"]
         backend_cls = load(backend_type)
         spec_string = yaml.dump(replace_None(params))
@@ -339,21 +338,27 @@ class Backend(Entity):
         """Blocks until node is shutdown. Yields activity to other threads."""
         pass
 
-    @abc.abstractmethod
-    def on_shutdown(self, fn: Callable) -> None:
-        """Register function to be called on shutdown.
+    def shutdown(self) -> None:
+        """Shuts down the backend"""
+        if not self._has_shutdown:
+            self._has_shutdown = True
+            self.logdebug(f"Backend.shutdown() called.")
 
-        :param fn: Function with zero args to be called on shutdown.
-        """
-        pass
-
-    @abc.abstractmethod
-    def signal_shutdown(self, reason: str) -> None:
-        """Initiates shutdown process.
-
-        :param reason: Human-readable shutdown reason, if applicable.
-        """
-        pass
+    # @abc.abstractmethod
+    # def on_shutdown(self, fn: Callable) -> None:
+    #     """Register function to be called on shutdown.
+    #
+    #     :param fn: Function with zero args to be called on shutdown.
+    #     """
+    #     pass
+    #
+    # @abc.abstractmethod
+    # def signal_shutdown(self, reason: str) -> None:
+    #     """Initiates shutdown process.
+    #
+    #     :param reason: Human-readable shutdown reason, if applicable.
+    #     """
+    #     pass
 
     def logdebug_once(self, msg) -> None:
         caller_id = log.frame_to_caller_id(inspect.currentframe().f_back.f_back)

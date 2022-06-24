@@ -8,15 +8,25 @@ import pytest
 @pytest.mark.timeout(20)
 @pytest.mark.parametrize("force_start", [True, True, False])
 def test_skip_observation(force_start):
-    eagerx.set_log_level(eagerx.WARN)
+    eagerx.set_log_level(eagerx.DEBUG)
 
-    # todo: rendering requires NEW_PROCESS.
-    # todo: implement on_shutdown()
-    # todo: check latch (in or outside of condition)?
-    # todo: scheduling required with condition? --> separate registration and queue lock?
-    # todo: free resources when backend shutdown
-    # todo: check dtypes of published messages?
-    # todo: see if certain functions can be standardized (e.g. spin, signal shutdown, etc...).
+    # todo: ASYNC: change rate info from (INFO, WARN) to (DEBUG, INFO).
+    # todo: ASYNC: Don't include reset into first rate calculation.
+    # todo: RX: add blocking to connection
+    # todo: RX: add "copy" to connection
+    # todo: RX: add duration to node callback && infer simulated delay from durations.
+    # todo: API: improve spec creation API
+    # todo: API: improve external launching with readable arguments.
+    # todo: API: is entity_id still needed?
+    # todo: SP: rendering requires NEW_PROCESS --> PyVirtualDisplay does not seem to work now...
+
+    # todo: REG: remove @register.spec()
+    # todo: REG: Make an explicit classmethod get_specification()
+    # todo: REG: Rename spec method to make, that explicitly returns the spec.
+    # todo: REG: Provide spec as argument to initialize, add_object
+    # todo: REG: Remove decorators: engine_config, config
+    # todo: REG: Remove agnostic method, register Object.make instead.
+    # todo: REG: remove constraint that new paramns cannot be added.
 
     # Define object
     from tests.test.objects import Arm
@@ -41,6 +51,8 @@ def test_skip_observation(force_start):
     # Make backend - SingleProcess breaks Assertion fail.
     from eagerx.backends.ros1 import Ros1
     backend = Ros1.spec()
+    # from eagerx.backends.single_process import SingleProcess
+    # backend = SingleProcess.spec()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):

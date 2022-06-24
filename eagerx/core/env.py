@@ -78,10 +78,20 @@ class BaseEnv(gym.Env):
         # Initialize backend
         self.bnd = self._init_backend(backend)
 
+        # Check if there already exists an environment
+        self._shutdown_srv = self.bnd.register_environment(self.ns, force_start, self.shutdown)
+
+        # Delete pre-existing parameters
+        self.bnd.delete_param(f"/{self.name}", level=2)
+
+        # Upload log_level
+        self.bnd.upload_params(self.ns, {"log_level": self.bnd.log_level})
+
+        # Initialize message broker
+        self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.bnd)
+
         # Initialize supervisor node
-        self._shutdown_srv, self.mb, self.supervisor_node, self.supervisor = self._init_supervisor(
-            engine, nodes, objects, force_start
-        )
+        self.supervisor_node, self.supervisor = self._init_supervisor(engine, nodes, objects)
         self._is_initialized = self.supervisor_node.is_initialized
 
         # Initialize engine
@@ -108,9 +118,10 @@ class BaseEnv(gym.Env):
         from eagerx.core.entities import Backend
 
         bnd = Backend.from_params(self.ns, backend.params)
+
         return bnd
 
-    def _init_supervisor(self, engine: EngineSpec, nodes: List[NodeSpec], objects: List[ObjectSpec], force_start: bool):
+    def _init_supervisor(self, engine: EngineSpec, nodes: List[NodeSpec], objects: List[ObjectSpec]):
         # Initialize supervisor
         supervisor = self._create_supervisor()
 
@@ -164,18 +175,6 @@ class BaseEnv(gym.Env):
                                 d[name] = mapping
                             supervisor.config.states.append(name)
 
-        # Initialize message broker
-        mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.bnd)
-
-        # Check if there already exists an environment
-        shutdown_srv = self.bnd.register_environment(self.ns, force_start, self._remote_shutdown)
-
-        # Delete pre-existing parameters
-        self.bnd.delete_param(f"/{self.name}", level=2)
-
-        # Upload log_level
-        self.bnd.upload_params(self.ns, {"log_level": self.bnd.log_level})
-
         # Get info from engine on reactive properties
         sync = engine.config.sync
         real_time_factor = engine.config.real_time_factor
@@ -188,7 +187,7 @@ class BaseEnv(gym.Env):
         self.bnd.upload_params(self.ns, supervisor_params)
         rx_supervisor = Supervisor(
             "%s/%s" % (self.ns, name),
-            mb,
+            self.mb,
             sync,
             real_time_factor,
             simulate_delays,
@@ -196,8 +195,8 @@ class BaseEnv(gym.Env):
         rx_supervisor.node_initialized()
 
         # Connect io
-        mb.connect_io()
-        return shutdown_srv, mb, rx_supervisor.node, rx_supervisor
+        self.mb.connect_io()
+        return rx_supervisor.node, rx_supervisor
 
     def _init_engine(self, engine: EngineSpec, nodes: List[NodeSpec]) -> None:
         # Check that reserved keywords are not already defined.
@@ -395,16 +394,6 @@ class BaseEnv(gym.Env):
         self.initialized = True
         self.bnd.loginfo("Communication initialized.")
 
-    def _remote_shutdown(self):
-        if not self.has_shutdown:
-            self.bnd.loginfo(f"Starting remote shutdown procedure for environment `{self.ns}`.")
-            self.shutdown()
-            msg = f"Remote shutdown procedure completed for environment `{self.ns}`."
-            self.bnd.loginfo(msg)
-        else:
-            msg = f"Environment `{self.ns}` has already shutdown."
-        return msg
-
     def _shutdown(self):
         if not self.has_shutdown:
             self._shutdown_srv.unregister()
@@ -422,6 +411,7 @@ class BaseEnv(gym.Env):
                 self.env.node_shutdown()
             self.mb.shutdown()
             self.bnd.delete_param(f"/{self.name}", level=1)
+            self.bnd.shutdown()
             self.has_shutdown = True
 
     def _register_nodes(self, nodes: Union[List[NodeSpec], NodeSpec]) -> None:

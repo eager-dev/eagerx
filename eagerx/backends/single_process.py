@@ -56,7 +56,8 @@ class SingleProcess(eagerx.Backend):
     DISTRIBUTED_SUPPORT = False
     MULTIPROCESSING_SUPPORT = False
     COLAB_SUPPORT = True
-    MIN_THREADS = 60
+
+    MIN_THREADS = 10
 
     @staticmethod
     @eagerx.register.spec("SingleProcess", eagerx.Backend)
@@ -77,7 +78,6 @@ class SingleProcess(eagerx.Backend):
         return _Subscriber(self._bnd, self._topics, self._cond, address, dtype, callback, callback_args=callback_args)
 
     def register_environment(self, name: str, force_start: bool, fn: typing.Callable):
-        """Does nothing."""
         return _ShutdownService()
 
     def delete_param(self, param: str, level: int = 1) -> None:
@@ -120,12 +120,18 @@ class SingleProcess(eagerx.Backend):
     def spin(self):
         raise NotImplementedError(f"Not implemented, because backend '{self.BACKEND}' does not support multiprocessing.")
 
-    def on_shutdown(self, h):
-        # raise NotImplementedError("TODO")
-        return
+    def shutdown(self) -> None:
+        if not self._has_shutdown:
+            self.logdebug(f"Backend.shutdown() called.")
+            self._has_shutdown = True
+            self._tpool.shutdown(wait=True)
 
-    def signal_shutdown(self, reason):
-        raise NotImplementedError(f"Not implemented, because '{self.BACKEND}' does not support multiprocessing.")
+    # def on_shutdown(self, fn):
+    #     # raise NotImplementedError("TODO")
+    #     return
+    #
+    # def signal_shutdown(self, reason):
+    #     raise NotImplementedError(f"Not implemented, because '{self.BACKEND}' does not support multiprocessing.")
 
 
 class _Publisher(Publisher):
@@ -171,10 +177,6 @@ class _Publisher(Publisher):
             if not isinstance(msg, (np.ndarray, np.number, str, bool)):
                 self._bnd.logerr(f"[publisher][{self._name}]: type(recv)={type(msg)}")
                 time.sleep(10000000)
-
-            # Publish
-            if self._address == "/Pendulum_2_True_0/reset":
-                print(f"[publisher][{self._name}]: reset sent!")
 
             # with self._cond:  # todo: needed?
             for cb in self._topic["subs"]:
@@ -226,8 +228,7 @@ class _Subscriber(Subscriber):
             self._name = f"{self._address}"
 
         if latched is not None:
-            print("LATCHED: ", self._address)
-            # if "initialized" in self._address:
+            self._bnd.logdebug(f"LATCHED: {self._address}")
             self.callback(latched)  # todo: inside cond?
 
     def callback(self, msg):

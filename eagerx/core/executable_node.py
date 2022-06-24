@@ -59,7 +59,7 @@ class RxNode(object):
         self.mb.add_rx_objects(node_name=name, node=self, **rx_objects)
 
         # Prepare closing routine
-        self.backend.on_shutdown(self.node_shutdown)
+        # self.backend.on_shutdown(self.node_shutdown)
 
     def node_initialized(self):
         # Notify env that node is initialized
@@ -147,6 +147,7 @@ class RxNode(object):
             self._shutdown()
             self.node.shutdown()
             self.mb.shutdown()
+            self.backend.shutdown()
             self.has_shutdown = True
 
 
@@ -159,6 +160,8 @@ if __name__ == "__main__":
 
     message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}", backend=backend)
 
+    pnode = None
+
     try:
         pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker, object_name=f"{ns}/{object_name}")
 
@@ -168,6 +171,6 @@ if __name__ == "__main__":
 
         backend.spin()
     finally:
-        if not pnode.has_shutdown:
-            backend.loginfo(f"[{ns}/{name}] Send termination signal to '{ns}/{name}'.")
-            backend.signal_shutdown(f"Terminating '{ns}/{name}'")
+        if pnode is not None and not pnode.has_shutdown:
+            backend.loginfo(f"Terminating '{ns}/{name}'")
+            pnode.node_shutdown()

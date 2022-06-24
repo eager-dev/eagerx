@@ -96,8 +96,10 @@ class Ros1(eagerx.Backend):
 
         # Setup remote shutdown procedure for environment
         def _remote_shutdown(req: TriggerRequest):
-            shutdown_msg = fn()
-            return TriggerResponse(success=True, message=shutdown_msg)
+            Ros1.loginfo(f"Remote shutdown procedure started.")
+            fn()
+            Ros1.loginfo(f"Remote shutdown procedure completed.")
+            return TriggerResponse(success=True, message="")
 
         shutdown_srv = rospy.Service(f"{name}/environment/shutdown", Trigger, _remote_shutdown)
         return _ShutdownService(shutdown_srv)
@@ -129,11 +131,11 @@ class Ros1(eagerx.Backend):
     def spin(self):
         return rospy.spin()
 
-    def on_shutdown(self, h):
-        return rospy.core.add_client_shutdown_hook(h)
-
-    def signal_shutdown(self, reason):
-        return rospy.signal_shutdown(reason)
+    # def on_shutdown(self, fn):
+    #     return rospy.core.add_client_shutdown_hook(fn)
+    #
+    # def signal_shutdown(self, reason):
+    #     return rospy.signal_shutdown(reason)
 
 
 # Private
