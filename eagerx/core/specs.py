@@ -1014,7 +1014,8 @@ class RxOutput(Component):
     def build(self, ns=""):
         params = self.__dict__.copy()
         params["address"] = "/".join(filter(None, [ns, params["address"]]))
-        params["dtype"] = get_output_dtype(params["space"]["dtype"], params["processor"])
+        dtype = params["space"]["dtype"] if params["space"] is not None else "float32"
+        params["dtype"] = get_output_dtype(dtype, params["processor"])
         return params
 
 

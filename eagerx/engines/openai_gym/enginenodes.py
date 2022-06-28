@@ -1,6 +1,5 @@
 from typing import Optional, List
 
-# from pyglet.gl.lib import GLException
 import skimage.transform
 import numpy as np
 import gym
