@@ -199,7 +199,6 @@ dependencies:
   - pango=1.48.7=hb8ff022_0
   - paramiko=2.10.3=pyhd8ed1ab_0
   - pcre=8.45=h9c3ff4c_0
-  - pip=21.2.4=py38h06a4308_0
   - pixman=0.40.0=h36c2ea0_0
   - pkg-config=0.29.2=h36c2ea0_1008
   - pluggy=1.0.0=py38h578d9bd_3
@@ -231,7 +230,6 @@ dependencies:
   - python-gnupg=0.4.8=pyhd8ed1ab_0
   - python-orocos-kdl=1.4.0=py38h709712a_0
   - python_abi=3.8=2_cp38
-  - pytorch-mutex=1.0=cpu
   - pyyaml=6.0=py38h0a891b7_4
   - qt=5.12.9=hda022c4_4
   - readline=8.1.2=h7f8727e_1
@@ -467,10 +465,12 @@ dependencies:
   - zziplib=0.13.69=h27826a3_1
   - pip:
     - alabaster==0.7.12
+    - alembic==1.7.7
     - anyio==3.5.0
     - argon2-cffi==21.3.0
     - argon2-cffi-bindings==21.2.0
     - asttokens==2.0.5
+    - autopage==0.5.0
     - babel==2.9.1
     - backcall==0.2.0
     - beautifulsoup4==4.11.1
@@ -481,26 +481,33 @@ dependencies:
     - charset-normalizer==2.0.12
     - cleo==0.8.1
     - click==8.1.2
+    - cliff==3.10.1
     - clikit==0.6.2
-    - cloudpickle==2.0.0
+    - cloudpickle
+    - cmaes==0.8.2
+    - cmd2==2.4.1
+    - colorlog==6.6.0
     - crashtest==0.3.1
     - debugpy==1.6.0
     - decorator==5.1.1
     - docutils==0.17.1
-    - eagerx==0.1.22
-    - eagerx-gui==0.2.4
-    - eagerx-ode==0.1.11
-    - eagerx-pybullet==0.1.7
-    - eagerx-reality==0.1.6
-    - eagerx-tutorials==0.1.10
+    - eagerx==0.1.24
+    - eagerx-gui==0.2.5
+    - eagerx-ode==0.1.12
+    - eagerx-pybullet==0.1.8
+    - eagerx-reality==0.1.7
+    - eagerx-tutorials==0.1.17
     - entrypoints==0.4
     - executing==0.8.3
     - fastjsonschema==2.15.3
     - filelock==3.6.0
     - flake8==4.0.1
     - flake8-bugbear==22.3.23
+    - greenlet==1.1.2
     - gym==0.21.0
     - html5lib==1.1
+    - huggingface-hub==0.6.0
+    - huggingface-sb3==2.1.0
     - idna==3.3
     - imageio==2.16.1
     - imagesize==1.3.0
@@ -509,6 +516,7 @@ dependencies:
     - ipykernel==6.13.0
     - ipython==8.2.0
     - ipython-genutils==0.2.0
+    - ipywidgets==7.7.0
     - isort==5.10.1
     - jedi==0.18.1
     - jeepney==0.8.0
@@ -518,12 +526,15 @@ dependencies:
     - jupyter-client==7.2.2
     - jupyter-core==4.10.0
     - jupyter-server==1.16.0
-    - jupyterlab==3.3.4
+    - jupyterlab==3.4.0
     - jupyterlab-pygments==0.2.2
     - jupyterlab-server==2.13.0
+    - jupyterlab-widgets==1.1.0
     - keyring==23.5.0
     - libcst==0.4.1
+    - llvmlite==0.38.0
     - lockfile==0.12.2
+    - mako==1.2.0
     - markupsafe==2.1.1
     - matplotlib-inline==0.1.3
     - mccabe==0.6.1
@@ -540,20 +551,26 @@ dependencies:
     - ninja==1.10.2.3
     - notebook==6.4.11
     - notebook-shim==0.1.0
+    - numba==0.55.1
     - opencv-python==4.5.5.64
+    - optuna==2.10.0
     - packaging==20.9
     - pandas==1.4.2
     - pandocfilters==1.5.0
     - parso==0.8.3
     - pastel==0.2.1
     - pathspec==0.9.0
+    - pbr==5.9.0
     - pexpect==4.8.0
     - pickleshare==0.7.5
     - pillow==9.1.0
+    - pip==22.1
     - pkginfo==1.8.2
     - platformdirs==2.5.1
+    - plotly==5.8.0
     - poetry==1.1.13
     - poetry-core==1.0.8
+    - prettytable==3.3.0
     - prometheus-client==0.14.1
     - prompt-toolkit==3.0.29
     - ptyprocess==0.7.0
@@ -564,6 +581,7 @@ dependencies:
     - pyglet==1.5.23
     - pygments==2.11.2
     - pylev==1.4.0
+    - pyperclip==1.8.2
     - pyqt6==6.2.3
     - pyqt6-qt6==6.2.4
     - pyqt6-sip==13.2.1
@@ -596,22 +614,27 @@ dependencies:
     - sphinxcontrib-jsmath==1.0.1
     - sphinxcontrib-qthelp==1.0.3
     - sphinxcontrib-serializinghtml==1.1.5
+    - sqlalchemy==1.4.36
     - stable-baselines3==1.5.0
     - stack-data==0.2.0
+    - stevedore==3.5.0
     - tabulate==0.8.9
+    - tenacity==8.0.1
     - termcolor==1.1.0
     - terminado==0.13.3
     - tifffile==2022.3.25
     - tinycss2==1.1.1
     - tokenize-rt==4.2.1
     - tomlkit==0.10.1
-    - torch==1.11.0+cpu
+    - tqdm==4.64.0
     - traitlets==5.1.1
     - typing==3.7.4.3
     - typing-extensions==4.1.1
     - typing-inspect==0.7.1
     - urllib3==1.26.9
     - virtualenv==20.14.1
+    - wasabi==0.9.1
     - wcwidth==0.2.5
     - webencodings==0.5.1
     - websocket-client==1.3.2
+    - widgetsnbextension==3.6.0
