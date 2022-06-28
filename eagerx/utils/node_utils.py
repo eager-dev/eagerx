@@ -60,7 +60,7 @@ def initialize_nodes(
                     f"Backend '{bnd.BACKEND}' does not support multiprocessing, "
                     "so all nodes are launched in the ENVIRONMENT process."
                 )
-                params[name]["process"] = ENVIRONMENT
+                params[name]["config"]["process"] = ENVIRONMENT
             elif node.config.process == EXTERNAL and not bnd.DISTRIBUTED_SUPPORT:
                 raise BackendException(
                     f"Backend '{bnd.BACKEND}' does not support distributed computation. "
@@ -75,7 +75,7 @@ def initialize_nodes(
             params = params[name]
         else:
             params = node
-            name = params["name"]
+            name = params["config"]["name"]
         # Flag to check if node is initialized
         is_initialized[name] = False
 
@@ -93,24 +93,24 @@ def initialize_nodes(
         message_broker.subscribers.append(sub)
 
         # Initialize node
-        if params["process"] == process_id:  # Initialize inside this process
+        if params["config"]["process"] == process_id:  # Initialize inside this process
             if node_args is None:
                 node_args = dict()
             sp_nodes[node_address] = rxnode_cls(name=node_address, message_broker=message_broker, **node_args)
             sp_nodes[node_address].node_initialized()
         elif (
-            params["process"] == process.NEW_PROCESS and process_id == process.ENVIRONMENT
+            params["config"]["process"] == process.NEW_PROCESS and process_id == process.ENVIRONMENT
         ):  # Only environment can launch new processes (as it is the main_thread)
-            assert "executable" in params, (
+            assert "executable" in params["config"], (
                 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.'
                 % name
             )
             bnd_params = message_broker.bnd.spec_string
-            cmd = get_launch_cmd(params["executable"], bnd_params, ns, name, object_name, external=False)
+            cmd = get_launch_cmd(params["config"]["executable"], bnd_params, ns, name, object_name, external=False)
             launch_nodes[node_address] = subprocess.Popen(cmd)
-        elif params["process"] == process.EXTERNAL:
+        elif params["config"]["process"] == process.EXTERNAL:
             bnd_params = message_broker.bnd.spec_string
-            cmd = get_launch_cmd(params["executable"], bnd_params, ns, name, object_name, external=True)
+            cmd = get_launch_cmd(params["config"]["executable"], bnd_params, ns, name, object_name, external=True)
             cmd_joined = " ".join(cmd).replace("\n", "\\n")
             message_broker.bnd.loginfo(f'Launch node "{name}" externally with: {cmd_joined}')
         # else: node is launched in another (already launched) node's process (e.g. engine process).

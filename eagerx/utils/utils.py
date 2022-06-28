@@ -92,17 +92,10 @@ def load(mod_attr: str):
     return get_attribute_from_module(mod_attr)
 
 
-def initialize_processor(args):
-    processor_args = copy.deepcopy(args)
-    processor_args.pop("processor_type")
-    processor_cls = load(args["processor_type"])
-    return processor_cls(**processor_args)
-
-
-def initialize_state(args):
-    state_cls = load(args["state_type"])
-    del args["state_type"]
-    return state_cls(**args)
+def initialize_processor(spec):
+    processor = load(spec.params["processor_type"])()
+    processor.initialize(spec)
+    return processor
 
 
 def get_output_dtype(dtype, processor):
@@ -128,15 +121,6 @@ def is_compatible(dtype_source, dtype_target, processor_source=None, processor_t
             f"the dtype of target ({dtype_target})."
         )
         assert dtype_target == dtype_out, msg
-
-
-def get_module_type_string(cls):
-    module = inspect.getmodule(cls).__name__
-    return "%s/%s" % (module, cls.__name__)
-
-
-def get_cls_from_string(cls_string):
-    return load(cls_string)
 
 
 class Stamp(NamedTuple):
@@ -183,23 +167,23 @@ Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
 
 
-def check_valid_rosparam_type(param):
-    valid_types = (str, int, list, float, bool, dict)
-    if isinstance(param, valid_types) or param is None:
-        if isinstance(param, dict):
-            for key, value in param.items():
-                assert isinstance(
-                    key, str
-                ), 'Only keys of type "str" are supported in dictionaries that are uploaded to the rosparam server.'
-                check_valid_rosparam_type(value)
-        if isinstance(param, list):
-            for value in param:
-                check_valid_rosparam_type(value)
-    else:
-        raise ValueError(
-            'Type "%s" of a specified param with value "%s" is not supported by the rosparam server.'
-            % (type(param), param.__name__)
-        )
+# def check_valid_rosparam_type(param):
+#     valid_types = (str, int, list, float, bool, dict)
+#     if isinstance(param, valid_types) or param is None:
+#         if isinstance(param, dict):
+#             for key, value in param.items():
+#                 assert isinstance(
+#                     key, str
+#                 ), 'Only keys of type "str" are supported in dictionaries that are uploaded to the rosparam server.'
+#                 check_valid_rosparam_type(value)
+#         if isinstance(param, list):
+#             for value in param:
+#                 check_valid_rosparam_type(value)
+#     else:
+#         raise ValueError(
+#             'Type "%s" of a specified param with value "%s" is not supported by the rosparam server.'
+#             % (type(param), param.__name__)
+#         )
 
 
 def deepcopy(func):

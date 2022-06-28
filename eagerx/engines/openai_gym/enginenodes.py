@@ -17,10 +17,9 @@ from eagerx.core.constants import process
 
 
 class ObservationSensor(EngineNode):
-    @staticmethod
-    @register.spec("ObservationSensor", EngineNode)
-    def spec(
-        spec,
+    @classmethod
+    def make(
+        cls,
         name: str,
         rate: float,
         process: Optional[int] = process.ENGINE,
@@ -29,6 +28,8 @@ class ObservationSensor(EngineNode):
         color: Optional[str] = "cyan",
     ):
         """ObservationSensor spec"""
+        spec = cls.get_specification()
+
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -36,14 +37,16 @@ class ObservationSensor(EngineNode):
         spec.config.color = color
         spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
         spec.config.outputs = outputs if isinstance(outputs, list) else ["observation"]
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec, object_spec, simulator):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.id = self.engine_config["env_id"]
-        self.obj_name = self.config["name"]
+        self.simulator = simulator
+        self.id = object_spec.engine.env_id
+        self.obj_name = object_spec.config.name
         self.last_obs = None
 
     @register.states()
@@ -64,10 +67,9 @@ class ObservationSensor(EngineNode):
 
 
 class RewardSensor(EngineNode):
-    @staticmethod
-    @register.spec("RewardSensor", EngineNode)
-    def spec(
-        spec,
+    @classmethod
+    def make(
+        cls,
         name: str,
         rate: float,
         process: Optional[int] = process.ENGINE,
@@ -76,6 +78,8 @@ class RewardSensor(EngineNode):
         color: Optional[str] = "cyan",
     ):
         """RewardSensor spec"""
+        spec = cls.get_specification()
+
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -83,14 +87,16 @@ class RewardSensor(EngineNode):
         spec.config.color = color
         spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
         spec.config.outputs = outputs if isinstance(outputs, list) else ["reward"]
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec, object_spec, simulator):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.id = self.engine_config["env_id"]
-        self.obj_name = self.config["name"]
+        self.simulator = simulator
+        self.id = object_spec.engine.env_id
+        self.obj_name = object_spec.config.name
         self.last_reward = None
 
     @register.states()
@@ -114,10 +120,9 @@ class RewardSensor(EngineNode):
 
 
 class DoneSensor(EngineNode):
-    @staticmethod
-    @register.spec("DoneSensor", EngineNode)
-    def spec(
-        spec,
+    @classmethod
+    def make(
+        cls,
         name: str,
         rate: float,
         process: Optional[int] = process.ENGINE,
@@ -126,6 +131,8 @@ class DoneSensor(EngineNode):
         color: Optional[str] = "cyan",
     ):
         """DoneSensor spec"""
+        spec = cls.get_specification()
+
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -133,14 +140,16 @@ class DoneSensor(EngineNode):
         spec.config.color = color
         spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
         spec.config.outputs = outputs if isinstance(outputs, list) else ["done"]
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec, object_spec, simulator):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.id = self.engine_config["env_id"]
-        self.obj_name = self.config["name"]
+        self.simulator = simulator
+        self.id = object_spec.engine.env_id
+        self.obj_name = object_spec.config.name
         self.last_done = None
 
     @register.states()
@@ -164,10 +173,9 @@ class DoneSensor(EngineNode):
 
 
 class ActionActuator(EngineNode):
-    @staticmethod
-    @register.spec("ActionActuator", EngineNode)
-    def spec(
-        spec,
+    @classmethod
+    def make(
+        cls,
         name: str,
         rate: float,
         zero_action=None,
@@ -177,6 +185,8 @@ class ActionActuator(EngineNode):
         color: Optional[str] = "green",
     ):
         """ActionActuator spec"""
+        spec = cls.get_specification()
+
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -187,25 +197,27 @@ class ActionActuator(EngineNode):
 
         # Modify custom node params
         spec.config.zero_action = zero_action
+        return spec
 
-    def initialize(self, zero_action):
+    def initialize(self, spec, object_spec, simulator):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.obj_name = self.config["name"]
+        self.obj_name = object_spec.config.name
+        self.simulator = simulator
         self.simulator[self.obj_name]["env"]: gym.Env
         self.is_discrete = (
             True if isinstance(self.simulator[self.obj_name]["env"].action_space, gym.spaces.Discrete) else False
         )
-        if zero_action is None:
+        if spec.config.zero_action is None:
             self.zero_action = self.simulator[self.obj_name]["env"].action_space.sample()
         else:
-            if isinstance(zero_action, list):
+            if isinstance(spec.config.zero_action, list):
                 dtype = self.simulator[self.obj_name]["env"].action_space.dtype
-                self.zero_action = np.array(zero_action, dtype=dtype)
+                self.zero_action = np.array(spec.config.zero_action, dtype=dtype)
             else:
-                self.zero_action = zero_action
+                self.zero_action = spec.config.zero_action
             assert self.simulator[self.obj_name]["env"].action_space.contains(
                 self.zero_action
             ), f'The zero action provided for "{self.obj_name}" is not contained in the action space of this environment.'
@@ -241,10 +253,9 @@ class ActionActuator(EngineNode):
 
 
 class GymImage(EngineNode):
-    @staticmethod
-    @register.spec("GymImage", EngineNode)
-    def spec(
-        spec,
+    @classmethod
+    def make(
+        cls,
         name: str,
         rate: float,
         process: Optional[int] = process.ENGINE,
@@ -255,6 +266,8 @@ class GymImage(EngineNode):
         always_render=False,
     ):
         """GymImage spec"""
+        spec = cls.get_specification()
+
         # Set default
         spec.config.name = name
         spec.config.rate = rate
@@ -267,17 +280,19 @@ class GymImage(EngineNode):
         spec.config.shape = shape if isinstance(shape, list) else [200, 200]
         spec.config.always_render = always_render
         spec.outputs.image.space = Box(low=0, high=255, shape=spec.config.shape + [3], dtype="uint8")
+        return spec
 
-    def initialize(self, shape, always_render):
+    def initialize(self, spec, object_spec, simulator):
         # We will probably use self.simulator[self.obj_name] in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.shape = tuple(shape)
-        self.always_render = always_render
+        self.simulator = simulator
+        self.shape = tuple(spec.config.shape)
+        self.always_render = spec.config.always_render
         self.render_toggle = False
-        self.id = self.engine_config["env_id"]
-        self.obj_name = self.config["name"]
+        self.id = object_spec.engine.env_id
+        self.obj_name = object_spec.config.name
         self.sub_toggle = self.backend.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
         self._cond = threading.Condition()
 

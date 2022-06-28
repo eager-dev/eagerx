@@ -16,7 +16,7 @@ ENV = eagerx.ENVIRONMENT
 )
 def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Start roscore
-    eagerx.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.WARN)
 
     # Define unique name for test environment
     name = f"{eps}_{steps}_{sync}_{p}"
@@ -25,12 +25,14 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     rate = 17
 
     # Define nodes
-    N1 = eagerx.Node.make("Process", "N1", rate=18, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1"])
-    KF = eagerx.Node.make("KalmanFilter", "KF", rate=19, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
-    N3 = eagerx.ResetNode.make("RealReset", "N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
+    from tests.test.nodes import ProcessNode, KalmanNode, RealResetNode
+    N1 = ProcessNode.make("N1", rate=18, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1"])
+    KF = KalmanNode.make("KF", rate=19, process=node_p, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
+    N3 = RealResetNode.make("N3", rate=rate, process=node_p, inputs=["in_1"], targets=["target_1"])
 
     # Define object
-    viper = eagerx.Object.make("Viper", "obj", actuators=["N8"], sensors=["N6", "N7"], states=["N9"])
+    from tests.test.objects import Viper
+    viper = Viper.make("obj", actuators=["N8"], sensors=["N6", "N7"], states=["N9"])
 
     # Define graph
     graph = eagerx.Graph.create(nodes=[N1, N3, KF], objects=[viper])
@@ -63,13 +65,14 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
     graph.gui()
 
     # Define engine
-    engine = eagerx.Engine.make("TestEngine", rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
+    from tests.test.engine import TestEngine
+    engine = TestEngine.make(rate=20, sync=sync, real_time_factor=rtf, process=engine_p)
 
     # Define backend
     from eagerx.backends.ros1 import Ros1
-    backend = Ros1.spec()
+    backend = Ros1.make()
     # from eagerx.backends.single_process import SingleProcess
-    # backend = SingleProcess.spec()
+    # backend = SingleProcess.make()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):

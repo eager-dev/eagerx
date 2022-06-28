@@ -86,6 +86,9 @@ class EngineGraph:
             nodes = [nodes]
 
         for node in nodes:
+            # Check spec
+            self._check_spec(node)
+
             name = node.config.name
             assert name not in self._state["nodes"], (
                 'There is already a node or object registered in this graph with name "%s".' % name
@@ -914,3 +917,11 @@ class EngineGraph:
     @supported_types(str, int, list, float, bool, dict, EntitySpec, GraphView, None)
     def _set(state, mapping):
         merge(state, mapping)
+
+    @staticmethod
+    def _check_spec(spec):
+        if spec.config.name in ["sensors", "actuators"]:
+            return
+        from eagerx.core.entities import EngineNode
+
+        EngineNode.check_spec(spec)

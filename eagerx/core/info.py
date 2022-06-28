@@ -2,27 +2,19 @@ import inspect
 import functools
 from textwrap import indent
 from eagerx.core import register
-from eagerx.utils.utils import load
+from eagerx.core.entities import Object, Processor
 
 
-def get_info(entity, id, methods=None, no_cls=False, return_msg=False):
+def get_info(cls, methods=None, no_cls=False, return_msg=False):
     """Get information on the entity's registered function"""
     REGISTRY = register.REGISTRY
     TYPE_REGISTER = register.TYPE_REGISTER
 
-    # Get the registered cls
-    try:
-        cls = load(REGISTRY[entity][id]["cls"])
-    except KeyError:
-        if entity not in REGISTRY:
-            msg = f"No entity {entity.__qualname__} was registered."
-        else:
-            msg = f"No entity '{entity.__qualname__}' with entity_id='{id}' was registered."
-        raise KeyError(msg)
+    id = cls.__module__ + "/" + cls.__qualname__
 
     # Determine methods to print info on
     if methods is None:
-        methods = list(entity.INFO.keys())
+        methods = list(cls.INFO.keys())
     elif isinstance(methods, str):
         methods = [methods]
     assert isinstance(
@@ -31,52 +23,47 @@ def get_info(entity, id, methods=None, no_cls=False, return_msg=False):
 
     # Create base info message
     tab = "   "
-    msg = f"Registered entity_id=`{id}`:\n"
-    msg += indent(f"entity_type: `{entity.__qualname__}`\n", tab)
+    msg = indent(f"entity_type: `{cls.__qualname__}`\n", tab)
     msg += indent(f"module: `{cls.__module__}`\n", tab)
     msg += indent(f"file: `{inspect.getfile(cls)}`\n", tab)
     msg += "\n"
 
     # Objects: Add supported engines
-    if entity.__qualname__ == "Object":
-        if len(REGISTRY[entity][id].keys()) == 2:
+    if issubclass(cls, Object):
+        if len(REGISTRY[id].keys()) == 2:
             engine_msg = "Supported engines: <Nothing registered>\n"
         else:
             engine_msg = "Supported engines:\n"
-            for engine_id in REGISTRY[entity][id].keys():
-                if engine_id in ["spec", "cls"]:
+            for engine_id in REGISTRY[id].keys():
+                if engine_id in ["make", "cls"]:
                     continue
                 engine_msg += indent(f"{engine_id}\n", tab[2:] + "- ")
 
         msg += engine_msg + "\n"
 
     # Converters: Add conversions
-    if entity.__qualname__ in ["Converter", "SpaceConverter", "Processor"]:
-        conv_msg = "Supported message types:\n"
-        for i in ("MSG_TYPE_A", "MSG_TYPE_B", "MSG_TYPE"):
-            try:
-                conv_msg += indent(f"{i}: {getattr(cls, i)}\n", tab[2:] + "- ")
-            except AttributeError:
-                pass
+    if issubclass(cls, Processor):
+        conv_msg = "Supported dtype:\n"
+        try:
+            conv_msg += indent(f"DTYPE: {cls.DTYPE}\n", tab[2:] + "- ")
+        except AttributeError:
+            pass
         msg += conv_msg + "\n"
 
     # Make spec message
-    method_fn = cls.spec
+    method_fn = cls.make
     sig = inspect.signature(method_fn)
-    # arg_entity_id = inspect.Parameter("entity_id", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=str)
-    # sig = sig.replace(parameters=(arg_entity_id,) + tuple(sig.parameters.values())[1:])
     msg += "Make this spec with:\n"
-    make_msg = f"spec = {method_fn.__wrapped__.func.__qualname__}{sig}\n"
-    # make_msg = f"spec = {entity.__qualname__}.make{sig}\n"
+    make_msg = f"spec = {method_fn.__qualname__}{sig}\n"
     msg += indent(make_msg + "\n", tab)
 
     # Generate class
     if not no_cls:
-        msg += f"class {cls.__qualname__}({entity.__qualname__}):\n"
+        msg += f"class {cls.__qualname__}:\n"
         msg += indent(cls.__doc__ + "\n\n", tab) if isinstance(cls.__doc__, str) else ""
 
         # Expand info message
-        for method, register_fns in entity.INFO.items():
+        for method, register_fns in cls.INFO.items():
             if method not in methods:
                 continue
             method_fn = getattr(cls, method)

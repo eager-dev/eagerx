@@ -43,10 +43,11 @@ class Ros1(eagerx.Backend):
     MULTIPROCESSING_SUPPORT = True
     COLAB_SUPPORT = True
 
-    @staticmethod
-    @eagerx.register.spec("Ros1", eagerx.Backend)
-    def spec(spec: eagerx.specs.BackendSpec, log_level=WARN) -> eagerx.specs.BackendSpec:
+    @classmethod
+    def make(cls, log_level=WARN) -> eagerx.specs.BackendSpec:
+        spec = cls.get_specification()
         spec.config.log_level = log_level if isinstance(log_level, str) else eagerx.get_log_level()
+        return spec
 
     def initialize(self):
         _initialize("eagerx_backend_ros1", anonymous=True, log_level=INFO)
@@ -96,9 +97,9 @@ class Ros1(eagerx.Backend):
 
         # Setup remote shutdown procedure for environment
         def _remote_shutdown(req: TriggerRequest):
-            Ros1.loginfo(f"Remote shutdown procedure started.")
+            Ros1.loginfo("Remote shutdown procedure started.")
             fn()
-            Ros1.loginfo(f"Remote shutdown procedure completed.")
+            Ros1.loginfo("Remote shutdown procedure completed.")
             return TriggerResponse(success=True, message="")
 
         shutdown_srv = rospy.Service(f"{name}/environment/shutdown", Trigger, _remote_shutdown)

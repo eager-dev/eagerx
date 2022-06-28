@@ -11,9 +11,7 @@ from eagerx.utils.utils import Msg
 
 class ButterworthFilter(eagerx.Node):
     @staticmethod
-    @register.spec("ButterworthFilter", eagerx.Node)
-    def spec(
-        spec,
+    def make(
         name: str,
         rate: float,
         index: int = 0,
@@ -26,7 +24,6 @@ class ButterworthFilter(eagerx.Node):
         """
         Butterworth filter implementation based on scipy.signal/butter, scipy.signal/sosfilt.
 
-        :param spec: Not provided by user.
         :param name: Node name
         :param rate: Rate at which callback is called.
         :param index: Index (related to Float32MultiArray.data[index])
@@ -37,24 +34,28 @@ class ButterworthFilter(eagerx.Node):
         :param color: console color of logged messages. {'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'grey'}
         :return:
         """
+        spec = ButterworthFilter.get_specification()
+
         # Modify default node params
         spec.config.update(name=name, rate=rate, process=process, color=color, inputs=["signal"], outputs=["filtered"])
 
         # Modify custom node params
         spec.config.update(N=N, Wn=Wn, btype=btype)
 
-        # Add converter & space_converter
+        # Add processor
+        from tests.test.processors import GetIndex
         spec.inputs.signal.window = "$(config N)"
-        spec.inputs.signal.processor = eagerx.Processor.make("GetIndex", index=index)
+        spec.inputs.signal.processor = GetIndex.make(index=index)
+        return spec
 
-    def initialize(self, N, Wn, btype):
-        for i in self.inputs:
-            if i["name"] == "signal":
+    def initialize(self, spec):
+        for cname, i in self.inputs.items():
+            if cname == "signal":
                 assert (
-                    int(i["window"]) >= N
-                ), "The window size of the signal {} is too small to create a filter with order {}.".format(i["window"], N)
-        self.filter = butter(N, Wn, btype, output="sos", fs=self.rate)
-        self.N = N
+                    int(i["window"]) >= spec.config.N
+                ), "The window size of the signal {} is too small to create a filter with order {}.".format(i["window"], spec.config.N)
+        self.filter = butter(spec.config.N, spec.config.Wn, spec.config.btype, output="sos", fs=self.rate)
+        self.N = spec.config.N
 
     @register.states()
     def reset(self):

@@ -1,10 +1,6 @@
 
 # Implementation specific
 import eagerx
-import eagerx.engines.openai_gym as eagerx_gym
-import tests.test.butterworth_filter  # noqa: F401
-import tests.test.processors  # noqa: F401
-
 import pytest
 
 zero_action = {"Pendulum-v0": [0.0], "Pendulum-v1": [0.0], "Acrobot-v1": 0}
@@ -27,15 +23,18 @@ def test_render(colab: bool):
     za = zero_action[gym_id]
 
     # Create object
-    obj = eagerx.Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
+    from eagerx.engines.openai_gym.objects import GymObject
+    obj = GymObject.make(name, env_id=gym_id, rate=rate, default_action=za)
     obj.config.sensors.append("image")
 
     # Define graph
     graph = eagerx.Graph.create(objects=obj)
 
     # Add butterworth filter
-    get_index = eagerx.Processor.make("GetIndex", index=0)
-    bf = eagerx.Node.make("ButterworthFilter", name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
+    from tests.test.processors import GetIndex
+    get_index = GetIndex.make(index=0)
+    from tests.test.butterworth_filter import ButterworthFilter
+    bf = ButterworthFilter.make(name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
     graph.add(bf)
     graph.connect(source=obj.sensors.observation, target=bf.inputs.signal, processor=get_index)
     graph.connect(source=bf.outputs.filtered, observation="filtered")
@@ -50,19 +49,22 @@ def test_render(colab: bool):
     if not colab:
         graph.render(obj.sensors.image, rate=rate)
     else:
-        graph.render(obj.sensors.image, rate=rate, entity_id="ColabRender", process=eagerx.ENVIRONMENT)
+        from eagerx.core.nodes import ColabRender
+        graph.render(obj.sensors.image, rate=rate, render_cls=ColabRender, process=eagerx.ENVIRONMENT)
 
     # Define engine
-    obj.gui("GymEngine")
-    engine = eagerx.Engine.make("GymEngine", rate=rate, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
+    from eagerx.engines.openai_gym.engine import GymEngine
+    obj.gui(GymEngine)
+    engine = GymEngine.make(rate=rate, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
     # Make backend
     from eagerx.backends.ros1 import Ros1
-    backend = Ros1.spec()
+    backend = Ros1.make()
     # from eagerx.backends.single_process import SingleProcess
-    # backend = SingleProcess.spec()
+    # backend = SingleProcess.make()
 
     # Initialize Environment
+    import eagerx.engines.openai_gym as eagerx_gym
     env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine, backend=backend)
 
     # First reset

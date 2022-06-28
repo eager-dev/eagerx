@@ -16,10 +16,11 @@ from eagerx.utils.utils import initialize_processor, Msg, dict_to_space
 
 
 class EnvNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Environment", eagerx.Node)
-    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    @classmethod
+    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "environment"
         spec.config.rate = rate
@@ -29,17 +30,17 @@ class EnvNode(eagerx.Node):
         spec.config.inputs = []
         spec.config.outputs = []
         spec.config.states = []
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec: NodeSpec):
         # Define observation buffers
         self.observation_buffer = dict()
-        for i in self.inputs:
+        for cname, i in self.inputs.items():
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
-            assert i["space"] is not None, f'No space defined for observation {i["name"]}.'
-            name = i["name"]
+            assert i["space"] is not None, f"No space defined for observation {cname}."
             window = i["window"]
-            self.observation_buffer[name] = {
+            self.observation_buffer[cname] = {
                 "msgs": None,
                 "processor": i["processor"],
                 "window": window,
@@ -62,14 +63,16 @@ class EnvNode(eagerx.Node):
 
         # Define action buffers
         self.action_buffer = dict()
-        for i in self.outputs:
+        for cname, i in self.outputs.items():
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
-            assert i["space"] is not None, f'No space defined for observation {i["name"]}.'
+            assert i["space"] is not None, f"No space defined for observation {cname}."
 
-            self.action_buffer[i["name"]] = {"msg": None, "processor": i["processor"], "space": i["space"]}
+            self.action_buffer[cname] = {"msg": None, "processor": i["processor"], "space": i["space"]}
 
     def reset(self):
         self.must_reset = False
@@ -126,10 +129,11 @@ class EnvNode(eagerx.Node):
 
 
 class ObservationsNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Observations", eagerx.Node)
-    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    @classmethod
+    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ObservationsNode spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/observations"
         spec.config.rate = rate
@@ -142,8 +146,9 @@ class ObservationsNode(eagerx.Node):
 
         # Pre-set address to mock an actual input
         spec.inputs.actions_set.address = "env/actions/outputs/set"
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec: NodeSpec):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     def reset(self):
@@ -156,10 +161,11 @@ class ObservationsNode(eagerx.Node):
 
 
 class ActionsNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Actions", eagerx.Node)
-    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    @classmethod
+    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ActionsNode spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/actions"
         spec.config.rate = rate
@@ -172,8 +178,9 @@ class ActionsNode(eagerx.Node):
 
         # Pre-set address to mock an actual input
         spec.inputs.step.address = "env/supervisor/outputs/step"
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec: NodeSpec):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     def reset(self):
@@ -186,10 +193,9 @@ class ActionsNode(eagerx.Node):
 
 
 class RenderNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Render", eagerx.Node)
-    def spec(
-        spec: NodeSpec,
+    @classmethod
+    def make(
+        cls,
         rate,
         display=True,
         log_level=eagerx.log.WARN,
@@ -198,6 +204,8 @@ class RenderNode(eagerx.Node):
         encoding="bgr",
     ):
         """RenderNode spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
@@ -215,11 +223,12 @@ class RenderNode(eagerx.Node):
 
         # Pre-set window
         spec.inputs.image.window = 1
+        return spec
 
-    def initialize(self, display, encoding):
-        self.display = display
+    def initialize(self, spec):
+        self.display = spec.config.display
         self.window = None
-        self.encoding = encoding
+        self.encoding = spec.config.encoding
         self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
         self.sub_toggle = self.backend.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
@@ -299,10 +308,9 @@ class RenderNode(eagerx.Node):
 
 
 class ColabRender(eagerx.Node):
-    @staticmethod
-    @register.spec("ColabRender", eagerx.Node)
-    def spec(
-        spec: NodeSpec,
+    @classmethod
+    def make(
+        cls,
         rate: int,
         process: int = eagerx.process.ENVIRONMENT,
         fps: int = 25,
@@ -314,6 +322,8 @@ class ColabRender(eagerx.Node):
         encoding="bgr",
     ):
         """ColabRender spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
@@ -334,8 +344,9 @@ class ColabRender(eagerx.Node):
 
         # Pre-set window
         spec.inputs.image.window = 1
+        return spec
 
-    def initialize(self, encoding, fps, maxlen, shape, subsample):
+    def initialize(self, spec):
         # todo: Overwrite fps if higher than rate
         # todo: Subsample if fps lower than rate * real_time_factor
         # todo: set node_fps either slightly higher or lower than js_fps?
@@ -348,13 +359,13 @@ class ColabRender(eagerx.Node):
         except ImportError as e:
             self.backend.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
             raise
-        self.dt_fps = 1 / fps
-        self.subsample = subsample
-        self.fps = fps
-        self.shape = shape
-        self.maxlen = maxlen
+        self.dt_fps = 1 / spec.config.fps
+        self.subsample = spec.config.subsample
+        self.fps = spec.config.fps
+        self.shape = spec.config.shape
+        self.maxlen = spec.config.maxlen
         self.window = None
-        self.encoding = encoding
+        self.encoding = spec.config.encoding
         self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
         self.sub_toggle = self.backend.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)

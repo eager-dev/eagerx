@@ -1,8 +1,5 @@
 import eagerx
 
-# Implementation specific
-import tests.test  # noqa # pylint: disable=unused-import
-
 import pytest
 
 
@@ -11,7 +8,8 @@ def test_graph_engine():
     eagerx.set_log_level(eagerx.WARN)
 
     # Define object
-    arm = eagerx.Object.make("Arm", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
+    from tests.test.objects import Arm
+    arm = Arm.make("obj", actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define graph
     graph = eagerx.Graph.create(objects=[arm])
@@ -21,13 +19,14 @@ def test_graph_engine():
     graph.connect(action="act_1", target=arm.actuators.N8)
 
     # Define engine
-    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=eagerx.ENVIRONMENT)
+    from tests.test.engine import TestEngine
+    engine = TestEngine.make(rate=20, sync=True, real_time_factor=0, process=eagerx.ENVIRONMENT)
 
     # Define backend
     # from eagerx.backends.ros1 import Ros1
-    # backend = Ros1.spec()
+    # backend = Ros1.make()
     from eagerx.backends.single_process import SingleProcess
-    backend = SingleProcess.spec()
+    backend = SingleProcess.make()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):

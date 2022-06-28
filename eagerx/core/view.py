@@ -101,8 +101,8 @@ class ViewIterator(object):
 
 
 class View(object):
-    def __init__(self):
-        super(View, self).__setattr__("_unlocked", False)
+    def __init__(self, unlocked):
+        super(View, self).__setattr__("_unlocked", unlocked)
 
     def __getitem__(self, name):
         try:
@@ -151,11 +151,11 @@ class View(object):
 
 
 class SpecView(View):
-    def __init__(self, spec, depth, name=None):
+    def __init__(self, spec, depth, name=None, unlocked=False):
         super(SpecView, self).__setattr__("_spec", spec)
         super(SpecView, self).__setattr__("_depth", depth)
         super(SpecView, self).__setattr__("_name", name)
-        super(SpecView, self).__init__()
+        super(SpecView, self).__init__(unlocked)
         keys_exists(self._spec._params, *self._depth)
 
     def __setattr__(self, name, value):
@@ -234,11 +234,11 @@ class SpecView(View):
 
 
 class GraphView(View):
-    def __init__(self, graph, depth, name):
+    def __init__(self, graph, depth, name, unlocked=False):
         super(GraphView, self).__setattr__("_graph", graph)
         super(GraphView, self).__setattr__("_depth", depth)
         super(GraphView, self).__setattr__("_name", name)
-        super(GraphView, self).__init__()
+        super(GraphView, self).__init__(unlocked)
         keys_exists(self._graph._state["nodes"], *self._depth)
 
     def __setattr__(self, name, value):

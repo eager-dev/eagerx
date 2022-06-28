@@ -35,6 +35,7 @@ class RxNode(object):
         self.has_shutdown = False
 
         # Prepare input & output topics
+        # todo: what is inside kwargs? Simulator?
         (
             rate,
             inputs,
@@ -72,12 +73,64 @@ class RxNode(object):
 
     def _prepare_io_topics(self, name, **kwargs):
         params = get_param_with_blocking(name, self.backend)
-        rate = params["rate"]
+        rate = params["config"]["rate"]
 
         # Get info from engine on reactive properties
-        sync = get_param_with_blocking(self.ns + "/engine/sync", self.backend)
-        real_time_factor = get_param_with_blocking(self.ns + "/engine/real_time_factor", self.backend)
-        simulate_delays = get_param_with_blocking(self.ns + "/engine/simulate_delays", self.backend)
+        sync = get_param_with_blocking(self.ns + "/engine/config/sync", self.backend)
+        real_time_factor = get_param_with_blocking(self.ns + "/engine/config/real_time_factor", self.backend)
+        simulate_delays = get_param_with_blocking(self.ns + "/engine/config/simulate_delays", self.backend)
+
+        # Prepare input topics
+        for i in params["inputs"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Prepare output topics
+        for i in params["outputs"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Prepare state topics
+        for i in params["states"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Prepare target topics
+        for i in params["targets"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Prepare feedthrough topics
+        for i in params["feedthroughs"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Convert lists to dicts
+        params["inputs"] = {i["name"]: i for i in params["inputs"]}
+        params["outputs"] = {i["name"]: i for i in params["outputs"]}
+        params["states"] = {i["name"]: i for i in params["states"]}
+        params["targets"] = {i["name"]: i for i in params["targets"]}
+        params["feedthroughs"] = {i["feedthrough_to"]: i for i in params["feedthroughs"]}
 
         # Get node
         node_cls = load(params["node_type"])
@@ -87,54 +140,18 @@ class RxNode(object):
             sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
+            params=params,
             **kwargs,
-            **params,
         )
 
-        # Prepare input topics
-        for i in params["inputs"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+        # Convert to tuple for reactive pipeline.
+        inputs = tuple([value for key, value in params["inputs"].items()])
+        outputs = tuple([value for key, value in params["outputs"].items()])
+        feedthroughs = tuple([value for key, value in params["feedthroughs"].items()])
+        states = tuple([value for key, value in params["states"].items()])
+        targets = tuple([value for key, value in params["targets"].items()])
 
-        # Prepare output topics
-        for i in params["outputs"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-
-        # Prepare state topics
-        for i in params["states"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-
-        # Prepare target topics
-        for i in params["targets"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-
-        # Prepare feedthrough topics
-        for i in params["feedthroughs"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-
-        return (
-            rate,
-            tuple(params["inputs"]),
-            tuple(params["outputs"]),
-            tuple(params["feedthroughs"]),
-            tuple(params["states"]),
-            tuple(params["targets"]),
-            node,
-        )
+        return rate, inputs, outputs, feedthroughs, states, targets, node
 
     def _shutdown(self):
         self.backend.logdebug(f"[{self.name}] RxNode._shutdown() called.")

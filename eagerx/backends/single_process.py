@@ -59,10 +59,11 @@ class SingleProcess(eagerx.Backend):
 
     MIN_THREADS = 10
 
-    @staticmethod
-    @eagerx.register.spec("SingleProcess", eagerx.Backend)
-    def spec(spec: eagerx.specs.BackendSpec, log_level=WARN) -> eagerx.specs.BackendSpec:
+    @classmethod
+    def make(cls, log_level=WARN) -> eagerx.specs.BackendSpec:
+        spec = cls.get_specification()
         spec.config.log_level = log_level if isinstance(log_level, str) else eagerx.get_log_level()
+        return spec
 
     def initialize(self):
         self._bnd = self
@@ -122,16 +123,9 @@ class SingleProcess(eagerx.Backend):
 
     def shutdown(self) -> None:
         if not self._has_shutdown:
-            self.logdebug(f"Backend.shutdown() called.")
+            self.logdebug("Backend.shutdown() called.")
             self._has_shutdown = True
             self._tpool.shutdown(wait=True)
-
-    # def on_shutdown(self, fn):
-    #     # raise NotImplementedError("TODO")
-    #     return
-    #
-    # def signal_shutdown(self, reason):
-    #     raise NotImplementedError(f"Not implemented, because '{self.BACKEND}' does not support multiprocessing.")
 
 
 class _Publisher(Publisher):

@@ -633,7 +633,7 @@ def init_engine(
         ops.scan(
             combine_dict,
             dict(
-                inputs=inputs_init,
+                inputs=list(inputs_init),
                 sp_nodes=[],
                 launch_nodes=[],
                 state_inputs=[],

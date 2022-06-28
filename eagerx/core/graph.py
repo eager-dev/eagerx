@@ -3,7 +3,7 @@ import yaml
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing import List, Union, Dict, Optional, Any
+from typing import List, Union, Dict, Optional, Any, Type
 import eagerx.core.log as log
 from eagerx.utils.utils import (
     is_compatible,
@@ -86,10 +86,10 @@ class Graph:
             objects = [objects]
 
         # Add action & observation node to list
-        import eagerx.core.nodes  # noqa  Required so that actions & observations node are registered.
+        from eagerx.core.nodes import ActionsNode, ObservationsNode
 
-        actions = Node.make("Actions")
-        observations = Node.make("Observations")
+        actions = ActionsNode.make("Actions")
+        observations = ObservationsNode.make("Observations")
         nodes += [actions, observations]
 
         # Create a state
@@ -111,6 +111,9 @@ class Graph:
             entities = [entities]
 
         for entity in entities:
+            # Check spec validity
+            self._check_spec(entity)
+
             name = entity.config.name
             assert (
                 name not in self._state["nodes"]
@@ -884,7 +887,7 @@ class Graph:
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
-        entity_id: Optional[str] = None,
+        render_cls: Type[Node] = None,
         process: int = eagerx.process.NEW_PROCESS,
         **kwargs,
     ):
@@ -911,9 +914,8 @@ class Graph:
                       in the engine's :func:`~eagerx.core.entities.Engine.spec`.
         :param skip: Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
                      May be necessary to ensure that the connected graph is directed and acyclic.
-        :param entity_id: The :attr:`~eagerx.core.entities.Node.entity_id` with which the render node was registered
-                          with the :func:`eagerx.core.register.spec` decorator. By default, it uses the standard `Render` node.
-                          In Google colab, the `ColabRender` is used.
+        :param render_cls: The :attr:`~eagerx.core.entities.Node` of the render node.
+                           By default, it uses the standard `RenderNode`. In Google colab, the `ColabRender` class is used.
         :param process: Process in which the render node is launched. See :class:`~eagerx.core.constants.process` for all
                         options.
         :param kwargs: Optional arguments required by the render node.
@@ -923,13 +925,14 @@ class Graph:
             self.remove("env/render")
 
         # Add (new) render node to self._state['node']
-        if entity_id is None:
+        if render_cls is None:
             if bool(eval(os.environ.get("EAGERX_COLAB", "0"))):
-                entity_id = "ColabRender"
+                from eagerx.core.nodes import ColabRender as render_cls
+
                 process = eagerx.process.ENVIRONMENT
             else:
-                entity_id = "Render"
-        render = Node.make(entity_id, rate=rate, process=process, **kwargs)
+                from eagerx.core.nodes import RenderNode as render_cls
+        render = render_cls.make(rate=rate, process=process, **kwargs)
         render.inputs.image.space = source.space
         render.inputs.image.space.dtype = "uint8"
         self.add(render)
@@ -1408,3 +1411,18 @@ class Graph:
 
     def get_view(self, name: str, depth: Optional[List[str]] = None):
         return self._get_view(self._state, name, depth)
+
+    @staticmethod
+    def _check_spec(spec):
+        if isinstance(spec, NodeSpec):
+            from eagerx.core.entities import Node
+
+            Node.check_spec(spec)
+        elif isinstance(spec, ResetNodeSpec):
+            from eagerx.core.entities import ResetNode
+
+            ResetNode.check_spec(spec)
+        elif isinstance(spec, ObjectSpec):
+            from eagerx.core.entities import Object
+
+            Object.check_spec(spec)

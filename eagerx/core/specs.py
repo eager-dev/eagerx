@@ -1,17 +1,19 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Type, TYPE_CHECKING
 import gym
 from gym.spaces import Discrete
 from yaml import dump
-import copy
 
 from eagerx.core.view import SpecView, GraphView
 from eagerx.utils.utils import (
     get_output_dtype,
     replace_None,
     deepcopy,
-    get_default_params,
 )
 from eagerx.utils.utils_sub import substitute_args
+
+
+if TYPE_CHECKING:
+    from eagerx.core.entities import Engine
 
 
 class EntitySpec(object):
@@ -46,10 +48,7 @@ class BackendSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
 
     def initialize(self, spec_cls):
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            d.update(defaults)
+        pass
 
     @property
     def config(self) -> SpecView:
@@ -61,17 +60,14 @@ class BackendSpec(EntitySpec):
 
         :return: (mutable) API to get/set parameters.
         """
-        return SpecView(self, depth=["config"])
+        return SpecView(self, depth=["config"], unlocked=True)
 
 
 class ProcessorSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the processor."""
 
     def initialize(self, spec_cls):
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            d.update(defaults)
+        pass
 
     @property
     def config(self) -> SpecView:
@@ -83,17 +79,14 @@ class ProcessorSpec(EntitySpec):
 
         :return: (mutable) API to get/set parameters.
         """
-        return SpecView(self, depth=[])
+        return SpecView(self, depth=[], unlocked=True)
 
 
 class EngineStateSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
 
     def initialize(self, spec_cls):
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            d.update(defaults)
+        pass
 
     @property
     def config(self) -> SpecView:
@@ -105,19 +98,19 @@ class EngineStateSpec(EntitySpec):
 
         :return: API to get/set parameters.
         """
-        return SpecView(self, depth=[])
+        return SpecView(self, depth=[], unlocked=True)
 
 
 class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
 
-    def _lookup(self, depth):
+    def _lookup(self, depth, unlocked=False):
         name = self._params["config"]["name"]
         if self.has_graph:
-            return GraphView(self.graph, depth=[name, depth], name=name)
+            return GraphView(self.graph, depth=[name, depth], name=name, unlocked=unlocked)
         else:
-            return SpecView(self, depth=[depth], name=name)
+            return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
     @property
     def config(self) -> Union[SpecView, GraphView]:
@@ -156,7 +149,7 @@ class BaseNodeSpec(EntitySpec):
 
         :return: API to get/set parameters.
         """
-        return self._lookup("config")
+        return self._lookup("config", unlocked=True)
 
     @property
     def inputs(self) -> Union[SpecView, GraphView]:
@@ -247,14 +240,6 @@ class BaseNodeSpec(EntitySpec):
                 params = dict()
             else:
                 raise
-
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            d.update(defaults)
-
-        if "engine_config" in params:
-            params.pop("engine_config")
 
         if "targets" in params:
             from eagerx.core.entities import ResetNode
@@ -358,10 +343,8 @@ class BaseNodeSpec(EntitySpec):
 
     def build(self, ns):
         params = self.params  # Creates a deepcopy
-        default = copy.deepcopy(self.config.to_dict())
-        name = default["name"]
-        default["node_type"] = params["node_type"]
-        entity_id = default["entity_id"]
+        name = self.config.name
+        entity_id = self.config.entity_id
 
         # Replace args in .yaml
         context = {
@@ -372,7 +355,7 @@ class BaseNodeSpec(EntitySpec):
 
         # Process inputs
         inputs = []
-        for cname in default["inputs"]:
+        for cname in self.config.inputs:
             assert (
                 cname in params["inputs"]
             ), f'Received unknown {"input"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -384,7 +367,7 @@ class BaseNodeSpec(EntitySpec):
 
         # Process outputs
         outputs = []
-        for cname in default["outputs"]:
+        for cname in self.config.outputs:
             msg = f"The rate ({params['outputs'][cname]['rate']} Hz) set for action '{cname}' does not equal the environment rate ({self.config.rate} Hz)."
             assert params["outputs"][cname]["rate"] == self.config.rate, msg
             assert (
@@ -398,7 +381,7 @@ class BaseNodeSpec(EntitySpec):
             outputs.append(n)
 
         states = []
-        for cname in default["states"]:
+        for cname in self.config.states:
             assert (
                 cname in params["states"]
             ), f'Received unknown {"state"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -410,8 +393,8 @@ class BaseNodeSpec(EntitySpec):
             states.append(n)
 
         targets = []
-        if "targets" in default:
-            for cname in default["targets"]:
+        if "targets" in self.config:
+            for cname in self.config.targets:
                 assert (
                     cname in params["targets"]
                 ), f'Received unknown {"target"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -420,9 +403,9 @@ class BaseNodeSpec(EntitySpec):
 
         feedthroughs = []
         if "feedthroughs" in params:
-            assert "targets" in default, f'No targets defined for ResetNode "{name}".'
-            assert len(default["targets"]) > 0, f'No targets selected for ResetNode "{name}".'
-            for cname in default["outputs"]:
+            assert "targets" in self.config, f'No targets defined for ResetNode "{name}".'
+            assert len(self.config.targets) > 0, f'No targets selected for ResetNode "{name}".'
+            for cname in self.config.outputs:
                 # Add output details  to feedthroughs
                 assert (
                     cname in params["feedthroughs"]
@@ -431,16 +414,16 @@ class BaseNodeSpec(EntitySpec):
                 n = RxFeedthrough(feedthrough_to=cname, **params["feedthroughs"][cname])
                 feedthroughs.append(n)
 
-        default["outputs"] = [i.build(ns=ns) for i in outputs]
-        default["inputs"] = [i.build(ns=ns) for i in inputs]
-        default["states"] = [i.build(ns=ns) for i in states]
-        default["targets"] = [i.build(ns=ns) for i in targets]
-        default["feedthroughs"] = [i.build(ns=ns) for i in feedthroughs]
+        params["outputs"] = [i.build(ns=ns) for i in outputs]
+        params["inputs"] = [i.build(ns=ns) for i in inputs]
+        params["states"] = [i.build(ns=ns) for i in states]
+        params["targets"] = [i.build(ns=ns) for i in targets]
+        params["feedthroughs"] = [i.build(ns=ns) for i in feedthroughs]
 
         # Create rate dictionary with outputs
         chars_ns = len(ns) + 1
         rate_dict = dict()
-        for i in default["outputs"]:
+        for i in params["outputs"]:
             assert i["rate"] is not None and isinstance(i["rate"], (int, float)) and i["rate"] > 0, (
                 f'The rate of node "{name}" (and output cname "{i["name"]}") is misspecified: rate="{i["rate"]}". '
                 'Make sure that it is of type(rate)=("int", "float",) and rate > 0.'
@@ -449,7 +432,7 @@ class BaseNodeSpec(EntitySpec):
             rate_dict[address] = i["rate"]  # {'rate': i['rate']}
 
         # Put parameters in node namespace (watch out, order of dict keys probably matters...)
-        node_params = {name: default, "rate": rate_dict}
+        node_params = {name: params, "rate": rate_dict}
         return replace_None(node_params)
 
 
@@ -578,7 +561,7 @@ class EngineSpec(BaseNodeSpec):
 
         :return: API to get/set parameters.
         """
-        return self._lookup("config")
+        return self._lookup("config", unlocked=True)
 
 
 class ObjectSpec(EntitySpec):
@@ -598,23 +581,14 @@ class ObjectSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
 
-    def __getattr__(self, name):
-        try:
-            return super().__getattribute__(name)
-        except AttributeError:
-            if name in self._params:
-                return SpecView(self, depth=[name], name=self._params["config"]["name"])
-            else:
-                raise
-
-    def _lookup(self, depth):
+    def _lookup(self, depth, unlocked=False):
         name = self._params["config"]["name"]
         if self.has_graph:
-            return GraphView(self.graph, depth=[name, depth], name=name)
+            return GraphView(self.graph, depth=[name, depth], name=name, unlocked=unlocked)
         else:
-            return SpecView(self, depth=[depth], name=name)
+            return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
-    def gui(self, engine_id: str) -> None:
+    def gui(self, engine_cls: Type["Engine"]) -> None:
         """Opens a graphical user interface of the object's engine implementation.
 
         .. note:: Requires `eagerx-gui`:
@@ -629,9 +603,26 @@ class ObjectSpec(EntitySpec):
         import eagerx.core.register as register
 
         spec_copy = ObjectSpec(self.params)
-        spec_copy._params[engine_id] = {}
+        engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
+        spec_copy._params["engine"] = {}
         graph = register.add_engine(spec_copy, engine_id)
         graph.gui()
+
+    @property
+    def engine(self) -> Union[SpecView]:
+        """Provides an API to set/get the parameters of an engine-specific implementation.
+
+        The mutable parameters are:
+
+        - Arguments (excluding spec) of the selected engine's :func:`~eagerx.core.entities.Engine.add_object`.
+
+        - .. py:attribute:: Spec.engine.states.<name>: EngineState
+
+            Link an :class:`~eagerx.core.specs.EngineState` to a registered state with :func:`eagerx.core.register.states`.
+
+        :return: API to get/set parameters.
+        """
+        return SpecView(self, depth=["engine"], name=self._params["config"]["name"])
 
     @property
     def sensors(self) -> Union[SpecView, GraphView]:
@@ -743,37 +734,12 @@ class ObjectSpec(EntitySpec):
 
         :return: API to get/set parameters.
         """
-        return self._lookup("config")
-
-    @property
-    def example_engine(self) -> Union[SpecView, GraphView]:
-        """An example API for an engine-specific implementation with `<engine_id>` = "example_engine".
-
-        .. note:: This is an example method for documentation purposes only.
-
-        The mutable parameters are:
-
-        - Additional parameters registered with :func:`eagerx.core.register.engine_config` that
-          decorates :class:`eagerx.core.entities.add_object` in the engine subclass definition.
-
-        - .. py:attribute:: Spec.<engine_id>.states.<name>: EngineState
-
-            Link an :class:`~eagerx.core.specs.EngineState` to a registered state with :func:`eagerx.core.register.states`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
-        :return: API to get/set parameters.
-        """
-        raise NotImplementedError("This is a mock engine implementation for documentation purposes.")
+        return self._lookup("config", unlocked=True)
 
     def initialize(self, spec_cls):
         import eagerx.core.register as register
 
-        agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
-
-        # Set default agnostic params
-        with self.config as d:
-            d.update(agnostic.pop("config"))
+        agnostic = register.LOOKUP_TYPES[spec_cls.make]
 
         # Set default components
         for component, cnames in agnostic.items():
@@ -805,9 +771,9 @@ class ObjectSpec(EntitySpec):
                 if cname not in getattr(self.config, component):
                     getattr(self.config, component).append(cname)
 
-    def _initialize_engine_config(self, engine_id, engine_config):
+    def _initialize_engine_config(self, engine_config):
         # Add default config
-        with getattr(self, engine_id) as d:
+        with self.engine as d:
             d.update(engine_config)
             d["states"] = {}
             # Add all states to engine-specific params
@@ -815,18 +781,18 @@ class ObjectSpec(EntitySpec):
                 for cname in self.states.keys():
                     s[cname] = None
 
-    def _add_graph(self, engine_id, graph):
+    def _add_graph(self, graph):
         # Register EngineGraph
         nodes, actuators, sensors = graph.register()
 
         # Pop states that were not implemented.
-        with getattr(self, engine_id).states as d:
-            for cname in list(getattr(self, engine_id).states.keys()):
+        with self.engine.states as d:
+            for cname in list(self.engine.states.keys()):
                 if d[cname] is None:
                     d.pop(cname)
 
         # Set engine_spec
-        with getattr(self, engine_id) as d:
+        with self.engine as d:
             d.actuators = actuators
             d.sensors = sensors
             d.nodes = nodes
@@ -853,17 +819,16 @@ class ObjectSpec(EntitySpec):
         # Add engine entry
         import eagerx.core.register as register
 
-        self._params[engine_id] = {}
+        self._params["engine"] = {}
         register.add_engine(self, engine_id)
 
     def build(self, ns, engine_id):
         params = self.params  # Creates a deepcopy
-        default = copy.deepcopy(self.config.to_dict())  # Creates a deepcopy
-        name = default["name"]
+        name = self.config.name
 
         # Construct context
         context = {"ns": {"env_name": ns, "obj_name": name}}
-        substitute_args(default, context, only=["ns"])  # First resolve args within the context
+        substitute_args(params["config"], context, only=["ns"])  # First resolve args within the context
         substitute_args(params, context, only=["ns"])  # Resolve rest of params
 
         # Get agnostic definition
@@ -893,7 +858,7 @@ class ObjectSpec(EntitySpec):
         sensor_addresses = dict()
         dependencies = []
         for obj_comp in ["actuators", "sensors"]:
-            for obj_cname in default[obj_comp]:
+            for obj_cname in params["config"][obj_comp]:
                 try:
                     entry_lst = specific[obj_comp][obj_cname]
                 except KeyError:
@@ -946,7 +911,7 @@ class ObjectSpec(EntitySpec):
         dependencies = list(set(dependencies))
 
         # Verify that no dependency is an unlisted actuator node.
-        not_selected = [cname for cname in agnostic["actuators"] if cname not in default["actuators"]]
+        not_selected = [cname for cname in agnostic["actuators"] if cname not in params["config"]["actuators"]]
         for cname in not_selected:
             try:
                 for entry in specific["actuators"][cname]:
@@ -974,7 +939,7 @@ class ObjectSpec(EntitySpec):
         states = []
         state_names = []
         obj_comp = "states"
-        for obj_cname in default["states"]:
+        for obj_cname in params["config"]["states"]:
             args = agnostic[obj_comp][obj_cname]
             args["name"] = f"{name}/{obj_comp}/{obj_cname}"
             args["address"] = f"{name}/{obj_comp}/{obj_cname}"
@@ -987,27 +952,21 @@ class ObjectSpec(EntitySpec):
             states.append(RxEngineState(**args))
             state_names.append(f'{ns}/{args["name"]}')
 
-        # Create obj parameters
-        obj_params = params["config"]
-
         # Gather node names
-        obj_params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
-        obj_params["state_names"] = state_names
+        params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
+        params["state_names"] = state_names
 
         # Add engine
-        obj_params["engine"] = engine
+        params["engine"] = engine
 
-        # Clean up parameters
-        for component in ["sensors", "actuators", "states"]:
-            try:
-                obj_params.pop(component)
-            except KeyError:
-                pass
+        # Add agnostic definition
+        params.update(**agnostic)
 
         # Add states
-        obj_params["states"] = [s.build(ns) for s in states]
+        assert "states" not in params["engine"], "The keyword `states` is reserved."
+        params["engine"]["states"] = [s.build(ns) for s in states]
         nodes = [NodeSpec(params) for name, params in nodes.items() if name in dependencies]
-        return {name: replace_None(obj_params)}, nodes
+        return {name: replace_None(params)}, nodes
 
 
 # REQUIRED FOR BUILDING SPECS

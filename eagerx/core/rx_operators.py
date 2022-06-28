@@ -887,7 +887,7 @@ def get_node_params(node, node_name):
 
 
 def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
-    name = node_params["name"]
+    name = node_params["config"]["name"]
     nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
     return dict(
         inputs=[],
@@ -907,7 +907,8 @@ def get_object_params(node, obj_name):
         )
 
     # Get state parameters from ROS param server
-    state_params = obj_params["states"]
+    state_params = obj_params["engine"]["states"]
+    obj_params["engine"]["states"] = {s["name"]: s for s in state_params}
 
     # Get parameters from ROS param server
     node_params = []
@@ -926,7 +927,9 @@ def extract_inputs(ns, node_params, state_params, sp_nodes, launch_nodes):
     for i in state_params:
         # Convert to classes
         if "processor" in i and isinstance(i["processor"], dict):
-            i["processor"] = initialize_processor(i["processor"])
+            from eagerx.core.specs import ProcessorSpec
+
+            i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
 
         # Initialize rx objects
         i["msg"] = Subject()  # S
@@ -942,12 +945,12 @@ def extract_inputs(ns, node_params, state_params, sp_nodes, launch_nodes):
     num_outputs = sum([len(params["outputs"]) for params in node_params])
     count = 0
     for params in node_params:
-        name = params["name"]
+        name = params["config"]["name"]
 
         # Process node flags
         nf = dict(
             name=name,
-            address="%s/%s/end_reset" % (ns, name),
+            address=f"{ns}/{name}/end_reset",
             msg=Subject(),
             dtype="bool",
         )

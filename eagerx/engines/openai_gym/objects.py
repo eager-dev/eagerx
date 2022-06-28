@@ -7,22 +7,41 @@ from gym.spaces import Box, Discrete
 
 # EAGERx IMPORTS
 from eagerx.engines.openai_gym.engine import GymEngine
-from eagerx.core.entities import Object, EngineNode
+from eagerx.core.entities import Object
 from eagerx.core.specs import ObjectSpec
 from eagerx.core.graph_engine import EngineGraph
 import eagerx.core.register as register
 
 
 class GymObject(Object):
-    entity_id = "GymObject"
-
-    @staticmethod
+    @classmethod
     @register.sensors(observation=None, reward=None, done=Discrete(2), image=None)
     @register.actuators(action=None)
     @register.engine_states()
-    @register.config(env_id=None, always_render=False, default_action=None, render_shape=[200, 200])
-    def agnostic(spec: ObjectSpec, rate):
-        """Agnostic definition of the GymObject"""
+    def make(
+        cls,
+        name: str,
+        sensors: Optional[List[str]] = None,
+        env_id: str = "Pendulum-v1",
+        rate: float = 20.0,
+        always_render: bool = False,
+        default_action=None,
+        render_shape: Optional[List[int]] = None,
+    ):
+        """Object spec of GymObject"""
+        spec = cls.get_specification()
+
+        # Set default node params
+        spec.config.name = name
+        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "done"]
+        spec.config.actuators = ["action"]
+
+        # Set custom node params
+        spec.config.render_shape = render_shape if render_shape else [200, 200]
+        spec.config.env_id = env_id
+        spec.config.always_render = always_render
+        spec.config.default_action = default_action
+
         # Set spaces
         env = gym.make(spec.config.env_id)
         spec.sensors.observation.space = env.observation_space
@@ -37,49 +56,24 @@ class GymObject(Object):
         spec.sensors.done.rate = rate
         spec.sensors.image.rate = rate
         spec.actuators.action.rate = rate
+        return spec
 
     @staticmethod
-    @register.spec(entity_id, Object)
-    def spec(
-        spec: ObjectSpec,
-        name: str,
-        sensors: Optional[List[str]] = None,
-        env_id: str = "Pendulum-v1",
-        rate: float = 20.0,
-        always_render: bool = False,
-        default_action=None,
-        render_shape: Optional[List[int]] = None,
-    ):
-        """Object spec of GymObject"""
-        # Set default node params
-        spec.config.name = name
-        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "done"]
-        spec.config.actuators = ["action"]
-
-        # Set custom node params
-        spec.config.render_shape = render_shape if render_shape else [200, 200]
-        spec.config.env_id = env_id
-        spec.config.always_render = always_render
-        spec.config.default_action = default_action
-
-        # Add agnostic definition
-        GymObject.agnostic(spec, rate)
-
-    @staticmethod
-    @register.engine(entity_id, GymEngine)  # This decorator pre-initializes engine implementation with default object_params
+    @register.engine(GymEngine)  # This decorator pre-initializes engine implementation with default object_params
     def openai_gym(spec: ObjectSpec, graph: EngineGraph):
         """Engine-specific implementation (GymEngine) of the object."""
         # Set engine arguments (nothing to set here in this case)
-        spec.GymEngine.env_id = spec.config.env_id
+        spec.engine.env_id = spec.config.env_id
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
-        obs = EngineNode.make("ObservationSensor", "obs", rate=spec.sensors.observation.rate, process=2)
+        from eagerx.engines.openai_gym.enginenodes import ObservationSensor, RewardSensor, DoneSensor, ActionActuator, GymImage
+
+        obs = ObservationSensor.make("obs", rate=spec.sensors.observation.rate, process=2)
         obs.outputs.observation.space = spec.sensors.observation.space
-        rwd = EngineNode.make("RewardSensor", "rwd", rate=spec.sensors.reward.rate, process=2)
-        done = EngineNode.make("DoneSensor", "done", rate=spec.sensors.done.rate, process=2)
-        image = EngineNode.make(
-            "GymImage",
+        rwd = RewardSensor.make("rwd", rate=spec.sensors.reward.rate, process=2)
+        done = DoneSensor.make("done", rate=spec.sensors.done.rate, process=2)
+        image = GymImage.make(
             "image",
             shape=spec.config.render_shape,
             always_render=spec.config.always_render,
@@ -89,8 +83,8 @@ class GymObject(Object):
 
         # Create actuator engine nodes
         # Rate=None, because we will connect it to an actuator (thus uses the rate set in the agnostic specification)
-        action = EngineNode.make(
-            "ActionActuator", "action", rate=spec.actuators.action.rate, process=2, zero_action=spec.config.default_action
+        action = ActionActuator.make(
+            "action", rate=spec.actuators.action.rate, process=2, zero_action=spec.config.default_action
         )
         action.outputs.action_applied.space = spec.actuators.action.space
 

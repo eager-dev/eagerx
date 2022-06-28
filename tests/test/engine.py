@@ -6,17 +6,17 @@ from math import isclose
 import rospy
 
 # EAGERx IMPORTS
+from eagerx.core.specs import EngineSpec
 from eagerx.core.constants import process, ERROR
 from eagerx.core.entities import Engine
 import eagerx.core.register as register
 import gym
 
 
-class TestEngineNode(Engine):
-    @staticmethod
-    @register.spec("TestEngine", Engine)
-    def spec(
-        spec,
+class TestEngine(Engine):
+    @classmethod
+    def make(
+        cls,
         rate,
         process: Optional[int] = process.NEW_PROCESS,
         sync: Optional[bool] = True,
@@ -26,6 +26,7 @@ class TestEngineNode(Engine):
         states: Optional[List[str]] = None,
     ):
         """TestEngine spec"""
+        spec = cls.get_specification()
 
         # Modify default engine params
         spec.config.rate = rate
@@ -39,15 +40,16 @@ class TestEngineNode(Engine):
 
         # Add custom params
         spec.config.num_substeps = 10
+        return spec
 
-    def initialize(self, num_substeps: int, nonreactive_address: str):
+    def initialize(self, spec: EngineSpec):
         # Initialize any simulator here, that is passed as reference to each enginenode
         self.simulator = None
+        self.num_substeps = spec.config.num_substeps
 
-    @register.engine_config(req_arg=None, xacro="$(find some_package)/urdf/object.urdf.xacro")
-    def add_object(self, config, engine_config, node_params, state_params):
+    def add_object(self, spec, req_arg: int, xacro: str):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
+        rospy.loginfo(f'Adding object "{spec.config.name}" of type "{spec.config.entity_id}" to the simulator.')
 
     def pre_reset(self, param_1=None):
         return "PRE RESET RETURN VALUE"

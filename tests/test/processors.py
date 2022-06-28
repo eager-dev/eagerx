@@ -7,17 +7,18 @@ from eagerx.core.entities import Processor
 class GetIndex(Processor):
     DTYPE = "float32"
 
-    @staticmethod
-    @register.spec("GetIndex", Processor)
-    def spec(spec, index: Union[int, List[int]]):
+    @classmethod
+    def make(cls, index: Union[int, List[int]]):
+        spec = cls.get_specification()
         if isinstance(index, int):
             index = [index]
         for i in index:
             assert isinstance(i, int) and i >= 0, f'Incorrect index "{i}". Indices must be >= 0.'
         spec.config.index = index
+        return spec
 
-    def initialize(self, index):
-        self.index = index
+    def initialize(self, spec):
+        self.index = spec.config.index
 
     def convert(self, msg):
         if len(msg) == 0:
@@ -28,12 +29,11 @@ class GetIndex(Processor):
 class ToUint8(Processor):
     DTYPE = "uint8"
 
-    @staticmethod
-    @register.spec("ToUint8", Processor)
-    def spec(spec):
-        pass
+    @classmethod
+    def make(cls):
+        return cls.get_specification()
 
-    def initialize(self):
+    def initialize(self, spec):
         pass
 
     def convert(self, msg: np.ndarray):
@@ -43,12 +43,11 @@ class ToUint8(Processor):
 class IdentityProcessor(Processor):
     DTYPE = "uint64"
 
-    @staticmethod
-    @register.spec("IdentityProcessor", Processor)
-    def spec(spec):
-        pass
+    @classmethod
+    def make(cls):
+        return cls.get_specification()
 
-    def initialize(self):
+    def initialize(self, spec):
         pass
 
     def convert(self, msg):

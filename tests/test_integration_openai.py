@@ -18,25 +18,26 @@ ENV = eagerx.ENVIRONMENT
     [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
 def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
-    eagerx.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.WARN)
 
     # Define rate (depends on rate of gym env)
     rate = 20
     name = gym_id.split("-")[0]
     za = zero_action[gym_id]
 
-    # Get signature of object
-    eagerx.Object.info("GymObject")
-
     # Create object
-    obj = eagerx.Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=za)
+    from eagerx.engines.openai_gym.objects import GymObject
+    GymObject.info()
+    obj = GymObject.make(name, env_id=gym_id, rate=rate, default_action=za)
 
     # Define graph
     graph = eagerx.Graph.create(objects=[obj])
 
     # Add butterworth filter
-    get_index = eagerx.Processor.make("GetIndex", index=0)
-    bf = eagerx.Node.make("ButterworthFilter", name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
+    from tests.test.processors import GetIndex
+    get_index = GetIndex.make(index=0)
+    from tests.test.butterworth_filter import ButterworthFilter
+    bf = ButterworthFilter.make(name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
     graph.add(bf)
     graph.connect(source=obj.sensors.observation, target=bf.inputs.signal, processor=get_index)
     graph.connect(source=bf.outputs.filtered, observation="filtered")
@@ -50,14 +51,15 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     name = f"{name}_{eps}_{sync}_{p}"
 
     # Define engine
-    obj.gui("GymEngine")
-    engine = eagerx.Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=rtf, process=p)
+    from eagerx.engines.openai_gym.engine import GymEngine
+    obj.gui(GymEngine)
+    engine = GymEngine.make(rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Define backend
     from eagerx.backends.ros1 import Ros1
-    backend = Ros1.spec()
+    backend = Ros1.make()
     # from eagerx.backends.single_process import SingleProcess
-    # backend = SingleProcess.spec()
+    # backend = SingleProcess.make()
 
     # Initialize Environment
     env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine, backend=backend)
@@ -82,8 +84,8 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
 
 
 if __name__ == "__main__":
-    for _ in range(100):
-        test_integration_openai_engine("Pendulum-v1", 20, True, 0, 0)
+    # for _ in range(100):
+    #     test_integration_openai_engine("Pendulum-v1", 20, True, 0, 0)
     test_integration_openai_engine("Acrobot-v1", 2, True, 0, ENV)
     test_integration_openai_engine("Pendulum-v1", 2, True, 0, ENV)
     test_integration_openai_engine("Pendulum-v1", 2, True, 0, NP)

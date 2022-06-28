@@ -1,4 +1,5 @@
 # EAGERX
+from eagerx.core.nodes import EnvNode
 from eagerx.core.specs import NodeSpec, ObjectSpec, EngineSpec, BackendSpec
 from eagerx.core.entities import Node
 from eagerx.core.graph import Graph
@@ -149,7 +150,7 @@ class BaseEnv(gym.Env):
             if isinstance(i, ObjectSpec):
                 obj_name = i.config.name
                 context = {"ns": {"obj_name": obj_name}, "config": i.config.to_dict()}
-                for node_name, params_enginenode in i.params[self._engine_name]["nodes"].items():
+                for node_name, params_enginenode in i.params["engine"]["nodes"].items():
                     if "states" in params_enginenode["config"]:
                         for cname in params_enginenode["config"]["states"]:
                             comp_params = params_enginenode["states"][cname]
@@ -253,7 +254,7 @@ class BaseEnv(gym.Env):
         )
 
         # Create env node
-        env_spec = Node.make("Environment", rate=self.rate)
+        env_spec = EnvNode.make(rate=self.rate)
         name = env_spec.config.name
         inputs = observations.config.inputs
         outputs = actions.config.outputs
@@ -430,7 +431,7 @@ class BaseEnv(gym.Env):
             objects = [objects]
 
         # Register objects
-        [self.supervisor_node.register_object(o, self._engine_name) for o in objects]
+        [self.supervisor_node.register_object(o, "engine") for o in objects]
 
     @staticmethod
     def _create_supervisor():

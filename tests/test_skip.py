@@ -1,7 +1,6 @@
 import eagerx
 
 # Implementation specific
-import tests.test  # noqa # pylint: disable=unused-import
 import pytest
 
 
@@ -11,32 +10,28 @@ def test_skip_observation(force_start):
     eagerx.set_log_level(eagerx.DEBUG)
 
     # todo: ASYNC: change rate info from (INFO, WARN) to (DEBUG, INFO).
-    # todo: ASYNC: Don't include reset into first rate calculation.
+    # todo: ASYNC: Don't include reset duration into first rate calculation.
     # todo: RX: add blocking to connection
     # todo: RX: add "copy" to connection
     # todo: RX: add duration to node callback && infer simulated delay from durations.
-    # todo: API: improve spec creation API
     # todo: API: improve external launching with readable arguments.
-    # todo: API: is entity_id still needed?
     # todo: SP: rendering requires NEW_PROCESS --> PyVirtualDisplay does not seem to work now...
+    # todo: REG: update docs.
 
-    # todo: REG: remove @register.spec()
-    # todo: REG: Make an explicit classmethod get_specification()
-    # todo: REG: Rename spec method to make, that explicitly returns the spec.
-    # todo: REG: Provide spec as argument to initialize, add_object
-    # todo: REG: Remove decorators: engine_config, config
-    # todo: REG: Remove agnostic method, register Object.make instead.
-    # todo: REG: remove constraint that new paramns cannot be added.
+    # Create node
+    from tests.test.butterworth_filter import ButterworthFilter
+    bf = ButterworthFilter.make("test", 1)
+
+    # Create mean-average filter
+    from tests.test.nodes import ProcessNode
+    N1 = ProcessNode.make("N1", rate=1.0, inputs=["in_1"], outputs=["out_1", "out_2"], process=eagerx.NEW_PROCESS)
 
     # Define object
     from tests.test.objects import Arm
-    arm = Arm.spec(name="obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
+    arm = Arm.make(name="obj", actuators=["ref_vel"], sensors=["N6"], states=["N9"])
 
     # Define graph
     graph = eagerx.Graph.create(objects=[arm])
-
-    # Create mean-average filter
-    N1 = eagerx.Node.make("Process", "N1", rate=1.0, inputs=["in_1"], outputs=["out_1", "out_2"], process=eagerx.NEW_PROCESS)
     graph.add(N1)
 
     # Connect sensors (= outputs of object)
@@ -46,13 +41,14 @@ def test_skip_observation(force_start):
     graph.connect(source=arm.sensors.N6, observation="sens_1")
 
     # Define engine
-    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
+    from tests.test.engine import TestEngine
+    engine = TestEngine.make(rate=20, sync=True, real_time_factor=0, process=eagerx.NEW_PROCESS)
 
     # Make backend - SingleProcess breaks Assertion fail.
     from eagerx.backends.ros1 import Ros1
-    backend = Ros1.spec()
+    backend = Ros1.make()
     # from eagerx.backends.single_process import SingleProcess
-    # backend = SingleProcess.spec()
+    # backend = SingleProcess.make()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):

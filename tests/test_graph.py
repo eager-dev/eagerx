@@ -1,11 +1,5 @@
 import eagerx
 
-# Implementation specific
-import tests.test  # noqa # pylint: disable=unused-import
-
-# Test reloading spec in eagerx.core.register.py.
-import tests.test  # noqa # pylint: disable=unused-import
-
 import pytest
 
 
@@ -15,33 +9,23 @@ def test_graph():
     rate = 7
 
     # Get info on various specs.
-    eagerx.Processor.info("GetIndex")
-    eagerx.Object.info("Viper")
-    try:
-        eagerx.Object.info("UknownEntity")
-    except KeyError as e:
-        print(f"Must fail! {e}")
-
-    # Misspecify spec
-    try:
-        eagerx.Processor.make("GetIndex")
-    except TypeError as e:
-        print(f"Must fail! {e}")
-
-    eagerx.Object.info("Viper", method="spec")
-    eagerx.Object.info("Viper", method=["spec"])
+    from tests.test.processors import GetIndex
+    GetIndex.info()
+    from tests.test.objects import Viper
+    Viper.info()
+    Viper.info(method="make")
+    Viper.info(method=["make"])
 
     # Define nodes
-    N0 = eagerx.Node.make("Process", "N0", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    N1 = eagerx.Node.make("Process", "N1", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    N2 = eagerx.Node.make("Process", "N2", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    KF = eagerx.Node.make("KalmanFilter", "KF", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"],
-                   outputs=["out_1", "out_2"])
-    N3 = eagerx.ResetNode.make("RealReset", "N3", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"],
-                        targets=["target_1"])
+    from tests.test.nodes import ProcessNode, KalmanNode, RealResetNode
+    N0 = ProcessNode.make("N0", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N1 = ProcessNode.make("N1", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N2 = ProcessNode.make("N2", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    KF = KalmanNode.make("KF", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
+    N3 = RealResetNode.make("N3", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"], targets=["target_1"])
 
     # Define object
-    viper = eagerx.Object.make("Viper", "obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
+    viper = Viper.make("obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Test SpecView
     with N3.inputs.unlocked:
@@ -76,17 +60,18 @@ def test_graph():
     graph.get_spec("obj")
 
     # Rendering
+    from tests.test.processors import ToUint8
     graph.render(
         source=viper.sensors.N6,
         rate=1,
         display=False,
-        processor=eagerx.Processor.make("ToUint8")
+        processor=ToUint8.make()
     )
     graph.render(
         source=viper.sensors.N6,
         rate=1,
         display=False,
-        processor=eagerx.Processor.make("ToUint8")
+        processor=ToUint8.make()
     )
 
     # Connect/remove observation
@@ -218,13 +203,14 @@ def test_graph():
     graph.is_valid(plot=True)
 
     # Define engine
-    engine = eagerx.Engine.make("TestEngine", rate=20, sync=True, real_time_factor=5.5, process=eagerx.ENVIRONMENT)
+    from tests.test.engine import TestEngine
+    engine = TestEngine.make(rate=20, sync=True, real_time_factor=5.5, process=eagerx.ENVIRONMENT)
 
     # Define backend
     # from eagerx.backends.ros1 import Ros1
-    # backend = Ros1.spec()
+    # backend = Ros1.make()
     from eagerx.backends.single_process import SingleProcess
-    backend = SingleProcess.spec()
+    backend = SingleProcess.make()
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):

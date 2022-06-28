@@ -81,13 +81,9 @@ class RxEngine(object):
 
     def _prepare_io_topics(self, name):
         params = get_param_with_blocking(name, self.backend)
-        node_names = params["node_names"]
-        target_addresses = params["target_addresses"]
-        rate = params["rate"]
-
-        # Get node
-        node_cls = load(params["node_type"])
-        node = node_cls(ns=self.ns, message_broker=self.mb, **params)
+        node_names = params["config"]["node_names"]
+        target_addresses = params["config"]["target_addresses"]
+        rate = params["config"]["rate"]
 
         # Prepare input topics
         assert len(params["inputs"]) == 0, "Engine inputs are dynamically added."
@@ -95,26 +91,45 @@ class RxEngine(object):
         # Prepare output topics
         for i in params["outputs"]:
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
             if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
                 i["space"] = dict_to_space(i["space"])
 
-        return (
-            rate,
-            params["inputs"],
-            tuple(params["outputs"]),
-            tuple(params["states"]),
-            node_names,
-            target_addresses,
-            node,
+        # Convert lists to dicts
+        params["inputs"] = {i["name"]: i for i in params["inputs"]}
+        params["outputs"] = {i["name"]: i for i in params["outputs"]}
+        params["states"] = {i["name"]: i for i in params["states"]}
+
+        # Get node
+        node_cls = load(params["node_type"])
+        node = node_cls(
+            ns=self.ns,
+            message_broker=self.mb,
+            sync=params["config"]["sync"],
+            real_time_factor=params["config"]["real_time_factor"],
+            simulate_delays=params["config"]["simulate_delays"],
+            params=params,
+            target_addresses=target_addresses,
+            node_names=node_names,
         )
+
+        # Convert to tuple for reactive pipeline.
+        inputs = tuple([value for key, value in params["inputs"].items()])
+        outputs = tuple([value for key, value in params["outputs"].items()])
+        states = tuple([value for key, value in params["states"].items()])
+
+        return rate, inputs, outputs, states, node_names, target_addresses, node
 
     def _shutdown(self):
         self.backend.logdebug(f"[{self.name}] RxEngine._shutdown() called.")

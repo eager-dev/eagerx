@@ -46,12 +46,14 @@ class SupervisorNode(BaseNode):
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
-        for i in self.states:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-            self.state_buffer[i["name"]] = {"msg": None, "processor": i["processor"], "space": i["space"]}
+        for cname, value in self.states.items():
+            if isinstance(value["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                value["processor"] = initialize_processor(ProcessorSpec(value["processor"]))
+            if isinstance(value["space"], dict):
+                value["space"] = dict_to_space(value["space"])
+            self.state_buffer[cname] = {"msg": None, "processor": value["processor"], "space": value["space"]}
 
         # Required for reset
         self._step_counter = 0
@@ -212,6 +214,28 @@ class Supervisor(object):
     def _prepare_io_topics(self, name, sync, real_time_factor, simulate_delays):
         params = get_param_with_blocking(name, self.backend)
 
+        # Prepare output topics
+        for i in params["outputs"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Prepare state topics
+        for i in params["states"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = dict_to_space(i["space"])
+
+        # Convert lists to dicts
+        params["outputs"] = {i["name"]: i for i in params["outputs"]}
+        params["states"] = {i["name"]: i for i in params["states"]}
+
         # Get node
         node_cls = load(params["node_type"])
         node = node_cls(
@@ -220,24 +244,14 @@ class Supervisor(object):
             sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
-            **params,
+            params=params,
         )
 
-        # Prepare output topics
-        for i in params["outputs"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+        # Convert to tuple for reactive pipeline.
+        outputs = tuple([value for key, value in params["outputs"].items()])
+        states = tuple([value for key, value in params["states"].items()])
 
-        # Prepare state topics
-        for i in params["states"]:
-            if isinstance(i["processor"], dict):
-                i["processor"] = initialize_processor(i["processor"])
-            if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-
-        return tuple(params["outputs"]), tuple(params["states"]), node
+        return outputs, states, node
 
     def _shutdown(self):
         self.backend.logdebug(f"[{self.name}] Supervisor._shutdown() called.")
