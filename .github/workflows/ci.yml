@@ -83,6 +83,7 @@ jobs:
           sudo apt install ros-noetic-ros-base
           echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
           sudo apt-get install ros-noetic-cv-bridge
+          sudo apt-get install freeglut3-dev
       #----------------------------------------------
       # Build docs
       #----------------------------------------------
