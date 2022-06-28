@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-import pyglet.gl.lib
+from pyglet.gl.lib import GLException
 import skimage.transform
 import numpy as np
 import gym
@@ -319,7 +319,7 @@ class GymImage(EngineNode):
                 os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
                 try:
                     rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
-                except pyglet.gl.lib.GLException as e:
+                except GLException as e:
                     self.backend.logwarn(e)
                     raise e
                 os.environ["DISPLAY"] = self.disp_id  # Reset to default display id
