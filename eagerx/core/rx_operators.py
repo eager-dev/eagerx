@@ -1041,7 +1041,7 @@ def filter_dict_on_key(key):
     return _filter_dict_on_key
 
 
-def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
+def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG):
     time_fn = time.perf_counter
     node_name = node.ns_name
     color = node.color
@@ -1102,7 +1102,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = INFO):
                             f"last {log_window:.2f} s",
                             trace_type="",
                             value=print_str,
-                            log_level=WARN,
+                            log_level=INFO,
                         )
                     elif node.log_level >= effective_log_level and log_level >= effective_log_level:
                         print_str = f"Running at {rate_ratio*100:.2f}% of rate ({1/dt} Hz) | {sleep_ratio*100:.2f}% sleep | {100 - sleep_ratio*100:.2f}% computation | {cbs_ratio*100: .2f}% callbacks delayed |"
