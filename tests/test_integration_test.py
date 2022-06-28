@@ -63,7 +63,6 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
 
     # Open GUI (only opens if eagerx-gui installed)
     graph.gui()
-    viper.gui()
 
     # Define engine
     from tests.test.engine import TestEngine
