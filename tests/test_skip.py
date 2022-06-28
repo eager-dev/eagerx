@@ -12,13 +12,8 @@ def test_skip_observation(force_start):
     # todo: RX: add blocking to connection
     # todo: RX: add "copy" to connection
     # todo: RX: add duration to node callback && infer simulated delay from durations.
-
-    # todo: API: improve external launching with readable arguments.
-    # todo: SP: rendering requires NEW_PROCESS --> PyVirtualDisplay does not seem to work now...
-    # todo: REG: update docs.
-    # todo: docs: refactor examples to use single-process backend.
-    # todo: ASYNC: change rate info from (INFO, WARN) to (DEBUG, INFO).
-    # todo: ASYNC: Don't include reset duration into first rate calculation.
+    # todo: SP: OpenAI Gym Rendering does not show with SP --> problem with PyVirtualDisplay?
+    # todo: ROS: OpenAI Gym Rendering show both windows.
     # todo: TEMP: remove ros download from template?
 
     # Create node
@@ -81,7 +76,7 @@ def test_skip_observation(force_start):
 
     # First reset
     import time
-    N = 50
+    N = 100
     eps = 2
     _ = env.reset()
     env.render(mode="human")

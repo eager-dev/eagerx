@@ -2,8 +2,6 @@
 # Implementation specific
 import eagerx
 import eagerx.engines.openai_gym as eagerx_gym
-import tests.test.butterworth_filter  # noqa: F401
-import tests.test.processors  # noqa: F401
 
 import pytest
 
