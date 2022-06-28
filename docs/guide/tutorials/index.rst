@@ -14,3 +14,5 @@ Furthermore, a tutorial on how to visualize training using EAGERx is available.
 
     visualize/index
 
+    distributed
+

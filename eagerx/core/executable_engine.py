@@ -14,7 +14,6 @@ import eagerx.core.rx_operators
 import eagerx.core.rx_pipelines
 from eagerx.utils.utils import (
     load,
-    replace_None,
     initialize_processor,
     dict_to_space,
     get_param_with_blocking,
@@ -23,9 +22,8 @@ from eagerx.core.executable_node import RxNode
 from eagerx.utils.node_utils import wait_for_node_initialization
 
 # Other imports
-import yaml
 from threading import Condition
-import sys
+import argparse
 
 
 class RxEngine(object):
@@ -155,11 +153,28 @@ class RxEngine(object):
 
 
 if __name__ == "__main__":
+    # Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-b", "--backend", nargs=1, help="The selected backend (format: '<module>/<BackendClass>').", type=str)
+    parser.add_argument("-l", "--loglevel", nargs=1, help="The log level for the environment.", type=int, default=30)
+    parser.add_argument("-e", "--env", nargs=1, help="The environment name.", type=str)
+    parser.add_argument("-n", "--name", nargs=1, help="The node name.", type=str)
+    parser.add_argument(
+        "-o",
+        "--object",
+        nargs=1,
+        help="The object name if the node is part of an engine-specific implementation.",
+        type=str,
+        default=[""],
+    )
+    args, unknown = parser.parse_known_args()
+    backend_id = args.backend[0]
+    log_level = args.loglevel[0]
+    ns = f"/{args.env[0]}"
+    name = args.name[0]
+    object_name = args.object[0]
 
-    executable, bnd_params, ns, name, _ = sys.argv[0], sys.argv[-4], sys.argv[-3], sys.argv[-2], sys.argv[-1]
-
-    bnd_params = replace_None(yaml.safe_load(bnd_params), to_null=False)
-    backend = Backend.from_params(ns, bnd_params)
+    backend = Backend.from_cmd(ns, backend_id, log_level)
 
     message_broker = eagerx.core.rx_message_broker.RxMessageBroker(owner=f"{ns}/{name}", backend=backend)
 

@@ -83,7 +83,7 @@ class Arm(eagerx.Object):
         N6 = TestSensor.make(
             "N6",
             rate=spec.sensors.N6.rate,
-            process=2,
+            process=0,
             inputs=["tick"],
             outputs=["out_1"],
             states=["state_1"],

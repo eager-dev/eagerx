@@ -1,7 +1,6 @@
 from typing import List, Dict, Optional, Union, Any, Callable, Tuple
 import gym
 import abc
-import yaml
 import inspect
 import os
 import time
@@ -30,7 +29,6 @@ from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initializati
 from eagerx.utils.utils import (
     Msg,
     load,
-    replace_None,
     dict_to_space,
     initialize_processor,
     get_param_with_blocking,
@@ -146,7 +144,6 @@ class Backend(Entity):
     def __init__(
         self,
         ns: str,
-        spec_string: str,
         backend_type: str,
         entity_id: str,
         log_level: int = WARN,
@@ -154,8 +151,6 @@ class Backend(Entity):
     ):
         #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
         self.ns: str = ns
-        #: The spec, used to initialize the backend, in string format.
-        self.spec_string = spec_string
         #: A unique entity_id with the structure <module>/<classname>.
         self.entity_id: str = entity_id
         #: The class definition of the subclass. Follows naming convention *<module>/<BackendClassName>*.
@@ -201,11 +196,9 @@ class Backend(Entity):
         super().check_spec(spec)
 
     @staticmethod
-    def from_params(ns: str, params: Dict) -> "Backend":
-        backend_type = params["backend_type"]
-        backend_cls = load(backend_type)
-        spec_string = yaml.dump(replace_None(params))
-        backend = backend_cls(ns, spec_string, backend_type, **params["config"])
+    def from_cmd(ns: str, backend_id: str, log_level: int, *args, **kwargs) -> "Backend":
+        backend_cls = load(backend_id)
+        backend = backend_cls(ns, backend_id, backend_id, log_level, *args, **kwargs)
         return backend
 
     @property

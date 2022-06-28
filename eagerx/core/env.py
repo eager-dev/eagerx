@@ -118,7 +118,7 @@ class BaseEnv(gym.Env):
         # Initialize backend
         from eagerx.core.entities import Backend
 
-        bnd = Backend.from_params(self.ns, backend.params)
+        bnd = Backend.from_cmd(self.ns, backend.config.entity_id, backend.config.log_level)
 
         return bnd
 

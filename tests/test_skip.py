@@ -7,7 +7,7 @@ import pytest
 @pytest.mark.timeout(20)
 @pytest.mark.parametrize("force_start", [True, True, False])
 def test_skip_observation(force_start):
-    eagerx.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.INFO)
 
     # todo: RX: add blocking to connection
     # todo: RX: add "copy" to connection
@@ -20,7 +20,7 @@ def test_skip_observation(force_start):
     # todo: ASYNC: change rate info from (INFO, WARN) to (DEBUG, INFO).
     # todo: ASYNC: Don't include reset duration into first rate calculation.
     # todo: TEMP: remove ros download from template?
-    
+
     # Create node
     from tests.test.butterworth_filter import ButterworthFilter
     bf = ButterworthFilter.make("test", 1)
