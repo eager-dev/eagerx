@@ -54,10 +54,6 @@ class BackendSpec(EntitySpec):
     def config(self) -> SpecView:
         """Provides an API to get/set the parameters to initialize.
 
-        The mutable parameters are:
-
-        - The arguments of the subclass' :func:`~eagerx.core.entities.Backend.initialize` method.
-
         :return: (mutable) API to get/set parameters.
         """
         return SpecView(self, depth=["config"], unlocked=True)
@@ -73,10 +69,6 @@ class ProcessorSpec(EntitySpec):
     def config(self) -> SpecView:
         """Provides an API to get/set the parameters to initialize.
 
-        The mutable parameters are:
-
-        - The arguments of the subclass' :func:`~eagerx.core.entities.Processor.initialize` method.
-
         :return: (mutable) API to get/set parameters.
         """
         return SpecView(self, depth=[], unlocked=True)
@@ -91,10 +83,6 @@ class EngineStateSpec(EntitySpec):
     @property
     def config(self) -> SpecView:
         """Provides an API to get/set the parameters to initialize.
-
-        The mutable parameters are:
-
-        - The arguments of the subclass' :func:`~eagerx.core.entities.EngineState.initialize` method.
 
         :return: API to get/set parameters.
         """
@@ -116,9 +104,7 @@ class BaseNodeSpec(EntitySpec):
     def config(self) -> Union[SpecView, GraphView]:
         """Provides an API to set/get the parameters to initialize.
 
-        The mutable parameters are:
-
-        - Arguments of the subclass' :func:`~eagerx.core.entities.Node.initialize` method.
+        The default parameters are:
 
         - .. py:attribute:: Spec.config.name: str
 
@@ -174,7 +160,7 @@ class BaseNodeSpec(EntitySpec):
             A processor that preprocesses the received input message before passing it
             to the node's :func:`~eagerx.core.entities.Node.callback`.
 
-        - .. py:attribute:: Spec.inputs.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.inputs.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -206,7 +192,7 @@ class BaseNodeSpec(EntitySpec):
             A processor that preprocesses the output message, returned by :func:`~eagerx.core.entities.Node.callback`,
             before publishing it.
 
-        - .. py:attribute:: Spec.outputs.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.outputs.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -220,7 +206,7 @@ class BaseNodeSpec(EntitySpec):
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.states.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.states.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -440,14 +426,12 @@ class NodeSpec(BaseNodeSpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This may be useful when there must exist a coupling between
-              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
-              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
+               also affect the coupled parameter value.
 
               For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
               `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
               `low` will also be reflected in the space parameter `low`.
-
     """
 
     pass
@@ -457,14 +441,12 @@ class ResetNodeSpec(BaseNodeSpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This may be useful when there must exist a coupling between
-              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
-              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
+               also affect the coupled parameter value.
 
               For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
               `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`.
-
+              `low` will also be reflected in the space parameter `low`
     """
 
     @property
@@ -495,7 +477,7 @@ class ResetNodeSpec(BaseNodeSpec):
             A processor that preprocesses the received input message before passing it
             to the node's :func:`~eagerx.core.entities.Node.callback`.
 
-        - .. py:attribute:: Spec.feedthroughs.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.feedthroughs.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -519,9 +501,7 @@ class EngineSpec(BaseNodeSpec):
     def config(self) -> Union[SpecView, GraphView]:
         """Provides an API to set/get the parameters to initialize.
 
-        The mutable parameters are:
-
-        - Arguments of the subclass' :func:`~eagerx.core.entities.Node.initialize` method.
+        The default parameters are:
 
         - .. py:attribute:: Spec.config.rate: float
 
@@ -568,14 +548,12 @@ class ObjectSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This may be useful when there must exist a coupling between
-              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
-              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
+               also affect the coupled parameter value.
 
-              For example, setting `spec.sensors.sens_1.space.low = "$(config low)"` will set the value of
-              `spec.sensors.sens_1.space.low=spec.config.low` when the object is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`.
-
+              For example, setting `spec.sensors.in_1.space.low = "$(config low)"` will set the value of
+              `spec.sensors.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
+              `low` will also be reflected in the space parameter `low`
     """
 
     def __init__(self, params):
@@ -614,7 +592,7 @@ class ObjectSpec(EntitySpec):
 
         The mutable parameters are:
 
-        - Arguments (excluding spec) of the selected engine's :func:`~eagerx.core.entities.Engine.add_object`.
+        - Arguments (excluding spec) of the selected engine's :func:`~eagerx.core.entities.Engine.add_object` method.
 
         - .. py:attribute:: Spec.engine.states.<name>: EngineState
 
@@ -634,7 +612,7 @@ class ObjectSpec(EntitySpec):
 
             Rate (Hz) at which the sensor's :func:`~eagerx.core.entities.EngineNode.callback` is called.
 
-        - .. py:attribute:: Spec.sensors.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.sensors.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -669,7 +647,7 @@ class ObjectSpec(EntitySpec):
            .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
 
 
-        - .. py:attribute:: Spec.actuators.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.actuators.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -696,7 +674,7 @@ class ObjectSpec(EntitySpec):
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.states.<name>.space: :class:`gym.spaces.space.Space` = None
+        - .. py:attribute:: Spec.states.<name>.space: dict = None
 
             This space defines the format of valid messages.
 
@@ -710,7 +688,7 @@ class ObjectSpec(EntitySpec):
     def config(self) -> Union[SpecView, GraphView]:
         """Provides an API to set/get the parameters to initialize.
 
-        The mutable parameters are:
+        The default parameters are:
 
         - Additional parameters registered with the :func:`eagerx.core.register.config` decorator.
 

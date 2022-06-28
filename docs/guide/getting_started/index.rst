@@ -15,17 +15,8 @@ There are three installation options:
 - Using docker
 - Using conda and robostack
 
-.. note::
-   EAGERx depends on a minimal ROS1 installation.
-   When installing EAGERx using pip or from source, ROS1 should be installed as well.
-   Fortunately, you **can** use eagerx anywhere as you would any python package, so it does **not** impose a ROS package structure on your project.
-   See `here <ROS1_>`_ for installation instructions.
-   The docker image comes with an installation of ROS1.
-
 Installation using *pip*
 ------------------------
-
-*Prerequisites*: Install `ROS1 <ROS1_>`_.
 
 You can do a minimal installation of ``EAGERx`` with:
 
@@ -33,10 +24,14 @@ You can do a minimal installation of ``EAGERx`` with:
 
     pip3 install eagerx
 
+.. note::
+    To make use of EAGERx's distributed capabilities (e.g. running on different physical machines),
+    `ROS1 <ROS1_>`_ should be installed and sourced.
+
 Installation from source
 ------------------------
 
-*Prerequisites*: Install `Poetry <Poetry_>`_ and `ROS1 <ROS1_>`_.
+*Prerequisites*: Install `Poetry <Poetry_>`_.
 
 Clone the `eagerx repository <https://github.com/eager-dev/eagerx>`_ and go to its root:
 
@@ -57,13 +52,20 @@ Verify installation:
 
   poetry run python examples/example_openai.py
 
-Installation using Docker
--------------------------
+.. note::
+    To make use of EAGERx's distributed capabilities (e.g. running on different physical machines),
+    `ROS1 <ROS1_>`_ should be installed and sourced.
+
+Installation using Docker (with distributed support)
+----------------------------------------------------
 
 *Prerequisites*: `Install Docker <https://docs.docker.com/engine/install/>`_ and for GPU dockers `nvidia-docker <https://github.com/NVIDIA/nvidia-docker>`_.
 
 In total, four docker images are available with EAGERx installed, i.e. two with a minimal installation of EAGERx and its dependencies (CPU and GPU) and two with `Stable Baselines 3 <https://stable-baselines3.readthedocs.io/en/master/index.html>`_ installed as well (CPU and GPU).
 The dockers with Stable Baselines 3 also come with `tutorials on EAGERx <https://github.com/eager-dev/eagerx_tutorials>`_.
+
+.. note::
+    All docker images natively support EAGERx's distributed capabilities (e.g. running on different physical machines).
 
 GPU Dockers
 ^^^^^^^^^^^
@@ -120,8 +122,8 @@ Verify that EAGERx is installed:
     python -c 'import eagerx'
 
 
-Installation Using Conda
-------------------------
+Installation Using Conda (with distributed support)
+---------------------------------------------------
 
 You first need to download and install `Conda <https://github.com/conda-forge/miniforge>`_ (we recommend the miniforge distribution).
 
@@ -184,14 +186,12 @@ We also provide a `Conda environment file <../../_static/conda/ros_env.yml>`_ wh
 
   conda env create -f ros_env.yml
 
-
-
 Extras: GUI
 ===========
 
 To install the whole set of features, you will need additional packages.
 There is for example a package available for visualizing the :class:`~eagerx.core.graph.Graph` and the :class:`~eagerx.core.graph_engine.EngineGraph`.
-This `gui <https://github.com/eager-dev/eagerx_gui>`_ also allows to construct and modify a :class:`~eagerx.core.graph.Graph`.
+
 You can install the gui by running:
 
 .. code:: shell
@@ -213,15 +213,20 @@ Extras: training visualization
 ==============================
 
 In robotics it is crucial to monitor the robot's behavior during the learning process.
-Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
+Luckily, all inter-node communication within EAGERx can be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
+For this, the user must select the ``Ros1`` :class:`~eagerx.core.entities.Backend`.
 
 .. note::
     ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS1 installation.
     See `here <ROS1_>`_ for installation instructions.
     The docker images do not support visualization using ``rqt_plot``.
 
-..
-  TODO: add example and gif of visualization.
+.. figure:: /_static/gif/rqt_plot.GIF
+    :align: center
+    :alt: alternate text
+    :figclass: align-center
+
+    Live plot of the x, y, and z coordinate of the end effector using ``rqt_plot``.
 
 Other Dependencies
 ====================
@@ -278,15 +283,16 @@ this line:
 
       echo "source /opt/ros/<DISTRO>/setup.bash" >> .venv/bin/activate
 
-Known issues
-============
+..
+    Known issues
+    ============
 
-- Using eagerx with anaconda can produce warnings (see below) when rendering or when using the GUI. This is a known issue that
-  is caused by the interaction of pyqtgraph (used in the GUI) and opencv (used for rendering) with Qt libraries. Code seems not
-  to break, so as a temporary fix, you are advised to suppress this error. Please file a bug report if eagerx/opencv/gui
-  functionality actually breaks.
+    - Using eagerx with anaconda can produce warnings (see below) when rendering or when using the GUI. This is a known issue that
+      is caused by the interaction of pyqtgraph (used in the GUI) and opencv (used for rendering) with Qt libraries. Code seems not
+      to break, so as a temporary fix, you are advised to suppress this error. Please file a bug report if eagerx/opencv/gui
+      functionality actually breaks.
 
-.. code::
+    .. code::
 
-    QObject::moveToThread: Current thread (0x7fb6c4009eb0) is not the object's thread (0x7fb6c407cf40). Cannot move to
-    target thread (0x7fb6c4009eb0).
+        QObject::moveToThread: Current thread (0x7fb6c4009eb0) is not the object's thread (0x7fb6c407cf40). Cannot move to
+        target thread (0x7fb6c4009eb0).

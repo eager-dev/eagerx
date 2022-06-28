@@ -5,5 +5,5 @@ Object
 .. autoclass:: eagerx.core.entities.Object
     :members:
     :inherited-members:
-    :exclude-members: make
+    :exclude-members:
     :member-order: groupwise

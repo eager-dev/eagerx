@@ -52,8 +52,6 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
    guide/tutorials/index
 
-   guide/developer_guide/index
-
    guide/api_reference/index
 
    guide/examples/index
@@ -70,7 +68,7 @@ If you are using EAGERx for your scientific publications, please cite:
 
     @article{eagerx,
         author  = {van der Heijden, Bas and Luijkx, Jelle, and Ferranti, Laura and Kober, Jens and Babuska, Robert},
-        title = {EAGER: Engine Agnostic Gym Environment for Robotics},
+        title = {EAGERx: Engine Agnostic Gym Environment for Robotics},
         year = {2022},
         publisher = {GitHub},
         journal = {GitHub repository},

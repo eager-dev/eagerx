@@ -9,15 +9,18 @@ import pytest
 def test_skip_observation(force_start):
     eagerx.set_log_level(eagerx.DEBUG)
 
-    # todo: ASYNC: change rate info from (INFO, WARN) to (DEBUG, INFO).
-    # todo: ASYNC: Don't include reset duration into first rate calculation.
     # todo: RX: add blocking to connection
     # todo: RX: add "copy" to connection
     # todo: RX: add duration to node callback && infer simulated delay from durations.
+
     # todo: API: improve external launching with readable arguments.
     # todo: SP: rendering requires NEW_PROCESS --> PyVirtualDisplay does not seem to work now...
     # todo: REG: update docs.
-
+    # todo: docs: refactor examples to use single-process backend.
+    # todo: ASYNC: change rate info from (INFO, WARN) to (DEBUG, INFO).
+    # todo: ASYNC: Don't include reset duration into first rate calculation.
+    # todo: TEMP: remove ros download from template?
+    
     # Create node
     from tests.test.butterworth_filter import ButterworthFilter
     bf = ButterworthFilter.make("test", 1)

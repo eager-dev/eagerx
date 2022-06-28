@@ -5,5 +5,5 @@ Processor
 .. autoclass:: eagerx.core.entities.Processor
     :members:
     :inherited-members:
-    :exclude-members: make
+    :exclude-members:
     :member-order: groupwise

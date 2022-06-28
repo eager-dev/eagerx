@@ -5,5 +5,5 @@ Engine State
 .. autoclass:: eagerx.core.entities.EngineState
     :members:
     :inherited-members:
-    :exclude-members: make
+    :exclude-members:
     :member-order: groupwise
