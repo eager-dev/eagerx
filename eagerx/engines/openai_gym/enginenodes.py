@@ -292,8 +292,8 @@ class GymImage(EngineNode):
         self.render_toggle = False
         self.id = object_spec.engine.env_id
         self.obj_name = object_spec.config.name
-        self.sub_toggle = self.backend.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
         self._cond = threading.Condition()
+        self.sub_toggle = self.backend.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
 
         # Setup virtual display for rendering.
         self.display = Display(visible=False, backend="xvfb")
