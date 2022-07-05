@@ -158,12 +158,14 @@ def engine_states(**engine_states) -> Callable:
 # ENGINES
 
 
-def engine(engine_cls: "Engine") -> Callable:
+def engine(engine_cls: "Engine", entity=None) -> Callable:
     """A decorator to register an engine implementation of an :class:`~eagerx.core.entities.Object`.
 
     .. note:: In our running example, the :func:`~eagerx.core.entities.Object.example_engine` method would be decorated.
 
     :param engine_cls: The Engine's subclass (not the baseclass :class:`~eagerx.core.entities.Engine`).
+    :param entity: The entity that corresponds to the engine implementation. If left unspecified, the engine is
+                   registered to the class that owns the method.
     """
     from eagerx.utils.utils import get_default_params
 
@@ -173,13 +175,20 @@ def engine(engine_cls: "Engine") -> Callable:
 
     def _register(func, engine_id=engine_id):
         name_split = func.__qualname__.split(".")
-        if len(name_split) > 1:
+        if entity is not None:
+            cls_name = entity.__qualname__
+            fn_name = name_split[0]
+            entity_id = entity.__module__ + "/" + cls_name
+        elif len(name_split) > 1:
             cls_name = name_split[0]
             fn_name = name_split[1]
+            entity_id = func.__module__ + "/" + cls_name
         else:
             cls_name = "N/A"
             fn_name = name_split[0]
+            entity_id = func.__module__ + "/" + cls_name
         entry = func.__module__ + "/" + func.__qualname__
+
         log.logdebug(f"[{cls_name}][{fn_name}]: entry={entry}")
 
         @functools.wraps(func)
@@ -194,9 +203,6 @@ def engine(engine_cls: "Engine") -> Callable:
             # Add graph to spec & remove redundant states
             spec._add_graph(graph)
             return graph
-
-        # Register engine implementation for object
-        entity_id = func.__module__ + "/" + cls_name
 
         msg = f"Cannot register engine '{entry}' for object '{entity_id}'. "
 
