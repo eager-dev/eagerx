@@ -787,11 +787,9 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
 
         for s in state_inputs:
             d = s["done"].pipe(
-                spy("D [%s]" % s["name"].split("/")[-1][:12].ljust(4), node),
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                spy("C [%s]" % s["name"].split("/")[-1][:12].ljust(4), node),
                 convert(s["space"], s["processor"], s["name"], node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),

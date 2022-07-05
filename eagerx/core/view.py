@@ -167,9 +167,9 @@ class SpecView(View):
 
         d = get_dict(self._spec._params, self._depth)
         if name in d:
-            d[name] = value
+            d[name] = copy.deepcopy(value)
         elif self._unlocked:
-            d[name] = value
+            d[name] = copy.deepcopy(value)
         else:
             message = f"Cannot set new attribute '{name}' when locked. \n"
             message += "The lock is there because new attributes are likely not accepted during initialization. "
