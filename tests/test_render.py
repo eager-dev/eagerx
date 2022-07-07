@@ -14,7 +14,7 @@ def test_render(colab: bool):
     display = Display(visible=False, backend="xvfb")
     display.start()
 
-    eagerx.set_log_level(eagerx.DEBUG)
+    eagerx.set_log_level(eagerx.WARN)
 
     # Define rate (depends on rate of gym env)
     rate = 20

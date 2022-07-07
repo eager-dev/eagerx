@@ -171,7 +171,7 @@ class SupervisorNode(BaseNode):
             if not flag:
                 raise KeyboardInterrupt
         except (KeyboardInterrupt, SystemExit):
-            print("[step] KEYBOARD INTERRUPT")
+            self.backend.logdebug("[step] KEYBOARD INTERRUPT")
             raise
         self.backend.logdebug("STEP END")
 
