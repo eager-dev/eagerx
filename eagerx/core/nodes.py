@@ -240,8 +240,16 @@ class RenderNode(eagerx.Node):
         self.pub_set = self.backend.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
         # Setup async imshow (opening, closing, and imshow must all be in the same thread).
+        assert hasattr(spec.inputs.image.space, "shape"), (
+            "The node's outputs that is connected to " "the render node must have a space with shape defined."
+        )
         shape = spec.inputs.image.space.shape
-        size = shape[0] * shape[1] * shape[2]
+        size = None
+        for i in shape:
+            if size is None:
+                size = i
+            else:
+                size *= i
         self.shared_array_np = np.ndarray(shape, dtype="uint8", buffer=RawArray(ctypes.c_uint8, size))
         self.img_event = MpEvent()
         args = (self.ns_name, shape, self.shared_array_np, self.img_event, self.render_toggle)
