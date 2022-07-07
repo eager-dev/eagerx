@@ -1226,20 +1226,20 @@ def convert(space, processor, name, node, direction="out"):
                             if not recv.shape == space.shape:
                                 msg = (
                                     f"[subscriber][{node.ns_name}][{name}]: Different shapes "
-                                    f"detected between the message (before processing) ({recv.shape}) "
+                                    f"detected between the message (after processing) ({recv.shape}) "
                                     f"and its corresponding space ({space.shape})."
                                 )
                                 node.backend.logwarn_once(msg)
                             elif not space.contains(recv):
                                 msg = (
-                                    f"[subscriber][{node.ns_name}][{name}]: The message (before processing) is"
+                                    f"[subscriber][{node.ns_name}][{name}]: The message (after processing) is"
                                     f" outside of the bounds of the corresponding space."
                                 )
                                 node.backend.logwarn_once(msg)
                             if not recv.dtype == space.dtype:
                                 msg = (
                                     f"[subscriber][{node.ns_name}][{name}]: Different dtypes "
-                                    f"detected between the message (before processing) ({recv.dtype}) "
+                                    f"detected between the message (after processing) ({recv.dtype}) "
                                     f"and its corresponding space ({space.dtype})."
                                 )
                                 node.backend.logwarn_once(msg)
@@ -1261,6 +1261,8 @@ def convert(space, processor, name, node, direction="out"):
                         space_checked[0] = True
 
                         try:
+                            if isinstance(recv, list):
+                                print("wait")
                             if not recv.shape == space.shape:
                                 msg = (
                                     f"[publisher][{node.ns_name}]{name}]: Different shapes "
