@@ -204,7 +204,7 @@ pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
 name = "flake8-bugbear"
-version = "22.6.22"
+version = "22.7.1"
 description = "A plugin for flake8 finding likely bugs and design problems in your program. Contains warnings that don't belong in pyflakes and pycodestyle."
 category = "dev"
 optional = false
@@ -251,33 +251,8 @@ optional = false
 python-versions = ">=3.5"
 
 [[package]]
-name = "imageio"
-version = "2.15.0"
-description = "Library for reading and writing a wide range of image, video, scientific, and volumetric data formats."
-category = "main"
-optional = false
-python-versions = ">=3.5"
-
-[package.dependencies]
-numpy = "*"
-pillow = ">=8.3.2"
-
-[package.extras]
-build = ["wheel"]
-dev = ["invoke", "pytest", "pytest-cov", "fsspec", "black", "flake8"]
-docs = ["sphinx", "numpydoc", "pydata-sphinx-theme"]
-ffmpeg = ["imageio-ffmpeg", "psutil"]
-fits = ["astropy"]
-full = ["astropy", "black", "flake8", "fsspec", "gdal", "imageio-ffmpeg", "invoke", "itk", "numpydoc", "psutil", "pydata-sphinx-theme", "pytest", "pytest-cov", "sphinx", "tifffile", "wheel"]
-gdal = ["gdal"]
-itk = ["itk"]
-linting = ["black", "flake8"]
-test = ["invoke", "pytest", "pytest-cov", "fsspec"]
-tifffile = ["tifffile"]
-
-[[package]]
 name = "imagesize"
-version = "1.3.0"
+version = "1.4.1"
 description = "Getting image size from png/jpeg/jpeg2000/gif file"
 category = "main"
 optional = false
@@ -645,17 +620,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "pywavelets"
-version = "1.1.1"
-description = "PyWavelets, wavelet transform module"
-category = "main"
-optional = false
-python-versions = ">=3.5"
-
-[package.dependencies]
-numpy = ">=1.13.3"
-
-[[package]]
 name = "pyyaml"
 version = "6.0"
 description = "YAML parser and emitter for Python"
@@ -701,29 +665,6 @@ description = "Reactive Extensions (Rx) for Python"
 category = "main"
 optional = false
 python-versions = ">=3.6.0"
-
-[[package]]
-name = "scikit-image"
-version = "0.17.2"
-description = "Image processing in Python"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-imageio = ">=2.3.0"
-matplotlib = ">=2.0.0,<3.0.0 || >3.0.0"
-networkx = ">=2.0"
-numpy = ">=1.15.1"
-pillow = ">=4.3.0,<7.1.0 || >7.1.0,<7.1.1 || >7.1.1"
-PyWavelets = ">=1.1.1"
-scipy = ">=1.0.1"
-tifffile = ">=2019.7.26"
-
-[package.extras]
-docs = ["sphinx (>=1.8,<=2.4.4)", "numpydoc (>=0.9)", "sphinx-gallery (>=0.3.1)", "sphinx-copybutton", "pytest-runner", "scikit-learn", "matplotlib (>=3.0.1)", "dask[array] (>=0.15.0)", "cloudpickle (>=0.2.1)", "pandas (>=0.23.0)", "seaborn (>=0.7.1)", "pooch (>=0.5.2)"]
-optional = ["simpleitk", "astropy (>=1.2.0)", "qtpy", "pyamg", "dask[array] (>=0.15.0)", "cloudpickle (>=0.2.1)", "pooch (>=0.5.2)"]
-test = ["pytest (!=3.7.3)", "pytest-cov", "pytest-localserver", "flake8", "codecov"]
 
 [[package]]
 name = "scipy"
@@ -905,20 +846,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "tifffile"
-version = "2020.9.3"
-description = "Read and write TIFF(r) files"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[package.dependencies]
-numpy = ">=1.15.1"
-
-[package.extras]
-all = ["imagecodecs (>=2020.2.18)", "matplotlib (>=3.1)", "lxml"]
-
-[[package]]
 name = "tomli"
 version = "1.2.3"
 description = "A lil' TOML parser"
@@ -944,11 +871,11 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "urllib3"
-version = "1.26.9"
+version = "1.26.10"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4"
 
 [package.extras]
 brotli = ["brotlicffi (>=0.8.0)", "brotli (>=1.0.9)", "brotlipy (>=0.6.0)"]
@@ -978,7 +905,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6.2"
-content-hash = "40006ca607b9561ea6c264763ed8f0c6c78034469521015d7e9dcb91ba74686e"
+content-hash = "ce84a1ddb3c64210883b81231cb9e7bbfec99698bfb6411c350d6880ecd391bd"
 
 [metadata.files]
 alabaster = [
@@ -1124,8 +1051,8 @@ flake8 = [
     {file = "flake8-3.9.2.tar.gz", hash = "sha256:07528381786f2a6237b061f6e96610a4167b226cb926e2aa2b6b1d78057c576b"},
 ]
 flake8-bugbear = [
-    {file = "flake8-bugbear-22.6.22.tar.gz", hash = "sha256:ac3317eba27d79dc19dcdeb7356ca1f656f0cde11d899c4551badf770f05cbef"},
-    {file = "flake8_bugbear-22.6.22-py3-none-any.whl", hash = "sha256:ad2b33dbe33a6d4ca1f0037e1d156d0a89107ee63c0600e3b4f7b60e37998ac2"},
+    {file = "flake8-bugbear-22.7.1.tar.gz", hash = "sha256:e450976a07e4f9d6c043d4f72b17ec1baf717fe37f7997009c8ae58064f88305"},
+    {file = "flake8_bugbear-22.7.1-py3-none-any.whl", hash = "sha256:db5d7a831ef4412a224b26c708967ff816818cabae415e76b8c58df156c4b8e5"},
 ]
 gym = [
     {file = "gym-0.21.0.tar.gz", hash = "sha256:0fd1ce165c754b4017e37a617b097c032b8c3feb8a0394ccc8777c7c50dddff3"},
@@ -1134,13 +1061,9 @@ idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
 ]
-imageio = [
-    {file = "imageio-2.15.0-py3-none-any.whl", hash = "sha256:d5e553c8e8fd01ac27094df32bf020b553f640a71b042c960c8341bf7d313a8e"},
-    {file = "imageio-2.15.0.tar.gz", hash = "sha256:d0d7abb4e5c4044c06fc573233489c4a25582698f93ca94f7bd70b6f4ab172ec"},
-]
 imagesize = [
-    {file = "imagesize-1.3.0-py2.py3-none-any.whl", hash = "sha256:1db2f82529e53c3e929e8926a1fa9235aa82d0bd0c580359c67ec31b2fddaa8c"},
-    {file = "imagesize-1.3.0.tar.gz", hash = "sha256:cd1750d452385ca327479d45b64d9c7729ecf0b3969a58148298c77092261f9d"},
+    {file = "imagesize-1.4.1-py2.py3-none-any.whl", hash = "sha256:0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b"},
+    {file = "imagesize-1.4.1.tar.gz", hash = "sha256:69150444affb9cb0d5cc5a92b3676f0b2fb7cd9ae39e947a5e11a36b4497cd4a"},
 ]
 importlib-metadata = [
     {file = "importlib_metadata-4.8.3-py3-none-any.whl", hash = "sha256:65a9576a5b2d58ca44d133c42a241905cc45e34d2c06fd5ba2bafa221e5d7b5e"},
@@ -1548,38 +1471,6 @@ pyvirtualdisplay = [
     {file = "PyVirtualDisplay-3.0-py3-none-any.whl", hash = "sha256:40d4b8dfe4b8de8552e28eb367647f311f88a130bf837fe910e7f180d5477f0e"},
     {file = "PyVirtualDisplay-3.0.tar.gz", hash = "sha256:09755bc3ceb6eb725fb07eca5425f43f2358d3bf08e00d2a9b792a1aedd16159"},
 ]
-pywavelets = [
-    {file = "PyWavelets-1.1.1-cp35-cp35m-macosx_10_6_intel.whl", hash = "sha256:35959c041ec014648575085a97b498eafbbaa824f86f6e4a59bfdef8a3fe6308"},
-    {file = "PyWavelets-1.1.1-cp35-cp35m-manylinux1_i686.whl", hash = "sha256:55e39ec848ceec13c9fa1598253ae9dd5c31d09dfd48059462860d2b908fb224"},
-    {file = "PyWavelets-1.1.1-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:c06d2e340c7bf8b9ec71da2284beab8519a3908eab031f4ea126e8ccfc3fd567"},
-    {file = "PyWavelets-1.1.1-cp35-cp35m-win32.whl", hash = "sha256:be105382961745f88d8196bba5a69ee2c4455d87ad2a2e5d1eed6bd7fda4d3fd"},
-    {file = "PyWavelets-1.1.1-cp35-cp35m-win_amd64.whl", hash = "sha256:076ca8907001fdfe4205484f719d12b4a0262dfe6652fa1cfc3c5c362d14dc84"},
-    {file = "PyWavelets-1.1.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:7947e51ca05489b85928af52a34fe67022ab5b81d4ae32a4109a99e883a0635e"},
-    {file = "PyWavelets-1.1.1-cp36-cp36m-manylinux1_i686.whl", hash = "sha256:9e2528823ccf5a0a1d23262dfefe5034dce89cd84e4e124dc553dfcdf63ebb92"},
-    {file = "PyWavelets-1.1.1-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:80b924edbc012ded8aa8b91cb2fd6207fb1a9a3a377beb4049b8a07445cec6f0"},
-    {file = "PyWavelets-1.1.1-cp36-cp36m-manylinux2014_aarch64.whl", hash = "sha256:c2a799e79cee81a862216c47e5623c97b95f1abee8dd1f9eed736df23fb653fb"},
-    {file = "PyWavelets-1.1.1-cp36-cp36m-win32.whl", hash = "sha256:d510aef84d9852653d079c84f2f81a82d5d09815e625f35c95714e7364570ad4"},
-    {file = "PyWavelets-1.1.1-cp36-cp36m-win_amd64.whl", hash = "sha256:889d4c5c5205a9c90118c1980df526857929841df33e4cd1ff1eff77c6817a65"},
-    {file = "PyWavelets-1.1.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:68b5c33741d26c827074b3d8f0251de1c3019bb9567b8d303eb093c822ce28f1"},
-    {file = "PyWavelets-1.1.1-cp37-cp37m-manylinux1_i686.whl", hash = "sha256:18a51b3f9416a2ae6e9a35c4af32cf520dd7895f2b69714f4aa2f4342fca47f9"},
-    {file = "PyWavelets-1.1.1-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:cfe79844526dd92e3ecc9490b5031fca5f8ab607e1e858feba232b1b788ff0ea"},
-    {file = "PyWavelets-1.1.1-cp37-cp37m-manylinux2014_aarch64.whl", hash = "sha256:2f7429eeb5bf9c7068002d0d7f094ed654c77a70ce5e6198737fd68ab85f8311"},
-    {file = "PyWavelets-1.1.1-cp37-cp37m-win32.whl", hash = "sha256:720dbcdd3d91c6dfead79c80bf8b00a1d8aa4e5d551dc528c6d5151e4efc3403"},
-    {file = "PyWavelets-1.1.1-cp37-cp37m-win_amd64.whl", hash = "sha256:bc5e87b72371da87c9bebc68e54882aada9c3114e640de180f62d5da95749cd3"},
-    {file = "PyWavelets-1.1.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:98b2669c5af842a70cfab33a7043fcb5e7535a690a00cd251b44c9be0be418e5"},
-    {file = "PyWavelets-1.1.1-cp38-cp38-manylinux1_i686.whl", hash = "sha256:e02a0558e0c2ac8b8bbe6a6ac18c136767ec56b96a321e0dfde2173adfa5a504"},
-    {file = "PyWavelets-1.1.1-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:6162dc0ae04669ea04b4b51420777b9ea2d30b0a9d02901b2a3b4d61d159c2e9"},
-    {file = "PyWavelets-1.1.1-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:39c74740718e420d38c78ca4498568fa57976d78d5096277358e0fa9629a7aea"},
-    {file = "PyWavelets-1.1.1-cp38-cp38-win32.whl", hash = "sha256:79f5b54f9dc353e5ee47f0c3f02bebd2c899d49780633aa771fed43fa20b3149"},
-    {file = "PyWavelets-1.1.1-cp38-cp38-win_amd64.whl", hash = "sha256:935ff247b8b78bdf77647fee962b1cc208c51a7b229db30b9ba5f6da3e675178"},
-    {file = "PyWavelets-1.1.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:6ebfefebb5c6494a3af41ad8c60248a95da267a24b79ed143723d4502b1fe4d7"},
-    {file = "PyWavelets-1.1.1-cp39-cp39-manylinux1_i686.whl", hash = "sha256:6bc78fb9c42a716309b4ace56f51965d8b5662c3ba19d4591749f31773db1125"},
-    {file = "PyWavelets-1.1.1-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:411e17ca6ed8cf5e18a7ca5ee06a91c25800cc6c58c77986202abf98d749273a"},
-    {file = "PyWavelets-1.1.1-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:83c5e3eb78ce111c2f0b45f46106cc697c3cb6c4e5f51308e1f81b512c70c8fb"},
-    {file = "PyWavelets-1.1.1-cp39-cp39-win32.whl", hash = "sha256:2b634a54241c190ee989a4af87669d377b37c91bcc9cf0efe33c10ff847f7841"},
-    {file = "PyWavelets-1.1.1-cp39-cp39-win_amd64.whl", hash = "sha256:732bab78435c48be5d6bc75486ef629d7c8f112e07b313bf1f1a2220ab437277"},
-    {file = "PyWavelets-1.1.1.tar.gz", hash = "sha256:1a64b40f6acb4ffbaccce0545d7fc641744f95351f62e4c6aaa40549326008c9"},
-]
 pyyaml = [
     {file = "PyYAML-6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d4db7c7aef085872ef65a8fd7d6d09a14ae91f691dec3e87ee5ee0539d516f53"},
     {file = "PyYAML-6.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9df7ed3b3d2e0ecfe09e14741b857df43adb5a3ddadc919a2d94fbdf78fea53c"},
@@ -1626,21 +1517,6 @@ rospkg = [
 rx = [
     {file = "Rx-3.2.0-py3-none-any.whl", hash = "sha256:922c5f4edb3aa1beaa47bf61d65d5380011ff6adcd527f26377d05cb73ed8ec8"},
     {file = "Rx-3.2.0.tar.gz", hash = "sha256:b657ca2b45aa485da2f7dcfd09fac2e554f7ac51ff3c2f8f2ff962ecd963d91c"},
-]
-scikit-image = [
-    {file = "scikit-image-0.17.2.tar.gz", hash = "sha256:bd954c0588f0f7e81d9763dc95e06950e68247d540476e06cb77bcbcd8c2d8b3"},
-    {file = "scikit_image-0.17.2-cp36-cp36m-macosx_10_13_x86_64.whl", hash = "sha256:11eec2e65cd4cd6487fe1089aa3538dbe25525aec7a36f5a0f14145df0163ce7"},
-    {file = "scikit_image-0.17.2-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:c5c277704b12e702e34d1f7b7a04d5ee8418735f535d269c74c02c6c9f8abee2"},
-    {file = "scikit_image-0.17.2-cp36-cp36m-win32.whl", hash = "sha256:1fda9109a19dc9d7a4ac152d1fc226fed7282ad186a099f14c0aa9151f0c758e"},
-    {file = "scikit_image-0.17.2-cp36-cp36m-win_amd64.whl", hash = "sha256:86a834f9a4d30201c0803a48a25364fe8f93f9feb3c58f2c483d3ce0a3e5fe4a"},
-    {file = "scikit_image-0.17.2-cp37-cp37m-macosx_10_13_x86_64.whl", hash = "sha256:87ca5168c6fc36b7a298a1db2d185a8298f549854342020f282f747a4e4ddce9"},
-    {file = "scikit_image-0.17.2-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:e99fa7514320011b250a21ab855fdd61ddcc05d3c77ec9e8f13edcc15d3296b5"},
-    {file = "scikit_image-0.17.2-cp37-cp37m-win32.whl", hash = "sha256:ee3db438b5b9f8716a91ab26a61377a8a63356b186706f5b979822cc7241006d"},
-    {file = "scikit_image-0.17.2-cp37-cp37m-win_amd64.whl", hash = "sha256:6b65a103edbc34b22640daf3b084dc9e470c358d3298c10aa9e3b424dcc02db6"},
-    {file = "scikit_image-0.17.2-cp38-cp38-macosx_10_13_x86_64.whl", hash = "sha256:c0876e562991b0babff989ff4d00f35067a2ddef82e5fdd895862555ffbaec25"},
-    {file = "scikit_image-0.17.2-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:178210582cc62a5b25c633966658f1f2598615f9c3f27f36cf45055d2a74b401"},
-    {file = "scikit_image-0.17.2-cp38-cp38-win32.whl", hash = "sha256:7bedd3881ca4fea657a894815bcd5e5bf80944c26274f6b6417bb770c3f4f8e6"},
-    {file = "scikit_image-0.17.2-cp38-cp38-win_amd64.whl", hash = "sha256:113bcacdfc839854f527a166a71768708328208e7b66e491050d6a57fa6727c7"},
 ]
 scipy = [
     {file = "scipy-1.5.4-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:4f12d13ffbc16e988fa40809cbbd7a8b45bc05ff6ea0ba8e3e41f6f4db3a9e47"},
@@ -1721,10 +1597,6 @@ tabulate = [
 termcolor = [
     {file = "termcolor-1.1.0.tar.gz", hash = "sha256:1d6d69ce66211143803fbc56652b41d73b4a400a2891d7bf7a1cdf4c02de613b"},
 ]
-tifffile = [
-    {file = "tifffile-2020.9.3-py3-none-any.whl", hash = "sha256:e7c03c5827def91bec6e353e728f4bd02f35f08b142cd520f66b21f31ff4402b"},
-    {file = "tifffile-2020.9.3.tar.gz", hash = "sha256:5b5f079d61c473795d71aca4e91068811fbb43f6f115e3ef9e77f079c23b17c4"},
-]
 tomli = [
     {file = "tomli-1.2.3-py3-none-any.whl", hash = "sha256:e3069e4be3ead9668e21cb9b074cd948f7b3113fd9c8bba083f48247aab8b11c"},
     {file = "tomli-1.2.3.tar.gz", hash = "sha256:05b6166bff487dc068d322585c7ea4ef78deed501cc124060e0f238e89a9231f"},
@@ -1759,10 +1631,7 @@ typing-extensions = [
     {file = "typing_extensions-4.1.1-py3-none-any.whl", hash = "sha256:21c85e0fe4b9a155d0799430b0ad741cdce7e359660ccbd8b530613e8df88ce2"},
     {file = "typing_extensions-4.1.1.tar.gz", hash = "sha256:1a9462dcc3347a79b1f1c0271fbe79e844580bb598bafa1ed208b94da3cdcd42"},
 ]
-urllib3 = [
-    {file = "urllib3-1.26.9-py2.py3-none-any.whl", hash = "sha256:44ece4d53fb1706f667c9bd1c648f5469a2ec925fcf3a776667042d645472c14"},
-    {file = "urllib3-1.26.9.tar.gz", hash = "sha256:aabaf16477806a5e1dd19aa41f8c2b7950dd3c746362d7e3223dbe6de6ac448e"},
-]
+urllib3 = []
 wcwidth = [
     {file = "wcwidth-0.2.5-py2.py3-none-any.whl", hash = "sha256:beb4802a9cebb9144e99086eff703a642a13d6a0052920003a230f3294bbe784"},
     {file = "wcwidth-0.2.5.tar.gz", hash = "sha256:c4d647b99872929fdb7bdcaa4fbe7f01413ed3d98077df798530e5b04f116c83"},

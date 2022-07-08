@@ -1,6 +1,5 @@
 from typing import Optional, List
-
-import skimage.transform
+import PIL
 import numpy as np
 import gym
 from pyvirtualdisplay import Display
@@ -325,8 +324,9 @@ class GymImage(EngineNode):
 
                 # Resize image if not matching desired self.shape
                 if rgb.shape[:2] != tuple(self.shape):
-                    kwargs = dict(output_shape=self.shape, mode="edge", order=1, preserve_range=True)
-                    rgb = skimage.transform.resize(rgb, **kwargs).astype(rgb.dtype)
+                    img_PIL = PIL.Image.fromarray(rgb).convert("RGB")
+                    img_PIL = img_PIL.resize(self.shape, PIL.Image.ANTIALIAS)
+                    rgb = np.array(img_PIL).astype(rgb.dtype)
             else:
                 rgb = np.zeros((self.shape[0], self.shape[1], 3), np.uint8)
         return dict(image=rgb)
