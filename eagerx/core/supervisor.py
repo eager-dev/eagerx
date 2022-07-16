@@ -10,7 +10,6 @@ from eagerx.core.specs import NodeSpec, ObjectSpec
 from eagerx.utils.utils import (
     load,
     initialize_processor,
-    dict_to_space,
     get_param_with_blocking,
 )
 from eagerx.utils.node_utils import initialize_nodes
@@ -46,14 +45,16 @@ class SupervisorNode(BaseNode):
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
-        for cname, value in self.states.items():
-            if isinstance(value["processor"], dict):
+        for cname, i in self.states.items():
+            if isinstance(i["processor"], dict):
                 from eagerx.core.specs import ProcessorSpec
 
-                value["processor"] = initialize_processor(ProcessorSpec(value["processor"]))
-            if isinstance(value["space"], dict):
-                value["space"] = dict_to_space(value["space"])
-            self.state_buffer[cname] = {"msg": None, "processor": value["processor"], "space": value["space"]}
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = eagerx.Space.from_dict(i["space"])
+            assert i["space"] is not None, f"No space defined for state {cname}."
+            assert i["space"].is_fully_defined, f"The space for state {cname} is not fully defined (low, high, shape, dtype)."
+            self.state_buffer[cname] = {"msg": None, "processor": i["processor"], "space": i["space"]}
 
         # Required for reset
         self._step_counter = 0
@@ -221,7 +222,7 @@ class Supervisor(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
@@ -230,7 +231,7 @@ class Supervisor(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Convert lists to dicts
         params["outputs"] = {i["name"]: i for i in params["outputs"]}

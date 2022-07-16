@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
 from eagerx.utils.utils import (
-    get_output_dtype,
     is_compatible,
     supported_types,
 )
@@ -18,7 +17,7 @@ from eagerx.utils.network_utils import (
 )
 from eagerx.core.graph import merge
 from eagerx.core.specs import NodeSpec, ProcessorSpec, EntitySpec
-from eagerx.core.view import GraphView
+from eagerx.core.view import SpecView
 import eagerx.core.log as log
 
 yaml.Dumper.ignore_aliases = lambda *args: True
@@ -93,14 +92,10 @@ class EngineGraph:
             assert name not in self._state["nodes"], (
                 'There is already a node or object registered in this graph with name "%s".' % name
             )
-            assert not node.has_graph, f"NodeSpec '{name}' is already added to a graph."
 
             # Add node to state
-            self._state["nodes"][name] = node.params
+            self._state["nodes"][name] = node._params
             self._state["backup"][name] = node.params
-
-            # Add graph reference to spec
-            node.set_graph(self)
 
     def remove(self, names: Union[Union[str, EntitySpec], List[Union[str, EntitySpec]]]) -> None:
         """Removes a node from the graph.
@@ -134,7 +129,7 @@ class EngineGraph:
                     self.disconnect(source, target, actuator, sensor)
             self._state["nodes"].pop(name)
 
-    def add_component(self, entry: GraphView) -> None:
+    def add_component(self, entry: SpecView) -> None:
         """Selects an available component entry (e.g. input, output, etc...) that was not already selected.
 
         :param entry: Selects the entry, so that it can be connected.
@@ -145,7 +140,7 @@ class EngineGraph:
         assert cname not in params["config"][component], f'"{cname}" already selected in "{name}" under {component}.'
         params["config"][component].append(cname)
 
-    def remove_component(self, entry: GraphView) -> None:
+    def remove_component(self, entry: SpecView) -> None:
         """Deselects a component entry (e.g. input, output, etc...) that was selected.
 
                 - First, all associated connections are disconnected.
@@ -166,11 +161,11 @@ class EngineGraph:
 
     def connect(
         self,
-        source: Optional[GraphView] = None,
-        target: Optional[GraphView] = None,
+        source: Optional[SpecView] = None,
+        target: Optional[SpecView] = None,
         actuator: str = None,
         sensor: str = None,
-        processor: Optional[ProcessorSpec] = None,
+        # processor: Optional[ProcessorSpec] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -181,8 +176,6 @@ class EngineGraph:
         :param target: Compatible target type is :attr:`~eagerx.core.specs.NodeSpec.inputs`.
         :param actuator: String name of the actuator.
         :param sensor: String name of the sensor.
-        :param processor: Processes the received message before passing it
-                          to the target node's :func:`~eagerx.core.entities.Node.callback`.
         :param window: A non-negative number that specifies the number of messages to pass to the
                        node's :func:`~eagerx.core.entities.EngineNode.callback`.
 
@@ -213,7 +206,7 @@ class EngineGraph:
 
         if actuator:  # source = actuator
             source = self.get_view("actuators", ["outputs", actuator])
-            if processor or target.processor is not None:
+            if target.processor is not None:
                 msg = (
                     f'Cannot specify a processor for actuator "{actuator}", '
                     "because there is already one specified in the agnostic graph definition. "
@@ -257,13 +250,12 @@ class EngineGraph:
                 f'Cannot specify a skip when connecting sensor "{sensor}".'
                 " You can only do that in the agnostic object definition."
             )
-        self._connect(source, target, processor, window, delay, skip)
+        self._connect(source, target, window, delay, skip)
 
     def _connect(
         self,
-        source: Optional[GraphView] = None,
-        target: Optional[GraphView] = None,
-        processor: Optional[Dict] = None,
+        source: Optional[SpecView] = None,
+        target: Optional[SpecView] = None,
         window: Optional[int] = None,
         delay: Optional[float] = None,
         skip: Optional[bool] = None,
@@ -290,8 +282,6 @@ class EngineGraph:
             assert flag, f'Target "{target}" is already connected to source "{s}"'
 
         # Add properties to target params
-        if processor is not None:
-            self._set_processor(target, processor)
         if window is not None:
             self.set({"window": window}, target)
         if delay is not None:
@@ -305,8 +295,8 @@ class EngineGraph:
 
     def disconnect(
         self,
-        source: Optional[GraphView] = None,
-        target: Optional[GraphView] = None,
+        source: Optional[SpecView] = None,
+        target: Optional[SpecView] = None,
         actuator: str = None,
         sensor: str = None,
     ) -> None:
@@ -335,7 +325,7 @@ class EngineGraph:
 
         self._disconnect(source, target)
 
-    def _disconnect(self, source: GraphView, target: GraphView):
+    def _disconnect(self, source: SpecView, target: SpecView):
         """
         Disconnects a source from a target. The target is reset in self._state to its disconnected state.
         """
@@ -363,7 +353,7 @@ class EngineGraph:
         target_params = self._state["nodes"][target_name]
         target_params[target_comp][target_cname] = self._state["backup"][target_name][target_comp][target_cname]
 
-    def _disconnect_component(self, entry: GraphView):
+    def _disconnect_component(self, entry: SpecView):
         """
         Disconnects all associated connects from self._state.
         """
@@ -384,7 +374,7 @@ class EngineGraph:
                 was_connected = True
         return was_connected
 
-    def set(self, mapping: Any, entry: Optional[GraphView], parameter: Optional[str] = None) -> None:
+    def set(self, mapping: Any, entry: Optional[SpecView], parameter: Optional[str] = None) -> None:
         """Sets the parameters of a node.
 
         :param mapping: Either a mapping with *key* = *parameter*,
@@ -404,7 +394,7 @@ class EngineGraph:
         )
 
         if parameter is None:
-            if isinstance(mapping, GraphView):
+            if isinstance(mapping, SpecView):
                 mapping = mapping.to_dict()
             assert isinstance(mapping, dict), "Can only set mappings of type dict. Else, also set 'parameter=<param_name>'."
         else:
@@ -437,11 +427,11 @@ class EngineGraph:
                     p = self._state["nodes"][name][component][cname]
                 self._set(p, {parameter: value})
 
-    def _set_processor(self, entry: GraphView, processor: Dict):
+    def _set_processor(self, entry: SpecView, processor: Dict):
         """Replaces the processor specified for a node's input."""
         if isinstance(processor, ProcessorSpec):
             processor = processor.params
-        elif isinstance(processor, GraphView):
+        elif isinstance(processor, SpecView):
             processor = processor.to_dict()
 
         _ = entry.processor  # Check if parameter exists
@@ -453,7 +443,7 @@ class EngineGraph:
 
     def get(
         self,
-        entry: Optional[Union[GraphView, EntitySpec]] = None,
+        entry: Optional[Union[SpecView, EntitySpec]] = None,
         actuator: Optional[str] = None,
         sensor: Optional[str] = None,
         parameter: Optional[str] = None,
@@ -479,6 +469,17 @@ class EngineGraph:
             return getattr(entry, parameter)
         else:
             return entry
+
+    def get_spec(self, name: str) -> NodeSpec:
+        """Get Spec from the graph
+
+        :param name: Name
+        :return: The specification of the entity.
+        """
+        assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
+        params = self._state["nodes"][name]
+        spec = NodeSpec(params)
+        return spec
 
     def _node_depenencies(self, state):
         import networkx as nx
@@ -578,22 +579,11 @@ class EngineGraph:
             state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
             # Determine if dtypes match
-            source_params = state["nodes"][source_name][source_comp][source_cname]
-            target_params = state["nodes"][target_name][target_comp][target_cname]
-            source_dtype = "float32" if source_params["space"] is None else source_params["space"]["dtype"]
-            target_dtype = "float32" if target_params["space"] is None else target_params["space"]["dtype"]
-            source_processor = state["nodes"][source_name][source_comp][source_cname]["processor"]
-            target_processor = state["nodes"][target_name][target_comp][target_cname]["processor"]
-            topic_dtype = get_output_dtype(source_dtype, source_processor)
-            state["nodes"][target_name][target_comp][target_cname]["dtype"] = topic_dtype
-            try:
-                is_compatible(source_dtype, target_dtype, source_processor, target_processor)
-            except AssertionError as e:
-                msg = (
-                    f"Incorrect connection of (source={source_name}.{source_comp}.{source_cname}) with "
-                    f"(target={target_name}.{target_comp}.{target_cname}): {e}"
-                )
-                raise IOError(msg)
+            s = self.get_view(source[0], source[1:])
+            t = self.get_view(target[0], target[1:])
+            self._is_compatible(state, s, t)
+            source_dtype = state["nodes"][source_name][source_comp][source_cname]["space"]["dtype"]
+            state["nodes"][target_name][target_comp][target_cname]["dtype"] = source_dtype
 
         # Initialize param objects
         nodes = dict()
@@ -650,7 +640,7 @@ class EngineGraph:
         return address
 
     @staticmethod
-    def _is_selected(state: Dict, entry: GraphView):
+    def _is_selected(state: Dict, entry: SpecView):
         """
         Check if provided entry was selected in params.
         """
@@ -660,7 +650,7 @@ class EngineGraph:
         assert cname in params["config"][component], f'"{cname}" not selected in "{name}" under "config" in {component}.'
 
     @staticmethod
-    def _is_compatible(state: Dict, source: GraphView, target: GraphView):
+    def _is_compatible(state: Dict, source: SpecView, target: SpecView):
         """Check if provided the provided entries are compatible."""
         # Valid source and target components
         targets = ["inputs"]
@@ -695,9 +685,29 @@ class EngineGraph:
             )
             assert "node_type" not in state["nodes"][source_name], msg
 
+        # Check if dtypes match
+        source_params = state["nodes"][source_name][source_component][source_cname]
+        target_params = state["nodes"][target_name][target_component][target_cname]
+        assert (
+            source_params["space"] is not None
+        ), f"source={source_name}.{source_component}.{source_cname} does not have a space defined."
+        assert (
+            target_params["space"] is not None
+        ), f"target={target_name}.{target_component}.{target_cname} does not have a space defined."
+        source_dtype = source_params["space"]["dtype"]
+        target_dtype = target_params["space"]["dtype"]
+        try:
+            is_compatible(source_dtype, target_dtype)
+        except AssertionError as e:
+            msg = (
+                f"Incorrect connection of (source={source_name}.{source_component}.{source_cname}) with "
+                f"(target={target_name}.{target_component}.{target_cname}): {e}"
+            )
+            raise IOError(msg)
+
     @staticmethod
     def _correct_signature(
-        entry: Optional[GraphView] = None,
+        entry: Optional[SpecView] = None,
         actuator: Optional[str] = None,
         sensor: Optional[str] = None,
     ):
@@ -731,14 +741,6 @@ class EngineGraph:
         EngineGraph.check_inputs_have_address(state)
         EngineGraph.check_graph_is_acyclic(state, plot=plot)
         return True
-
-    @staticmethod
-    def check_msg_type(source, target, state):
-        raise NotImplementedError("Msg_types are inferred from space dtypes.")
-
-    @staticmethod
-    def check_msg_types_are_consistent(state):
-        raise NotImplementedError("Msg_types are inferred from space dtypes.")
 
     @staticmethod
     def check_inputs_have_address(state):
@@ -905,16 +907,16 @@ class EngineGraph:
         return G
 
     @staticmethod
-    def _get_view(state, name: str, depth: Optional[List[str]] = None):
+    def _get_view(spec, name: str, depth: Optional[List[str]] = None):
         depth = depth if depth else []
-        depth = [name] + depth
-        return GraphView(EngineGraph(state), depth=depth, name=name)
+        # depth = [name] + depth
+        return SpecView(spec, depth=depth, name=name)
 
     def get_view(self, name: str, depth: Optional[List[str]] = None):
-        return self._get_view(self._state, name, depth)
+        return self._get_view(self.get_spec(name), name, depth)
 
     @staticmethod
-    @supported_types(str, int, list, float, bool, dict, EntitySpec, GraphView, None)
+    @supported_types(str, int, list, float, bool, dict, EntitySpec, SpecView, None)
     def _set(state, mapping):
         merge(state, mapping)
 

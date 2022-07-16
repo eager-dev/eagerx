@@ -10,13 +10,12 @@ import time
 import sys
 
 import numpy as np
-from gym.spaces import Discrete
 import cv2
 
 import eagerx
 import eagerx.core.register as register
 from eagerx.core.specs import NodeSpec
-from eagerx.utils.utils import initialize_processor, Msg, dict_to_space
+from eagerx.utils.utils import initialize_processor, Msg
 
 
 class EnvNode(eagerx.Node):
@@ -41,8 +40,11 @@ class EnvNode(eagerx.Node):
         self.observation_buffer = dict()
         for cname, i in self.inputs.items():
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
             assert i["space"] is not None, f"No space defined for observation {cname}."
+            assert i[
+                "space"
+            ].is_fully_defined, f"The space for observation {cname} is not fully defined (low, high, shape, dtype)."
             window = i["window"]
             self.observation_buffer[cname] = {
                 "msgs": None,
@@ -73,8 +75,9 @@ class EnvNode(eagerx.Node):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
-            assert i["space"] is not None, f"No space defined for observation {cname}."
+                i["space"] = eagerx.Space.from_dict(i["space"])
+            assert i["space"] is not None, f"No space defined for action {cname}."
+            assert i["space"].is_fully_defined, f"The space for action {cname} is not fully defined (low, high, shape, dtype)."
 
             self.action_buffer[cname] = {"msg": None, "processor": i["processor"], "space": i["space"]}
 
@@ -158,8 +161,8 @@ class ObservationsNode(eagerx.Node):
     def reset(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
-    @register.inputs(actions_set=Discrete(np.iinfo("int32").max))
-    @register.outputs(set=Discrete(np.iinfo("int32").max))
+    @register.inputs(actions_set=eagerx.Space(dtype="int64"))
+    @register.outputs(set=eagerx.Space(dtype="int64"))
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
@@ -190,8 +193,8 @@ class ActionsNode(eagerx.Node):
     def reset(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
-    @register.inputs(observations_set=Discrete(np.iinfo("int32").max), step=Discrete(np.iinfo("int32").max))
-    @register.outputs(set=Discrete(np.iinfo("int32").max))
+    @register.inputs(observations_set=eagerx.Space(dtype="int64"), step=eagerx.Space(dtype="int64"))
+    @register.outputs(set=eagerx.Space(dtype="int64"))
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
@@ -284,7 +287,7 @@ class RenderNode(eagerx.Node):
         pass
 
     @register.inputs(image=None)
-    @register.outputs(done=Discrete(2))
+    @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[Msg] = None):
         self.last_image = image.msgs[-1]
         empty = len(image.msgs[-1]) == 0
@@ -386,7 +389,7 @@ class ColabRender(eagerx.Node):
         self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
 
     @register.inputs(image=None)
-    @register.outputs(done=Discrete(2))
+    @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[eagerx.utils.utils.Msg] = None):
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=0)

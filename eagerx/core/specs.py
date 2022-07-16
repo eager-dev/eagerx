@@ -1,11 +1,11 @@
 from typing import Dict, Optional, Union, Type, TYPE_CHECKING
 import gym
-from gym.spaces import Discrete
 from yaml import dump
 
-from eagerx.core.view import SpecView, GraphView
+import eagerx
+from eagerx.core.space import Space
+from eagerx.core.view import SpecView
 from eagerx.utils.utils import (
-    get_output_dtype,
     replace_None,
     deepcopy,
 )
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 class EntitySpec(object):
     def __init__(self, params):
         super(EntitySpec, self).__setattr__("_params", params)
-        super(EntitySpec, self).__setattr__("_graph", None)
 
     def __setattr__(self, name, value):
         raise AttributeError("You cannot set the new attributes to EntitySpec.")
@@ -31,17 +30,6 @@ class EntitySpec(object):
     @deepcopy
     def params(self):
         return self._params
-
-    def set_graph(self, graph):
-        super(EntitySpec, self).__setattr__("_graph", graph)
-
-    @property
-    def has_graph(self):
-        return True if self._graph else False
-
-    @property
-    def graph(self):
-        return self._graph
 
 
 class BackendSpec(EntitySpec):
@@ -95,13 +83,10 @@ class BaseNodeSpec(EntitySpec):
 
     def _lookup(self, depth, unlocked=False):
         name = self._params["config"]["name"]
-        if self.has_graph:
-            return GraphView(self.graph, depth=[name, depth], name=name, unlocked=unlocked)
-        else:
-            return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
+        return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
     @property
-    def config(self) -> Union[SpecView, GraphView]:
+    def config(self) -> SpecView:
         """Provides an API to set/get the parameters to initialize.
 
         The default parameters are:
@@ -138,7 +123,7 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("config", unlocked=True)
 
     @property
-    def inputs(self) -> Union[SpecView, GraphView]:
+    def inputs(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.inputs`.
 
         The mutable parameters are:
@@ -182,7 +167,7 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("inputs")
 
     @property
-    def outputs(self) -> Union[SpecView, GraphView]:
+    def outputs(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.outputs`.
 
         The mutable parameters are:
@@ -201,7 +186,7 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("outputs")
 
     @property
-    def states(self) -> Union[SpecView, GraphView]:
+    def states(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.states`.
 
         The mutable parameters are:
@@ -264,7 +249,7 @@ class BaseNodeSpec(EntitySpec):
                     if cname not in self.config.inputs:
                         self.config.inputs.append(cname)
                     address = "engine/outputs/tick" if cname == "tick" else None
-                    space = Discrete(99999) if cname == "tick" else space
+                    space = eagerx.Space(shape=(), dtype="int64") if cname == "tick" else space
                     mapping = dict(
                         delay=0.0,
                         window=1,
@@ -450,7 +435,7 @@ class ResetNodeSpec(BaseNodeSpec):
     """
 
     @property
-    def targets(self) -> Union[SpecView, GraphView]:
+    def targets(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.targets`.
 
         The mutable parameters are:
@@ -467,7 +452,7 @@ class ResetNodeSpec(BaseNodeSpec):
         return self._lookup("targets")
 
     @property
-    def feedthroughs(self) -> Union[SpecView, GraphView]:
+    def feedthroughs(self) -> SpecView:
         """Provides an API to set/get the parameters of a feedthrough corresponding to registered :func:`eagerx.core.register.outputs`.
 
         The mutable parameters are:
@@ -498,7 +483,7 @@ class EngineSpec(BaseNodeSpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
 
     @property
-    def config(self) -> Union[SpecView, GraphView]:
+    def config(self) -> SpecView:
         """Provides an API to set/get the parameters to initialize.
 
         The default parameters are:
@@ -561,10 +546,7 @@ class ObjectSpec(EntitySpec):
 
     def _lookup(self, depth, unlocked=False):
         name = self._params["config"]["name"]
-        if self.has_graph:
-            return GraphView(self.graph, depth=[name, depth], name=name, unlocked=unlocked)
-        else:
-            return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
+        return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
     def gui(self, engine_cls: Type["Engine"]) -> None:
         """Opens a graphical user interface of the object's engine implementation.
@@ -603,7 +585,7 @@ class ObjectSpec(EntitySpec):
         return SpecView(self, depth=["engine"], name=self._params["config"]["name"])
 
     @property
-    def sensors(self) -> Union[SpecView, GraphView]:
+    def sensors(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.sensors`.
 
         The mutable parameters are:
@@ -623,7 +605,7 @@ class ObjectSpec(EntitySpec):
         return self._lookup("sensors")
 
     @property
-    def actuators(self) -> Union[SpecView, GraphView]:
+    def actuators(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.actuators`.
 
         The mutable parameters are:
@@ -669,7 +651,7 @@ class ObjectSpec(EntitySpec):
         return self._lookup("actuators")
 
     @property
-    def states(self) -> Union[SpecView, GraphView]:
+    def states(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.engine_states`.
 
         The mutable parameters are:
@@ -685,7 +667,7 @@ class ObjectSpec(EntitySpec):
         return self._lookup("states")
 
     @property
-    def config(self) -> Union[SpecView, GraphView]:
+    def config(self) -> SpecView:
         """Provides an API to set/get the parameters to initialize.
 
         The default parameters are:
@@ -865,10 +847,30 @@ class ObjectSpec(EntitySpec):
                     # Set component params
                     node_comp_params = nodes[node_name][node_comp][node_cname]
                     if obj_comp == "sensors":
+                        # Make sure that space of node is contained within agnostic space.
+                        agnostic_space = Space.from_dict(obj_comp_params["space"])
+                        node_space = Space.from_dict(node_comp_params["space"])
+                        msg = (
+                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
+                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
+                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
+                        )
+                        assert agnostic_space.contains_space(node_space), msg
                         node_comp_params.update(obj_comp_params)
                         node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
                         sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
                     else:  # Actuators
+                        agnostic_space = Space.from_dict(obj_comp_params["space"])
+                        node_space = Space.from_dict(node_comp_params["space"])
+                        msg = (
+                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
+                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
+                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
+                        )
+                        assert agnostic_space.contains_space(node_space), msg
+
                         agnostic_processor = obj_comp_params.pop("processor")
                         node_comp_params.update(obj_comp_params)
 
@@ -880,7 +882,7 @@ class ObjectSpec(EntitySpec):
                             assert node_comp_params["processor"] is None, msg
                             node_comp_params["processor"] = agnostic_processor
 
-                        # Pop rate.
+                        # Pop rate. Actuators are more-or-less inputs so have no rate?
                         node_comp_params.pop("rate")
                         # Reassign converter in case a node provides the implementation for multiple actuators
                         obj_comp_params["processor"] = agnostic_processor
@@ -1014,8 +1016,7 @@ class RxOutput(Component):
     def build(self, ns=""):
         params = self.__dict__.copy()
         params["address"] = "/".join(filter(None, [ns, params["address"]]))
-        dtype = params["space"]["dtype"] if params["space"] is not None else "float32"
-        params["dtype"] = get_output_dtype(dtype, params["processor"])
+        params["dtype"] = params["space"]["dtype"]
         return params
 
 

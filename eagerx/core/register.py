@@ -3,7 +3,7 @@ import copy
 
 import eagerx.core.log as log
 from eagerx.utils.utils import deepcopy
-from eagerx.core.constants import SUPPORTED_SPACES
+from eagerx.core.space import Space
 from typing import TYPE_CHECKING, Callable, Any
 import os
 
@@ -59,7 +59,7 @@ def _register_types(TYPE_REGISTER, component, cnames, func, space_only=True):
         for key, space in cnames.items():
             if space is None:
                 continue
-            flag = isinstance(space, SUPPORTED_SPACES)
+            flag = isinstance(space, Space)
             assert (
                 flag
             ), f'TYPE REGISTRATION ERROR: [{cls_name}][{fn_name}][{component}]: "{space}" is an invalid space. Please provide a valid space for "{key}"instead.'

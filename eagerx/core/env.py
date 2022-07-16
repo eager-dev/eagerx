@@ -1,4 +1,5 @@
 # EAGERX
+from eagerx.core.space import Space
 from eagerx.core.nodes import EnvNode
 from eagerx.core.specs import NodeSpec, ObjectSpec, EngineSpec, BackendSpec
 from eagerx.core.entities import Node
@@ -18,7 +19,6 @@ from eagerx.core.constants import process
 import atexit
 import abc
 import numpy as np
-from gym.spaces import Discrete
 from typing import List, Union, Dict, Tuple, Optional
 import gym
 
@@ -69,7 +69,7 @@ class BaseEnv(gym.Env):
         engine = EngineSpec(engine.params)
         self._engine_name = engine.params["config"]["entity_id"]
 
-        # Register graph
+        # Register graph (unlinks the specs).
         self.graph = graph
         nodes, objects, actions, observations, self.render_node = graph.register()
 
@@ -437,7 +437,7 @@ class BaseEnv(gym.Env):
     def _create_supervisor():
         entity_type = f"{SupervisorNode.__module__}/{SupervisorNode.__name__}"
         supervisor = Node.pre_make("N/a", entity_type)
-        supervisor.add_output("step", space=Discrete(np.iinfo("int32").max))
+        supervisor.add_output("step", space=Space(shape=(), dtype="int64"))
 
         supervisor.config.name = "env/supervisor"
         supervisor.config.color = "yellow"

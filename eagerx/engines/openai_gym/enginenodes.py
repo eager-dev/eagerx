@@ -5,10 +5,10 @@ import gym
 from pyvirtualdisplay import Display
 import os
 import threading
-from gym.spaces import Discrete, Box
 
 # IMPORT EAGERX
 import eagerx.core.register as register
+from eagerx.core.space import Space
 from eagerx.utils.utils import Msg
 from eagerx.core.entities import EngineNode
 from eagerx.core.constants import process
@@ -51,8 +51,8 @@ class ObservationSensor(EngineNode):
     def reset(self):
         self.last_obs = None
 
-    @register.inputs(tick=Discrete(99999))
-    @register.outputs(observation=None)
+    @register.inputs(tick=Space(shape=(), dtype="int64"))
+    @register.outputs(observation=Space(dtype="float32"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
@@ -101,8 +101,8 @@ class RewardSensor(EngineNode):
     def reset(self):
         self.last_reward = 0.0
 
-    @register.inputs(tick=Discrete(99999))
-    @register.outputs(reward=None)
+    @register.inputs(tick=Space(shape=(), dtype="int64"))
+    @register.outputs(reward=Space(dtype="float32"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
@@ -154,8 +154,8 @@ class DoneSensor(EngineNode):
     def reset(self):
         self.last_done = False
 
-    @register.inputs(tick=Discrete(99999))
-    @register.outputs(done=Discrete(2))
+    @register.inputs(tick=Space(shape=(), dtype="int64"))
+    @register.outputs(done=Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
@@ -225,8 +225,8 @@ class ActionActuator(EngineNode):
         # This controller is stateless (in contrast to e.g. a PID controller).
         self.simulator[self.obj_name]["next_action"] = self.zero_action
 
-    @register.inputs(tick=Discrete(99999), action=None)
-    @register.outputs(action_applied=None)
+    @register.inputs(tick=Space(shape=(), dtype="int64"), action=Space(dtype="float32"))
+    @register.outputs(action_applied=Space(dtype="float32"))
     def callback(
         self,
         t_n: float,
@@ -277,7 +277,7 @@ class GymImage(EngineNode):
         # Modify custom node params
         spec.config.shape = shape if isinstance(shape, list) else [200, 200]
         spec.config.always_render = always_render
-        spec.outputs.image.space = Box(low=0, high=255, shape=spec.config.shape + [3], dtype="uint8")
+        spec.outputs.image.space = Space(low=0, high=255, shape=tuple(spec.config.shape + [3]), dtype="uint8")
         return spec
 
     def initialize(self, spec, object_spec, simulator):
@@ -306,8 +306,8 @@ class GymImage(EngineNode):
         # This sensor is stateless (in contrast to e.g. a Kalman filter).
         pass
 
-    @register.inputs(tick=Discrete(99999))
-    @register.outputs(image=None)
+    @register.inputs(tick=Space(shape=(), dtype="int64"))
+    @register.outputs(image=Space(dtype="uint8"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator[self.obj_name], dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]

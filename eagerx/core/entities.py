@@ -1,5 +1,4 @@
 from typing import List, Dict, Optional, Union, Any, Callable, Tuple
-import gym
 import abc
 import inspect
 import os
@@ -29,7 +28,6 @@ from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initializati
 from eagerx.utils.utils import (
     Msg,
     load,
-    dict_to_space,
     initialize_processor,
     get_param_with_blocking,
 )
@@ -304,28 +302,38 @@ class Backend(Entity):
             self._has_shutdown = True
             self.logdebug("Backend.shutdown() called.")
 
-    def logdebug_once(self, msg) -> None:
+    def logdebug_once(self, msg, identifier=None) -> None:
         caller_id = frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if isinstance(identifier, str):
+            caller_id += str.encode(identifier)
         if self._logging_once(caller_id):
             return self.logdebug(msg)
 
-    def loginfo_once(self, msg) -> None:
+    def loginfo_once(self, msg, identifier=None) -> None:
         caller_id = frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if isinstance(identifier, str):
+            caller_id += str.encode(identifier)
         if self._logging_once(caller_id):
             return self.loginfo(msg)
 
-    def logwarn_once(self, msg) -> None:
+    def logwarn_once(self, msg, identifier=None) -> None:
         caller_id = frame_to_caller_id(inspect.currentframe().f_back)
+        if isinstance(identifier, str):
+            caller_id += str.encode(identifier)
         if self._logging_once(caller_id):
             return self.logwarn(msg)
 
-    def logerr_once(self, msg) -> None:
+    def logerr_once(self, msg, identifier=None) -> None:
         caller_id = frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if isinstance(identifier, str):
+            caller_id += str.encode(identifier)
         if self._logging_once(caller_id):
             return self.logerr(msg)
 
-    def logfatal_once(self, msg) -> None:
+    def logfatal_once(self, msg, identifier=None) -> None:
         caller_id = frame_to_caller_id(inspect.currentframe().f_back.f_back)
+        if isinstance(identifier, str):
+            caller_id += str.encode(identifier)
         if self._logging_once(caller_id):
             return self.logfatal(msg)
 
@@ -1141,7 +1149,7 @@ class Engine(BaseNode):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Initialize nodes
         sp_nodes = dict()
@@ -1272,7 +1280,7 @@ class Engine(BaseNode):
             d.executable = "python:=eagerx.core.executable_engine"
 
         # Add tick as output
-        space = gym.spaces.discrete.Discrete(np.iinfo("int32").max)
+        space = eagerx.Space(shape=(), dtype="int64")
         spec.add_output("tick", space=space)
         spec.config.outputs.append("tick")
         from eagerx.core.specs import EngineSpec  # noqa: F811
@@ -1469,9 +1477,6 @@ class Processor(Entity):
 
     - :func:`~eagerx.core.entities.Processor.convert`
 
-    Subclasses must set the following static class properties:
-
-    - :attr:`~eagerx.core.entities.Processor.DTYPE`
     """
 
     INFO = {
@@ -1479,9 +1484,6 @@ class Processor(Entity):
         "initialize": [],
         "convert": [],
     }
-
-    #: The dtype after processing.
-    DTYPE: Any
 
     __metaclass__ = abc.ABCMeta
 

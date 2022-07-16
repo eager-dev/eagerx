@@ -1,56 +1,54 @@
 # OTHER
 import time
-from typing import List, NamedTuple, Any, Dict, Tuple
+from typing import List, NamedTuple, Any, Tuple
 import importlib
 import inspect
 from functools import wraps
-import numpy as np
 import copy
 import json
-import gym
 
-from eagerx.core.constants import SUPPORTED_SPACES, BackendException, Unspecified
-
-
-def space_to_dict(space):
-    msg = f"Invalid space provided that is not supported ({type(space)}). Supported spaces are ({SUPPORTED_SPACES})"
-    assert isinstance(space, SUPPORTED_SPACES), msg
-    if isinstance(space, gym.spaces.box.Box):
-        low = np.nan_to_num(space.low)
-        high = np.nan_to_num(space.high)
-        if np.all(low == low.reshape(-1)[0]):
-            low = low.reshape(-1)[0].item()
-        if np.all(high == high.reshape(-1)[0]):
-            high = high.reshape(-1)[0].item()
-        if isinstance(low, np.ndarray):
-            low = low.tolist()
-        if isinstance(high, np.ndarray):
-            high = high.tolist()
-        d = dict(low=low, high=high, shape=list(space.shape), dtype=space.dtype.name)
-    elif isinstance(space, gym.spaces.discrete.Discrete):
-        d = dict(n=space.n, shape=list(space.shape), dtype=space.dtype.name)
-    else:
-        raise NotImplementedError(f"Provided space has not yet been implemented ({type(space)}).")
-    return d
+from eagerx.core.constants import BackendException, Unspecified
 
 
-def dict_to_space(d: Dict):
-    assert isinstance(d, dict), f"Invalid input provided that is not supported ({type(d)}). Argument should be a dict."
-    if "n" in d:
-        space = gym.spaces.discrete.Discrete(n=d["n"])
-    elif all([arg in d for arg in ["low", "high", "shape", "dtype"]]):
-        if isinstance(d["low"], list):
-            low = np.array(d["low"], dtype=d["dtype"])
-        else:
-            low = d["low"]
-        if isinstance(d["high"], list):
-            high = np.array(d["high"], dtype=d["dtype"])
-        else:
-            high = d["high"]
-        space = gym.spaces.box.Box(low=low, high=high, shape=d["shape"], dtype=d["dtype"])
-    else:
-        raise NotImplementedError(f"Cannot infer type of space to initialize with the provided dict ({d}).")
-    return space
+# def space_to_dict(space):
+#     msg = f"Invalid space provided that is not supported ({type(space)}). Supported spaces are ({SUPPORTED_SPACES})"
+#     assert isinstance(space, SUPPORTED_SPACES), msg
+#     if isinstance(space, gym.spaces.box.Box):
+#         low = np.nan_to_num(space.low)
+#         high = np.nan_to_num(space.high)
+#         if np.all(low == low.reshape(-1)[0]):
+#             low = low.reshape(-1)[0].item()
+#         if np.all(high == high.reshape(-1)[0]):
+#             high = high.reshape(-1)[0].item()
+#         if isinstance(low, np.ndarray):
+#             low = low.tolist()
+#         if isinstance(high, np.ndarray):
+#             high = high.tolist()
+#         d = dict(low=low, high=high, shape=list(space.shape), dtype=space.dtype.name)
+#     elif isinstance(space, gym.spaces.discrete.Discrete):
+#         d = dict(n=space.n, shape=list(space.shape), dtype=space.dtype.name)
+#     else:
+#         raise NotImplementedError(f"Provided space has not yet been implemented ({type(space)}).")
+#     return d
+
+
+# def dict_to_space(d: Dict):
+#     assert isinstance(d, dict), f"Invalid input provided that is not supported ({type(d)}). Argument should be a dict."
+#     if "n" in d:
+#         space = gym.spaces.discrete.Discrete(n=d["n"])
+#     elif all([arg in d for arg in ["low", "high", "shape", "dtype"]]):
+#         if isinstance(d["low"], list):
+#             low = np.array(d["low"], dtype=d["dtype"])
+#         else:
+#             low = d["low"]
+#         if isinstance(d["high"], list):
+#             high = np.array(d["high"], dtype=d["dtype"])
+#         else:
+#             high = d["high"]
+#         space = gym.spaces.box.Box(low=low, high=high, shape=d["shape"], dtype=d["dtype"])
+#     else:
+#         raise NotImplementedError(f"Cannot infer type of space to initialize with the provided dict ({d}).")
+#     return space
 
 
 def dict_null(items):
@@ -98,29 +96,9 @@ def initialize_processor(spec):
     return processor
 
 
-def get_output_dtype(dtype, processor):
-    if processor is None:
-        return dtype
-    else:
-        return load(processor["processor_type"]).DTYPE
-
-
-def is_compatible(dtype_source, dtype_target, processor_source=None, processor_target=None):
-    dtype_out = get_output_dtype(dtype_source, processor_source)
-    if processor_target is not None:
-        if isinstance(processor_target, dict):
-            processor_target = load(processor_target["processor_type"])
-        msg = (
-            f"Dtype of target after processing ({processor_target.DTYPE}) does not match with "
-            f"the dtype defined by its space ({dtype_target})."
-        )
-        assert dtype_target == processor_target.DTYPE, msg
-    else:
-        msg = (
-            f"Dtype of source ({dtype_source}) after processing ({dtype_out}) does not match with "
-            f"the dtype of target ({dtype_target})."
-        )
-        assert dtype_target == dtype_out, msg
+def is_compatible(dtype_source, dtype_target):
+    msg = f"Dtype of source ({dtype_source}) does not match with the dtype of target ({dtype_target})."
+    assert dtype_target == dtype_source, msg
 
 
 class Stamp(NamedTuple):

@@ -32,12 +32,12 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     graph = eagerx.Graph.create(objects=[obj])
 
     # Add butterworth filter
-    from tests.test.processors import GetIndex
-    get_index = GetIndex.make(index=0)
     from tests.test.butterworth_filter import ButterworthFilter
     bf = ButterworthFilter.make(name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
+    from tests.test.processors import GetIndex
+    bf.inputs.signal.processor = GetIndex.make(index=0)
     graph.add(bf)
-    graph.connect(source=obj.sensors.observation, target=bf.inputs.signal, processor=get_index)
+    graph.connect(source=obj.sensors.observation, target=bf.inputs.signal)
     graph.connect(source=bf.outputs.filtered, observation="filtered")
 
     # Connect gym object

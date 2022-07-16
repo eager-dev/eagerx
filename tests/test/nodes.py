@@ -1,10 +1,9 @@
-from eagerx import register
+from eagerx import register, Space
 from eagerx import Node, ResetNode, EngineNode
 from eagerx.utils.utils import Msg
 from eagerx import process
 
 # OTHER IMPORTS
-from gym.spaces import Box, Discrete
 import numpy as np
 from typing import Optional, List
 from math import isclose
@@ -48,16 +47,16 @@ class RealResetNode(ResetNode):
     def initialize(self, spec):
         self.test_arg = spec.config.test_arg
 
-    @register.states(state_1=Discrete(99))
+    @register.states(state_1=Space(low=0, high=99, shape=(), dtype="int64"))
     def reset(self, state_1: Optional[int] = None) -> None:
         if "in_1" in self.inputs:
             self.set_delay(0.0, "inputs", "in_1")
 
-    @register.inputs(in_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     in_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
-    @register.outputs(out_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                      out_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
-    @register.targets(target_1=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.inputs(in_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_2=Space(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.outputs(out_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                      out_2=Space(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.targets(target_1=Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def callback(
         self,
         t_n: float,
@@ -99,17 +98,17 @@ class TestNode(Node):
     def initialize(self, test_arg):
         pass
 
-    @register.states(state_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     state_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.states(state_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     state_2=Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def reset(self, state_1=None, state_2=None) -> None:
         return
 
-    @register.inputs(in_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     in_2=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     in_3=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     tick=Discrete(9999))
-    @register.outputs(out_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                      out_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.inputs(in_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_2=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_3=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     tick=Space(shape=(), dtype="int64"))
+    @register.outputs(out_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                      out_2=Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def callback(
         self,
         t_n: float,
@@ -226,17 +225,17 @@ class TestEngineNode(EngineNode):
     def initialize(self, spec, object_spec, simulator):
         pass
 
-    @register.states(state_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     state_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.states(state_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     state_2=Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def reset(self, state_1=None, state_2=None) -> None:
         return
 
-    @register.inputs(in_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     in_2=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     in_3=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                     tick=Discrete(9999))
-    @register.outputs(out_1=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                      out_2=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.inputs(in_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_2=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     in_3=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                     tick=Space(shape=(), dtype="int64"))
+    @register.outputs(out_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                      out_2=Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def callback(
         self,
         t_n: float,

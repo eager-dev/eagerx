@@ -1,7 +1,6 @@
 from typing import Optional
 from scipy.signal import butter, sosfilt
 import numpy as np
-from gym.spaces import Box
 
 # IMPORT EAGERX
 import eagerx
@@ -61,8 +60,8 @@ class ButterworthFilter(eagerx.Node):
     def reset(self):
         pass
 
-    @register.inputs(signal=Box(low=-3, high=-3, shape=(1,), dtype="float32"))
-    @register.outputs(filtered=Box(low=-3, high=-3, shape=(1,), dtype="float32"))
+    @register.inputs(signal=eagerx.Space(low=-3, high=3, shape=(1,), dtype="float32"))
+    @register.outputs(filtered=eagerx.Space(low=-3, high=3, shape=(1,), dtype="float32"))
     def callback(self, t_n: float, signal: Optional[Msg] = None):
         if len(signal.msgs) >= self.N:
             unfiltered = [signal.msgs[i][0] for i in range(-self.N, 0)]

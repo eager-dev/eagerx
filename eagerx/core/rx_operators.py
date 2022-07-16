@@ -18,7 +18,6 @@ from eagerx.core.constants import (  # noqa
 )
 from eagerx.utils.utils import (
     initialize_processor,
-    dict_to_space,
     Info,
     Msg,
     Stamp,
@@ -977,7 +976,7 @@ def extract_inputs(ns, node_params, state_params, sp_nodes, launch_nodes):
 
             # initialize space
             if "space" in n and isinstance(n["space"], dict):
-                n["space"] = dict_to_space(i["space"])
+                n["space"] = eagerx.Space.from_dict(i["space"])
 
             # Initialize rx objects
             n["msg"] = Subject()  # Ir
@@ -1206,10 +1205,12 @@ class NotSet:
         return "NotSet"
 
 
-def convert(space, processor, name, node, direction="out"):
+def convert(space: eagerx.Space, processor, name, node, direction="out"):
     OUTPUT = True if direction == "out" else False
     INPUT = True if direction == "in" else False
     space_checked = [False]
+    p_msg = f" (after processing with `{processor.__class__.__qualname__}`)" if processor else ""
+    assert isinstance(space, eagerx.Space), f"The space of '{name}' is not of type eagerx.Space."
 
     def _convert(source):
         def subscribe(observer, scheduler=None):
@@ -1220,33 +1221,16 @@ def convert(space, processor, name, node, direction="out"):
                         recv = processor.convert(recv)
 
                     # Check if message complies with space (after conversion)
-                    if space is not None and not space_checked[0]:
+                    if not space_checked[0]:
                         space_checked[0] = True
-                        try:
-                            if not recv.shape == space.shape:
-                                msg = (
-                                    f"[subscriber][{node.ns_name}][{name}]: Different shapes "
-                                    f"detected between the message (after processing) ({recv.shape}) "
-                                    f"and its corresponding space ({space.shape})."
-                                )
-                                node.backend.logwarn_once(msg)
-                            elif not space.contains(recv):
-                                msg = (
-                                    f"[subscriber][{node.ns_name}][{name}]: The message (after processing) is"
-                                    f" outside of the bounds of the corresponding space."
-                                )
-                                node.backend.logwarn_once(msg)
-                            if not recv.dtype == space.dtype:
-                                msg = (
-                                    f"[subscriber][{node.ns_name}][{name}]: Different dtypes "
-                                    f"detected between the message (after processing) ({recv.dtype}) "
-                                    f"and its corresponding space ({space.dtype})."
-                                )
-                                node.backend.logwarn_once(msg)
-                        except AttributeError as e:
-                            raise AttributeError(
-                                f"[subscriber][{node.ns_name}][{name}]: space is probably not initialized: {e}"
+                        if not space.contains(np.array(recv)):
+                            shape_msg = f"(msg.shape={recv.shape} vs space.dtype={space.shape})"
+                            dtype_msg = f"(msg.shape={recv.dtype} vs space.dtype={space.dtype})"
+                            msg = (
+                                f"[subscriber][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
+                                f"Either a mismatch in shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds."
                             )
+                            node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
                     observer.on_next(recv)
                 elif OUTPUT:
                     # Convert python native types to numpy arrays.
@@ -1257,51 +1241,23 @@ def convert(space, processor, name, node, direction="out"):
                     elif isinstance(recv, int):
                         recv = np.array(recv, dtype="int64")
 
-                    if space is not None and not space_checked[0]:
-                        space_checked[0] = True
-
-                        try:
-                            if isinstance(recv, list):
-                                print("wait")
-                            if not recv.shape == space.shape:
-                                msg = (
-                                    f"[publisher][{node.ns_name}]{name}]: Different shapes "
-                                    f"detected between the message (before processing) ({recv.shape}) "
-                                    f"and its corresponding space ({space.shape})."
-                                )
-                                node.backend.logwarn_once(msg)
-                            elif not space.contains(recv):
-                                msg = (
-                                    f"[publisher][{node.ns_name}]{name}]: The message (before processing) is"
-                                    f" outside of the bounds of the corresponding space."
-                                )
-                                node.backend.logwarn_once(msg)
-                            if not recv.dtype == space.dtype:
-                                msg = (
-                                    f"[publisher][{node.ns_name}]{name}]: Different dtypes "
-                                    f"detected between the message (before processing) ({recv.dtype}) "
-                                    f"and its corresponding space ({space.dtype})."
-                                )
-                                node.backend.logwarn_once(msg)
-                        except AttributeError as e:
-                            if not hasattr(recv, "shape"):
-                                raise AttributeError(
-                                    f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}"
-                                )
-                            elif not hasattr(recv, "dtype"):
-                                raise AttributeError(
-                                    f"[publisher][{node.ns_name}][{name}]: output probably has the wrong type: {e}"
-                                )
-                            else:
-                                raise AttributeError(
-                                    f"[publisher][{node.ns_name}][{name}]: space is probably not initialized: {e}"
-                                )
-
                     # Process message
                     if processor is not None:
                         recv = processor.convert(recv)
                     else:
                         recv = recv
+
+                    if not space_checked[0]:
+                        space_checked[0] = True
+                        if not space.contains(np.array(recv)):
+                            shape_msg = f"(msg.shape={recv.shape} vs space.dtype={space.shape})"
+                            dtype_msg = f"(msg.shape={recv.dtype} vs space.dtype={space.dtype})"
+                            msg = (
+                                f"[publisher][{node.ns_name}]{name}]: Message{p_msg} does not match the defined space. "
+                                f"Either a mismatch in shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds."
+                            )
+                            node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
+
                     observer.on_next(recv)
                 else:
                     raise NotImplementedError(f"Direction not implemented: {direction}.")

@@ -5,7 +5,7 @@ import pytest
 
 @pytest.mark.timeout(60)
 def test_graph():
-    eagerx.set_log_level(eagerx.INFO)
+    eagerx.set_log_level(eagerx.DEBUG)
     rate = 7
 
     # Get info on various specs.
@@ -170,7 +170,6 @@ def test_graph():
         target=target,
         action=action,
         observation=observation,
-        processor=processor,
         delay=delay,
         window=window,
     )
@@ -216,6 +215,12 @@ def test_graph():
     class TestEnv(eagerx.BaseEnv):
         def __init__(self, name, rate, graph, engine, backend):
             super().__init__(name, rate, graph, engine, backend, force_start=True)
+            self.bnd.logdebug_once("logdebug_once", 'TestEnv')
+            self.bnd.loginfo_once("loginfo_once", 'TestEnv')
+            self.bnd.logerr_once("logerr_once", 'TestEnv')
+            self.bnd.logfatal_once("logfatal_once", 'TestEnv')
+            for i in [eagerx.SILENT, eagerx.DEBUG, eagerx.INFO, eagerx.WARN, eagerx.ERROR, eagerx.FATAL]:
+                _ = self.bnd.get_log_fn(i)
 
         def step(self, action):
             obs = self._step(action)

@@ -1,12 +1,9 @@
 from typing import Union, List
 import numpy as np
-from eagerx.core import register as register
 from eagerx.core.entities import Processor
 
 
 class GetIndex(Processor):
-    DTYPE = "float32"
-
     @classmethod
     def make(cls, index: Union[int, List[int]]):
         spec = cls.get_specification()
@@ -23,12 +20,10 @@ class GetIndex(Processor):
     def convert(self, msg):
         if len(msg) == 0:
             raise NotImplementedError("TODO: What to do if length of msg is zero?")
-        return msg[self.index].astype(self.DTYPE)
+        return msg[self.index].astype("float32")
 
 
 class ToUint8(Processor):
-    DTYPE = "uint8"
-
     @classmethod
     def make(cls):
         return cls.get_specification()
@@ -37,12 +32,10 @@ class ToUint8(Processor):
         pass
 
     def convert(self, msg: np.ndarray):
-        return msg.astype(self.DTYPE)
+        return msg.astype("uint8")
 
 
 class IdentityProcessor(Processor):
-    DTYPE = "uint64"
-
     @classmethod
     def make(cls):
         return cls.get_specification()

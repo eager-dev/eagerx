@@ -2,15 +2,12 @@
 from typing import Optional, List
 from math import isclose
 
-# ROS IMPORTS
-import rospy
-
 # EAGERx IMPORTS
+from eagerx.core.space import Space
 from eagerx.core.specs import EngineSpec
 from eagerx.core.constants import process, ERROR
 from eagerx.core.entities import Engine
 import eagerx.core.register as register
-import gym
 
 
 class TestEngine(Engine):
@@ -49,12 +46,12 @@ class TestEngine(Engine):
 
     def add_object(self, spec, req_arg: int, xacro: str):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{spec.config.name}" of type "{spec.config.entity_id}" to the simulator.')
+        self.backend.loginfo(f'Adding object "{spec.config.name}" of type "{spec.config.entity_id}" to the simulator.')
 
     def pre_reset(self, param_1=None):
         return "PRE RESET RETURN VALUE"
 
-    @register.states(param_1=gym.spaces.Discrete(999))
+    @register.states(param_1=Space(low=0, high=999, shape=(), dtype="int64"))
     def reset(self, param_1=None):
         return "POST RESET RETURN VALUE"
 
@@ -62,6 +59,6 @@ class TestEngine(Engine):
         # Verify that # of ticks equals internal counter
         node_tick = t_n * self.rate
         if not isclose(self.num_ticks, node_tick):
-            rospy.logerr(
+            self.backend.logerr(
                 f"[{self.name}][callback]: ticks not equal (self.num_ticks={self.num_ticks}, node_tick={round(node_tick)})."
             )

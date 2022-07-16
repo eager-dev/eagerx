@@ -1,6 +1,4 @@
 # LOG LEVELS
-import gym
-
 SILENT = 0
 DEBUG = 10
 INFO = 20
@@ -58,7 +56,6 @@ COMPATIBLE_DTYPES = [
     "bool",
     "str",
 ]
-SUPPORTED_SPACES = (gym.spaces.box.Box, gym.spaces.discrete.Discrete)
 
 
 class BackendException(Exception):

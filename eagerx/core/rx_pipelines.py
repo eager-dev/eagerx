@@ -1,6 +1,5 @@
 # OTHER
 import functools
-from gym.spaces.discrete import Discrete
 
 # RX IMPORTS
 import rx
@@ -10,7 +9,7 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
 
 # EAGERX IMPORTS
-from eagerx.utils.utils import space_to_dict
+import eagerx
 from eagerx.core.constants import DEBUG
 
 from eagerx.core.rx_operators import (
@@ -973,8 +972,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # End reset ###############################################################
     ###########################################################################
     # Define tick attributes
-    space = Discrete(9999)
-    dtype = space_to_dict(space)["dtype"]
+    space = eagerx.Space(shape=(), dtype="int64")
+    dtype = space.to_dict()["dtype"]
     tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), dtype=dtype)
 
     end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="int64")

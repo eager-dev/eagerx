@@ -2,7 +2,7 @@ import inspect
 import functools
 from textwrap import indent
 from eagerx.core import register
-from eagerx.core.entities import Object, Processor
+from eagerx.core.entities import Object
 
 
 def get_info(cls, methods=None, no_cls=False, return_msg=False):
@@ -40,15 +40,6 @@ def get_info(cls, methods=None, no_cls=False, return_msg=False):
                 engine_msg += indent(f"{engine_id}\n", tab[2:] + "- ")
 
         msg += engine_msg + "\n"
-
-    # Converters: Add conversions
-    if issubclass(cls, Processor):
-        conv_msg = "Supported dtype:\n"
-        try:
-            conv_msg += indent(f"DTYPE: {cls.DTYPE}\n", tab[2:] + "- ")
-        except AttributeError:
-            pass
-        msg += conv_msg + "\n"
 
     # Make spec message
     method_fn = cls.make

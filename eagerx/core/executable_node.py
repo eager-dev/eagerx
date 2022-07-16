@@ -15,7 +15,6 @@ import eagerx.core.rx_pipelines
 from eagerx.utils.utils import (
     load,
     initialize_processor,
-    dict_to_space,
     get_param_with_blocking,
 )
 
@@ -85,7 +84,7 @@ class RxNode(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Prepare output topics
         for i in params["outputs"]:
@@ -94,7 +93,7 @@ class RxNode(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Prepare state topics
         for i in params["states"]:
@@ -103,7 +102,7 @@ class RxNode(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Prepare target topics
         for i in params["targets"]:
@@ -112,7 +111,7 @@ class RxNode(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Prepare feedthrough topics
         for i in params["feedthroughs"]:
@@ -121,7 +120,7 @@ class RxNode(object):
 
                 i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
             if isinstance(i["space"], dict):
-                i["space"] = dict_to_space(i["space"])
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Convert lists to dicts
         params["inputs"] = {i["name"]: i for i in params["inputs"]}

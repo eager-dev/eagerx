@@ -1,6 +1,5 @@
 # OTHER IMPORTS
 from typing import Optional, List
-from gym.spaces import Box
 
 # EAGERx IMPORTS
 import eagerx
@@ -11,13 +10,13 @@ from tests.test.engine import TestEngine
 
 class Arm(eagerx.Object):
     @classmethod
-    @register.sensors(N6=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                      N7=Box(low=0, high=100, shape=(1,), dtype="uint64"), )
-    @register.actuators(N8=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                        N12=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                        ref_vel=Box(low=0, high=100, shape=(1,), dtype="uint64"))
-    @register.engine_states(N9=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                            N10=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.sensors(N6=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                      N7=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"), )
+    @register.actuators(N8=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                        N12=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                        ref_vel=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.engine_states(N9=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                            N10=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def make(
         cls,
         name: str = None,
@@ -130,13 +129,11 @@ class Arm(eagerx.Object):
         graph.remove_component(N6.outputs.out_2)
         graph.connect(source=N6.outputs.out_1, sensor="N6")
         graph.remove(N6)
-        N6.set_graph(None)
 
         # Test EngineGraph: Add/remove actuator
         graph.add(N8)
         graph.connect(actuator="N8", target=N8.inputs.in_3)
         graph.remove("N8")
-        N8.set_graph(None)
 
         # Test EngineGraph: Remove component
         graph.add(N6)
@@ -144,7 +141,6 @@ class Arm(eagerx.Object):
         graph.remove_component(N6.outputs.out_1)
         graph.add_component(N6.outputs.out_1)
         graph.remove("N6")
-        N6.set_graph(None)
 
         # Test EngineGraph: Remove component
         graph.add(N8)
@@ -152,7 +148,6 @@ class Arm(eagerx.Object):
         graph.remove_component(N8.inputs.in_3)
         graph.add_component(N8.inputs.in_3)
         graph.remove("N8")
-        N8.set_graph(None)
 
         # Test EngineGraph: parameters
         graph.add([N6, N8])
@@ -168,8 +163,6 @@ class Arm(eagerx.Object):
         graph.set(graph.get(N6.outputs.out_1), N6.outputs.out_1)
         graph.get(N6)
         graph.remove(["N6", "N8"])
-        N6.set_graph(None)
-        N8.set_graph(None)
 
         # Add nodes to graph and connect them to actuators/sensors
         graph.add([N6, N7, N8, ref_vel])
@@ -228,13 +221,13 @@ class Arm(eagerx.Object):
 
 class Viper(Arm):
     @classmethod
-    @register.sensors(N6=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                      N7=Box(low=0, high=100, shape=(1,), dtype="uint64"), )
-    @register.actuators(N8=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                        N12=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                        ref_vel=Box(low=0, high=100, shape=(1,), dtype="uint64"))
-    @register.engine_states(N9=Box(low=0, high=100, shape=(1,), dtype="uint64"),
-                            N10=Box(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.sensors(N6=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                      N7=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"), )
+    @register.actuators(N8=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                        N12=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                        ref_vel=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"))
+    @register.engine_states(N9=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"),
+                            N10=eagerx.Space(low=0, high=100, shape=(1,), dtype="uint64"))
     def make(
         cls,
         name: str,
