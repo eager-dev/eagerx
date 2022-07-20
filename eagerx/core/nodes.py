@@ -246,7 +246,11 @@ class RenderNode(eagerx.Node):
         assert hasattr(spec.inputs.image.space, "shape"), (
             "The node's outputs that is connected to " "the render node must have a space with shape defined."
         )
-        shape = spec.inputs.image.space.shape
+        self.img_event = MpEvent()
+        self.p = None  # Set in _start_render_process(..)
+        self.shared_array_np = None  # Set in _start_render_process(..)
+
+    def _start_render_process(self, shape):
         size = None
         for i in shape:
             if size is None:
@@ -254,7 +258,6 @@ class RenderNode(eagerx.Node):
             else:
                 size *= i
         self.shared_array_np = np.ndarray(shape, dtype="uint8", buffer=RawArray(ctypes.c_uint8, size))
-        self.img_event = MpEvent()
         args = (self.ns_name, shape, self.shared_array_np, self.img_event, self.render_toggle)
         self.p = multiprocessing.Process(target=self._async_imshow, args=args)
         self.p.start()
@@ -286,13 +289,15 @@ class RenderNode(eagerx.Node):
     def reset(self):
         pass
 
-    @register.inputs(image=None)
+    @register.inputs(image=eagerx.Space(dtype="uint8"))
     @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[Msg] = None):
         self.last_image = image.msgs[-1]
         empty = len(image.msgs[-1]) == 0
         if not empty and self.display and self.render_toggle.value:
             img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
+            if self.p is None:
+                self._start_render_process(img.shape)  # Start rendering in separate process
             np.copyto(self.shared_array_np, img)
         self.img_event.set()  # Signal async_imshow thread
         # Fill output_msg with 'done' output --> signals that we are done rendering
@@ -306,7 +311,8 @@ class RenderNode(eagerx.Node):
         self.pub_set.unregister()
 
         # Close render window
-        self.p.kill()
+        if self.p is not None:
+            self.p.kill()
         self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() done.")
 
 

@@ -32,7 +32,7 @@
 
 What is EAGERx
 ==============
-EAGERx (Engine Agnostic Gym Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
+EAGERx (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
 EAGERx explicitly addresses the differences in learning between simulation and reality,
 with essential features for roboticists such as a safety layer, signal delay simulation, and controller switching for resets.
@@ -57,12 +57,6 @@ You can do a minimal installation of ``EAGERx`` with:
 .. code:: shell
 
     pip3 install eagerx
-
-.. note::
-    EAGERx depends on a minimal ROS installation. Fortunately, you **can** use eagerx anywhere as you would any python package,
-    so it does **not** impose a ROS package structure on your project.
-    See `here <ROS_>`_ for installation instructions.
-
 
 We provide other options for installing EAGERx in `our documentation <https://eagerx.readthedocs.io/en/master/>`_ including
 using Docker or Conda environment to have ROS1 setup.
@@ -92,7 +86,7 @@ In robotics it is crucial to monitor the robot's behavior during the learning pr
 Luckily, inter-node communication within EAGERx can always be listened to externally, so that any relevant information stream can be trivially monitored on-demand (e.g. with ``rqt_plot``).
 
 .. note::
-    ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. See `here <ROS_>`_ for installation instructions.
+    ``rqt_plot`` is included in the ``desktop`` or ``desktop-full`` ROS installation. Follow the `ROS installation instructions <https://eagerx.readthedocs.io/en/latest/>`_ to install ROS.
 
 ..
   TODO: add example and gif of visualization.
@@ -104,7 +98,7 @@ A number of tutorials are available in the form of Google Colabs:
 
 - `Tutorial 1: Environment Creation and Training with EAGERx <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb>`_
 - `Tutorial 2: Reset and Step Function <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/2_reset_and_step.ipynb>`_
-- `Tutorial 3: Converters <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/3_converters.ipynb>`_
+- `Tutorial 3: Space and Processors <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/3_space_and_processors.ipynb>`_
 - `Tutorial 4: Nodes and Graph Validity <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/4_nodes.ipynb>`_
 - `Tutorial 5: Adding Engine Support for an Object <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/5_engine_implementation.ipynb>`_
 - `Tutorial 6: More Informative Rendering <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_rendering.ipynb>`_
@@ -114,43 +108,44 @@ A number of tutorials are available in the form of Google Colabs:
 
 For more information see the `docs <https://eagerx.readthedocs.io/en/master/guide/tutorials/colabs.html>`_ or the `eagerx_tutorials package <https://github.com/eager-dev/eagerx_tutorials>`_.
 
-Dependencies
-============
-Below you find instructions for installing dependencies required for EAGERx.
+..
+    Dependencies
+    ============
+    Below you find instructions for installing dependencies required for EAGERx.
 
-ROS
----
+    ROS
+    ---
 
-See the `ROS Installation Options <https://eagerx.readthedocs.io/en/latest/>`_, or do the following.
-By replacing ``<DISTRO>`` with the supported ROS distributions (``noetic``, ``melodic``),
-and ``<PACKAGE>`` with the installation type (``ros-base``, ``desktop``, ``desktop-full``),
-a minimal ros installation can be installed with:
+    See the `ROS Installation Options <https://eagerx.readthedocs.io/en/latest/>`_, or do the following.
+    By replacing ``<DISTRO>`` with the supported ROS distributions (``noetic``, ``melodic``),
+    and ``<PACKAGE>`` with the installation type (``ros-base``, ``desktop``, ``desktop-full``),
+    a minimal ros installation can be installed with:
 
-.. code:: shell
+    .. code:: shell
 
-    sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-    sudo apt install curl # if you haven't already installed curl
-    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
-    sudo apt update
-    sudo apt install ros-<DISTRO>-<PACKAGE>
-    sudo apt-get install ros-<DISTRO>-cv-bridge
+        sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+        sudo apt install curl # if you haven't already installed curl
+        curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+        sudo apt update
+        sudo apt install ros-<DISTRO>-<PACKAGE>
+        sudo apt-get install ros-<DISTRO>-cv-bridge
 
-Make sure to source ``/opt/ros/<DISTRO>/setup.bash`` in the environment where you intend to ``eagerx`` in.
-It can be convenient to automatically source this script every time a new shell is launched.
-These commands will do that for you if you:
+    Make sure to source ``/opt/ros/<DISTRO>/setup.bash`` in the environment where you intend to ``eagerx`` in.
+    It can be convenient to automatically source this script every time a new shell is launched.
+    These commands will do that for you if you:
 
-.. code:: shell
+    .. code:: shell
 
-      echo "source /opt/ros/<DISTRO>/setup.bash" >> ~/.bashrc
-      source ~/.bashrc
+          echo "source /opt/ros/<DISTRO>/setup.bash" >> ~/.bashrc
+          source ~/.bashrc
 
-In case you make use of a virtual environment, move to the directory containing the ``.venv`` and
-add ``source /opt/ros/<DISTRO>/setup.bash`` to the activation script before activating the environment with
-this line:
+    In case you make use of a virtual environment, move to the directory containing the ``.venv`` and
+    add ``source /opt/ros/<DISTRO>/setup.bash`` to the activation script before activating the environment with
+    this line:
 
-.. code:: shell
+    .. code:: shell
 
-      echo "source /opt/ros/<DISTRO>/setup.bash" >> .venv/bin/activate
+          echo "source /opt/ros/<DISTRO>/setup.bash" >> .venv/bin/activate
 
 Cite EAGERx
 ===========
@@ -160,7 +155,7 @@ If you are using EAGERx for your scientific publications, please cite:
 
     @article{eagerx,
         author  = {van der Heijden, Bas and Luijkx, Jelle, and Ferranti, Laura and Kober, Jens and Babuska, Robert},
-        title = {EAGERx: Engine Agnostic Gym Environment for Robotics},
+        title = {EAGERx: Engine Agnostic Graph Environments for Robotics},
         year = {2022},
         publisher = {GitHub},
         journal = {GitHub repository},

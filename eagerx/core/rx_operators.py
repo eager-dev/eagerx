@@ -1228,7 +1228,7 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                             dtype_msg = f"(msg.shape={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
                                 f"[subscriber][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
-                                f"Either a mismatch in shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds."
+                                f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
                             )
                             node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
                     observer.on_next(recv)
@@ -1253,8 +1253,8 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                             shape_msg = f"(msg.shape={recv.shape} vs space.dtype={space.shape})"
                             dtype_msg = f"(msg.shape={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
-                                f"[publisher][{node.ns_name}]{name}]: Message{p_msg} does not match the defined space. "
-                                f"Either a mismatch in shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds."
+                                f"[publisher][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
+                                f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
                             )
                             node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
 

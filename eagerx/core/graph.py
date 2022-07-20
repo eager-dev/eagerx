@@ -902,8 +902,8 @@ class Graph:
             else:
                 from eagerx.core.nodes import RenderNode as render_cls
         render = render_cls.make(rate=rate, process=process, **kwargs)
+        # todo: How to change space of render.inputs.image when a processor is added.
         render.inputs.image.space = source.space
-        # render.inputs.image.space.dtype = "uint8"
         self.add(render)
 
         # Create connection

@@ -853,7 +853,7 @@ class ObjectSpec(EntitySpec):
                         msg = (
                             f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
                             f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
-                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{node_name}.{node_comp}.{node_cname}.space={node_space} \n\n"
                             f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
                         )
                         assert agnostic_space.contains_space(node_space), msg

@@ -29,8 +29,8 @@ def get_info(cls, methods=None, no_cls=False, return_msg=False):
     msg += "\n"
 
     # Objects: Add supported engines
-    if issubclass(cls, Object):
-        if len(REGISTRY[id].keys()) == 2:
+    if issubclass(cls, Object) and id in REGISTRY:
+        if len(REGISTRY[id].keys()) == 0:
             engine_msg = "Supported engines: <Nothing registered>\n"
         else:
             engine_msg = "Supported engines:\n"

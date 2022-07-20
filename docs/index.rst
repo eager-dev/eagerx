@@ -28,7 +28,7 @@
 
 What is EAGERx
 ==============
-`EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Gym Environments for Robotics) enables users to
+`EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to
 easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
 EAGERx explicitly addresses the differences in learning between simulation and reality,
@@ -68,7 +68,7 @@ If you are using EAGERx for your scientific publications, please cite:
 
     @article{eagerx,
         author  = {van der Heijden, Bas and Luijkx, Jelle, and Ferranti, Laura and Kober, Jens and Babuska, Robert},
-        title = {EAGERx: Engine Agnostic Gym Environment for Robotics},
+        title = {EAGERx: Engine Agnostic Graph Environments for Robotics},
         year = {2022},
         publisher = {GitHub},
         journal = {GitHub repository},

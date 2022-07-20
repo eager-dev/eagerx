@@ -6,6 +6,23 @@ import operator as op
 
 
 class Space(spaces.Space):
+    """
+    A (possibly unbounded) space in R^n. Specifically, a Space represents the
+    Cartesian product of n closed intervals. Each interval has the form of one
+    of [a, b], (-oo, b], [a, oo), or (-oo, oo).
+
+    There are two common use cases:
+
+    * Identical bound for each dimension::
+        >>> Space(low=-1.0, high=2.0, shape=(3, 4), dtype="float32")
+        Space(3, 4)
+
+    * Independent bound for each dimension::
+        >>> Space(low=np.array([-1.0, -2.0]), high=np.array([2.0, 4.0]), dtype="float32")
+        Space(2,)
+
+    """
+
     def __init__(
         self,
         low: t.Optional[t.Union[t.List, np.ndarray, int, float, bool, t.Tuple]] = None,
@@ -14,6 +31,14 @@ class Space(spaces.Space):
         dtype: t.Union[np.number, str] = np.float32,
         seed: t.Optional[int] = None,
     ):
+        """Constructor for initializing a space.
+
+        :param low: Expected lower bound of messages.
+        :param high: Expected upper bound of messages.
+        :param shape: Expected shape of messages.
+        :param dtype: Expected datatype of messages.
+        :param seed: Seed that is used to draw random samples from the space.
+        """
         if isinstance(low, (list, tuple)):
             low = np.array(low, dtype=dtype)
         if isinstance(high, (list, tuple)):
@@ -55,7 +80,12 @@ class Space(spaces.Space):
         else:
             return getattr(self._space, name)
 
-    def contains(self, x):
+    def contains(self, x) -> bool:
+        """
+        Return boolean specifying if x is a valid
+        member of this space
+        :param x: array to check.
+        """
         if self._space is None:
             # todo: convert to ndarray? Maybe not to test that dtype is correct && we are dealing with np array?
             # if not isinstance(x, np.ndarray):
@@ -65,7 +95,13 @@ class Space(spaces.Space):
         else:
             return x.dtype == self.dtype and self._space.contains(x)  # Check dtype separately
 
-    def contains_space(self, space: t.Union["Space", t.Dict]):
+    def contains_space(self, space: t.Union["Space", t.Dict]) -> bool:
+        """
+        Return boolean specifying if space is contained
+        in this space.
+        Low and high of the space must exactly match (instead of lying within the bounds) to return True
+        :param space: Space that is to be checked.
+        """
         if isinstance(space, dict):
             space = Space.from_dict(space)
 
@@ -83,13 +119,19 @@ class Space(spaces.Space):
 
         return flag
 
-    def sample(self):
-        if self._space is None:
+    def sample(self) -> np.ndarray:
+        """Randomly sample an element of this space. Can be
+        uniform or non-uniform sampling based on boundedness of space."""
+        if not self.is_fully_defined:
             raise NotImplementedError("Cannot sample from this incomplete space (i.e. low, high not provided?).")
         else:
             return self._space.sample()
 
-    def to_dict(self):
+    def to_dict(self) -> t.Dict:
+        """Convert the space to a dict representation
+
+        :return: Dict representation of the space.
+        """
         if self._space is None:
             if self.shape is None:
                 return dict(low=None, high=None, shape=None, dtype=self.dtype.name)
@@ -109,11 +151,19 @@ class Space(spaces.Space):
             return dict(low=low, high=high, shape=list(self.shape), dtype=self.dtype.name)
 
     @property
-    def is_fully_defined(self):
+    def is_fully_defined(self) -> bool:
+        """Check if space is fully defined (i.e. low, high, shape and dtype are all provided).
+        :return: flag
+        """
         return self._space is not None
 
     @classmethod
-    def from_dict(cls, d: t.Dict):
+    def from_dict(cls, d: t.Dict) -> "Space":
+        """Create a space from a dict.
+
+        :param d: Dict containing the arguments to initialize the space
+        :return: The space.
+        """
         return cls(low=d["low"], high=d["high"], shape=d["shape"], dtype=d["dtype"])
 
     def __repr__(self):
