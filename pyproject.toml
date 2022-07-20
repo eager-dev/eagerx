@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "eagerx"
 version = "0.1.24"
-description = "Engine Angostic Gym Environments for Robotics"
+description = "Engine Angostic Graph Environments for Robotics"
 authors = ["Bas van der Heijden <d.s.vanderheijden@tudelft.nl>", "Jelle Luijkx <j.d.luijkx@tudelft.nl>"]
 license = "Apache2.0"
 homepage = "https://github.com/eager-dev/eagerx"
@@ -12,7 +12,6 @@ documentation = "https://eagerx.readthedocs.io/en/master/"
 python = "^3.6.2"
 opencv-python = "^4.3.0.36"
 networkx = "^2.5.1"
-scikit-image = "^0.17.2"
 gym = "^0.21.0"
 tabulate = "^0.8.9"
 PyYAML = "^6.0"
@@ -27,6 +26,9 @@ sphinx-autodoc-typehints = "^1.0"
 Sphinx = "^4.0"
 sphinx-rtd-theme = "^1.0"
 PyVirtualDisplay = "^3.0"
+matplotlib = "^3.0"
+Pillow = "^8.0"
+scipy = "^1.0"
 
 [tool.poetry.dev-dependencies]
 black = "^22.1.0"

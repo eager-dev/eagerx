@@ -1,27 +1,29 @@
-from typing import Optional, List
-from threading import Event, Thread, Condition
+import ctypes
+import multiprocessing
+from typing import Optional, List, Tuple
+from threading import Event
+from multiprocessing.sharedctypes import RawArray, Value
+from multiprocessing import Event as MpEvent
 import signal
+
 import time
 import sys
 
 import numpy as np
-import rospy
-from std_msgs.msg import UInt64, Bool
-from sensor_msgs.msg import Image
-import cv_bridge
 import cv2
 
 import eagerx
 import eagerx.core.register as register
 from eagerx.core.specs import NodeSpec
-from eagerx.utils.utils import initialize_converter, Msg
+from eagerx.utils.utils import initialize_processor, Msg
 
 
 class EnvNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Environment", eagerx.Node)
-    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    @classmethod
+    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "environment"
         spec.config.rate = rate
@@ -31,27 +33,24 @@ class EnvNode(eagerx.Node):
         spec.config.inputs = []
         spec.config.outputs = []
         spec.config.states = []
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec: NodeSpec):
         # Define observation buffers
         self.observation_buffer = dict()
-        for i in self.inputs:
-            if i["name"] == "actions_set":
-                continue
-            if "converter" in i and isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-                converter = i["converter"]
-            elif "converter" in i and not isinstance(i["converter"], dict):
-                converter = i["converter"]
-            else:
-                raise ValueError(f'Converter type {i["converter"]} of {i["name"]} not supported.')
-
-            name = i["name"]
+        for cname, i in self.inputs.items():
+            if isinstance(i["space"], dict):
+                i["space"] = eagerx.Space.from_dict(i["space"])
+            assert i["space"] is not None, f"No space defined for observation {cname}."
+            assert i[
+                "space"
+            ].is_fully_defined, f"The space for observation {cname} is not fully defined (low, high, shape, dtype)."
             window = i["window"]
-            self.observation_buffer[name] = {
+            self.observation_buffer[cname] = {
                 "msgs": None,
-                "converter": converter,
+                "processor": i["processor"],
                 "window": window,
+                "space": i["space"],
             }
 
         # Synchronization event
@@ -61,7 +60,7 @@ class EnvNode(eagerx.Node):
 
         # Graceful signal handler
         def signal_handler(sig, frame):
-            print("SIGINT caught!")
+            self.backend.logdebug("SIGINT caught!")
             self.obs_event.set()
             self.action_event.set()
             sys.exit(0)
@@ -70,17 +69,17 @@ class EnvNode(eagerx.Node):
 
         # Define action buffers
         self.action_buffer = dict()
-        for i in self.outputs:
-            if i["name"] == "set":
-                continue
-            if "converter" in i and isinstance(i["converter"], dict):
-                i["converter"] = initialize_converter(i["converter"])
-                converter = i["converter"]
-            elif "converter" in i and not isinstance(i["converter"], dict):
-                converter = i["converter"]
-            else:
-                converter = None
-            self.action_buffer[i["name"]] = {"msg": None, "converter": converter}
+        for cname, i in self.outputs.items():
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = eagerx.Space.from_dict(i["space"])
+            assert i["space"] is not None, f"No space defined for action {cname}."
+            assert i["space"].is_fully_defined, f"The space for action {cname} is not fully defined (low, high, shape, dtype)."
+
+            self.action_buffer[cname] = {"msg": None, "processor": i["processor"], "space": i["space"]}
 
     def reset(self):
         self.must_reset = False
@@ -102,7 +101,8 @@ class EnvNode(eagerx.Node):
             if extra > 0:
                 # Only happens when skip=True && window > 0
                 if len(i.msgs) == 0:
-                    initial_obs = buffer["converter"].initial_obs
+                    initial_obs = np.empty(buffer["space"].shape)
+                    initial_obs[:] = np.NaN
                     i.msgs.append(initial_obs)
                     extra -= 1  # Subtract, because we appended the initial_obs
                 msgs = extra * [i.msgs[0]] + i.msgs
@@ -119,7 +119,7 @@ class EnvNode(eagerx.Node):
                 if not flag:
                     raise KeyboardInterrupt
             except (KeyboardInterrupt, SystemExit):
-                print("[env] KEYBOARD INTERRUPT")
+                self.backend.logdebug(f"[{self.ns_name}] KEYBOARD INTERRUPT")
                 raise
 
         if self.must_reset:
@@ -136,10 +136,11 @@ class EnvNode(eagerx.Node):
 
 
 class ObservationsNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Observations", eagerx.Node)
-    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    @classmethod
+    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ObservationsNode spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/observations"
         spec.config.rate = rate
@@ -152,24 +153,26 @@ class ObservationsNode(eagerx.Node):
 
         # Pre-set address to mock an actual input
         spec.inputs.actions_set.address = "env/actions/outputs/set"
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec: NodeSpec):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     def reset(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
-    @register.inputs(actions_set=UInt64)
-    @register.outputs(set=UInt64)
+    @register.inputs(actions_set=eagerx.Space(dtype="int64"))
+    @register.outputs(set=eagerx.Space(dtype="int64"))
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
 class ActionsNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Actions", eagerx.Node)
-    def spec(spec: NodeSpec, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    @classmethod
+    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
         """ActionsNode spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/actions"
         spec.config.rate = rate
@@ -182,31 +185,34 @@ class ActionsNode(eagerx.Node):
 
         # Pre-set address to mock an actual input
         spec.inputs.step.address = "env/supervisor/outputs/step"
+        return spec
 
-    def initialize(self):
+    def initialize(self, spec: NodeSpec):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
     def reset(self):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
-    @register.inputs(observations_set=UInt64, step=UInt64)
-    @register.outputs(set=UInt64)
+    @register.inputs(observations_set=eagerx.Space(dtype="int64"), step=eagerx.Space(dtype="int64"))
+    @register.outputs(set=eagerx.Space(dtype="int64"))
     def callback(self, t_n: float, **kwargs: Optional[Msg]):
         raise NotImplementedError("This is a dummy class. Functionality is actually implemented in the Environment node.")
 
 
 class RenderNode(eagerx.Node):
-    @staticmethod
-    @register.spec("Render", eagerx.Node)
-    def spec(
-        spec: NodeSpec,
+    @classmethod
+    def make(
+        cls,
         rate,
         display=True,
         log_level=eagerx.log.WARN,
         color="grey",
         process=eagerx.process.NEW_PROCESS,
+        encoding="bgr",
     ):
         """RenderNode spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
@@ -220,59 +226,62 @@ class RenderNode(eagerx.Node):
 
         # Modify custom params
         spec.config.display = display
+        spec.config.encoding = encoding
 
         # Pre-set window
-        spec.inputs.image.window = 0
+        spec.inputs.image.window = 1
+        return spec
 
-    def initialize(self, display):
-        self.cv_bridge = cv_bridge.CvBridge()
+    def initialize(self, spec):
+        self.display = spec.config.display
         self.window = None
-        self.display = display
-        self.last_image = Image(data=[])
-        self.render_toggle = False
-        self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
-        self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
-        self.pub_set = rospy.Publisher(
-            "%s/%s/set_last_image" % (self.ns, self.name),
-            Image,
-            queue_size=0,
-            latch=True,
-        )
+        self.encoding = spec.config.encoding
+        self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
+        self.render_toggle = Value("i", False)
+        self.sub_toggle = self.backend.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
+        self.sub_get = self.backend.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
+        self.pub_set = self.backend.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
         # Setup async imshow (opening, closing, and imshow must all be in the same thread).
-        self.window_open = False
-        self.must_close = False
-        self.stop_thread = False
-        self.cv_image = None
-        self.img_event = Event()
-        self.img_cond = Condition()
-        self.img_thread = Thread(target=self._async_imshow, args=())
-        self.img_thread.start()
+        assert hasattr(spec.inputs.image.space, "shape"), (
+            "The node's outputs that is connected to " "the render node must have a space with shape defined."
+        )
+        self.img_event = MpEvent()
+        self.p = None  # Set in _start_render_process(..)
+        self.shared_array_np = None  # Set in _start_render_process(..)
 
-    def _async_imshow(self):
-        while True:
-            self.img_event.wait()  # Wait for event (ie new image or close window)
-            self.img_event.clear()  # Clear event
-            if self.stop_thread:
-                break
-            if self.window_open and self.must_close:  # We must close the window
-                cv2.destroyWindow(f"{self.ns_name}")
-                self.must_close = False
-                self.window_open = False
-                continue
-            if self.cv_image is None:
-                continue
-            if self.render_toggle:
-                cv2.imshow(f"{self.ns_name}", self.cv_image)
-            cv2.waitKey(1)
-            self.window_open = True
+    def _start_render_process(self, shape):
+        size = None
+        for i in shape:
+            if size is None:
+                size = i
+            else:
+                size *= i
+        self.shared_array_np = np.ndarray(shape, dtype="uint8", buffer=RawArray(ctypes.c_uint8, size))
+        args = (self.ns_name, shape, self.shared_array_np, self.img_event, self.render_toggle)
+        self.p = multiprocessing.Process(target=self._async_imshow, args=args)
+        self.p.start()
+
+    @staticmethod
+    def _async_imshow(ns_name: str, shape: Tuple[int], shared_array: np.ndarray, img_event: Value, render_toggle: Value):
+        img = shared_array.view(dtype="uint8").reshape(*shape)
+        try:
+            while True:
+                img_event.wait()  # Wait for event (ie new image or close window)
+                img_event.clear()  # Clear event
+                if render_toggle.value:
+                    cv2.imshow(f"{ns_name}", img)
+                cv2.waitKey(1)
+        except (KeyboardInterrupt, SystemExit):
+            # print(f"[{self.ns_name}]: KeyboardInterrupt caught")
+            return
 
     def _set_render_toggle(self, msg):
-        if msg.data:
-            rospy.loginfo("START RENDERING!")
+        if msg:
+            self.backend.logdebug("START RENDERING!")
         else:
-            rospy.loginfo("STOP RENDERING!")
-        self.render_toggle = msg.data
+            self.backend.logdebug("STOP RENDERING!")
+        self.render_toggle.value = msg
 
     def _get_last_image(self, msg):
         self.pub_set.publish(self.last_image)
@@ -280,63 +289,37 @@ class RenderNode(eagerx.Node):
     def reset(self):
         pass
 
-    @register.inputs(image=Image)
-    @register.outputs(done=UInt64)
+    @register.inputs(image=eagerx.Space(dtype="uint8"))
+    @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[Msg] = None):
-        if len(image.msgs) > 0:
-            self.last_image = image.msgs[-1]
-        empty = self.last_image.height == 0 or self.last_image.width == 0
-        if not empty and self.display and self.render_toggle:
-            try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(self.last_image, "bgr8")
-            except ImportError as e:
-                rospy.logwarn_once("[%s] %s. Using numpy instead." % (self.ns_name, e))
-
-                if isinstance(self.last_image.data, bytes):
-                    cv_image = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(
-                        self.last_image.height, self.last_image.width, -1
-                    )
-                else:
-                    cv_image = np.array(self.last_image.data, dtype=np.uint8).reshape(
-                        self.last_image.height, self.last_image.width, -1
-                    )
-                if "rgb" in self.last_image.encoding:
-                    cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
-            except cv_bridge.CvBridgeError as e:
-                rospy.logwarn(e)
-                return dict(done=UInt64())
-
-            # Set cv_image
-            self.cv_image = cv_image
-        with self.img_cond:
-            self.img_event.set()  # Signal async_imshow thread
-
+        self.last_image = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
+        empty = len(image.msgs[-1]) == 0
+        if not empty and self.display and self.render_toggle.value:
+            img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
+            if self.p is None:
+                self._start_render_process(img.shape)  # Start rendering in separate process
+            np.copyto(self.shared_array_np, img)
+        self.img_event.set()  # Signal async_imshow thread
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=UInt64())
+        output_msgs = dict(done=1)
         return output_msgs
 
     def shutdown(self):
-        rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()
 
         # Close render window
-        with self.img_cond:
-            self.must_close = True
-            self.img_event.set()
-            # Wait for render window to be closed
-            while self.window_open:
-                time.sleep(0.01)
-            self.stop_thread = True
-            self.img_event.set()
+        if self.p is not None:
+            self.p.kill()
+        self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() done.")
 
 
 class ColabRender(eagerx.Node):
-    @staticmethod
-    @register.spec("ColabRender", eagerx.Node)
-    def spec(
-        spec: NodeSpec,
+    @classmethod
+    def make(
+        cls,
         rate: int,
         process: int = eagerx.process.ENVIRONMENT,
         fps: int = 25,
@@ -345,8 +328,11 @@ class ColabRender(eagerx.Node):
         subsample: bool = True,
         log_level: int = eagerx.log.WARN,
         color: str = "grey",
+        encoding="bgr",
     ):
         """ColabRender spec"""
+        spec = cls.get_specification()
+
         # Modify default node params
         spec.config.name = "env/render"
         spec.config.rate = rate
@@ -359,15 +345,17 @@ class ColabRender(eagerx.Node):
         spec.config.states = []
 
         # Custom params
+        spec.config.encoding = encoding
         spec.config.fps = fps
         spec.config.shape = shape if isinstance(shape, list) else [64, 64]
         spec.config.maxlen = maxlen
         spec.config.subsample = True
 
         # Pre-set window
-        spec.inputs.image.window = 0
+        spec.inputs.image.window = 1
+        return spec
 
-    def initialize(self, fps, maxlen, shape, subsample):
+    def initialize(self, spec):
         # todo: Overwrite fps if higher than rate
         # todo: Subsample if fps lower than rate * real_time_factor
         # todo: set node_fps either slightly higher or lower than js_fps?
@@ -378,70 +366,57 @@ class ColabRender(eagerx.Node):
             # Store cls as attribute so that it can be initialized in the callback
             self.window_cls = InlineRender
         except ImportError as e:
-            rospy.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
+            self.backend.logerr(f"{e}. This node `ColabRender` can only be used in google colab.")
             raise
-        self.dt_fps = 1 / fps
-        self.subsample = subsample
-        self.fps = fps
-        self.shape = shape
-        self.maxlen = maxlen
+        self.dt_fps = 1 / spec.config.fps
+        self.subsample = spec.config.subsample
+        self.fps = spec.config.fps
+        self.shape = spec.config.shape
+        self.maxlen = spec.config.maxlen
         self.window = None
-        self.last_image = Image(data=[])
+        self.encoding = spec.config.encoding
+        self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
         self.render_toggle = False
-        self.sub_toggle = rospy.Subscriber("%s/%s/toggle" % (self.ns, self.name), Bool, self._set_render_toggle)
-        self.sub_get = rospy.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), Bool, self._get_last_image)
-        self.pub_set = rospy.Publisher(
-            "%s/%s/set_last_image" % (self.ns, self.name),
-            Image,
-            queue_size=0,
-            latch=True,
-        )
+        self.sub_toggle = self.backend.Subscriber("%s/%s/toggle" % (self.ns, self.name), "bool", self._set_render_toggle)
+        self.sub_get = self.backend.Subscriber("%s/%s/get_last_image" % (self.ns, self.name), "bool", self._get_last_image)
+        self.pub_set = self.backend.Publisher("%s/%s/set_last_image" % (self.ns, self.name), "uint8")
 
     def _set_render_toggle(self, msg):
-        if msg.data:
-            rospy.loginfo("START RENDERING!")
+        if msg:
+            self.backend.logdebug("START RENDERING!")
         else:
-            rospy.loginfo("STOP RENDERING!")
-        self.render_toggle = msg.data
+            self.backend.logdebug("STOP RENDERING!")
+        self.render_toggle = msg
 
     def _get_last_image(self, msg):
         self.pub_set.publish(self.last_image)
 
     def reset(self):
-        self.last_image = Image(data=[])
+        self.last_image = np.empty(shape=(0, 0, 3), dtype="uint8")
 
-    @register.inputs(image=Image)
-    @register.outputs(done=UInt64)
+    @register.inputs(image=None)
+    @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[eagerx.utils.utils.Msg] = None):
         # Fill output_msg with 'done' output --> signals that we are done rendering
-        output_msgs = dict(done=UInt64())
+        output_msgs = dict(done=0)
         # Grab latest image
-        if len(image.msgs) > 0:
-            self.last_image = image.msgs[-1]
+        self.last_image = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
         # If too little time has passed, do not add frame (avoid buffer overflowing)
         if self.window is None:
             self.window = self.window_cls(fps=self.fps, maxlen=self.maxlen, shape=self.shape)
         elif not time.time() > (self.dt_fps + self.window.timestamp):
             return output_msgs
         # Check if frame is not empty
-        empty = self.last_image.height == 0 or self.last_image.width == 0
+        empty = len(self.last_image.data) == 0
         if not empty and self.render_toggle:
-            # Convert image to np array
-            if isinstance(self.last_image.data, bytes):
-                img = np.frombuffer(self.last_image.data, dtype=np.uint8).reshape(
-                    self.last_image.height, self.last_image.width, -1
-                )
-            else:
-                img = np.array(self.last_image.data, dtype=np.uint8).reshape(self.last_image.height, self.last_image.width, -1)
             # Convert to rgb (from bgr)
-            if "bgr" in self.last_image.encoding:
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
             # Add image to buffer (where it is send async to javascript window)
             self.window.buffer_images(img)
         return output_msgs
 
     def shutdown(self):
-        rospy.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
+        self.backend.logdebug(f"[{self.name}] {self.name}.shutdown() called.")
         self.sub_toggle.unregister()
         self.sub_get.unregister()
         self.pub_set.unregister()

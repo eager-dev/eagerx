@@ -1,41 +1,31 @@
-from eagerx import Object, Engine, Node, ResetNode, Converter, BaseConverter
-from eagerx import initialize, log, process
-
-# Environment imports
-from eagerx.core.env import EagerxEnv
-from eagerx.core.graph import Graph
-from eagerx.wrappers import Flatten
-
-# Implementation specific
-import tests.test  # noqa # pylint: disable=unused-import
+import eagerx
 
 import pytest
 
 
 @pytest.mark.timeout(60)
 def test_graph():
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.INFO)
+    eagerx.set_log_level(eagerx.DEBUG)
     rate = 7
 
     # Get info on various specs.
-    import eagerx.converters
-    eagerx.Processor.info("GetIndex_Float32MultiArray")
-    eagerx.SpaceConverter.info("Space_Float32MultiArray")
-    eagerx.Object.info("Viper")
-    eagerx.Object.info("Viper", method="spec")
-    eagerx.Object.info("Viper", method=["spec"])
+    from tests.test.processors import GetIndex
+    GetIndex.info()
+    from tests.test.objects import Viper
+    Viper.info()
+    Viper.info(method="make")
+    Viper.info(method=["make"])
 
     # Define nodes
-    N0 = Node.make("Process", "N0", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    N1 = Node.make("Process", "N1", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    N2 = Node.make("Process", "N2", rate=rate, process=process.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
-    KF = Node.make("KalmanFilter", "KF", rate=rate, process=process.NEW_PROCESS, inputs=["in_1", "in_2"],
-                   outputs=["out_1", "out_2"])
-    N3 = ResetNode.make("RealReset", "N3", rate=rate, process=process.NEW_PROCESS, inputs=["in_1", "in_2"],
-                        targets=["target_1"])
+    from tests.test.nodes import ProcessNode, KalmanNode, RealResetNode
+    N0 = ProcessNode.make("N0", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N1 = ProcessNode.make("N1", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    N2 = ProcessNode.make("N2", rate=rate, process=eagerx.ENVIRONMENT, inputs=["in_1"], outputs=["out_1"])
+    KF = KalmanNode.make("KF", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"], outputs=["out_1", "out_2"])
+    N3 = RealResetNode.make("N3", rate=rate, process=eagerx.NEW_PROCESS, inputs=["in_1", "in_2"], targets=["target_1"])
 
     # Define object
-    viper = Object.make("Viper", "obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
+    viper = Viper.make("obj", position=[1.0, 1.0, 1.0], actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Test SpecView
     with N3.inputs.unlocked:
@@ -53,12 +43,8 @@ def test_graph():
         print("Must fail! ", e)
     _ = len(N3.inputs)
 
-    # Define converter (optional)
-    RosString_RosUInt64 = Converter.make("RosString_RosUInt64", test_arg="test")
-    RosImage_RosUInt64 = Converter.make("RosImage_RosUInt64", test_arg="test")
-
     # Define graphs in different ways
-    _ = Graph.create(nodes=N0).__str__()
+    _ = eagerx.Graph.create(nodes=N0).__str__()
     _ = N0.inputs.__repr__()
     _ = N0.inputs.__str__()
     try:
@@ -66,7 +52,7 @@ def test_graph():
     except AttributeError as e:
         print("Must fail! ", e)
 
-    graph = Graph.create(nodes=[N3, KF], objects=viper)
+    graph = eagerx.Graph.create(nodes=[N3, KF], objects=viper)
 
     # Get specs
     graph.get_spec("KF")
@@ -74,17 +60,18 @@ def test_graph():
     graph.get_spec("obj")
 
     # Rendering
+    from tests.test.processors import ToUint8
     graph.render(
         source=viper.sensors.N6,
         rate=1,
-        converter=RosImage_RosUInt64,
         display=False,
+        processor=ToUint8.make()
     )
     graph.render(
         source=viper.sensors.N6,
         rate=1,
-        converter=RosImage_RosUInt64,
         display=False,
+        processor=ToUint8.make()
     )
 
     # Connect/remove observation
@@ -108,28 +95,19 @@ def test_graph():
     graph.connect(action="act_2", target=KF.inputs.in_2, skip=True)
     graph.connect(action="act_2", target=N3.feedthroughs.out_1, delay=0.0)
     graph.connect(source=viper.states.N9, target=N3.targets.target_1)
-    graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8, converter=RosString_RosUInt64)
+    graph.connect(source=N3.outputs.out_1, target=viper.actuators.N8)
 
     # Set & get parameters
     _ = graph.get(N3)
-    _ = graph.get(action="act_2", parameter="converter")
     graph.set(graph.get(action="act_2"), action="act_2")
     graph.set(graph.get(observation="obs_1"), observation="obs_1")
     graph.set({"window": 1}, observation="obs_1")
-    _ = graph.get(observation="obs_1", parameter="converter")
+    _ = graph.get(observation="obs_1", parameter="processor")
     _ = graph.get(N3.config, parameter="test_arg")
     _ = graph.get(viper.sensors.N6)
     graph.set("Modified", N3.config, parameter="test_arg")
     graph.set({"test_arg": "Modified"}, N3.config)
     graph.set([1, 1, 1], viper.config, parameter="position")
-
-    # Replace output converter (disconnects all connections (obs_1, KF, N3))
-    graph.set({"converter": RosString_RosUInt64}, viper.sensors.N6)
-    graph.set({"converter": BaseConverter.make("Identity")}, viper.sensors.N6)
-    graph.render(source=viper.sensors.N6, rate=1, converter=RosImage_RosUInt64)  # Reconnect
-    graph.connect(source=viper.sensors.N6, observation="obs_1", delay=0.0)  # Reconnect
-    graph.connect(source=viper.sensors.N6, target=KF.inputs.in_1, delay=0.0)  # Reconnect
-    graph.connect(source=viper.sensors.N6, target=N3.inputs.in_1)  # Reconnect
 
     # Remove component. For action/observation use graph._remove_action/observation(...) instead.
     graph.remove_component(N3.inputs.in_2)
@@ -147,7 +125,6 @@ def test_graph():
     graph.connect(
         action="act_1",
         target=KF.inputs.in_2,
-        converter=None,
         delay=None,
         window=None,
         skip=True,
@@ -159,7 +136,6 @@ def test_graph():
     graph.connect(
         source=viper.sensors.N6,
         observation="obs_1",
-        converter=None,
         delay=None,
         window=None,
     )
@@ -180,12 +156,12 @@ def test_graph():
     action = source[2] if source()[0] == "env/actions" else None
     params = graph.get(observation="obs_1")  # Grab already defined parameters from input component
     if len(params) == 0:  # If observation, dict will be empty.
-        converter = graph.get(source, parameter="space_converter")
+        processor = graph.get(source, parameter="processor")
         delay, window = 0, 0
     else:  # If not observation, these values will always be present
-        converter, delay, window = params["converter"], params["delay"], params["window"]
-    # GUI: open dialogue box where users can modify converter, delay, window etc... Use previous params to set initial values.
-    # GUI: converter, delay, window = ConnectionOptionsDialogueBox(converter, delay, window)
+        processor, delay, window = params["processor"], params["delay"], params["window"]
+    # GUI: open dialogue box where users can modify processor, delay, window etc... Use previous params to set initial values.
+    # GUI: processor, delay, window = ConnectionOptionsDialogueBox(processor, delay, window)
     target = None if observation else target  # If we have an observation, it will be the target instead in .connect(..)
     source = None if action else source  # If we have an action, it will be the source instead in .connect(..)
     # GUI: use the modified params via the dialogue box to connect.
@@ -194,7 +170,6 @@ def test_graph():
         target=target,
         action=action,
         observation=observation,
-        converter=converter,
         delay=delay,
         window=window,
     )
@@ -227,20 +202,45 @@ def test_graph():
     graph.is_valid(plot=True)
 
     # Define engine
-    engine = Engine.make("TestEngine", rate=20, sync=False, real_time_factor=5.5, process=process.NEW_PROCESS)
+    from tests.test.engine import TestEngine
+    engine = TestEngine.make(rate=20, sync=True, real_time_factor=5.5, process=eagerx.ENVIRONMENT)
+
+    # Define backend
+    # from eagerx.backends.ros1 import Ros1
+    # backend = Ros1.make()
+    from eagerx.backends.single_process import SingleProcess
+    backend = SingleProcess.make()
+
+    # Define environment
+    class TestEnv(eagerx.BaseEnv):
+        def __init__(self, name, rate, graph, engine, backend):
+            super().__init__(name, rate, graph, engine, backend, force_start=True)
+            self.bnd.logdebug_once("logdebug_once", 'TestEnv')
+            self.bnd.loginfo_once("loginfo_once", 'TestEnv')
+            self.bnd.logerr_once("logerr_once", 'TestEnv')
+            self.bnd.logfatal_once("logfatal_once", 'TestEnv')
+            for i in [eagerx.SILENT, eagerx.DEBUG, eagerx.INFO, eagerx.WARN, eagerx.ERROR, eagerx.FATAL]:
+                _ = self.bnd.get_log_fn(i)
+
+        def step(self, action):
+            obs = self._step(action)
+            return obs, 0, False, {}
+
+        def reset(self):
+            sampled = self.state_space.sample()
+            states = {"obj/N9": sampled["obj/N9"], "engine/param_1": sampled["engine/param_1"]}
+            obs = self._reset(states)
+            return obs
 
     # Initialize Environment
-    env = EagerxEnv(
-        name="graph",
-        rate=rate,
-        graph=graph,
-        engine=engine,
-        reset_fn=lambda env: {
-            "obj/N9": env.state_space.sample()["obj/N9"],
-            "engine/param_1": env.state_space.sample()["engine/param_1"],
-        },
-    )
+    from eagerx.wrappers.flatten import Flatten
+    env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine, backend=backend)
     env = Flatten(env)
+
+    # Get spaces
+    _ = env.observation_space
+    _ = env.action_space
+    _ = env.state_space
 
     # Test message broker
     env.env.mb.print_io_status()
@@ -258,6 +258,9 @@ def test_graph():
         env.reset()
     print("\n[Finished]")
 
+    # Stop rendering
+    env.close()
+
     # Test acyclic graph
     graph.remove_component(action="act_1")
     graph.connect(action="act_1", target=KF.inputs.in_2, skip=False)
@@ -272,6 +275,8 @@ def test_graph():
 
     # Shutdown test
     env.shutdown()
-    if roscore:
-        roscore.shutdown()
     print("\n[Shutdown]")
+
+
+if __name__ == "__main__":
+    test_graph()

@@ -1,5 +1,5 @@
-# ROS IMPORTS
-from std_msgs.msg import UInt64, Bool, String
+# OTHER
+import functools
 
 # RX IMPORTS
 import rx
@@ -9,6 +9,7 @@ from rx.scheduler import EventLoopScheduler, ThreadPoolScheduler
 from rx.subject import ReplaySubject, Subject, BehaviorSubject
 
 # EAGERX IMPORTS
+import eagerx
 from eagerx.core.constants import DEBUG
 
 from eagerx.core.rx_operators import (
@@ -25,8 +26,7 @@ from eagerx.core.rx_operators import (
     init_state_resets,
     init_callback_pipeline,
     get_object_params,
-    extract_inputs_and_reactive_proxy,
-    initialize_reactive_proxy_reset,
+    extract_inputs,
     switch_with_check_pipeline,
     node_reset_flags,
     filter_dict_on_key,
@@ -34,6 +34,7 @@ from eagerx.core.rx_operators import (
     extract_node_reset,
     throttle_callback_trigger,
     with_latest_from,
+    convert,
 )
 
 
@@ -141,7 +142,7 @@ def init_node_pipeline(
             ops.filter(lambda x: x is not None),
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            ops.map(o["converter"].convert),
+            convert(o["space"], o["processor"], o["name"], node, direction="out"),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -209,21 +210,21 @@ def init_node(
 
     # Prepare reset topic
     R = Subject()
-    reset_input = dict(name="reset", address=ns + "/reset", msg_type=UInt64, msg=R)
+    reset_input = dict(name="reset", address=ns + "/reset", dtype="int64", msg=R)
     node_inputs.append(reset_input)
 
     # Prepare real_reset topic
     RR = Subject()
-    real_reset_input = dict(name="real_reset", address=ns + "/real_reset", msg_type=UInt64, msg=RR)
+    real_reset_input = dict(name="real_reset", address=ns + "/real_reset", dtype="int64", msg=RR)
     node_inputs.append(real_reset_input)
 
     # End reset
     E = Subject()
-    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg_type=UInt64, msg=E)
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", dtype="int64", msg=E)
     node_inputs.append(end_reset)
 
     # Prepare node reset topic
-    node_reset = dict(name=node.ns_name, msg_type=Bool)
+    node_reset = dict(name=node.ns_name, dtype="bool")
     node_reset["address"] = node.ns_name + "/end_reset"
     node_reset["msg"] = Subject()
     node_outputs.append(node_reset)
@@ -290,7 +291,7 @@ def init_node(
         i["done"] = D
 
         # Initialize done flag for desired state
-        done_output = dict(name=i["name"], address=i["address"] + "/done", msg_type=Bool, msg=D)
+        done_output = dict(name=i["name"], address=i["address"] + "/done", dtype="bool", msg=D)
         state_outputs.append(done_output)
 
     # Prepare initial flags
@@ -318,7 +319,7 @@ def init_node(
 
     # Send output flags
     for i in outputs:
-        d = RrRn.pipe(ops.map(lambda x: UInt64(data=x))).subscribe(i["reset"])
+        d = RrRn.subscribe(i["reset"])
         reset_disp.add(d)
 
     # Reset node pipeline
@@ -378,7 +379,7 @@ def init_node(
     )
 
     # Send node reset message
-    d = reset_msg.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset["msg"])
+    d = reset_msg.pipe(ops.map(lambda x: True)).subscribe(node_reset["msg"])
     reset_disp.add(d)
 
     rx_objects = dict(
@@ -464,7 +465,7 @@ def init_engine_pipeline(
         d = output_stream.pipe(
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            ops.map(o["converter"].convert),
+            convert(o["space"], o["processor"], o["name"], node, direction="out"),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -528,14 +529,7 @@ def init_engine(
         i["reset"] = Subject()
 
     # Prepare input topics
-    for i in inputs_init:
-        # Subscribe to input topic
-        Ir = Subject()
-        i["msg"] = Ir
-
-        # Subscribe to input reset topic
-        Is = Subject()
-        i["reset"] = Is
+    assert len(inputs_init) == 0, "The inputs to engines are dynamically added."
 
     # Prepare state topics
     for i in state_inputs:
@@ -558,7 +552,7 @@ def init_engine(
         address = "%s/%s" % (ns, i)
         done = Subject()
         df_inputs.append(dict(address=address, done=done))
-        dfs.append(done.pipe(ops.map(lambda msg: bool(msg.data))))
+        dfs.append(done)
 
     # Track node I/O
     node_inputs = []
@@ -569,7 +563,12 @@ def init_engine(
     ###########################################################################
     init_node_flags = []
     for i in node_names:
-        nf = dict(name=i, address="%s/%s/end_reset" % (ns, i), msg=Subject(), msg_type=Bool)
+        if i == "env/supervisor":
+            # todo: skipping is a HACK!
+            #  - node_flag:env/supervisor/end_reset is received in engine Subscriber
+            #  - However, the message does not come through in node_reset_flags(...)
+            continue
+        nf = dict(name=i, address="%s/%s/end_reset" % (ns, i), msg=Subject(), dtype="bool")
         node_inputs.append(nf)
         init_node_flags.append(nf)
 
@@ -588,13 +587,14 @@ def init_engine(
     ###########################################################################
     # Object register (to dynamically add input reset flags to F for reset)
     NR = Subject()
-    node_registry = dict(name="register_node", address=ns + "/register_node", msg=NR, msg_type=String)
+    node_registry = dict(name="register_node", address=ns + "/register_node", msg=NR, dtype="str")
     node_inputs.append(node_registry)
 
     # Node registry pipeline
+    w_get_node_params = functools.partial(get_node_params, node)
     node_params = NR.pipe(
         spy("nodes", node, log_level=DEBUG),
-        ops.map(get_node_params),
+        ops.map(w_get_node_params),
         ops.filter(lambda params: params is not None),
         ops.map(node.register_node),
         ops.map(lambda args: extract_node_reset(ns, *args)),
@@ -603,15 +603,16 @@ def init_engine(
 
     # Object register (to dynamically add input reset flags to F for reset)
     OR = Subject()
-    object_registry = dict(name="register_object", address=ns + "/register_object", msg=OR, msg_type=String)
+    object_registry = dict(name="register_object", address=ns + "/register_object", msg=OR, dtype="str")
     node_inputs.append(object_registry)
 
     # Object registry pipeline
+    w_get_object_params = functools.partial(get_object_params, node)
     object_params = OR.pipe(
-        ops.map(get_object_params),
+        ops.map(w_get_object_params),
         ops.filter(lambda params: params is not None),
         ops.map(lambda params: (params[1],) + node.register_object(*params)),
-        ops.map(lambda i: extract_inputs_and_reactive_proxy(ns, *i)),
+        ops.map(lambda i: extract_inputs(ns, *i)),
         ops.share(),
     )
 
@@ -622,7 +623,6 @@ def init_engine(
                 message_broker.add_rx_objects(
                     node.ns_name,
                     inputs=i["inputs"],
-                    reactive_proxy=i["reactive_proxy"],
                     state_inputs=i["state_inputs"],
                     node_inputs=i["node_flags"],
                 ),
@@ -632,8 +632,7 @@ def init_engine(
         ops.scan(
             combine_dict,
             dict(
-                inputs=inputs_init,
-                reactive_proxy=[],
+                inputs=list(inputs_init),
                 sp_nodes=[],
                 launch_nodes=[],
                 state_inputs=[],
@@ -652,13 +651,13 @@ def init_engine(
     ###########################################################################
     # Prepare start_reset input
     SR = Subject()
-    start_reset_input = dict(name="start_reset", address=ns + "/start_reset", msg=SR, msg_type=UInt64)
+    start_reset_input = dict(name="start_reset", address=ns + "/start_reset", msg=SR, dtype="int64")
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
     rx_objects = SR.pipe(
         ops.combine_latest(REG_cum),
-        ops.filter(lambda x: x[0].data == x[1]),  # cum_registered == REG_cum
+        ops.filter(lambda x: x[0] == x[1]),  # cum_registered == REG_cum
         ops.combine_latest(rx_objects),
         spy("SR", node, log_level=DEBUG, mapper=lambda x: (x[0][0], x[0][1], x[1][1])),
         ops.filter(lambda x: x[0][1] == x[1][1]),  # cum_registered == REG_cum && REG_cum == rx_objects[1]
@@ -667,12 +666,10 @@ def init_engine(
     )
     inputs = rx_objects.pipe(ops.pluck("inputs"))
     simstate_inputs = rx_objects.pipe(ops.pluck("state_inputs"))
-    reactive_proxy = rx_objects.pipe(ops.pluck("reactive_proxy"))
     node_flags = rx_objects.pipe(ops.pluck("node_flags"))
 
     # Prepare output for reactive proxy
     RM = Subject()
-    check_reactive_proxy = reactive_proxy.pipe(ops.map(lambda rx: initialize_reactive_proxy_reset(rate_node, RM, rx, node)))
 
     # Zip initial input flags
     check_F_init, F_init, F_init_ho = switch_with_check_pipeline()
@@ -707,13 +704,14 @@ def init_engine(
     # This, so that the first time, the engine states are run.
     # Some engines/simulators might require that for setting initial state.
     ER = Subject()
-    end_register = dict(name="end_register", address=ns + "/end_register", msg=ER, msg_type=UInt64)
+    end_register = dict(name="end_register", address=ns + "/end_register", msg=ER, dtype="int64")
     node_outputs.append(end_register)
 
     # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
+    # todo: If simstate_inputs is not added here, EngineState reset sometimes blocks (done flag not received).
     d = (
-        rx.zip(check_F_init, check_reactive_proxy, check_NF, check_simSS)
-        .pipe(ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: UInt64()))
+        rx.zip(check_F_init, simstate_inputs, check_NF, check_simSS)
+        .pipe(ops.map(lambda i: message_broker.connect_io()), ops.map(lambda i: 0))
         .subscribe(ER)
     )
     reset_disp.add(d)
@@ -721,19 +719,9 @@ def init_engine(
     ###########################################################################
     # Real reset ##############################################################
     ###########################################################################
-    # Prepare real_reset output
-    real_reset_input = dict(name="real_reset", address=ns + "/real_reset", msg=RR, msg_type=UInt64)
+    # Prepare real_reset output. Previously, RR was both an input and subscribed to?
+    real_reset_input = dict(name="real_reset", address=ns + "/real_reset", msg=RR, dtype="int64")
     node_inputs.append(real_reset_input)
-
-    # Zip switch checks to indicate end of '/rx/start_reset' procedure, and start of '/rx/real_reset'
-    d = (
-        rx.zip(check_F_init, check_reactive_proxy, check_NF)
-        .pipe(
-            ops.map(lambda i: message_broker.connect_io()),
-        )
-        .subscribe(RR)
-    )
-    reset_disp.add(d)
 
     # Real reset routine. Cuts-off tick_callback when RRr is received, instead of Rr
     check_RRn, RRn, RRn_ho = switch_with_check_pipeline(init_ho=BehaviorSubject((0, 0, True)))
@@ -749,7 +737,7 @@ def init_engine(
 
     d = pre_reset_trigger.pipe(
         ops.map(lambda x: x[0][0]),
-        ops.map(lambda x: UInt64(data=x[0] + 1)),
+        ops.map(lambda x: x[0] + 1),
         ops.share(),  # x[0][0]=Nc
     ).subscribe(RM)
     reset_disp.add(d)
@@ -760,7 +748,7 @@ def init_engine(
     ###########################################################################
     # Prepare reset output
     R = Subject()
-    reset_output = dict(name="reset", address=ns + "/reset", msg=R, msg_type=UInt64)
+    reset_output = dict(name="reset", address=ns + "/reset", msg=R, dtype="int64")
     node_outputs.append(reset_output)
 
     # Send reset message
@@ -777,7 +765,7 @@ def init_engine(
     # Reset: initialize episode pipeline ######################################
     ###########################################################################
     # Prepare end_reset output
-    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="int64")
     node_outputs.append(end_reset)
 
     # Dynamically initialize new input pipeline
@@ -852,17 +840,17 @@ def init_engine(
         # ops.map(lambda x: x[0].dispose()),
         ops.start_with(None),
         ops.zip(
-            ss_cl,
-            reset_obs,
-            simSS,
-            NF.pipe(spy("NF", node)),
-            check_SS,
-            check_SS_CL,
+            ss_cl.pipe(spy("ER-ss_cl", node)),
+            reset_obs.pipe(spy("ER-obs", node)),
+            simSS.pipe(spy("ER-simSS", node)),
+            NF.pipe(spy("ER-NF", node)),
+            check_SS.pipe(spy("ER-ch_SS", node)),
+            check_SS_CL.pipe(spy("ER-ch_SS_CL", node)),
         ),
         ops.map(lambda x: node.reset_cb(**x[1])),
         spy("POST-RESET", node, log_level=DEBUG),
         trace_observable("cb_post_reset", node),
-        ops.map(lambda x: UInt64(data=0)),
+        ops.map(lambda x: 0),
         ops.share(),
     ).subscribe(end_reset["msg"])
     reset_disp.add(d)
@@ -892,7 +880,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
             dict(
                 name=s["name"],
                 address=s["address"] + "/done",
-                msg_type=Bool,
+                dtype="bool",
                 msg=s["done"],
             )
         )
@@ -905,7 +893,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # Start reset #############################################################
     ###########################################################################
     SR = Subject()  # ---> Not a node output, but used in node.reset() to kickstart reset pipeline (send self.cum_registered).
-    start_reset = dict(name="start_reset", address=ns + "/start_reset", msg=Subject(), msg_type=UInt64)
+    start_reset = dict(name="start_reset", address=ns + "/start_reset", msg=Subject(), dtype="int64")
     d = SR.subscribe(start_reset["msg"], scheduler=tp_scheduler)
     reset_disp.add(d)
 
@@ -913,8 +901,8 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # End register ############################################################
     ###########################################################################
     ER = Subject()
-    end_register = dict(name="reset", address=ns + "/end_register", msg_type=UInt64, msg=ER)
-    real_reset = dict(name="real_reset", address=ns + "/real_reset", msg=Subject(), msg_type=UInt64)
+    end_register = dict(name="reset", address=ns + "/end_register", dtype="int64", msg=ER)
+    real_reset = dict(name="real_reset", address=ns + "/real_reset", msg=Subject(), dtype="int64")
     d = ER.subscribe(real_reset["msg"])
     reset_disp.add(d)
 
@@ -932,7 +920,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         d = msgs.pipe(
             filter_dict_on_key(s["name"]),
             ops.filter(lambda msg: msg is not None),
-            ops.map(s["converter"].convert),
+            convert(s["space"], s["processor"], s["name"], node, direction="out"),
             ops.share(),
         ).subscribe(s["msg"])
         reset_disp.add(d)
@@ -941,18 +929,19 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     # Reset ###################################################################
     ###########################################################################
     R = Subject()
-    reset = dict(name="reset", address=ns + "/reset", msg_type=UInt64, msg=R)
+    reset = dict(name="reset", address=ns + "/reset", dtype="int64", msg=R)
 
     # Prepare node reset topic
     node_reset = dict(
         name=node.ns_name,
         address=node.ns_name + "/end_reset",
-        msg_type=Bool,
+        dtype="bool",
         msg=Subject(),
     )
 
     # Reset pipeline
-    d = R.pipe(ops.map(lambda x: Bool(data=True))).subscribe(node_reset["msg"], scheduler=tp_scheduler)
+    # todo: HACK! The Engine currently does not wait for this message.
+    d = R.pipe(ops.map(lambda x: True)).subscribe(node_reset["msg"], scheduler=tp_scheduler)
     reset_disp.add(d)
 
     ###########################################################################
@@ -963,14 +952,14 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         name="register_object",
         address=ns + "/register_object",
         msg=Subject(),
-        msg_type=String,
+        dtype="str",
     )
     REG_NODE = Subject()  # ---> Not a node output, but used in node.register_node() to kickstart register pipeline.
     register_node = dict(
         name="register_node",
         address=ns + "/register_node",
         msg=Subject(),
-        msg_type=String,
+        dtype="str",
     )
 
     # Register pipeline
@@ -982,9 +971,20 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     ###########################################################################
     # End reset ###############################################################
     ###########################################################################
-    tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), msg_type=UInt64)
-    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), msg_type=UInt64)
-    d = end_reset["msg"].pipe(spy("RESET END", node, log_level=DEBUG)).subscribe(tick["msg"])
+    # Define tick attributes
+    space = eagerx.Space(shape=(), dtype="int64")
+    dtype = space.to_dict()["dtype"]
+    tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), dtype=dtype)
+
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="int64")
+    d = (
+        end_reset["msg"]
+        .pipe(
+            spy("RESET END", node, log_level=DEBUG),
+            convert(space, None, "tick", node, direction="out"),
+        )
+        .subscribe(tick["msg"])
+    )
     reset_disp.add(d)
 
     # Create node inputs & outputs

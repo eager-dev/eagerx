@@ -1,6 +1,20 @@
 # import dependencies
-from google.colab.output import eval_js
-from IPython.display import display, Javascript
+try:
+    from google.colab.output import eval_js
+    from IPython.display import display, Javascript
+except ImportError:
+    Warning(
+        "It seems that you are trying to use this package outside of  google colab. Using a mock version instead, "
+        "that does not do anything."
+    )
+
+    def mock_fn(*args, **kwargs):
+        pass
+
+    eval_js = mock_fn
+    display = mock_fn
+    Javascript = mock_fn
+
 from base64 import b64encode
 import numpy as np
 from collections import deque

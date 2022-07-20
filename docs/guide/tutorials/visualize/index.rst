@@ -59,6 +59,9 @@ This is demonstrated in the video below:
 
 Live-plotting
 *************
+.. note::
+    Live-plotting is currently only supported when the ``Ros1`` :class:`~eagerx.core.entities.Backend` is selected.
+
 In robotics it is crucial to monitor the robot's behavior during the learning process.
 Luckily, inter-node communication within EAGERx can always be listened to externally,
 so that any relevant information stream can be trivially monitored on-demand.

@@ -2,25 +2,16 @@
 from typing import Optional
 import gym
 
-# ROS IMPORTS
-import rospy
-from std_msgs.msg import UInt64
-
 # RX IMPORTS
 from eagerx.core.constants import process, ERROR
 import eagerx.core.register as register
 from eagerx.core.entities import Engine
-from eagerx.core.specs import EngineSpec
 
 
 class GymEngine(Engine):
-    def initialize(self):
-        self.simulator = dict()
-
-    @staticmethod
-    @register.spec("GymEngine", Engine)
-    def spec(
-        spec: EngineSpec,
+    @classmethod
+    def make(
+        cls,
         rate,
         process: Optional[int] = process.NEW_PROCESS,
         sync: Optional[bool] = True,
@@ -29,6 +20,8 @@ class GymEngine(Engine):
         log_level: Optional[int] = ERROR,
     ):
         """TestEngine spec"""
+        spec = cls.get_specification()
+
         # Modify default engine params
         spec.config.rate = rate
         spec.config.process = process
@@ -37,9 +30,12 @@ class GymEngine(Engine):
         spec.config.simulate_delays = simulate_delays
         spec.config.log_level = log_level
         spec.config.color = "magenta"
+        return spec
 
-    @register.engine_config(env_id=None)
-    def add_object(self, config, engine_config, node_params, state_params):
+    def initialize(self, spec):
+        self.simulator = dict()
+
+    def add_object(self, spec, env_id: str):
         """
         Adds an object whose dynamics are governed by a registered OpenAI gym environment.
 
@@ -56,11 +52,11 @@ class GymEngine(Engine):
                              :class:`~eagerx.core.entities.EngineState` that is to be added.
         """
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        rospy.loginfo(f'Adding object "{config["name"]}" of type "{config["entity_id"]}" to the simulator.')
+        self.backend.loginfo(f'Adding object "{spec.config.name}" of type "{spec.config.entity_id}" to the simulator.')
 
         # Extract relevant object_params
-        obj_name = config["name"]
-        id = engine_config["env_id"]
+        obj_name = spec.config.name
+        id = spec.engine.env_id
 
         # Create new env, and add to simulator
         self.simulator[obj_name] = dict(
@@ -82,7 +78,6 @@ class GymEngine(Engine):
             sim["buffer_reward"] = []
             sim["buffer_done"] = []
 
-    @register.outputs(tick=UInt64)
     def callback(self, t_n: float):
         for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]

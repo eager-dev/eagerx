@@ -1,7 +1,7 @@
-Converter
+Processor
 =========
 
-.. autoclass:: eagerx.core.specs.ConverterSpec
+.. autoclass:: eagerx.core.specs.ProcessorSpec
     :members:
     :inherited-members:
     :exclude-members:

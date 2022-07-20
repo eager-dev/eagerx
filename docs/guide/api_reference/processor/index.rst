@@ -1,5 +1,6 @@
+*********
 Processor
-=========
+*********
 
 .. autoclass:: eagerx.core.entities.Processor
     :members:

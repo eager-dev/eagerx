@@ -1,21 +1,20 @@
-# IMPORT ROS
-from typing import Any
-
-import rospy
+# IMPORT RX
+from typing import Any, TYPE_CHECKING
 import rx.disposable
-from rx import Observable, create
-from rx.disposable import Disposable
-from std_msgs.msg import UInt64, Bool
 
 # IMPORT OTHER
+from rx import Observable, create
+from rx.disposable import Disposable
 from termcolor import cprint
-import logging
 import types
 from functools import wraps
 from threading import Condition
 
 # IMPORT EAGERX
 from eagerx.core.constants import DEBUG
+
+if TYPE_CHECKING:
+    from eagerx.core.entities import Backend  # noqa: F401
 
 
 def thread_safe_wrapper(func, condition):
@@ -28,11 +27,12 @@ def thread_safe_wrapper(func, condition):
 
 
 class RxMessageBroker(object):
-    def __init__(self, owner):
+    def __init__(self, owner, backend: "Backend"):
         self.owner = owner
+        self.bnd = backend
 
         # Determine log_level
-        self.effective_log_level = logging.getLogger("rosout").getEffectiveLevel()
+        self.effective_log_level = backend.log_level
 
         # Ensure that we are not reading and writing at the same time.
         self.cond = Condition()
@@ -43,7 +43,7 @@ class RxMessageBroker(object):
         # Structured as node_io[node_name][type][address] = {rx=Subject, disposable=rx_disposable, etc..}
         self.node_io = dict()
         self.disconnected = dict()
-        self.connected_ros = dict()
+        self.connected_bnd = dict()
         self.connected_rx = dict()
 
         # All publishers and subscribers (grouped to unregister when shutting down)
@@ -70,7 +70,6 @@ class RxMessageBroker(object):
         targets=tuple(),
         node_inputs=tuple(),
         node_outputs=tuple(),
-        reactive_proxy=tuple(),
         disposable: rx.disposable.CompositeDisposable = None,
     ):
         # Add disposable
@@ -84,7 +83,7 @@ class RxMessageBroker(object):
             ns = self.node_io[node_name]["node"].ns
         tick_address = ns + "/engine/outputs/tick"
 
-        # Only add outputs that we would like to link with rx (i.e., skipping ROS (de)serialization)
+        # Only add outputs that we would like to link with rx (i.e., skipping backend serialization)
         for i in outputs:
             if i["address"] == tick_address:
                 continue
@@ -107,10 +106,9 @@ class RxMessageBroker(object):
                 targets={},
                 node_inputs={},
                 node_outputs={},
-                reactive_proxy={},
             )
             self.disconnected[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, targets={}, node_inputs={})
-            self.connected_ros[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, targets={}, node_inputs={})
+            self.connected_bnd[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, targets={}, node_inputs={})
             self.connected_rx[node_name] = dict(inputs={}, feedthrough={}, state_inputs={}, targets={}, node_inputs={})
         n = dict(
             inputs={},
@@ -121,7 +119,6 @@ class RxMessageBroker(object):
             targets={},
             node_inputs={},
             node_outputs={},
-            reactive_proxy={},
         )
         for i in inputs:
             address = i["address"]
@@ -132,8 +129,8 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
-                "converter": i["converter"],
+                "dtype": i["dtype"],
+                "processor": i["processor"],
                 "window": i["window"],
                 "status": "disconnected",
             }
@@ -141,7 +138,7 @@ class RxMessageBroker(object):
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
-                "msg_type": UInt64,
+                "dtype": "int64",
                 "status": "disconnected",
             }
         for i in outputs:
@@ -153,28 +150,28 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
+                "dtype": i["dtype"],
                 "rate": i["rate"],
-                "converter": i["converter"],
+                "processor": i["processor"],
                 "status": "",
             }
             n["outputs"][cname_address + "/reset"] = {
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
-                "msg_type": UInt64,
+                "dtype": "int64",
                 "status": "",
             }
 
             # Create publisher
-            i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
+            i["msg_pub"] = self.bnd.Publisher(i["address"], i["dtype"])
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
             self.disposables.append(d)
             self._publishers.append(i["msg_pub"])
-            i["reset_pub"] = rospy.Publisher(i["address"] + "/reset", UInt64, queue_size=0, latch=True)
+            i["reset_pub"] = self.bnd.Publisher(i["address"] + "/reset", n["outputs"][cname_address + "/reset"]["dtype"])
             d = i["reset"].subscribe(
                 on_next=i["reset_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -190,8 +187,8 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
-                "converter": i["converter"],
+                "dtype": i["dtype"],
+                "processor": i["processor"],
                 "window": i["window"],
                 "status": "disconnected",
             }
@@ -199,7 +196,7 @@ class RxMessageBroker(object):
                 "rx": i["reset"],
                 "disposable": None,
                 "source": i,
-                "msg_type": UInt64,
+                "dtype": "int64",
                 "status": "disconnected",
             }
         for i in state_outputs:
@@ -211,14 +208,14 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
+                "dtype": i["dtype"],
                 "status": "",
             }
-            if "converter" in i:
-                n["state_outputs"][cname_address]["converter"] = i["converter"]
+            if "processor" in i:
+                n["state_outputs"][cname_address]["processor"] = i["processor"]
 
             # Create publisher
-            i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
+            i["msg_pub"] = self.bnd.Publisher(i["address"], i["dtype"])
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -238,8 +235,8 @@ class RxMessageBroker(object):
                     "rx": i["msg"],
                     "disposable": None,
                     "source": i,
-                    "msg_type": i["msg_type"],
-                    "converter": i["converter"],
+                    "dtype": i["dtype"],
+                    "processor": i["processor"],
                     "status": "disconnected",
                 }
             # Only true if **not** a real reset node (i.e., sim state & engine done flag)
@@ -250,7 +247,7 @@ class RxMessageBroker(object):
                     "rx": i["done"],
                     "disposable": None,
                     "source": i,
-                    "msg_type": Bool,
+                    "dtype": "bool",
                     "status": "disconnected",
                 }
         for i in targets:
@@ -262,8 +259,8 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
-                "converter": i["converter"],
+                "dtype": i["dtype"],
+                "processor": i["processor"],
                 "status": "disconnected",
             }
         for i in node_inputs:
@@ -275,7 +272,7 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
+                "dtype": i["dtype"],
                 "status": "disconnected",
             }
         for i in node_outputs:
@@ -287,40 +284,18 @@ class RxMessageBroker(object):
                 "rx": i["msg"],
                 "disposable": None,
                 "source": i,
-                "msg_type": i["msg_type"],
+                "dtype": i["dtype"],
                 "status": "",
             }
 
             # Create publisher: (latched: register, node_reset, start_reset, reset, real_reset)
-            i["msg_pub"] = rospy.Publisher(i["address"], i["msg_type"], queue_size=0, latch=True)
+            i["msg_pub"] = self.bnd.Publisher(i["address"], i["dtype"])
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
             self.disposables.append(d)
             self._publishers.append(i["msg_pub"])
-        for i in reactive_proxy:
-            address = i["address"]
-            cname_address = f"{i['name']}:{address}"
-            self._assert_already_registered(cname_address, self.node_io[node_name], "reactive_proxy")
-            self._assert_already_registered(cname_address, n, "reactive_proxy")
-            n["reactive_proxy"][cname_address + "/reset"] = {
-                "rx": i["reset"],
-                "disposable": None,
-                "source": i,
-                "msg_type": UInt64,
-                "rate": i["external_rate"],
-                "status": "",
-            }
-
-            # Create publisher
-            i["reset_pub"] = rospy.Publisher(i["address"] + "/reset", UInt64, queue_size=0, latch=True)
-            d = i["reset"].subscribe(
-                on_next=i["reset_pub"].publish,
-                on_error=lambda e: print("Error : {0}".format(e)),
-            )
-            self.disposables.append(d)
-            self._publishers.append(i["reset_pub"])
 
         # Add new addresses to already registered I/Os
         for key in n.keys():
@@ -353,7 +328,6 @@ class RxMessageBroker(object):
                 "outputs",
                 "state_outputs",
                 "node_outputs",
-                "reactive_proxy",
             ):
                 if len(self.node_io[node_name][key]) == 0:
                     continue
@@ -363,7 +337,6 @@ class RxMessageBroker(object):
                         "outputs",
                         "node_outputs",
                         "state_outputs",
-                        "reactive_proxy",
                     ):
                         color = "cyan"
                     else:
@@ -372,23 +345,23 @@ class RxMessageBroker(object):
                         if cname_address in self.connected_rx[node_name][key]:
                             assert color is None, f"Duplicate connection status for address ({cname_address})."
                             color = "green"
-                        if cname_address in self.connected_ros[node_name][key]:
+                        if cname_address in self.connected_bnd[node_name][key]:
                             assert color is None, f"Duplicate connection status for address ({cname_address})."
                             color = "blue"
                         assert (
                             color is not None
-                        ), "Address (cname_address) not found in self.(disconnected, connected_rx, connected_ros)."
+                        ), "Address (cname_address) not found in self.(disconnected, connected_rx, connected_bnd)."
                     status = self.node_io[node_name][key][cname_address]["status"]
 
                     # Print status
                     entry = self.node_io[node_name][key][cname_address]
                     key_str = ("%s" % key).ljust(15, " ")
                     address_str = ("| %s " % cname_address).ljust(50, " ")
-                    msg_type_str = ("| %s " % entry["msg_type"].__name__).ljust(10, " ")
-                    if "converter" in entry:
-                        converter_str = ("| %s " % entry["converter"].__class__.__name__).ljust(23, " ")
+                    dtype_str = ("| %s " % entry["dtype"]).ljust(10, " ")
+                    if "processor" in entry:
+                        processor_str = ("| %s " % entry["processor"].__class__.__name__).ljust(23, " ")
                     else:
-                        converter_str = ("| %s " % "").ljust(23, " ")
+                        processor_str = ("| %s " % "").ljust(23, " ")
                     if "window" in entry:
                         window_str = ("| %s " % entry["window"]).ljust(8, " ")
                     else:
@@ -399,7 +372,7 @@ class RxMessageBroker(object):
                         rate_str = "|" + "".center(3, " ")
                     status_str = ("| %s" % status).ljust(60, " ")
 
-                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + window_str + status_str
+                    log_msg = key_str + rate_str + address_str + dtype_str + processor_str + window_str + status_str
                     cprint(log_msg, color)
             print(" ".center(140, " "))
 
@@ -430,28 +403,28 @@ class RxMessageBroker(object):
                         cname_address not in self.connected_rx[node_name][key]
                     ), f"Address ({cname_address}) of this node ({node_name}) already connected via rx."
                     assert (
-                        cname_address not in self.connected_ros[node_name][key]
-                    ), f"Address ({cname_address}) of this node ({node_name}) already connected via ROS."
+                        cname_address not in self.connected_bnd[node_name][key]
+                    ), f"Address ({cname_address}) of this node ({node_name}) already connected via backend."
                     if address in self.rx_connectable.keys():
                         color = "green"
                         status = "Rx".ljust(4, " ")
                         entry["rate"] = self.rx_connectable[address]["rate"]
                         rate_str = f"|{str(entry['rate']).center(3, ' ')}"
                         node_str = f'| {self.rx_connectable[address]["node_name"].ljust(40, " ")}'
-                        msg_type_str = f'| {self.rx_connectable[address]["source"]["msg_type"].__name__}'.ljust(12, " ")
-                        converter_str = f'| {self.rx_connectable[address]["source"]["converter"].__class__.__name__}'.ljust(
+                        dtype_str = f'| {self.rx_connectable[address]["source"]["dtype"]}'.ljust(12, " ")
+                        processor_str = f'| {self.rx_connectable[address]["source"]["processor"].__class__.__name__}'.ljust(
                             12, " "
                         )
-                        status += node_str + msg_type_str + converter_str
+                        status += node_str + dtype_str + processor_str
                         self.connected_rx[node_name][key][cname_address] = entry
                         T = self.rx_connectable[address]["rx"]
                     else:
                         color = "blue"
-                        status = "ROS |".ljust(5, " ")
+                        status = f"{self.bnd.BACKEND} |".ljust(5, " ")
                         rate_str = "|" + "".center(3, " ")
-                        msg_type = entry["msg_type"]
-                        self.connected_ros[node_name][key][cname_address] = entry
-                        T = from_topic(msg_type, address, node_name, self.subscribers)
+                        dtype = entry["dtype"]
+                        self.connected_bnd[node_name][key][cname_address] = entry
+                        T = from_topic(self.bnd, dtype, address, node_name, self.subscribers)
 
                     # Subscribe and change status
                     entry["disposable"] = T.subscribe(entry["rx"])
@@ -461,19 +434,19 @@ class RxMessageBroker(object):
                     # Print status
                     key_str = ("%s" % key).ljust(15, " ")
                     address_str = ("| %s " % cname_address).ljust(50, " ")
-                    msg_type_str = ("| %s " % entry["msg_type"].__name__).ljust(10, " ")
+                    dtype_str = ("| %s " % entry["dtype"]).ljust(10, " ")
                     status_str = ("| Connected via %s" % status).ljust(60, " ")
 
-                    if "converter" in entry:
-                        converter_str = ("| %s " % entry["converter"].__class__.__name__).ljust(23, " ")
+                    if "processor" in entry:
+                        processor_str = ("| %s " % entry["processor"].__class__.__name__).ljust(23, " ")
                     else:
-                        converter_str = ("| %s " % "").ljust(23, " ")
+                        processor_str = ("| %s " % "").ljust(23, " ")
                     if "window" in entry:
                         window_str = ("| %s " % entry["window"]).ljust(8, " ")
                     else:
                         window_str = ("| %s " % "").ljust(8, " ")
 
-                    log_msg = key_str + rate_str + address_str + msg_type_str + converter_str + window_str + status_str
+                    log_msg = key_str + rate_str + address_str + dtype_str + processor_str + window_str + status_str
                     print_status and cprint(log_msg, color)
 
                     # Remove address from disconnected
@@ -493,31 +466,24 @@ class RxMessageBroker(object):
         assert name not in d[component], f'Cannot re-register the same address ({name}) twice as "{component}".'
 
     def shutdown(self):
-        rospy.logdebug(f"[{self.owner}] RxMessageBroker.shutdown() called.")
+        self.bnd.logdebug(f"[{self.owner}] RxMessageBroker.shutdown() called.")
+        [d.dispose() for d in self.disposables]
         [pub.unregister() for pub in self._publishers]
         [sub.unregister() for sub in self.subscribers]
-        [d.dispose() for d in self.disposables]
 
 
-def from_topic(topic_type: Any, topic_name: str, node_name, subscribers: list) -> Observable:
+def from_topic(bnd: "Backend", dtype: Any, address: str, node_name, subscribers: list) -> Observable:
     def _subscribe(observer, scheduler=None) -> Disposable:
         try:
-            wrapped_sub = []
 
-            def cb_from_topic(msg, wrapped_sub):
-                try:
-                    observer.on_next(msg)
-                except rospy.exceptions.ROSException as e:
-                    sub = wrapped_sub[0]
-                    sub.unregister()
-                    rospy.logdebug(f"[{sub.name}]: Unregistered this subscription because of exception: {e}")
+            def cb_from_topic(msg):
+                observer.on_next(msg)
 
-            sub = rospy.Subscriber(topic_name, topic_type, callback=cb_from_topic, callback_args=wrapped_sub)
-            wrapped_sub.append(sub)
+            sub = bnd.Subscriber(address, dtype, callback=cb_from_topic)
             subscribers.append(sub)
         except Exception as e:
-            rospy.logwarn("[%s]: %s" % (node_name, e))
-            raise
+            bnd.logwarn("[%s]: %s" % (node_name, e))
+            raise e
         return observer
 
     return create(_subscribe)

@@ -1,36 +1,49 @@
-from eagerx import Object, Engine
-from eagerx import initialize, log, process
-
-# Environment imports
-from eagerx.core.env import EagerxEnv
-from eagerx.core.graph import Graph
-
-# Implementation specific
-import tests.test  # noqa # pylint: disable=unused-import
+import eagerx
 
 import pytest
 
 
-@pytest.mark.timeout(60)
+@pytest.mark.timeout(20)
 def test_graph_engine():
-    # Start roscore
-    roscore = initialize("eagerx_core", anonymous=True, log_level=log.WARN)
+    eagerx.set_log_level(eagerx.WARN)
 
     # Define object
-    arm = Object.make("Arm", "obj", actuators=["N8"], sensors=["N6"], states=["N9"])
+    from tests.test.objects import Arm
+    arm = Arm.make("obj", actuators=["N8"], sensors=["N6"], states=["N9"])
 
     # Define graph
-    graph = Graph.create(objects=[arm])
+    graph = eagerx.Graph.create(objects=[arm])
 
     # Connect sensors (= outputs of object)
     graph.connect(source=arm.sensors.N6, observation="obs_1")
     graph.connect(action="act_1", target=arm.actuators.N8)
 
     # Define engine
-    engine = Engine.make("TestEngine", rate=20, sync=True, real_time_factor=0, process=process.ENVIRONMENT)
+    from tests.test.engine import TestEngine
+    engine = TestEngine.make(rate=20, sync=True, real_time_factor=0, process=eagerx.ENVIRONMENT)
+
+    # Define backend
+    # from eagerx.backends.ros1 import Ros1
+    # backend = Ros1.make()
+    from eagerx.backends.single_process import SingleProcess
+    backend = SingleProcess.make()
+
+    # Define environment
+    class TestEnv(eagerx.BaseEnv):
+        def __init__(self, name, rate, graph, engine, backend):
+            super().__init__(name, rate, graph, engine, backend, force_start=True)
+
+        def step(self, action):
+            obs = self._step(action)
+            return obs, 0, False, {}
+
+        def reset(self):
+            states = self.state_space.sample()
+            obs = self._reset(states)
+            return obs
 
     # Initialize Environment
-    env = EagerxEnv(name="graph_engine", rate=7, graph=graph, engine=engine)
+    env = TestEnv(name="graph_engine", rate=7, graph=graph, engine=engine, backend=backend)
 
     # First reset
     env.reset()
@@ -46,6 +59,8 @@ def test_graph_engine():
 
     # Shutdown test
     env.shutdown()
-    if roscore:
-        roscore.shutdown()
     print("\n[Shutdown]")
+
+
+if __name__ == "__main__":
+    test_graph_engine()

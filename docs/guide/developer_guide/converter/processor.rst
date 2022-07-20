@@ -45,7 +45,7 @@ spec
 ####
 
 The :func:`~eagerx.core.entities.Processor.spec` method can be used to specify with which arguments the :class:`~eagerx.core.entities.Processor` will be initialized.
-In our case, we add *angle_idx* to the :attr:`~eagerx.core.specs.ConverterSpec.config`.
+In our case, we add *angle_idx* to the :attr:`~eagerx.core.specs.ProcessorSpec.config`.
 
 ::
 

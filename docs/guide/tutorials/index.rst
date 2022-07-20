@@ -13,3 +13,6 @@ Furthermore, a tutorial on how to visualize training using EAGERx is available.
     colabs
 
     visualize/index
+
+    distributed
+

@@ -1,6 +1,7 @@
 from yaml import dump
 import copy
 from eagerx.utils.utils import is_supported_type
+from eagerx.core.space import Space
 from typing import Dict, Any, Optional
 
 supported_types = (str, int, list, float, bool, dict)
@@ -34,31 +35,42 @@ def get_dict(params, depth):
 def _is_supported_type(param):
     try:
         is_supported_type(param, supported_types, none_support=True)
-    except TypeError:
-        if isinstance(param, (SpecView, GraphView)):
+    except TypeError as t:
+        from eagerx.core.specs import EntitySpec
+
+        if isinstance(param, SpecView):
             param = param.to_dict()
             is_supported_type(param, supported_types, none_support=True)
+        elif isinstance(param, Space):
+            param = param.to_dict()
+            is_supported_type(param, supported_types, none_support=True)
+        elif isinstance(param, EntitySpec):
+            param = param.params
+            is_supported_type(param, supported_types, none_support=True)
         else:
-            from eagerx.core.specs import EntitySpec
-
-            if isinstance(param, EntitySpec):
-                param = param.params
-                is_supported_type(param, supported_types, none_support=True)
-            else:
-                raise
+            try:
+                if isinstance(param, dict) and "space" in param and isinstance(param["space"], Space):
+                    param["space"] = param["space"].to_dict()
+                    is_supported_type(param, supported_types, none_support=True)
+                else:
+                    raise t
+            except TypeError as te:
+                raise te
 
 
 def _convert_type(param):
     if type(param) in supported_types or param is None:
         return param
     else:
-        if isinstance(param, (SpecView, GraphView)):
+        if isinstance(param, SpecView):
             return param.to_dict()
         else:
             from eagerx.core.specs import EntitySpec
 
             if isinstance(param, EntitySpec):
                 return param.params
+            elif isinstance(param, Space):
+                return param.to_dict()
             else:
                 message = f'Type "{type(param)}" is not supported. Only types {supported_types} are supported.'
                 raise TypeError(message)
@@ -89,8 +101,8 @@ class ViewIterator(object):
 
 
 class View(object):
-    def __init__(self):
-        super(View, self).__setattr__("_unlocked", False)
+    def __init__(self, unlocked):
+        super(View, self).__setattr__("_unlocked", unlocked)
 
     def __getitem__(self, name):
         try:
@@ -139,25 +151,23 @@ class View(object):
 
 
 class SpecView(View):
-    def __init__(self, spec, depth, name=None):
+    def __init__(self, spec, depth, name=None, unlocked=False):
         super(SpecView, self).__setattr__("_spec", spec)
         super(SpecView, self).__setattr__("_depth", depth)
         super(SpecView, self).__setattr__("_name", name)
-        super(SpecView, self).__init__()
+        super(SpecView, self).__init__(unlocked)
         keys_exists(self._spec._params, *self._depth)
 
     def __setattr__(self, name, value):
-        if self._spec.has_graph:
-            raise AttributeError(f"Root Spec of '{self()}' was added to a graph, so this object has been disposed.")
         # Check if type is supported
         _is_supported_type(value)
         value = _convert_type(value)  # Convert Lookup & EntitySpec to dicts
 
         d = get_dict(self._spec._params, self._depth)
         if name in d:
-            d[name] = value
+            d[name] = copy.deepcopy(value)
         elif self._unlocked:
-            d[name] = value
+            d[name] = copy.deepcopy(value)
         else:
             message = f"Cannot set new attribute '{name}' when locked. \n"
             message += "The lock is there because new attributes are likely not accepted during initialization. "
@@ -165,8 +175,6 @@ class SpecView(View):
             raise AttributeError(message)
 
     def __getattr__(self, name):
-        if self._spec.has_graph:
-            raise AttributeError(f"Root Spec of '{self()}' was added to a graph, so this object has been disposed.")
         if keys_exists(self._spec._params, *self._depth, name):
             new_depth = self._depth.copy() + [name]
             d = get_dict(self._spec._params, new_depth)
@@ -191,16 +199,12 @@ class SpecView(View):
                 raise AttributeError(message) from e
 
     def __str__(self):
-        if self._spec.has_graph:
-            raise AttributeError(f"Root Spec of '{self()}' was added to a graph, so this object has been disposed.")
         d = get_dict(self._spec._params, self._depth)
         repr = f"Params for {self()}: \n\n"
         repr += dump(d)
         return repr
 
     def __repr__(self):
-        if self._spec.has_graph:
-            raise AttributeError(f"Root Spec of '{self()}' was added to a graph, so this object has been disposed.")
         d = get_dict(self._spec._params, self._depth)
         repr = f"Params for {self()}: \n\n"
         repr += dump(d)
@@ -216,63 +220,61 @@ class SpecView(View):
             return tuple(self._depth)
 
     def to_dict(self):
-        if self._spec.has_graph:
-            raise AttributeError(f"Root Spec of '{self()}' was added to a graph, so this object has been disposed.")
         return get_dict(self._spec._params, self._depth)
 
 
-class GraphView(View):
-    def __init__(self, graph, depth, name):
-        super(GraphView, self).__setattr__("_graph", graph)
-        super(GraphView, self).__setattr__("_depth", depth)
-        super(GraphView, self).__setattr__("_name", name)
-        super(GraphView, self).__init__()
-        keys_exists(self._graph._state["nodes"], *self._depth)
-
-    def __setattr__(self, name, value):
-        raise AttributeError(f"GraphView for '{self()}' is locked. Use graph API for setting once added to the graph.")
-
-    def __getattr__(self, name):
-        if keys_exists(self._graph._state["nodes"], *self._depth, name):
-            new_depth = self._depth.copy() + [name]
-            d = get_dict(self._graph._state["nodes"], new_depth)
-            if isinstance(d, dict):
-                return GraphView(self._graph, new_depth, self._name)
-            else:
-                return copy.deepcopy(d)
-        else:
-            try:
-                d = get_dict(self._graph._state["nodes"], self._depth)
-                return getattr(d, name)
-            except AttributeError as e:
-                d = get_dict(self._graph._state["nodes"], self._depth)
-                if self._name:
-                    depth_str = f"Spec({self._name})"
-                else:
-                    depth_str = "params"
-                for i in self._depth[1:]:
-                    depth_str += f".{i}"
-                attr_available = ["." + n for n in list(d.keys())]
-                message = f"Attribute '{name}' not found. Available attributes in {depth_str}={attr_available}."
-                raise AttributeError(message) from e
-
-    def __str__(self):
-        d = get_dict(self._graph._state["nodes"], self._depth)
-        repr = f"Params for {self()}: \n\n"
-        repr += dump(d)
-        return repr
-
-    def __repr__(self):
-        d = get_dict(self._graph._state["nodes"], self._depth)
-        repr = f"Params for {self()}: \n\n"
-        repr += dump(d)
-        return repr
-
-    def __call__(self):
-        return tuple(self._depth)
-
-    def __len__(self):
-        return len(get_dict(self._graph._state["nodes"], self._depth))
-
-    def to_dict(self):
-        return copy.deepcopy(get_dict(self._graph._state["nodes"], self._depth))
+# class GraphView(View):
+#     def __init__(self, graph, depth, name, unlocked=False):
+#         super(GraphView, self).__setattr__("_graph", graph)
+#         super(GraphView, self).__setattr__("_depth", depth)
+#         super(GraphView, self).__setattr__("_name", name)
+#         super(GraphView, self).__init__(unlocked)
+#         keys_exists(self._graph._state["nodes"], *self._depth)
+#
+#     def __setattr__(self, name, value):
+#         raise AttributeError(f"GraphView for '{self()}' is locked. Use graph API for setting once added to the graph.")
+#
+#     def __getattr__(self, name):
+#         if keys_exists(self._graph._state["nodes"], *self._depth, name):
+#             new_depth = self._depth.copy() + [name]
+#             d = get_dict(self._graph._state["nodes"], new_depth)
+#             if isinstance(d, dict):
+#                 return GraphView(self._graph, new_depth, self._name)
+#             else:
+#                 return copy.deepcopy(d)
+#         else:
+#             try:
+#                 d = get_dict(self._graph._state["nodes"], self._depth)
+#                 return getattr(d, name)
+#             except AttributeError as e:
+#                 d = get_dict(self._graph._state["nodes"], self._depth)
+#                 if self._name:
+#                     depth_str = f"Spec({self._name})"
+#                 else:
+#                     depth_str = "params"
+#                 for i in self._depth[1:]:
+#                     depth_str += f".{i}"
+#                 attr_available = ["." + n for n in list(d.keys())]
+#                 message = f"Attribute '{name}' not found. Available attributes in {depth_str}={attr_available}."
+#                 raise AttributeError(message) from e
+#
+#     def __str__(self):
+#         d = get_dict(self._graph._state["nodes"], self._depth)
+#         repr = f"Params for {self()}: \n\n"
+#         repr += dump(d)
+#         return repr
+#
+#     def __repr__(self):
+#         d = get_dict(self._graph._state["nodes"], self._depth)
+#         repr = f"Params for {self()}: \n\n"
+#         repr += dump(d)
+#         return repr
+#
+#     def __call__(self):
+#         return tuple(self._depth)
+#
+#     def __len__(self):
+#         return len(get_dict(self._graph._state["nodes"], self._depth))
+#
+#     def to_dict(self):
+#         return copy.deepcopy(get_dict(self._graph._state["nodes"], self._depth))

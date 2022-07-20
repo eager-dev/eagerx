@@ -1,23 +1,24 @@
-from typing import Dict, Any, Optional, Union
-import inspect
+from typing import Dict, Optional, Union, Type, TYPE_CHECKING
+import gym
 from yaml import dump
-import copy
 
-import eagerx.core.register as register
-from eagerx.core.view import SpecView, GraphView
+import eagerx
+from eagerx.core.space import Space
+from eagerx.core.view import SpecView
 from eagerx.utils.utils import (
     replace_None,
     deepcopy,
-    get_module_type_string,
-    get_default_params,
-    substitute_args,
 )
+from eagerx.utils.utils_sub import substitute_args
+
+
+if TYPE_CHECKING:
+    from eagerx.core.entities import Engine
 
 
 class EntitySpec(object):
     def __init__(self, params):
         super(EntitySpec, self).__setattr__("_params", params)
-        super(EntitySpec, self).__setattr__("_graph", None)
 
     def __setattr__(self, name, value):
         raise AttributeError("You cannot set the new attributes to EntitySpec.")
@@ -30,93 +31,65 @@ class EntitySpec(object):
     def params(self):
         return self._params
 
-    def set_graph(self, graph):
-        super(EntitySpec, self).__setattr__("_graph", graph)
 
-    @property
-    def has_graph(self):
-        return True if self._graph else False
-
-    @property
-    def graph(self):
-        return self._graph
-
-
-class ConverterSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the converter."""
+class BackendSpec(EntitySpec):
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
 
     def initialize(self, spec_cls):
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            if hasattr(spec_cls, "initial_obs"):
-                assert "initial_obs" not in defaults, "Argument clash! `initial_obs` is a reserved argument name."
-                defaults["initial_obs"] = None
-            d.update(defaults)
+        pass
 
     @property
     def config(self) -> SpecView:
         """Provides an API to get/set the parameters to initialize.
 
-        The mutable parameters are:
+        :return: (mutable) API to get/set parameters.
+        """
+        return SpecView(self, depth=["config"], unlocked=True)
 
-        - The arguments of the subclass' :func:`~eagerx.core.entities.Converter.initialize` method.
 
-        - .. py:attribute:: Spec.config.initial_obs: Union[List, float, int, bool]
+class ProcessorSpec(EntitySpec):
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the processor."""
 
-            An observation that is used on t=0 if this space converter corresponds to an observation that is skipped at t=0
-            with `window` > 0.
+    def initialize(self, spec_cls):
+        pass
 
-            .. note:: Can only be set for :class:`~eagerx.core.entities.SpaceConverter`.
+    @property
+    def config(self) -> SpecView:
+        """Provides an API to get/set the parameters to initialize.
 
         :return: (mutable) API to get/set parameters.
         """
-        return SpecView(self, depth=[])
+        return SpecView(self, depth=[], unlocked=True)
 
 
 class EngineStateSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
 
     def initialize(self, spec_cls):
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            d.update(defaults)
+        pass
 
     @property
     def config(self) -> SpecView:
         """Provides an API to get/set the parameters to initialize.
 
-        The mutable parameters are:
-
-        - The arguments of the subclass' :func:`~eagerx.core.entities.EngineState.initialize` method.
-
         :return: API to get/set parameters.
         """
-        return SpecView(self, depth=[])
+        return SpecView(self, depth=[], unlocked=True)
 
 
 class BaseNodeSpec(EntitySpec):
     def __init__(self, params):
         super().__init__(params)
-        from eagerx.core.converters import BaseConverter
 
-        super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
-
-    def _lookup(self, depth):
+    def _lookup(self, depth, unlocked=False):
         name = self._params["config"]["name"]
-        if self.has_graph:
-            return GraphView(self.graph, depth=[name, depth], name=name)
-        else:
-            return SpecView(self, depth=[depth], name=name)
+        return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
     @property
-    def config(self) -> Union[SpecView, GraphView]:
+    def config(self) -> SpecView:
         """Provides an API to set/get the parameters to initialize.
 
-        The mutable parameters are:
-
-        - Arguments of the subclass' :func:`~eagerx.core.entities.Node.initialize` method.
+        The default parameters are:
 
         - .. py:attribute:: Spec.config.name: str
 
@@ -147,10 +120,10 @@ class BaseNodeSpec(EntitySpec):
 
         :return: API to get/set parameters.
         """
-        return self._lookup("config")
+        return self._lookup("config", unlocked=True)
 
     @property
-    def inputs(self) -> Union[SpecView, GraphView]:
+    def inputs(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.inputs`.
 
         The mutable parameters are:
@@ -167,15 +140,14 @@ class BaseNodeSpec(EntitySpec):
 
            .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
 
-        - .. py:attribute:: Spec.inputs.<name>.converter: ConverterSpec = None
+        - .. py:attribute:: Spec.inputs.<name>.processor: ProcessorSpec = None
 
-            An input converter that converts the received input message before passing it
+            A processor that preprocesses the received input message before passing it
             to the node's :func:`~eagerx.core.entities.Node.callback`.
 
-        - .. py:attribute:: Spec.inputs.<name>.space_converter: ConverterSpec = None
+        - .. py:attribute:: Spec.inputs.<name>.space: dict = None
 
-            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-            Only used when this input is used as an action.
+            This space defines the format of valid messages.
 
         - .. py:attribute:: Spec.inputs.<name>.delay: float = 0.0
 
@@ -195,36 +167,33 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("inputs")
 
     @property
-    def outputs(self) -> Union[SpecView, GraphView]:
+    def outputs(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.outputs`.
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.outputs.<name>.converter: ConverterSpec = None
+        - .. py:attribute:: Spec.outputs.<name>.processor: ProcessorSpec = None
 
-            An output converter that converts the output message, returned by :func:`~eagerx.core.entities.Node.callback`,
+            A processor that preprocesses the output message, returned by :func:`~eagerx.core.entities.Node.callback`,
             before publishing it.
 
-        - .. py:attribute:: Spec.outputs.<name>.space_converter: ConverterSpec = None
+        - .. py:attribute:: Spec.outputs.<name>.space: dict = None
 
-            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-            Only used when this output is used as an action.
+            This space defines the format of valid messages.
 
         :return: API to get/set parameters.
         """
         return self._lookup("outputs")
 
     @property
-    def states(self) -> Union[SpecView, GraphView]:
+    def states(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.states`.
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.states.<name>.space_converter: ConverterSpec = None
+        - .. py:attribute:: Spec.states.<name>.space: dict = None
 
-            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-
-            .. note:: Every state must have a valid `space_converter`.
+            This space defines the format of valid messages.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -233,6 +202,8 @@ class BaseNodeSpec(EntitySpec):
         return self._lookup("states")
 
     def initialize(self, spec_cls):
+        import eagerx.core.register as register
+
         try:
             params = register.LOOKUP_TYPES[spec_cls.callback]
         except KeyError:
@@ -240,14 +211,6 @@ class BaseNodeSpec(EntitySpec):
                 params = dict()
             else:
                 raise
-
-        # Set default params
-        defaults = get_default_params(spec_cls.initialize)
-        with self.config as d:
-            d.update(defaults)
-
-        if "engine_config" in params:
-            params.pop("engine_config")
 
         if "targets" in params:
             from eagerx.core.entities import ResetNode
@@ -261,27 +224,23 @@ class BaseNodeSpec(EntitySpec):
 
         # Set default components
         for component, cnames in params.items():
-            for cname, msg_type in cnames.items():
-                msg_type = get_module_type_string(msg_type)
+            for cname, space in cnames.items():
                 if component == "outputs":
                     if cname not in self.config.outputs:
                         self.config.outputs.append(cname)
                     mapping = dict(
-                        msg_type=msg_type,
                         rate="$(config rate)",
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                     )
                     # Add feedthrough entries for each output if node is a reset node (i.e. when it has a target)
                     if add_ft:
                         mapping_ft = dict(
-                            msg_type=msg_type,
                             delay=0.0,
                             window=1,
                             skip=False,
-                            external_rate=None,
-                            converter=self.identity.params,
-                            space_converter=None,
+                            processor=None,
+                            space=space,
                             address=None,
                         )
                         with self.feedthroughs as d:
@@ -290,23 +249,21 @@ class BaseNodeSpec(EntitySpec):
                     if cname not in self.config.inputs:
                         self.config.inputs.append(cname)
                     address = "engine/outputs/tick" if cname == "tick" else None
+                    space = eagerx.Space(shape=(), dtype="int64") if cname == "tick" else space
                     mapping = dict(
-                        msg_type=msg_type,
                         delay=0.0,
                         window=1,
                         skip=False,
-                        external_rate=None,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                         address=address,
                     )
                 elif component == "targets":
                     if cname not in self.config.targets:
                         self.config.targets.append(cname)
                     mapping = dict(
-                        msg_type=msg_type,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                         address=None,
                     )
                 else:
@@ -314,107 +271,51 @@ class BaseNodeSpec(EntitySpec):
                         self.config.states.append(cname)
                     component = "states"
                     mapping = dict(
-                        msg_type=msg_type,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                     )
                 with getattr(self, component) as d:
                     d[cname] = mapping
 
-    def _remove_component(self, component: str, cname: str):
-        getattr(self, component).pop(cname)
-        if cname in self.config[component]:
-            self.config[component].remove(cname)
-
-    def remove_input(self, cname: str):
-        self._remove_component("inputs", cname)
-
-    def remove_output(self, cname: str):
-        self._remove_component("outputs", cname)
-
-    def remove_state(self, cname: str):
-        self._remove_component("states", cname)
-
-    def remove_target(self, cname: str):
-        self._remove_component("targets", cname)
-
     def add_input(
         self,
         cname: str,
-        msg_type: Any,
         window: int = 1,
         delay: float = 0.0,
         skip: bool = False,
-        external_rate: float = None,
         address: str = None,
-        converter: Optional[ConverterSpec] = None,
-        space_converter: Optional[ConverterSpec] = None,
+        processor: Optional[ProcessorSpec] = None,
+        space: Optional[gym.spaces.Space] = None,
     ):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
-            msg_type = get_module_type_string(msg_type)
         mapping = dict(
-            msg_type=msg_type,
             window=window,
             delay=delay,
             skip=skip,
-            external_rate=external_rate,
+            space=space,
             address=address,
+            processor=processor.params if processor else None,
         )
-        mapping["converter"] = converter.params if converter else self.identity.params
-        mapping["space_converter"] = space_converter.params if space_converter else None
         with self.inputs as d:
             d[cname] = mapping
 
     def add_output(
         self,
         cname: str,
-        msg_type: Any,
-        converter: Optional[ConverterSpec] = None,
-        space_converter: Optional[ConverterSpec] = None,
+        processor: Optional[ProcessorSpec] = None,
+        space: Optional[gym.spaces.Space] = None,
     ):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'An instance "{msg_type}" of class "{msg_type.__class__}" was provided. Please provide the class instead.'
-            msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type, rate="$(config rate)")
-        mapping["converter"] = converter.params if converter else self.identity.params
-        mapping["space_converter"] = space_converter.params if space_converter else None
+        mapping = dict(
+            rate="$(config rate)",
+            space=space,
+            processor=processor.params if processor else None,
+        )
         with self.outputs as d:
-            d[cname] = mapping
-
-    def add_state(self, cname: str, msg_type: Any, space_converter: ConverterSpec):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'The provided msg_type "{msg_type}" is not a class. Make sure you are *not* providing an instance of the class, instead of the class itself.'
-            msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type, space_converter=space_converter.params)
-        with self.states as d:
-            d[cname] = mapping
-
-    def add_target(self, cname: str, msg_type: Any, converter: Optional[ConverterSpec] = None):
-        if not isinstance(msg_type, str):
-            assert inspect.isclass(
-                msg_type
-            ), f'The provided msg_type "{msg_type}" is not a class. Make sure you are *not* providing an instance of the class, instead of the class itself.'
-            msg_type = get_module_type_string(msg_type)
-        mapping = dict(msg_type=msg_type)
-        mapping["converter"] = converter.params if converter else self.identity.params
-
-        assert "targets" in self._params["config"], f"Cannot add target '{cname}'. Node is not a 'ResetNode'"
-        with self.targets as d:
             d[cname] = mapping
 
     def build(self, ns):
         params = self.params  # Creates a deepcopy
-        default = copy.deepcopy(self.config.to_dict())
-        name = default["name"]
-        default["node_type"] = params["node_type"]
-        entity_id = default["entity_id"]
+        name = self.config.name
+        entity_id = self.config.entity_id
 
         # Replace args in .yaml
         context = {
@@ -425,7 +326,7 @@ class BaseNodeSpec(EntitySpec):
 
         # Process inputs
         inputs = []
-        for cname in default["inputs"]:
+        for cname in self.config.inputs:
             assert (
                 cname in params["inputs"]
             ), f'Received unknown {"input"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -437,7 +338,7 @@ class BaseNodeSpec(EntitySpec):
 
         # Process outputs
         outputs = []
-        for cname in default["outputs"]:
+        for cname in self.config.outputs:
             msg = f"The rate ({params['outputs'][cname]['rate']} Hz) set for action '{cname}' does not equal the environment rate ({self.config.rate} Hz)."
             assert params["outputs"][cname]["rate"] == self.config.rate, msg
             assert (
@@ -451,7 +352,7 @@ class BaseNodeSpec(EntitySpec):
             outputs.append(n)
 
         states = []
-        for cname in default["states"]:
+        for cname in self.config.states:
             assert (
                 cname in params["states"]
             ), f'Received unknown {"state"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -463,8 +364,8 @@ class BaseNodeSpec(EntitySpec):
             states.append(n)
 
         targets = []
-        if "targets" in default:
-            for cname in default["targets"]:
+        if "targets" in self.config:
+            for cname in self.config.targets:
                 assert (
                     cname in params["targets"]
                 ), f'Received unknown {"target"} "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
@@ -473,39 +374,36 @@ class BaseNodeSpec(EntitySpec):
 
         feedthroughs = []
         if "feedthroughs" in params:
-            assert "targets" in default, f'No targets defined for ResetNode "{name}".'
-            assert len(default["targets"]) > 0, f'No targets selected for ResetNode "{name}".'
-            for cname in default["outputs"]:
-                # Add output details (msg_type, space_converter) to feedthroughs
+            assert "targets" in self.config, f'No targets defined for ResetNode "{name}".'
+            assert len(self.config.targets) > 0, f'No targets selected for ResetNode "{name}".'
+            for cname in self.config.outputs:
+                # Add output details  to feedthroughs
                 assert (
                     cname in params["feedthroughs"]
                 ), f'Feedthrough "{cname}" must directly correspond to a selected output. Check the spec of "{name}" with entity_id "{entity_id}".'
-                assert (
-                    params["outputs"][cname]["msg_type"] == params["feedthroughs"][cname]["msg_type"]
-                ), f'Mismatch between Msg types of feedthrough "{cname}" and output "{cname}". Check the spec of "{name}" with entity_id "{entity_id}".'
-                if "space_converter" in params["outputs"][cname]:
-                    params["feedthroughs"][cname]["space_converter"] = params["outputs"][cname]["space_converter"]
+                params["feedthroughs"][cname]["space"] = params["outputs"][cname]["space"]
                 n = RxFeedthrough(feedthrough_to=cname, **params["feedthroughs"][cname])
                 feedthroughs.append(n)
 
-        default["outputs"] = [i.build(ns=ns) for i in outputs]
-        default["inputs"] = [i.build(ns=ns) for i in inputs]
-        default["states"] = [i.build(ns=ns) for i in states]
-        default["targets"] = [i.build(ns=ns) for i in targets]
-        default["feedthroughs"] = [i.build(ns=ns) for i in feedthroughs]
+        params["outputs"] = [i.build(ns=ns) for i in outputs]
+        params["inputs"] = [i.build(ns=ns) for i in inputs]
+        params["states"] = [i.build(ns=ns) for i in states]
+        params["targets"] = [i.build(ns=ns) for i in targets]
+        params["feedthroughs"] = [i.build(ns=ns) for i in feedthroughs]
 
         # Create rate dictionary with outputs
         chars_ns = len(ns) + 1
         rate_dict = dict()
-        for i in default["outputs"]:
-            assert (
-                i["rate"] is not None and isinstance(i["rate"], (int, float)) and i["rate"] > 0
-            ), f'The rate of node "{name}" (and output cname "{i["name"]}") is misspecified: rate="{i["rate"]}". Make sure that it is of type(rate)=("int", "float",) and rate > 0.'
+        for i in params["outputs"]:
+            assert i["rate"] is not None and isinstance(i["rate"], (int, float)) and i["rate"] > 0, (
+                f'The rate of node "{name}" (and output cname "{i["name"]}") is misspecified: rate="{i["rate"]}". '
+                'Make sure that it is of type(rate)=("int", "float",) and rate > 0.'
+            )
             address = i["address"][chars_ns:]
             rate_dict[address] = i["rate"]  # {'rate': i['rate']}
 
         # Put parameters in node namespace (watch out, order of dict keys probably matters...)
-        node_params = {name: default, "rate": rate_dict}
+        node_params = {name: params, "rate": rate_dict}
         return replace_None(node_params)
 
 
@@ -513,14 +411,12 @@ class NodeSpec(BaseNodeSpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This may be useful when there must exist a coupling between
-              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
-              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
+               also affect the coupled parameter value.
 
-              For example, setting `spec.inputs.in_1.space_converter.low = "$(config low)"` will set the value of
-              `spec.inputs.in_1.space_converter.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space_converter parameter `low`.
-
+              For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
+              `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
+              `low` will also be reflected in the space parameter `low`.
     """
 
     pass
@@ -530,25 +426,23 @@ class ResetNodeSpec(BaseNodeSpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This may be useful when there must exist a coupling between
-              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
-              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
+               also affect the coupled parameter value.
 
-              For example, setting `spec.inputs.in_1.space_converter.low = "$(config low)"` will set the value of
-              `spec.inputs.in_1.space_converter.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space_converter parameter `low`.
-
+              For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
+              `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
+              `low` will also be reflected in the space parameter `low`
     """
 
     @property
-    def targets(self) -> Union[SpecView, GraphView]:
+    def targets(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.targets`.
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.targets.<name>.converter: ConverterSpec = None
+        - .. py:attribute:: Spec.targets.<name>.processor: ProcessorSpec = None
 
-            A converter that converts the received state message before passing it
+            A processor that preprocesses the received state message before passing it
             to the node's :func:`~eagerx.core.entities.ResetNode.callback`.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
@@ -558,20 +452,19 @@ class ResetNodeSpec(BaseNodeSpec):
         return self._lookup("targets")
 
     @property
-    def feedthroughs(self) -> Union[SpecView, GraphView]:
+    def feedthroughs(self) -> SpecView:
         """Provides an API to set/get the parameters of a feedthrough corresponding to registered :func:`eagerx.core.register.outputs`.
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.feedthroughs.<name>.converter: ConverterSpec = None
+        - .. py:attribute:: Spec.feedthroughs.<name>.processor: ProcessorSpec = None
 
-            An input converter that converts the received input message before passing it
+            A processor that preprocesses the received input message before passing it
             to the node's :func:`~eagerx.core.entities.Node.callback`.
 
-        - .. py:attribute:: Spec.feedthroughs.<name>.space_converter: ConverterSpec = None
+        - .. py:attribute:: Spec.feedthroughs.<name>.space: dict = None
 
-            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-            Only used when this feedthrough is used as an action.
+            This space defines the format of valid messages.
 
         - .. py:attribute:: Spec.feedthroughs.<name>.delay: float = 0.0
 
@@ -590,12 +483,10 @@ class EngineSpec(BaseNodeSpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
 
     @property
-    def config(self) -> Union[SpecView, GraphView]:
+    def config(self) -> SpecView:
         """Provides an API to set/get the parameters to initialize.
 
-        The mutable parameters are:
-
-        - Arguments of the subclass' :func:`~eagerx.core.entities.Node.initialize` method.
+        The default parameters are:
 
         - .. py:attribute:: Spec.config.rate: float
 
@@ -635,46 +526,29 @@ class EngineSpec(BaseNodeSpec):
 
         :return: API to get/set parameters.
         """
-        return self._lookup("config")
+        return self._lookup("config", unlocked=True)
 
 
 class ObjectSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
 
     .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This may be useful when there must exist a coupling between
-              parameters and modifications to the value of one parameter must also change the coupled parameter value. Then,
-              modifications after a specs creation (e.g. using the GUI), will work through to the coupled parameters.
+              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
+               also affect the coupled parameter value.
 
-              For example, setting `spec.sensors.sens_1.space_converter.low = "$(config low)"` will set the value of
-              `spec.sensors.sens_1.space_converter.low=spec.config.low` when the object is initialized. Hence, any change to
-              `low` will also be reflected in the space_converter parameter `low`.
-
+              For example, setting `spec.sensors.in_1.space.low = "$(config low)"` will set the value of
+              `spec.sensors.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
+              `low` will also be reflected in the space parameter `low`
     """
 
     def __init__(self, params):
         super().__init__(params)
-        from eagerx.core.converters import BaseConverter
 
-        super(EntitySpec, self).__setattr__("identity", BaseConverter.make("Identity"))
-
-    def __getattr__(self, name):
-        try:
-            return super().__getattribute__(name)
-        except AttributeError:
-            if name in self._params:
-                return SpecView(self, depth=[name], name=self._params["config"]["name"])
-            else:
-                raise
-
-    def _lookup(self, depth):
+    def _lookup(self, depth, unlocked=False):
         name = self._params["config"]["name"]
-        if self.has_graph:
-            return GraphView(self.graph, depth=[name, depth], name=name)
-        else:
-            return SpecView(self, depth=[depth], name=name)
+        return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
-    def gui(self, engine_id: str) -> None:
+    def gui(self, engine_cls: Type["Engine"]) -> None:
         """Opens a graphical user interface of the object's engine implementation.
 
         .. note:: Requires `eagerx-gui`:
@@ -689,12 +563,29 @@ class ObjectSpec(EntitySpec):
         import eagerx.core.register as register
 
         spec_copy = ObjectSpec(self.params)
-        spec_copy._params[engine_id] = {}
+        engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
+        spec_copy._params["engine"] = {}
         graph = register.add_engine(spec_copy, engine_id)
         graph.gui()
 
     @property
-    def sensors(self) -> Union[SpecView, GraphView]:
+    def engine(self) -> Union[SpecView]:
+        """Provides an API to set/get the parameters of an engine-specific implementation.
+
+        The mutable parameters are:
+
+        - Arguments (excluding spec) of the selected engine's :func:`~eagerx.core.entities.Engine.add_object` method.
+
+        - .. py:attribute:: Spec.engine.states.<name>: EngineState
+
+            Link an :class:`~eagerx.core.specs.EngineState` to a registered state with :func:`eagerx.core.register.states`.
+
+        :return: API to get/set parameters.
+        """
+        return SpecView(self, depth=["engine"], name=self._params["config"]["name"])
+
+    @property
+    def sensors(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.sensors`.
 
         The mutable parameters are:
@@ -703,15 +594,9 @@ class ObjectSpec(EntitySpec):
 
             Rate (Hz) at which the sensor's :func:`~eagerx.core.entities.EngineNode.callback` is called.
 
-        - .. py:attribute:: Spec.sensors.<name>.converter: ConverterSpec = None
+        - .. py:attribute:: Spec.sensors.<name>.space: dict = None
 
-            An sensor's converter converts the output message, returned by :func:`~eagerx.core.entities.EngineNode.callback`,
-            before publishing it.
-
-        - .. py:attribute:: Spec.sensors.<name>.space_converter: ConverterSpec = None
-
-            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-            Only used when this actuator is used as an action.
+            This space defines the format of valid messages.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -720,7 +605,7 @@ class ObjectSpec(EntitySpec):
         return self._lookup("sensors")
 
     @property
-    def actuators(self) -> Union[SpecView, GraphView]:
+    def actuators(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.actuators`.
 
         The mutable parameters are:
@@ -743,15 +628,10 @@ class ObjectSpec(EntitySpec):
 
            .. note:: With *window* = 0, the number of input messages may vary and can even be zero.
 
-        - .. py:attribute:: Spec.actuators.<name>.converter: ConverterSpec = None
 
-            An actuator's converter converts the received message before passing it
-            to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
+        - .. py:attribute:: Spec.actuators.<name>.space: dict = None
 
-        - .. py:attribute:: Spec.actuators.<name>.space_converter: ConverterSpec = None
-
-            Convert messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-            Only used when this actuator is used as an action.
+            This space defines the format of valid messages.
 
         - .. py:attribute:: Spec.actuators.<name>.delay: float = 0.0
 
@@ -771,16 +651,14 @@ class ObjectSpec(EntitySpec):
         return self._lookup("actuators")
 
     @property
-    def states(self) -> Union[SpecView, GraphView]:
+    def states(self) -> SpecView:
         """Provides an API to set/get the parameters of registered :func:`eagerx.core.register.engine_states`.
 
         The mutable parameters are:
 
-        - .. py:attribute:: Spec.states.<name>.space_converter: ConverterSpec = None
+        - .. py:attribute:: Spec.states.<name>.space: dict = None
 
-            Convert state messages to a valid format described by the associated :class:`gym.spaces.space.Space`.
-
-            .. note:: Every engine state must have a valid `space_converter`.
+            This space defines the format of valid messages.
 
         The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
@@ -789,10 +667,10 @@ class ObjectSpec(EntitySpec):
         return self._lookup("states")
 
     @property
-    def config(self) -> Union[SpecView, GraphView]:
+    def config(self) -> SpecView:
         """Provides an API to set/get the parameters to initialize.
 
-        The mutable parameters are:
+        The default parameters are:
 
         - Additional parameters registered with the :func:`eagerx.core.register.config` decorator.
 
@@ -816,64 +694,36 @@ class ObjectSpec(EntitySpec):
 
         :return: API to get/set parameters.
         """
-        return self._lookup("config")
-
-    @property
-    def example_engine(self) -> Union[SpecView, GraphView]:
-        """An example API for an engine-specific implementation with `<engine_id>` = "example_engine".
-
-        .. note:: This is an example method for documentation purposes only.
-
-        The mutable parameters are:
-
-        - Additional parameters registered with :func:`eagerx.core.register.engine_config` that
-          decorates :class:`eagerx.core.entities.add_object` in the engine subclass definition.
-
-        - .. py:attribute:: Spec.<engine_id>.states.<name>: EngineState
-
-            Link an :class:`~eagerx.core.specs.EngineState` to a registered state with :func:`eagerx.core.register.states`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
-        :return: API to get/set parameters.
-        """
-        raise NotImplementedError("This is a mock engine implementation for documentation purposes.")
+        return self._lookup("config", unlocked=True)
 
     def initialize(self, spec_cls):
-        agnostic = register.LOOKUP_TYPES[spec_cls.agnostic]
+        import eagerx.core.register as register
 
-        # Set default agnostic params
-        with self.config as d:
-            d.update(agnostic.pop("config"))
+        agnostic = register.LOOKUP_TYPES[spec_cls.make]
 
         # Set default components
         for component, cnames in agnostic.items():
-            for cname, msg_type in cnames.items():
-                msg_type = get_module_type_string(msg_type)
+            for cname, space in cnames.items():
                 if component == "sensors":
                     mapping = dict(
-                        msg_type=msg_type,
                         rate=1,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                     )
                 elif component == "actuators":
                     mapping = dict(
-                        msg_type=msg_type,
                         rate=1,
                         delay=0.0,
                         window=1,
                         skip=False,
-                        external_rate=None,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                     )
                 else:
                     component = "states"
                     mapping = dict(
-                        msg_type=msg_type,
-                        converter=self.identity.params,
-                        space_converter=None,
+                        processor=None,
+                        space=space,
                     )
                 with getattr(self, component) as d:
                     d[cname] = mapping
@@ -881,9 +731,9 @@ class ObjectSpec(EntitySpec):
                 if cname not in getattr(self.config, component):
                     getattr(self.config, component).append(cname)
 
-    def _initialize_engine_config(self, engine_id, engine_config):
+    def _initialize_engine_config(self, engine_config):
         # Add default config
-        with getattr(self, engine_id) as d:
+        with self.engine as d:
             d.update(engine_config)
             d["states"] = {}
             # Add all states to engine-specific params
@@ -891,18 +741,18 @@ class ObjectSpec(EntitySpec):
                 for cname in self.states.keys():
                     s[cname] = None
 
-    def _add_graph(self, engine_id, graph):
+    def _add_graph(self, graph):
         # Register EngineGraph
         nodes, actuators, sensors = graph.register()
 
         # Pop states that were not implemented.
-        with getattr(self, engine_id).states as d:
-            for cname in list(getattr(self, engine_id).states.keys()):
+        with self.engine.states as d:
+            for cname in list(self.engine.states.keys()):
                 if d[cname] is None:
                     d.pop(cname)
 
         # Set engine_spec
-        with getattr(self, engine_id) as d:
+        with self.engine as d:
             d.actuators = actuators
             d.sensors = sensors
             d.nodes = nodes
@@ -927,17 +777,18 @@ class ObjectSpec(EntitySpec):
         substitute_args(self._params, context, only=["config"])  # Resolve rest of params
 
         # Add engine entry
-        self._params[engine_id] = {}
+        import eagerx.core.register as register
+
+        self._params["engine"] = {}
         register.add_engine(self, engine_id)
 
     def build(self, ns, engine_id):
         params = self.params  # Creates a deepcopy
-        default = copy.deepcopy(self.config.to_dict())  # Creates a deepcopy
-        name = default["name"]
+        name = self.config.name
 
         # Construct context
         context = {"ns": {"env_name": ns, "obj_name": name}}
-        substitute_args(default, context, only=["ns"])  # First resolve args within the context
+        substitute_args(params["config"], context, only=["ns"])  # First resolve args within the context
         substitute_args(params, context, only=["ns"])  # Resolve rest of params
 
         # Get agnostic definition
@@ -967,16 +818,14 @@ class ObjectSpec(EntitySpec):
         sensor_addresses = dict()
         dependencies = []
         for obj_comp in ["actuators", "sensors"]:
-            for obj_cname in default[obj_comp]:
+            for obj_cname in params["config"][obj_comp]:
                 try:
                     entry_lst = specific[obj_comp][obj_cname]
                 except KeyError:
                     raise KeyError(
                         f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
                     )
-                # todo: here we assume a single node implements the actuator --> could be multiple
 
-                # entry = entry_lst
                 for entry in reversed(entry_lst):
                     node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
                     obj_comp_params = agnostic[obj_comp][obj_cname]
@@ -998,34 +847,51 @@ class ObjectSpec(EntitySpec):
                     # Set component params
                     node_comp_params = nodes[node_name][node_comp][node_cname]
                     if obj_comp == "sensors":
+                        # Make sure that space of node is contained within agnostic space.
+                        agnostic_space = Space.from_dict(obj_comp_params["space"])
+                        node_space = Space.from_dict(node_comp_params["space"])
+                        msg = (
+                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
+                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
+                            f"{node_name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
+                        )
+                        assert agnostic_space.contains_space(node_space), msg
                         node_comp_params.update(obj_comp_params)
                         node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
                         sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
                     else:  # Actuators
-                        agnostic_converter = obj_comp_params.pop("converter")
+                        agnostic_space = Space.from_dict(obj_comp_params["space"])
+                        node_space = Space.from_dict(node_comp_params["space"])
+                        msg = (
+                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
+                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
+                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
+                        )
+                        assert agnostic_space.contains_space(node_space), msg
+
+                        agnostic_processor = obj_comp_params.pop("processor")
                         node_comp_params.update(obj_comp_params)
 
-                        from eagerx.core.converters import Identity
-
-                        id = Identity().get_yaml_definition()
-                        if not agnostic_converter == id:
+                        if agnostic_processor is not None:
                             msg = (
-                                f"A converter was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
-                                "implementation also has a converter defined. You can only have one converter."
+                                f"A processor was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
+                                "implementation also has a processor defined. You can only have one processor."
                             )
-                            assert node_comp_params["converter"] == id, msg
-                            node_comp_params["converter"] = agnostic_converter
+                            assert node_comp_params["processor"] is None, msg
+                            node_comp_params["processor"] = agnostic_processor
 
-                        # Pop rate.
+                        # Pop rate. Actuators are more-or-less inputs so have no rate?
                         node_comp_params.pop("rate")
                         # Reassign converter in case a node provides the implementation for multiple actuators
-                        obj_comp_params["converter"] = agnostic_converter
+                        obj_comp_params["processor"] = agnostic_processor
 
         # Get set of node we are required to launch
         dependencies = list(set(dependencies))
 
         # Verify that no dependency is an unlisted actuator node.
-        not_selected = [cname for cname in agnostic["actuators"] if cname not in default["actuators"]]
+        not_selected = [cname for cname in agnostic["actuators"] if cname not in params["config"]["actuators"]]
         for cname in not_selected:
             try:
                 for entry in specific["actuators"][cname]:
@@ -1053,7 +919,7 @@ class ObjectSpec(EntitySpec):
         states = []
         state_names = []
         obj_comp = "states"
-        for obj_cname in default["states"]:
+        for obj_cname in params["config"]["states"]:
             args = agnostic[obj_comp][obj_cname]
             args["name"] = f"{name}/{obj_comp}/{obj_cname}"
             args["address"] = f"{name}/{obj_comp}/{obj_cname}"
@@ -1066,27 +932,21 @@ class ObjectSpec(EntitySpec):
             states.append(RxEngineState(**args))
             state_names.append(f'{ns}/{args["name"]}')
 
-        # Create obj parameters
-        obj_params = params["config"]
-
         # Gather node names
-        obj_params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
-        obj_params["state_names"] = state_names
+        params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
+        params["state_names"] = state_names
 
         # Add engine
-        obj_params["engine"] = engine
+        params["engine"] = engine
 
-        # Clean up parameters
-        for component in ["sensors", "actuators", "states"]:
-            try:
-                obj_params.pop(component)
-            except KeyError:
-                pass
+        # Add agnostic definition
+        params.update(**agnostic)
 
         # Add states
-        obj_params["states"] = [s.build(ns) for s in states]
+        assert "states" not in params["engine"], "The keyword `states` is reserved."
+        params["engine"]["states"] = [s.build(ns) for s in states]
         nodes = [NodeSpec(params) for name, params in nodes.items() if name in dependencies]
-        return {name: replace_None(obj_params)}, nodes
+        return {name: replace_None(params)}, nodes
 
 
 # REQUIRED FOR BUILDING SPECS
@@ -1106,13 +966,12 @@ class RxInput(Component):
         self,
         name: str,
         address: str,
-        msg_type: str,
         window: int = 0,
-        converter: Dict = None,
-        external_rate: float = None,
-        space_converter: Dict = None,
+        processor: Dict = None,
+        space: Dict = None,
         delay: float = 0.0,
         skip: bool = False,
+        dtype: str = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -1127,8 +986,10 @@ class RxInput(Component):
 
     def build(self, ns=""):
         params = self.__dict__.copy()
-        if not params["external_rate"]:
-            params["address"] = "/".join(filter(None, [ns, params["address"]]))
+        params["address"] = "/".join(filter(None, [ns, params["address"]]))
+        # Set dtype if not already set by source
+        if params["dtype"] is None:
+            params["dtype"] = params["space"]["dtype"]
         return params
 
 
@@ -1137,17 +998,13 @@ class RxOutput(Component):
         self,
         name: str,
         address: str,
-        msg_type: str,
         rate: float,
-        converter: Dict = None,
-        space_converter: Dict = None,
+        processor: Dict = None,
+        space: Dict = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
         # on the parameter server anywhere before calling the baseclass' constructor.
-        # If space_converter undefined, remove it
-        # if not space_converter:
-        #     raise NotImplementedError(name)
         kwargs = locals().copy()
         kwargs.pop("self")
         super(RxOutput, self).__init__(**kwargs)
@@ -1159,6 +1016,7 @@ class RxOutput(Component):
     def build(self, ns=""):
         params = self.__dict__.copy()
         params["address"] = "/".join(filter(None, [ns, params["address"]]))
+        params["dtype"] = params["space"]["dtype"]
         return params
 
 
@@ -1166,14 +1024,13 @@ class RxFeedthrough(Component):
     def __init__(
         self,
         address: str,
-        msg_type: str,
         feedthrough_to: str,
         window: int = 1,
-        converter: Dict = None,
-        external_rate: float = None,
-        space_converter: Dict = None,
+        processor: Dict = None,
+        space: Dict = None,
         delay: float = 0.0,
         skip: bool = False,
+        dtype: str = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -1189,6 +1046,9 @@ class RxFeedthrough(Component):
     def build(self, ns=""):
         params = self.__dict__.copy()
         params["address"] = "/".join(filter(None, [ns, params["address"]]))
+        # Set dtype if not already set by source
+        if params["dtype"] is None:
+            params["dtype"] = params["space"]["dtype"]
         return params
 
 
@@ -1197,9 +1057,9 @@ class RxState(Component):
         self,
         name: str,
         address: str,
-        msg_type: str,
-        converter: Dict = None,
-        space_converter: Dict = None,
+        space: Dict,
+        processor: Dict = None,
+        dtype: str = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -1215,6 +1075,9 @@ class RxState(Component):
     def build(self, ns=""):
         params = self.__dict__.copy()
         params["address"] = "/".join(filter(None, [ns, params["address"]]))
+        # Set dtype if not already set by source
+        if params["dtype"] is None:
+            params["dtype"] = params["space"]["dtype"]
         return params
 
 
@@ -1224,9 +1087,8 @@ class RxEngineState(Component):
         name: str,
         address: str,
         state: Dict,
-        msg_type: str,
-        converter: Dict = None,
-        space_converter: Dict = None,
+        processor: Dict = None,
+        space: Dict = None,
     ):
         # Store parameters as properties in baseclass
         # IMPORTANT! Do not define variables locally you do **not** want to store
@@ -1242,4 +1104,5 @@ class RxEngineState(Component):
     def build(self, ns=""):
         params = self.__dict__.copy()
         params["address"] = "/".join(filter(None, [ns, params["address"]]))
+        params["dtype"] = params["space"]["dtype"]
         return params
