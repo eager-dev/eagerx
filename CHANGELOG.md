@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.25 (2022-07-20)
+### Fix
+* Add backend, numpy messages, remove converters ([#189](https://github.com/eager-dev/eagerx/issues/189)) ([`77a6b26`](https://github.com/eager-dev/eagerx/commit/77a6b26e6155e050914ad207176500a977fcffd6))
+
+### Documentation
+* Add introduction tutorials and remove developer guide and advanced tutorial ([`7ce68ea`](https://github.com/eager-dev/eagerx/commit/7ce68ea9099cce66f7d44fcea547cb564d99a931))
+* Update conda env ([#178](https://github.com/eager-dev/eagerx/issues/178)) ([`a1ba574`](https://github.com/eager-dev/eagerx/commit/a1ba574e346c12d33473d13b2991a1bbe33ad60e))
+* Add expected tutorials and stable release disclaimer ([`cb4c280`](https://github.com/eager-dev/eagerx/commit/cb4c28017261a77be6797132b8a7d588b1277e1e))
+
 ## v0.1.24 (2022-05-17)
 ### Fix
 * Refactor `Env` to `BaseEnv`, add deprecation warnings ([`c632978`](https://github.com/eager-dev/eagerx/commit/c63297870afe587a3c10b6e1c4d063a9ffbb7b0a))
