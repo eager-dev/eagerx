@@ -93,8 +93,16 @@ Luckily, inter-node communication within EAGERx can always be listened to extern
 
 Tutorials
 =========
+The following tutorials are currently available in the form of Google Colabs:
 
-A number of tutorials are available in the form of Google Colabs:
+**Introduction to EAGERx**
+
+- `Tutorial 1: Getting started <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/getting_started.ipynb>`_
+- `Tutorial 2: Advanced usage <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb>`_
+
+The solutions are available `here <https://github.com/eager-dev/eagerx_tutorials/tree/master/tutorials/icra/solutions/>`_.
+
+**Developer tutorials**
 
 - `Tutorial 1: Environment Creation and Training with EAGERx <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb>`_
 - `Tutorial 2: Reset and Step Function <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/2_reset_and_step.ipynb>`_

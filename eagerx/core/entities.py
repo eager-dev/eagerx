@@ -5,7 +5,6 @@ import os
 import time
 import numpy as np
 import psutil
-from genpy import Message
 from tabulate import tabulate
 from termcolor import colored
 
@@ -612,7 +611,7 @@ class Node(BaseNode):
         for cname, _ in self.targets.items():
             self.empty_outputs[cname + "/done"] = False
 
-    def reset_cb(self, **kwargs: Optional[Message]):
+    def reset_cb(self, **kwargs):
         self.num_ticks = 0
         self.skipped_cbs = 0
         keys_to_pop = []
