@@ -858,6 +858,7 @@ class Graph:
         skip: Optional[bool] = None,
         render_cls: Type[Node] = None,
         process: int = eagerx.process.NEW_PROCESS,
+        encoding: str = "bgr",
         **kwargs,
     ):
         """Visualize rgb images produced by a node/sensor in the graph. The rgb images must be of `dtype=uint8` and
@@ -887,6 +888,7 @@ class Graph:
                            By default, it uses the standard `RenderNode`. In Google colab, the `ColabRender` class is used.
         :param process: Process in which the render node is launched. See :class:`~eagerx.core.constants.process` for all
                         options.
+        :param encoding: The encoding (`bgr` or `rgb`) of the render source.
         :param kwargs: Optional arguments required by the render node.
         """
         # Delete old render node from self._state['nodes'] if it exists
@@ -901,7 +903,7 @@ class Graph:
                 process = eagerx.process.ENVIRONMENT
             else:
                 from eagerx.core.nodes import RenderNode as render_cls
-        render = render_cls.make(rate=rate, process=process, **kwargs)
+        render = render_cls.make(rate=rate, process=process, encoding=encoding, **kwargs)
         # todo: How to change space of render.inputs.image when a processor is added.
         render.inputs.image.space = source.space
         self.add(render)

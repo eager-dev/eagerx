@@ -292,7 +292,7 @@ class RenderNode(eagerx.Node):
     @register.inputs(image=eagerx.Space(dtype="uint8"))
     @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[Msg] = None):
-        self.last_image = image.msgs[-1]
+        self.last_image = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
         empty = len(image.msgs[-1]) == 0
         if not empty and self.display and self.render_toggle.value:
             img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
@@ -400,7 +400,7 @@ class ColabRender(eagerx.Node):
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=0)
         # Grab latest image
-        self.last_image = image.msgs[-1]
+        self.last_image = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
         # If too little time has passed, do not add frame (avoid buffer overflowing)
         if self.window is None:
             self.window = self.window_cls(fps=self.fps, maxlen=self.maxlen, shape=self.shape)
@@ -410,7 +410,7 @@ class ColabRender(eagerx.Node):
         empty = len(self.last_image.data) == 0
         if not empty and self.render_toggle:
             # Convert to rgb (from bgr)
-            img = self.last_image if self.encoding == "bgr" else cv2.cvtColor(self.last_image, cv2.COLOR_RGB2BGR)
+            img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
             # Add image to buffer (where it is send async to javascript window)
             self.window.buffer_images(img)
         return output_msgs

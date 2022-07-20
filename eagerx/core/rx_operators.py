@@ -1224,8 +1224,8 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                     if not space_checked[0]:
                         space_checked[0] = True
                         if not space.contains(np.array(recv)):
-                            shape_msg = f"(msg.shape={recv.shape} vs space.dtype={space.shape})"
-                            dtype_msg = f"(msg.shape={recv.dtype} vs space.dtype={space.dtype})"
+                            shape_msg = f"(msg.shape={recv.shape} vs space.shape={space.shape})"
+                            dtype_msg = f"(msg.dtype={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
                                 f"[subscriber][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
                                 f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
@@ -1250,8 +1250,8 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                     if not space_checked[0]:
                         space_checked[0] = True
                         if not space.contains(np.array(recv)):
-                            shape_msg = f"(msg.shape={recv.shape} vs space.dtype={space.shape})"
-                            dtype_msg = f"(msg.shape={recv.dtype} vs space.dtype={space.dtype})"
+                            shape_msg = f"(msg.shape={recv.shape} vs space.shape={space.shape})"
+                            dtype_msg = f"(msg.dtype={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
                                 f"[publisher][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
                                 f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
