@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.26 (2022-07-20)
+### Fix
+* Remove dependency on genpy ([`d909b52`](https://github.com/eager-dev/eagerx/commit/d909b52d7c1ef5265a7aca8a22110054240579e5))
+
 ## v0.1.25 (2022-07-20)
 ### Fix
 * Add backend, numpy messages, remove converters ([#189](https://github.com/eager-dev/eagerx/issues/189)) ([`77a6b26`](https://github.com/eager-dev/eagerx/commit/77a6b26e6155e050914ad207176500a977fcffd6))
