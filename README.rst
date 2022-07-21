@@ -114,6 +114,8 @@ The solutions are available `here <https://github.com/eager-dev/eagerx_tutorials
 - Tutorial 8: Defining new objects (coming soon).
 - Tutorial 9: Speeding-up training with multi-processing (coming soon).
 
+`The solutions are available in here <https://github.com/eager-dev/eagerx_tutorials/tree/master/tutorials/pendulum/solutions/>`_.
+
 For more information see the `docs <https://eagerx.readthedocs.io/en/master/guide/tutorials/colabs.html>`_ or the `eagerx_tutorials package <https://github.com/eager-dev/eagerx_tutorials>`_.
 
 ..
