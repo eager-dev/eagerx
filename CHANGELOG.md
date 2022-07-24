@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.27 (2022-07-24)
+### Fix
+* Info bug for objects  ([`92db335`](https://github.com/eager-dev/eagerx/commit/92db335de475e6a1a89de6eeeff318261a0b659e))
+* Load and reload entities when loading graph from yaml file ([`07a11a4`](https://github.com/eager-dev/eagerx/commit/07a11a49181fa06634e12fe95c2693b4ab639c6e))
+* Bgr to rgb encoding in colab renderer ([`692b56f`](https://github.com/eager-dev/eagerx/commit/692b56f687811a5a954566880332bdc580eb1db8))
+
+### Documentation
+* Add object tutorial ([`d57acd6`](https://github.com/eager-dev/eagerx/commit/d57acd63157c5933fc468e03c431ba1fdcd49904))
+
 ## v0.1.26 (2022-07-20)
 ### Fix
 * Remove dependency on genpy ([`d909b52`](https://github.com/eager-dev/eagerx/commit/d909b52d7c1ef5265a7aca8a22110054240579e5))
