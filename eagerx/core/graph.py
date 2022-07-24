@@ -1,11 +1,13 @@
 import os
 import yaml
 from copy import deepcopy
+import warnings
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Optional, Any, Type
 import eagerx.core.log as log
 from eagerx.utils.utils import (
+    load,
     is_compatible,
     supported_types,
 )
@@ -931,7 +933,8 @@ class Graph:
             yaml.dump(self._state, outfile, default_flow_style=False)
         pass
 
-    def load(self, file: str):
+    @classmethod
+    def load(cls, file: str):
         """Loads the graph state.
 
         The state is loaded in *.yaml* format and contains the state of every added node, object, action, and observation
@@ -939,12 +942,33 @@ class Graph:
 
         :param file: A string giving the name (and the file if the file isn't in the current working directory).
         """
+        # todo: load all objects (to register default bridge implementations).
+        must_raise = False
         with open(file, "r") as stream:
             try:
-                self._state = yaml.safe_load(stream)
+                state = yaml.safe_load(stream)
                 # self._state = yaml.load(file)
             except yaml.YAMLError as exc:
+                must_raise = True
                 print(exc)
+        if must_raise:
+            raise yaml.YAMLError(f"Could not load graph from `{file}`.")
+        else:
+            # Import all Objects & Nodes (to register & see availability).
+            for key, params in state["nodes"].items():
+                try:
+                    load(params["config"]["entity_id"])
+                except AttributeError as e:
+                    warnings.warn(f"Could not load `{key}`: {e}")
+            return cls(state)
+
+    def reload(self):
+        """Reloads (ie imports) all entities in the graph."""
+        for key, params in self._state["nodes"].items():
+            try:
+                load(params["config"]["entity_id"])
+            except AttributeError as e:
+                raise ImportError(f"Could not load `{key}`: {e}")
 
     def gui(self) -> None:
         """Opens a graphical user interface of the graph.

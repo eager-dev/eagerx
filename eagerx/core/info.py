@@ -25,12 +25,15 @@ def get_info(cls, methods=None, no_cls=False, return_msg=False):
     tab = "   "
     msg = indent(f"entity_type: `{cls.__qualname__}`\n", tab)
     msg += indent(f"module: `{cls.__module__}`\n", tab)
-    msg += indent(f"file: `{inspect.getfile(cls)}`\n", tab)
+    try:
+        msg += indent(f"file: `{inspect.getfile(cls)}`\n", tab)
+    except TypeError as e:
+        msg += indent(f"file: <unknown>\n", tab)
     msg += "\n"
 
     # Objects: Add supported engines
-    if issubclass(cls, Object) and id in REGISTRY:
-        if len(REGISTRY[id].keys()) == 0:
+    if issubclass(cls, Object):
+        if id not in REGISTRY or REGISTRY[id].keys() == 0:
             engine_msg = "Supported engines: <Nothing registered>\n"
         else:
             engine_msg = "Supported engines:\n"

@@ -70,6 +70,7 @@ class BaseEnv(gym.Env):
         self._engine_name = engine.params["config"]["entity_id"]
 
         # Register graph (unlinks the specs).
+        graph.reload()  # Reload all entities, so that they are registered.
         self.graph = graph
         nodes, objects, actions, observations, self.render_node = graph.register()
 

@@ -410,7 +410,7 @@ class ColabRender(eagerx.Node):
         empty = len(self.last_image.data) == 0
         if not empty and self.render_toggle:
             # Convert to rgb (from bgr)
-            img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
+            img = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
             # Add image to buffer (where it is send async to javascript window)
             self.window.buffer_images(img)
         return output_msgs
