@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.28 (2022-08-01)
+### Fix
+* Add interactive and shape arguments to gui methods for headless rendering of the gui ([`11e91ea`](https://github.com/eager-dev/eagerx/commit/11e91ea212577e48d9f177c20172caca182ccfc7))
+
 ## v0.1.27 (2022-07-24)
 ### Fix
 * Info bug for objects  ([`92db335`](https://github.com/eager-dev/eagerx/commit/92db335de475e6a1a89de6eeeff318261a0b659e))
