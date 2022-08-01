@@ -1,5 +1,6 @@
 import yaml
 from copy import deepcopy
+import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 from typing import List, Union, Dict, Tuple, Optional, Any
@@ -609,16 +610,43 @@ class EngineGraph:
 
         return nodes, actuators, sensors
 
-    def gui(self) -> None:
-        """Opens a graphical user interface of the engine graph."""
+    def gui(self, interactive: Optional[bool] = True, shape: Optional[List[int]] = None) -> Union[None, np.ndarray]:
+        """Opens a graphical user interface of the graph.
+
+        .. note:: Requires `eagerx-gui`:
+
+                .. highlight:: python
+                .. code-block:: python
+
+                    pip3 install eagerx-gui
+
+        :param interactive: If `True`, an interactive application is launched.
+                            Otherwise, an RGB render of the GUI is returned.
+                            This could be useful when using a headless machine.
+        :param shape: Specifies the shape of the returned render when `interactive` is `False`.
+                      If `interactive` is `True`, this argument is ignored.
+        :return: RGB render of the GUI if `interactive` is `False`.
+        """
         try:
-            from eagerx_gui import launch_engine_gui
+            from eagerx_gui import launch_gui, render_gui
         except ImportError as e:
             log.logwarn(
                 f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
             )
             return
-        self._state = launch_engine_gui(deepcopy(self._state))
+
+        if interactive:
+            if shape is not None:
+                log.logwarn("Shape argument is ignored when launching GUI with interactive is True.")
+            self._state = launch_gui(deepcopy(self._state), is_engine=True)
+            return None
+        else:
+            if shape is not None:
+                assert (
+                    type(shape) is list or type(shape) is np.ndarray
+                ), f"Invalid type for argument shape. Should be list or ndarray, but is {type(shape)}."
+                assert len(shape) == 2, f"Invalid length argument shape. Should be 2, but is {len(shape)}."
+            return render_gui(deepcopy(self._state), shape=shape, is_engine=True)
 
     @staticmethod
     def _get_address(source: Tuple[str, str, str], target: Tuple[str, str, str]):
