@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import yaml
 from copy import deepcopy
 import warnings
@@ -970,7 +972,7 @@ class Graph:
             except AttributeError as e:
                 raise ImportError(f"Could not load `{key}`: {e}")
 
-    def gui(self) -> None:
+    def gui(self, interactive: Optional[bool] = True, shape: Optional[List[int]] = None) -> Union[None, np.ndarray]:
         """Opens a graphical user interface of the graph.
 
         .. note:: Requires `eagerx-gui`:
@@ -979,16 +981,34 @@ class Graph:
                 .. code-block:: python
 
                     pip3 install eagerx-gui
+
+        :param interactive: If `True`, an interactive application is launched.
+                            Otherwise, an RGB render of the GUI is returned.
+                            This could be useful when using a headless machine.
+        :param shape: Specifies the shape of the returned render when `interactive` is `False`.
+                      If `interactive` is `True`, this argument is ignored.
+        :return: RGB render of the GUI if `interactive` is `False`.
         """
         try:
-            from eagerx_gui import launch_gui
+            from eagerx_gui import launch_gui, render_gui
         except ImportError as e:
             log.logwarn(
                 f"{e}. You will likely have to install eagerx-gui. It can be installed by running: pip install eagerx-gui"
             )
             return
 
-        self._state = launch_gui(deepcopy(self._state))
+        if interactive:
+            if shape is not None:
+                log.logwarn("Shape argument is ignored when launching GUI with interactive is True.")
+            self._state = launch_gui(deepcopy(self._state))
+            return None
+        else:
+            if shape is not None:
+                assert (
+                    type(shape) is list or type(shape) is np.ndarray
+                ), f"Invalid type for argument shape. Should be list or ndarray, but is {type(shape)}."
+                assert len(shape) == 2, f"Invalid length argument shape. Should be 2, but is {len(shape)}."
+            return render_gui(deepcopy(self._state), shape=shape)
 
     @staticmethod
     def _is_selected(state: Dict, entry: SpecView):

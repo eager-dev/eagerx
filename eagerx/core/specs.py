@@ -1,6 +1,7 @@
-from typing import Dict, Optional, Union, Type, TYPE_CHECKING
+from typing import Dict, Optional, Union, Type, TYPE_CHECKING, List
 import gym
 from yaml import dump
+import numpy as np
 
 import eagerx
 from eagerx.core.space import Space
@@ -548,7 +549,9 @@ class ObjectSpec(EntitySpec):
         name = self._params["config"]["name"]
         return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
-    def gui(self, engine_cls: Type["Engine"]) -> None:
+    def gui(
+        self, engine_cls: Type["Engine"], interactive: Optional[bool] = True, shape: Optional[List[int]] = None
+    ) -> Union[None, np.ndarray]:
         """Opens a graphical user interface of the object's engine implementation.
 
         .. note:: Requires `eagerx-gui`:
@@ -558,7 +561,13 @@ class ObjectSpec(EntitySpec):
 
             pip3 install eagerx-gui
 
-        :param engine_id: The `entity_id` with which the object's engine implementation was registered (e.g. "PybulletEngine").
+        :param engine_cls: The class engine (not instance!) that was used to register the engine implementation (e.g. "PybulletEngine").
+        :param interactive: If `True`, an interactive application is launched.
+                            Otherwise, an RGB render of the GUI is returned.
+                            This could be useful when using a headless machine.
+        :param shape: Specifies the shape of the returned render when `interactive` is `False`.
+                      If `interactive` is `True`, this argument is ignored.
+        :return: RGB render of the GUI if `interactive` is `False`.
         """
         import eagerx.core.register as register
 
@@ -566,7 +575,7 @@ class ObjectSpec(EntitySpec):
         engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
         spec_copy._params["engine"] = {}
         graph = register.add_engine(spec_copy, engine_id)
-        graph.gui()
+        return graph.gui(interactive=interactive, shape=shape)
 
     @property
     def engine(self) -> Union[SpecView]:
