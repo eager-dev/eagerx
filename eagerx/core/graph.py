@@ -1014,7 +1014,7 @@ class Graph:
                     type(resolution) is list or type(resolution) is np.ndarray
                 ), f"Invalid type for argument resolution. Should be list or ndarray, but is {type(resolution)}."
                 assert len(resolution) == 2, f"Invalid length argument resolution. Should be 2, but is {len(resolution)}."
-            return render_gui(deepcopy(self._state), resolution=resolution)
+            return render_gui(deepcopy(self._state), resolution=resolution, filename=filename)
 
     @staticmethod
     def _is_selected(state: Dict, entry: SpecView):
