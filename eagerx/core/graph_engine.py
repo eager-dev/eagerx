@@ -652,7 +652,7 @@ class EngineGraph:
                     type(resolution) is list or type(resolution) is np.ndarray
                 ), f"Invalid type for argument resolution. Should be list or ndarray, but is {type(resolution)}."
                 assert len(resolution) == 2, f"Invalid length argument resolution. Should be 2, but is {len(resolution)}."
-            return render_gui(deepcopy(self._state), resolution=resolution, is_engine=True)
+            return render_gui(deepcopy(self._state), resolution=resolution, filename=filename, is_engine=True)
 
     @staticmethod
     def _get_address(source: Tuple[str, str, str], target: Tuple[str, str, str]):
