@@ -550,7 +550,11 @@ class ObjectSpec(EntitySpec):
         return SpecView(self, depth=[depth], name=name, unlocked=unlocked)
 
     def gui(
-        self, engine_cls: Type["Engine"], interactive: Optional[bool] = True, shape: Optional[List[int]] = None
+        self,
+        engine_cls: Type["Engine"],
+        interactive: Optional[bool] = True,
+        resolution: Optional[List[int]] = None,
+        filename: Optional[str] = None,
     ) -> Union[None, np.ndarray]:
         """Opens a graphical user interface of the object's engine implementation.
 
@@ -565,8 +569,10 @@ class ObjectSpec(EntitySpec):
         :param interactive: If `True`, an interactive application is launched.
                             Otherwise, an RGB render of the GUI is returned.
                             This could be useful when using a headless machine.
-        :param shape: Specifies the shape of the returned render when `interactive` is `False`.
-                      If `interactive` is `True`, this argument is ignored.
+        :param resolution: Specifies the resolution of the returned render when `interactive` is `False`.
+                           If `interactive` is `True`, this argument is ignored.
+        :param filename: If provided, the GUI is rendered to an svg file with this name.
+                         If `interactive` is `True`, this argument is ignored.
         :return: RGB render of the GUI if `interactive` is `False`.
         """
         import eagerx.core.register as register
@@ -575,7 +581,7 @@ class ObjectSpec(EntitySpec):
         engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
         spec_copy._params["engine"] = {}
         graph = register.add_engine(spec_copy, engine_id)
-        return graph.gui(interactive=interactive, shape=shape)
+        return graph.gui(interactive=interactive, resolution=resolution, filename=filename)
 
     @property
     def engine(self) -> Union[SpecView]:

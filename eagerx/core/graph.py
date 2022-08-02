@@ -972,7 +972,9 @@ class Graph:
             except AttributeError as e:
                 raise ImportError(f"Could not load `{key}`: {e}")
 
-    def gui(self, interactive: Optional[bool] = True, shape: Optional[List[int]] = None) -> Union[None, np.ndarray]:
+    def gui(
+        self, interactive: Optional[bool] = True, resolution: Optional[List[int]] = None, filename: Optional[str] = None
+    ) -> Union[None, np.ndarray]:
         """Opens a graphical user interface of the graph.
 
         .. note:: Requires `eagerx-gui`:
@@ -985,8 +987,10 @@ class Graph:
         :param interactive: If `True`, an interactive application is launched.
                             Otherwise, an RGB render of the GUI is returned.
                             This could be useful when using a headless machine.
-        :param shape: Specifies the shape of the returned render when `interactive` is `False`.
-                      If `interactive` is `True`, this argument is ignored.
+        :param resolution: Specifies the resolution of the returned render when `interactive` is `False`.
+                           If `interactive` is `True`, this argument is ignored.
+        :param filename: If provided, the GUI is rendered to an svg file with this name.
+                         If `interactive` is `True`, this argument is ignored.
         :return: RGB render of the GUI if `interactive` is `False`.
         """
         try:
@@ -998,17 +1002,19 @@ class Graph:
             return
 
         if interactive:
-            if shape is not None:
-                log.logwarn("Shape argument is ignored when launching GUI with interactive is True.")
+            if resolution is not None:
+                log.logwarn("Resolution argument is ignored when launching GUI with interactive is True.")
+            if filename is not None:
+                log.logwarn("Filename argument is ignored when launching GUI with interactive is True.")
             self._state = launch_gui(deepcopy(self._state))
             return None
         else:
-            if shape is not None:
+            if resolution is not None:
                 assert (
-                    type(shape) is list or type(shape) is np.ndarray
-                ), f"Invalid type for argument shape. Should be list or ndarray, but is {type(shape)}."
-                assert len(shape) == 2, f"Invalid length argument shape. Should be 2, but is {len(shape)}."
-            return render_gui(deepcopy(self._state), shape=shape)
+                    type(resolution) is list or type(resolution) is np.ndarray
+                ), f"Invalid type for argument resolution. Should be list or ndarray, but is {type(resolution)}."
+                assert len(resolution) == 2, f"Invalid length argument resolution. Should be 2, but is {len(resolution)}."
+            return render_gui(deepcopy(self._state), resolution=resolution)
 
     @staticmethod
     def _is_selected(state: Dict, entry: SpecView):
