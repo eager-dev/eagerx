@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.30 (2022-08-02)
+### Fix
+* Filename argument now passed to gui render function ([`9344240`](https://github.com/eager-dev/eagerx/commit/934424018b59122094c49c3fcb2c83b43c9b2dc5))
+
 ## v0.1.29 (2022-08-02)
 ### Fix
 * Refactor shape to resolution in gui and add filename arg ([`a9943e4`](https://github.com/eager-dev/eagerx/commit/a9943e493a26fb271390614a8866e5f372219a14))
