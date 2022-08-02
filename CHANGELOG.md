@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.29 (2022-08-02)
+### Fix
+* Refactor shape to resolution in gui and add filename arg ([`a9943e4`](https://github.com/eager-dev/eagerx/commit/a9943e493a26fb271390614a8866e5f372219a14))
+
 ## v0.1.28 (2022-08-01)
 ### Fix
 * Add interactive and shape arguments to gui methods for headless rendering of the gui ([`11e91ea`](https://github.com/eager-dev/eagerx/commit/11e91ea212577e48d9f177c20172caca182ccfc7))
