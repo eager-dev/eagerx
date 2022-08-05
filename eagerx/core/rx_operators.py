@@ -780,7 +780,7 @@ def call_state_reset(state):
     return _call_state_reset
 
 
-def init_state_resets(ns, state_inputs, trigger, scheduler, node):
+def init_state_resets(ns, state_inputs, trigger, scheduler, tp_scheduler, node):
     if len(state_inputs) > 0:
         channels = []
 
@@ -805,7 +805,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.map(lambda x: x[1]),
                 ops.partition(lambda x: x.info.done),
             )
-            reset = reset.pipe(call_state_reset(s["state"]))
+            reset = reset.pipe(ops.observe_on(tp_scheduler), call_state_reset(s["state"]), ops.observe_on(scheduler))
             rs = rx.merge(
                 done.pipe(spy("done [%s]" % s["name"].split("/")[-1][:12].ljust(4), node)),
                 reset.pipe(spy("reset [%s]" % s["name"].split("/")[-1][:12].ljust(4), node)),

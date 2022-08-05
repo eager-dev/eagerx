@@ -511,6 +511,7 @@ def init_engine(
     # Initialization ##########################################################
     ###########################################################################
     # Prepare scheduler
+    tp_scheduler = ThreadPoolScheduler(max_workers=5)
     event_scheduler = EventLoopScheduler()
     eps_disp = CompositeDisposable()
     reset_disp = CompositeDisposable(eps_disp)
@@ -693,7 +694,7 @@ def init_engine(
     # Dynamically initialize new state pipeline
     ResetTrigger = Subject()
     ss_flags = simstate_inputs.pipe(
-        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),
+        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, tp_scheduler, node)),
         ops.share(),
     )
     check_simSS, simSS, simSS_ho = switch_with_check_pipeline()
