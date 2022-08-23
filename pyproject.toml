@@ -35,7 +35,7 @@ black = "^22.1.0"
 pytest = "^5.2"
 pytest-cov = "^3.0.0"
 flake8= ">=3"
-flake8-bugbear = "^22.1.11"
+flake8-bugbear = "^22.8.22"
 pytest-timeout = "^2.1.0"
 
 [build-system]
