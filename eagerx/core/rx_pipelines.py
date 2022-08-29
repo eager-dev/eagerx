@@ -142,7 +142,7 @@ def init_node_pipeline(
             ops.filter(lambda x: x is not None),
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            convert(o["space"], o["processor"], o["name"], node, direction="out"),
+            convert(o["space"], o["processor"], o["name"], "outputs", node, direction="out"),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -465,7 +465,7 @@ def init_engine_pipeline(
         d = output_stream.pipe(
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            convert(o["space"], o["processor"], o["name"], node, direction="out"),
+            convert(o["space"], o["processor"], o["name"], "outputs", node, direction="out"),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -921,7 +921,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         d = msgs.pipe(
             filter_dict_on_key(s["name"]),
             ops.filter(lambda msg: msg is not None),
-            convert(s["space"], s["processor"], s["name"], node, direction="out"),
+            convert(s["space"], s["processor"], s["name"], "states", node, direction="out"),
             ops.share(),
         ).subscribe(s["msg"])
         reset_disp.add(d)
@@ -982,7 +982,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         end_reset["msg"]
         .pipe(
             spy("RESET END", node, log_level=DEBUG),
-            convert(space, None, "tick", node, direction="out"),
+            convert(space, None, "tick", "outputs", node, direction="out"),
         )
         .subscribe(tick["msg"])
     )

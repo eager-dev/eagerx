@@ -570,7 +570,7 @@ def create_channel(
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
         ops.observe_on(scheduler),
-        convert(inpt["space"], inpt["processor"], name, node, direction="in"),
+        convert(inpt["space"], inpt["processor"], name, "inputs", node, direction="in"),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),
     )
@@ -727,7 +727,7 @@ def init_target_channel(states, scheduler, node):
     channels = []
     for s in states:
         c = s["msg"].pipe(
-            convert(s["space"], s["processor"], s["name"], node, direction="in"),
+            convert(s["space"], s["processor"], s["name"], "targets", node, direction="in"),
             ops.share(),
             ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
             remap_target(s["name"], node.sync, node.real_time_factor),
@@ -752,7 +752,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                convert(s["space"], s["processor"], s["name"], node, direction="in"),
+                convert(s["space"], s["processor"], s["name"], "states", node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -789,7 +789,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, tp_scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                convert(s["space"], s["processor"], s["name"], node, direction="in"),
+                convert(s["space"], s["processor"], s["name"], "states", node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -1205,7 +1205,7 @@ class NotSet:
         return "NotSet"
 
 
-def convert(space: eagerx.Space, processor, name, node, direction="out"):
+def convert(space: eagerx.Space, processor, name, component, node, direction="out"):
     OUTPUT = True if direction == "out" else False
     INPUT = True if direction == "in" else False
     space_checked = [False]
@@ -1227,7 +1227,7 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                             shape_msg = f"(msg.shape={recv.shape} vs space.shape={space.shape})"
                             dtype_msg = f"(msg.dtype={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
-                                f"[subscriber][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
+                                f"[subscriber][{node.ns_name}][{component}][{name}]: Message{p_msg} does not match the defined space. "
                                 f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
                             )
                             node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
@@ -1253,7 +1253,7 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                             shape_msg = f"(msg.shape={recv.shape} vs space.shape={space.shape})"
                             dtype_msg = f"(msg.dtype={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
-                                f"[publisher][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
+                                f"[publisher][{node.ns_name}][{component}][{name}]: Message{p_msg} does not match the defined space. "
                                 f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
                             )
                             node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
