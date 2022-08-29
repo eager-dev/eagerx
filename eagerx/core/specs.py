@@ -117,8 +117,6 @@ class BaseNodeSpec(EntitySpec):
 
             Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("config", unlocked=True)
@@ -161,8 +159,6 @@ class BaseNodeSpec(EntitySpec):
             Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
             May be necessary to ensure that the connected graph is directed and acyclic.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("inputs")
@@ -195,8 +191,6 @@ class BaseNodeSpec(EntitySpec):
         - .. py:attribute:: Spec.states.<name>.space: dict = None
 
             This space defines the format of valid messages.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -446,8 +440,6 @@ class ResetNodeSpec(BaseNodeSpec):
             A processor that preprocesses the received state message before passing it
             to the node's :func:`~eagerx.core.entities.ResetNode.callback`.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("targets")
@@ -472,8 +464,6 @@ class ResetNodeSpec(BaseNodeSpec):
             A non-negative simulated delay (seconds). This delay is ignored if
             :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
             in the engine's :func:`~eagerx.core.entities.Engine.spec`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -522,8 +512,6 @@ class EngineSpec(BaseNodeSpec):
         - .. py:attribute:: Spec.config.log_level: int = 30
 
             Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -613,8 +601,6 @@ class ObjectSpec(EntitySpec):
 
             This space defines the format of valid messages.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("sensors")
@@ -659,8 +645,6 @@ class ObjectSpec(EntitySpec):
             Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
             May be necessary to ensure that the connected graph is directed and acyclic.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("actuators")
@@ -674,8 +658,6 @@ class ObjectSpec(EntitySpec):
         - .. py:attribute:: Spec.states.<name>.space: dict = None
 
             This space defines the format of valid messages.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -704,8 +686,6 @@ class ObjectSpec(EntitySpec):
         - .. py:attribute:: Spec.config.states: list
 
             List with selected engine_states. Must be a subset of the registered :func:`eagerx.core.register.engine_states`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """

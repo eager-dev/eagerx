@@ -483,7 +483,7 @@ class BaseNode(Entity):
             for cname in spec.config[component]:
                 c = getattr(spec, component)
                 msg = (
-                    f'"{cname}" was selected as {component[:-1]}'
+                    f'"{cname}" was selected as {component[:-1]} '
                     f'but it is not a registered {component[:-1]} of node "{name}". Check the spec of "{entity_id}".'
                 )
                 assert cname in c, msg
