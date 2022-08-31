@@ -8,7 +8,7 @@ Getting Started
 Installing EAGERx
 =================
 
-There are three installation options:
+There are four installation options:
 
 - Using *pip*
 - From source
