@@ -48,12 +48,9 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 |box_sim| |box_real| |pendulum_sim| |pendulum_real|
 
-|all|
 
-**Top:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
-
-**Bottom:** The modular design of EAGERx allows users to create complex environments easily through composition.
+**Figure:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
+On the top the successful transfer of a box-pushing policy is shown, while on the bottom this is the case for the classic pendulum swing-up problem.
 
 ..
     TODO: ADD code example with gifs?
@@ -84,7 +81,8 @@ You can install for example eagerx with gui support by running:
 
 .. figure:: docs/_static/img/gui.svg
     :align: center
-    :figwidth: 50%
+    :figwidth: 85%
+    :width: 80%
     :alt: alternate text
     :figclass: align-center
 
@@ -102,6 +100,7 @@ Luckily, inter-node communication within EAGERx can be listened to externally, s
 .. figure:: docs/_static/gif/rqt_plot.GIF
     :align: center
     :figwidth: 50%
+    :width: 50%
     :alt: alternate text
     :figclass: align-center
 
@@ -181,7 +180,7 @@ To run this code, you should install `eagerx_tutorials <https://github.com/eager
 
 .. code:: shell
 
-    pip3 install eagerx_tutorials
+    pip3 install eagerx-tutorials
 
 Detailed explanation of the code can be found in `this Colab tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb>`_.
 
@@ -297,22 +296,22 @@ EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
 |delft_logo| |opendr_logo|
 
 .. |box_sim| image:: docs/_static/gif/box_pushing_pybullet.gif
-   :width: 24%
+   :width: 40%
 
 .. |box_real| image:: docs/_static/gif/box_pushing_real.gif
-   :width: 24%
+   :width: 40%
 
 .. |pendulum_sim| image:: docs/_static/gif/pendulum_sim.gif
-   :width: 24%
+   :width: 40%
 
 .. |pendulum_real| image:: docs/_static/gif/pendulum_real.gif
-   :width: 24%
+   :width: 40%
 
 .. |all| image:: docs/_static/gif/all.gif
-   :width: 97.5%
+   :width: 50%
 
 .. |delft_logo| image:: docs/_static/img/tu_delft.png
-   :width: 10%
+   :width: 20%
 
 .. |opendr_logo| image:: docs/_static/img/opendr_logo.png
-   :width: 10%
+   :width: 20%
