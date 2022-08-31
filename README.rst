@@ -48,10 +48,6 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 |box_sim| |box_real|
 
-
-|pendulum_sim| |pendulum_real|
-
-
 **Figure:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
 On the top the successful transfer of a box-pushing policy is shown, while on the bottom this is the case for the classic pendulum swing-up problem.
 
