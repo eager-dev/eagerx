@@ -46,7 +46,8 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 **We are currently working towards a first stable release!**
 
-|box_sim| |box_real| 
+|box_sim| |box_real|
+
 |pendulum_sim| |pendulum_real|
 
 
@@ -297,19 +298,19 @@ EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
 |delft_logo| |opendr_logo|
 
 .. |box_sim| image:: docs/_static/gif/box_pushing_pybullet.gif
-   :width: 24%
+   :width: 45%
 
 .. |box_real| image:: docs/_static/gif/box_pushing_real.gif
-   :width: 24%
+   :width: 45%
 
 .. |pendulum_sim| image:: docs/_static/gif/pendulum_sim.gif
-   :width: 24%
+   :width: 45%
 
 .. |pendulum_real| image:: docs/_static/gif/pendulum_real.gif
-   :width: 24%
+   :width: 45%
 
 .. |all| image:: docs/_static/gif/all.gif
-   :width: 50%
+   :width: 40%
 
 .. |delft_logo| image:: docs/_static/img/tu_delft.png
    :width: 20%
