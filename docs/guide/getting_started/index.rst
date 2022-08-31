@@ -202,12 +202,12 @@ You can install the gui by running:
 
     The EAGERx docker images currently do not support gui functionality.
 
-.. figure:: /_static/gif/gui.GIF
+.. figure:: /_static/img/gui.svg
     :align: center
     :alt: alternate text
     :figclass: align-center
 
-    The construction of an environment via the GUI.
+    The visualisation of an environment via the GUI.
 
 Extras: training visualization
 ==============================
