@@ -72,11 +72,11 @@ EAGERx allows to create engine agnostic environments such that a single
 environment can be used for simulation and reality. The following
 engines are available for training and evaluation:
 
--   [RealEngine](https://github.com/eager-dev/eagerx_reality) for
+-   `RealEngine <https://github.com/eager-dev/eagerx_reality>`_ for
     real-world experiments
--   [PybulletEngine](https://github.com/eager-dev/eagerx_pybullet) for
+-   `PybulletEngine <https://github.com/eager-dev/eagerx_pybullet>`_ for
     PyBullet simulations
--   [OdeEngine](https://github.com/eager-dev/eagerx_ode) for simulations
+-   `OdeEngine <https://github.com/eager-dev/eagerx_ode>`_ for simulations
     based on ordinary differential equations (ODEs)
 
 Users can also create their own (custom) engines.
