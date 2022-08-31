@@ -29,7 +29,7 @@
 What is EAGERx
 ==============
 
-EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
+`EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
 EAGERx explicitly addresses the differences in learning between simulation and reality,
 with essential features for roboticists such as a safety layer, signal delay simulation, and controller switching for resets.
