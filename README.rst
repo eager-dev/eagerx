@@ -297,16 +297,16 @@ EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
 |delft_logo| |opendr_logo|
 
 .. |box_sim| image:: docs/_static/gif/box_pushing_pybullet.gif
-   :width: 45%
+   :width: 24%
 
 .. |box_real| image:: docs/_static/gif/box_pushing_real.gif
-   :width: 45%
+   :width: 24%
 
 .. |pendulum_sim| image:: docs/_static/gif/pendulum_sim.gif
-   :width: 45%
+   :width: 24%
 
 .. |pendulum_real| image:: docs/_static/gif/pendulum_real.gif
-   :width: 45%
+   :width: 24%
 
 .. |all| image:: docs/_static/gif/all.gif
    :width: 50%
