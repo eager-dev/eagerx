@@ -104,14 +104,15 @@ This tutorial covers:
 .. image:: /_static/img/colab-badge.svg
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/2_reset_and_step.ipynb
 
-3. Converters
--------------
+3. Space and Processors
+-----------------------
 
 This tutorial covers:
 
-- The three different converters, i.e. :class:`~eagerx.core.entities.SpaceConverter`, :class:`~eagerx.core.entities.Processor` and :class:`~eagerx.core.entities.Converter`
-- Specifying the parameters of converters
-- Creating a custom :class:`~eagerx.core.entities.SpaceConverter`
+- How to specify a :class:`~eagerx.core.space.Space`
+- Creating a custom :class:`~eagerx.core.entities.Processor`
+- How to add a :class:`~eagerx.core.entities.Processor`
+
 
 .. image:: /_static/img/colab-badge.svg
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/3_space_and_processors.ipynb
@@ -141,7 +142,18 @@ This tutorial covers:
 .. image:: /_static/img/colab-badge.svg
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/5_engine_implementation.ipynb
 
-6. More Informative Rendering
+6. Defining a new Object
+------------------------
+
+This tutorial covers:
+
+- Defining a new :class:`~eagerx.core.entities.Object`
+
+.. image:: /_static/img/colab-badge.svg
+  :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_objects.ipynb
+
+
+7. More Informative Rendering
 -----------------------------
 
 - Create a layover :class:`~eagerx.core.entities.Node` that augments a raw image sensors
@@ -152,7 +164,7 @@ This tutorial covers:
   :target: https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/6_rendering.ipynb
 
 
-7. Reset Routines
+8. Reset Routines
 -----------------
 
 - Defining the reset routine with a :class:`~eagerx.core.entities.ResetNode`

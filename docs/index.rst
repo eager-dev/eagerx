@@ -28,8 +28,8 @@
 
 What is EAGERx
 ==============
-`EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to
-easily define new tasks, switch from one sensor to another,
+
+EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
 EAGERx explicitly addresses the differences in learning between simulation and reality,
 with essential features for roboticists such as a safety layer, signal delay simulation, and controller switching for resets.
@@ -39,10 +39,15 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 **We are currently working towards a first stable release!**
 
-..
-    TODO: ADD code example with gifs?
-    Example
-    =================
+|box_sim| |box_real| |pendulum_sim| |pendulum_real|
+
+|all|
+
+**Top:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
+On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
+
+**Bottom:** The modular design of EAGERx allows users to create complex environments easily through composition.
+
 
 .. toctree::
    :maxdepth: 2
@@ -60,8 +65,25 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
    guide/contributing/index
 
+Engines
+-------
+
+EAGERx allows to create engine agnostic environments such that a single
+environment can be used for simulation and reality. The following
+engines are available for training and evaluation:
+
+-   [RealEngine](https://github.com/eager-dev/eagerx_reality) for
+    real-world experiments
+-   [PybulletEngine](https://github.com/eager-dev/eagerx_pybullet) for
+    PyBullet simulations
+-   [OdeEngine](https://github.com/eager-dev/eagerx_ode) for simulations
+    based on ordinary differential equations (ODEs)
+
+Users can also create their own (custom) engines.
+
 Cite EAGERx
 ===========
+
 If you are using EAGERx for your scientific publications, please cite:
 
 .. code:: bibtex
@@ -77,14 +99,41 @@ If you are using EAGERx for your scientific publications, please cite:
 
 Maintainers
 ===========
+
 EAGERx is currently maintained by Bas van der Heijden (`@bheijden <https://github.com/bheijden>`_) and Jelle Luijkx (`@jelledouwe <https://github.com/jelledouwe>`_).
 
 How to contact us
 =================
-Follow us on Twitter `@EagerxD <https://twitter.com/EagerxD>`_!
+
+..
+  Follow us on Twitter `@EagerxD <https://twitter.com/EagerxD>`_!
 
 For any question, send an e-mail to eagerx.dev@gmail.com.
 
 Acknowledgements
 ================
+
 EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
+
+|delft_logo| |opendr_logo|
+
+.. |box_sim| image:: _static/gif/box_pushing_pybullet.gif
+   :width: 24%
+
+.. |box_real| image:: _static/gif/box_pushing_real.gif
+   :width: 24%
+
+.. |pendulum_sim| image:: _static/gif/pendulum_sim.gif
+   :width: 24%
+
+.. |pendulum_real| image:: _static/gif/pendulum_real.gif
+   :width: 24%
+
+.. |all| image:: _static/gif/all.gif
+   :width: 97.5%
+
+.. |delft_logo| image:: _static/img/tu_delft.png
+   :width: 20%
+
+.. |opendr_logo| image:: _static/img/opendr_logo.png
+   :width: 20%

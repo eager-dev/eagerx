@@ -134,7 +134,7 @@ Therefore, all we need to do to initialize the *OdeEngine* is to define two dict
   Note that the parameters under "custom params" correspond to the signature of the :func:`~eagerx.core.entities.Engine.initialize` method.
   In this way, we can easily use these parameters to initialize the *OdeEngine* node.
   We will use the *simulator* attribute to keep track of the objects and their ODEs, states and inputs.
-  This *simulator* object is a special object, since it will be shared among all the engine nodes of type :class:`~eagerx.core.entities.EnigneNode`.
+  This *simulator* object is a special object, since it will be shared among all the engine nodes of type :class:`~eagerx.core.entities.EngineNode`.
   In this way, we create a reference simulator attribute in the :class:`~eagerx.core.entities.Engine`.
 
 add_object
