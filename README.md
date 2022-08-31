@@ -1,7 +1,6 @@
 ![image](docs/_static/img/banner.png)
 
-Streamlining the transfer of simulated robot learning to the real-world
-=======================================================================
+### Streamlining the transfer of simulated robot learning to the real-world
 
 [![license](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
