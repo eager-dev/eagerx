@@ -59,9 +59,7 @@ You can do a minimal installation of `EAGERx` with:
 pip3 install eagerx
 ```
 
-We provide other options for installing EAGERx in [our
-documentation](https://eagerx.readthedocs.io/en/master/) including using
-Docker or Conda environment to have ROS1 setup.
+We provide other options (Docker, Conda) for installing EAGERx in [the documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#installing-eagerx).
 
 ### Extras: GUI
 
@@ -82,15 +80,11 @@ pip3 install eagerx-gui
 In robotics it is crucial to monitor the robot\'s behavior during the
 learning process. Luckily, inter-node communication within EAGERx can be
 listened to externally, so that any relevant information stream can be
-trivially monitored on-demand (e.g. with `rqt_plot`).
-
-**Note:** `rqt_plot` is included in the `desktop` or `desktop-full` ROS
-installation. Follow the [ROS installation
-instructions](https://eagerx.readthedocs.io/en/latest/) to install ROS.
+trivially monitored on-demand. See the documentation for [instructions](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-training-visualization).
 
 <img src="docs/_static/gif/rqt_plot.GIF" width="50%" />
 
-**Figure:** Internode communication can be plotted using `rqt_plot`.
+**Figure:** Internode communication can be plotted.
 
 Tutorials
 ---------
