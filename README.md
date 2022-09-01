@@ -13,19 +13,18 @@
 What is EAGERx
 --------------
 
-EAGERx (Engine Agnostic Graph Environments for Robotics) enables users
-to easily define new tasks, switch from one sensor to another, and
-switch from simulation to reality with a single line of code by being
-invariant to the physics engine. EAGERx explicitly addresses the
-differences in learning between simulation and reality, with essential
-features for roboticists such as a safety layer, signal delay
-simulation, and controller switching for resets. A single RL pipeline
-that works with both the simulated and real robots eliminates the chance
-for mismatches between the simulation and reality implementation. The
-defined task follows the OpenAI Gym interface, so one can plug in
-algorithms from established RL libraries (e.g.,
-[Stable-baselines3](https://github.com/DLR-RM/stable-baselines3) ) to
-solve the task afterward, again minimizing implementation errors.
+You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new ([OpenAI Gym compatible](https://www.gymlibrary.dev/)) environments with modular robot definitions.
+
+It enables users to:
+- Define environments as computation graphs of interconnected nodes
+- Visualize these graph environments interactively
+- Use a single graph environment both in simulation and reality
+
+EAGERx explicitly addresses the differences in learning between simulation and reality, with native support for essential features such as:
+- Safety layers
+- Signal delay simulation
+- Real-world reset routines
+- Synchronized inter-node communication
 
 [Full documentation and tutorials available
 here](https://eagerx.readthedocs.io/en/master/).
