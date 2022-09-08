@@ -569,8 +569,9 @@ def create_channel(
     # Readable format
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
-        ops.observe_on(scheduler),
+        # todo: test: input message is moved to event loop AFTER conversion.
         convert(inpt["space"], inpt["processor"], name, "inputs", node, direction="in"),
+        ops.observe_on(scheduler),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),
     )
