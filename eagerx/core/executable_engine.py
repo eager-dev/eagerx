@@ -136,8 +136,10 @@ class RxEngine(object):
 
         # Prepare
         engine_states = []
-        for name, obj in params["objects"].items():
-            for cname, s in obj["engine_states"].items():
+        for _name, obj in params["objects"].items():
+            if "engine_states" not in obj:
+                continue
+            for _cname, s in obj["engine_states"].items():
                 engine_states.append(s)
         engine_states = tuple(engine_states)
 

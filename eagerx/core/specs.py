@@ -5,7 +5,6 @@ from yaml import dump
 import numpy as np
 
 import eagerx
-from eagerx.core.space import Space
 from eagerx.core.view import SpecView
 from eagerx.utils.utils import (
     replace_None,
@@ -519,9 +518,9 @@ class ObjectSpec(EntitySpec):
         import eagerx.core.register as register
 
         spec_copy = ObjectSpec(self.params)
-        engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
         spec_copy._params["engine"] = {}
-        graph = register.add_engine(spec_copy, engine_id)
+        engine = engine_cls.get_specification()
+        graph = register.add_engine(spec_copy, engine)
         return graph.gui(interactive=interactive, resolution=resolution, filename=filename)
 
     @property
@@ -679,17 +678,6 @@ class ObjectSpec(EntitySpec):
                 if cname not in getattr(self.config, component):
                     getattr(self.config, component).append(cname)
 
-    def _initialize_engine_config(self, engine_config):
-        # Add default config
-        with self.engine as d:
-            d.update(engine_config)
-            d["name"] = self.config.name
-            d["states"] = {}
-            # Add all states to engine-specific params
-            with d.states as s:
-                for cname in self.states.keys():
-                    s[cname] = None
-
     def _initialize_object_graph(self):
         mapping = dict()
         for component in ["sensors", "actuators"]:
@@ -702,172 +690,6 @@ class ObjectSpec(EntitySpec):
 
         graph = EngineGraph.create(**mapping)
         return graph
-
-    def build(self, ns, engine_id):  # engine_id="engine"
-        params = self.params  # Creates a deepcopy
-        name = self.config.name
-
-        # Construct context
-        context = {"ns": {"env_name": ns, "obj_name": name}}
-        substitute_args(params["config"], context, only=["ns"])  # First resolve args within the context
-        substitute_args(params, context, only=["ns"])  # Resolve rest of params
-
-        # Get agnostic definition
-        agnostic = dict()
-        for key in list(params.keys()):
-            if key not in ["actuators", "sensors", "states"]:
-                if key not in ["config", engine_id]:
-                    params.pop(key)
-                continue
-            agnostic[key] = params.pop(key)  # agnostic.keys() = ["actuators", "sensors", "states"]
-
-        # Get engine definition
-        engine = params.pop(engine_id)
-        nodes = engine.pop("nodes")
-        specific = dict()
-        for key in list(engine.keys()):
-            if key not in ["actuators", "sensors", "states"]:
-                continue
-            specific[key] = engine.pop(key)
-
-        # Replace node names
-        for key in list(nodes.keys()):
-            key_sub = substitute_args(key, context, only=["ns"])
-            nodes[key_sub] = nodes.pop(key)
-
-        # Sensors & actuators
-        sensor_addresses = dict()
-        dependencies = []
-        for obj_comp in ["actuators", "sensors"]:
-            for obj_cname in params["config"][obj_comp]:
-                try:
-                    entry_lst = specific[obj_comp][obj_cname]
-                except KeyError:
-                    raise KeyError(
-                        f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
-                    )
-
-                for entry in reversed(entry_lst):
-                    node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
-                    obj_comp_params = agnostic[obj_comp][obj_cname]
-                    node_params = nodes[node_name]
-
-                    # Determine node dependency
-                    dependencies += entry["dependency"]
-
-                    # Set rate
-                    rate = obj_comp_params["rate"]
-                    msg_start = f'Different rate specified for {obj_comp[:-1]} "{obj_cname}" and enginenode "{node_name}": '
-                    msg_end = "If an enginenode implements a sensor/actuator, their specified rates must be equal."
-                    msg_mid = f'{node_params["config"]["rate"]} vs {rate}. '
-                    assert node_params["config"]["rate"] == rate, msg_start + msg_mid + msg_end
-                    for o in node_params["config"]["outputs"]:
-                        msg_mid = f'{node_params["outputs"][o]["rate"]} vs {rate}. '
-                        assert node_params["outputs"][o]["rate"] == rate, msg_start + msg_mid + msg_end
-
-                    # Set component params
-                    node_comp_params = nodes[node_name][node_comp][node_cname]
-                    if obj_comp == "sensors":
-                        # Make sure that space of node is contained within agnostic space.
-                        agnostic_space = Space.from_dict(obj_comp_params["space"])
-                        node_space = Space.from_dict(node_comp_params["space"])
-                        msg = (
-                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
-                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
-                            f"{node_name}.{node_comp}.{node_cname}.space={node_space} \n\n"
-                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
-                        )
-                        assert agnostic_space.contains_space(node_space), msg
-                        node_comp_params.update(obj_comp_params)
-                        node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
-                        sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
-                    else:  # Actuators
-                        agnostic_space = Space.from_dict(obj_comp_params["space"])
-                        node_space = Space.from_dict(node_comp_params["space"])
-                        msg = (
-                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
-                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
-                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
-                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
-                        )
-                        assert agnostic_space.contains_space(node_space), msg
-
-                        agnostic_processor = obj_comp_params.pop("processor")
-                        node_comp_params.update(obj_comp_params)
-
-                        if agnostic_processor is not None:
-                            msg = (
-                                f"A processor was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
-                                "implementation also has a processor defined. You can only have one processor."
-                            )
-                            assert node_comp_params["processor"] is None, msg
-                            node_comp_params["processor"] = agnostic_processor
-
-                        # Pop rate. Actuators are more-or-less inputs so have no rate?
-                        node_comp_params.pop("rate")
-                        # Reassign converter in case a node provides the implementation for multiple actuators
-                        obj_comp_params["processor"] = agnostic_processor
-
-        # Get set of node we are required to launch
-        dependencies = list(set(dependencies))
-
-        # Verify that no dependency is an unlisted actuator node.
-        not_selected = [cname for cname in agnostic["actuators"] if cname not in params["config"]["actuators"]]
-        for cname in not_selected:
-            try:
-                for entry in specific["actuators"][cname]:
-                    node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
-                    msg = (
-                        f'There appears to be a dependency on enginenode "{node_name}" for the implementation of '
-                        f'engine "{engine_id}" for object "{name}" to work. However, enginenode "{node_name}" is '
-                        f'directly tied to an unselected actuator "{cname}". '
-                        "The actuator must be selected to resolve the graph."
-                    )
-                    assert node_name not in dependencies, msg
-            except KeyError:
-                # We pass here, because if cname is not selected, but also not implemented,
-                # we are sure that there is no dependency.
-                pass
-
-        # Replace enginenode outputs that have been renamed to sensor outputs
-        for node_address, sensor_address in sensor_addresses.items():
-            for _, node_params in nodes.items():
-                for _cname, comp_params in node_params["inputs"].items():
-                    if node_address == comp_params["address"]:
-                        comp_params["address"] = sensor_address
-
-        # Create states
-        states = []
-        state_names = []
-        obj_comp = "states"
-        for obj_cname in params["config"]["states"]:
-            args = agnostic[obj_comp][obj_cname]
-            args["name"] = f"{name}/{obj_comp}/{obj_cname}"
-            args["address"] = f"{name}/{obj_comp}/{obj_cname}"
-            try:
-                args["state"] = specific[obj_comp][obj_cname]
-            except KeyError:
-                raise KeyError(
-                    f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
-                )
-            states.append(RxEngineState(**args))
-            state_names.append(f'{ns}/{args["name"]}')
-
-        # Gather node names
-        params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
-        params["state_names"] = state_names
-
-        # Add engine
-        params["engine"] = engine
-
-        # Add agnostic definition
-        params.update(**agnostic)
-
-        # Add states
-        assert "states" not in params["engine"], "The keyword `states` is reserved."
-        params["engine"]["states"] = [s.build(ns) for s in states]
-        nodes = [NodeSpec(params) for name, params in nodes.items() if name in dependencies]
-        return {name: replace_None(params)}, nodes
 
 
 class EngineSpec(BaseNodeSpec):
@@ -950,7 +772,9 @@ class EngineSpec(BaseNodeSpec):
         states = spec.engine.states
         for cname in list(states.keys()):
             if states[cname] is not None:
-                self._add_engine_state(name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"])
+                self._add_engine_state(
+                    name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"]
+                )
 
     def _add_engine_state(self, name, cname, engine_state, space, processor=None):
         with self.objects[name].engine_states as s:
@@ -971,18 +795,18 @@ class EngineSpec(BaseNodeSpec):
                     s[cname] = None
 
     def _register_object(self, spec: ObjectSpec) -> "EngineGraph":
-            spec = copy.deepcopy(spec)
+        spec = copy.deepcopy(spec)
 
-            # Construct context & replace placeholders
-            context = {"config": spec.config.to_dict()}
-            substitute_args(spec._params["config"], context, only=["config"])  # First resolve args within the context
-            substitute_args(spec._params, context, only=["config"])  # Resolve rest of params
+        # Construct context & replace placeholders
+        context = {"config": spec.config.to_dict()}
+        substitute_args(spec._params["config"], context, only=["config"])  # First resolve args within the context
+        substitute_args(spec._params, context, only=["config"])  # Resolve rest of params
 
-            # Add engine entry
-            import eagerx.core.register as register
+        # Add engine entry
+        import eagerx.core.register as register
 
-            spec._params["engine"] = {}
-            return register.add_engine(spec, self)
+        spec._params["engine"] = {}
+        return register.add_engine(spec, self)
 
 
 # REQUIRED FOR BUILDING SPECS

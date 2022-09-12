@@ -6,7 +6,7 @@ import eagerx.core.rx_message_broker
 import eagerx.core.rx_operators
 import eagerx.core.rx_pipelines
 from eagerx.core.entities import BaseNode
-from eagerx.core.specs import NodeSpec, ObjectSpec
+from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import (
     load,
     initialize_processor,
@@ -102,39 +102,6 @@ class SupervisorNode(BaseNode):
             rxnode_cls=RxNode,
         )
         self.subjects["register_node"].on_next(self.ns + "/" + node_name)
-
-    # def register_object(self, object: ObjectSpec, engine_name: str):
-    #     # Increase cumulative registered counter. Is send as '/start_reset' message.
-    #     self.cum_registered += 1
-    #
-    #     # Check if object name is unique
-    #     obj_name = object.config.name
-    #     assert (
-    #         self.backend.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
-    #     ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
-    #
-    #     # Upload object params to param server
-    #     params, nodes = object.build(ns=self.ns, engine_id=engine_name)
-    #     self.backend.upload_params(self.ns, params)
-    #
-    #     # Set node args
-    #     node_args = dict(
-    #         object_name=f"{self.ns}/{obj_name}",
-    #     )
-    #
-    #     # Upload node parameters to ROS param server
-    #     initialize_nodes(
-    #         nodes,
-    #         process.ENVIRONMENT,
-    #         self.ns,
-    #         message_broker=self.message_broker,
-    #         is_initialized=self.is_initialized,
-    #         sp_nodes=self.sp_nodes,
-    #         launch_nodes=self.launch_nodes,
-    #         node_args=node_args,
-    #         object_name=obj_name,
-    #     )
-    #     self.subjects["register_object"].on_next(f"{self.ns}/{obj_name}")
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states

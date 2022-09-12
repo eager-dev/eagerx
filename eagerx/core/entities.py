@@ -28,7 +28,6 @@ from eagerx.utils.utils import (
     Msg,
     load,
     initialize_processor,
-    get_param_with_blocking,
 )
 
 from typing import TYPE_CHECKING
@@ -1113,7 +1112,9 @@ class Engine(BaseNode):
 
         # Prepare engine states
         for name, obj in params["objects"].items():
-            for cname, i in obj["engine_states"].items():
+            if "engine_states" not in obj:
+                continue
+            for _cname, i in obj["engine_states"].items():
                 if isinstance(i["processor"], dict):
                     from eagerx.core.specs import ProcessorSpec
 
@@ -1122,11 +1123,7 @@ class Engine(BaseNode):
                     i["space"] = eagerx.Space.from_dict(i["space"])
                 state_cls = load(i["state"]["state_type"])
                 i["state"] = state_cls(
-                    ns=self.ns,
-                    name=i["name"],
-                    simulator=self.simulator[name],
-                    backend=self.backend,
-                    params=i["state"]
+                    ns=self.ns, name=i["name"], simulator=self.simulator[name], backend=self.backend, params=i["state"]
                 )
 
     def register_node(self, node_params):
@@ -1143,67 +1140,12 @@ class Engine(BaseNode):
         sp_nodes = dict()
         launch_nodes = dict()
         initialize_nodes(
-            node_params,
-            ENGINE,
-            self.ns,
-            self.message_broker,
-            self.is_initialized,
-            sp_nodes,
-            launch_nodes,
-            node_args=node_args
+            node_params, ENGINE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args
         )
         wait_for_node_initialization(self.is_initialized, self.backend)
         self.sp_nodes.update(sp_nodes)
         self.launch_nodes.update(launch_nodes)
         return node_params, sp_nodes, launch_nodes
-
-    def register_object(self, object_params, node_params, state_params):
-        # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
-        engine_params = {key: value for key, value in object_params["engine"].items() if key != "states"}
-
-        self.add_object(**engine_params)
-
-        # Initialize states
-        for i in state_params:
-            state_cls = load(i["state"]["state_type"])
-            i["state"] = state_cls(
-                ns=self.ns,
-                name=i["name"],
-                simulator=self.simulator,
-                backend=self.backend,
-                params=i["state"],
-                object_params=object_params,
-            )
-            if isinstance(i["processor"], dict):
-                from eagerx.core.specs import ProcessorSpec
-
-                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
-            if isinstance(i["space"], dict):
-                i["space"] = eagerx.Space.from_dict(i["space"])
-
-        # Initialize nodes
-        sp_nodes = dict()
-        launch_nodes = dict()
-        node_args = dict(
-            simulator=self.simulator,
-        )
-        initialize_nodes(
-            node_params,
-            ENGINE,
-            self.ns,
-            self.message_broker,
-            self.is_initialized,
-            sp_nodes,
-            launch_nodes,
-            node_args=node_args,
-        )
-        for _name, node in sp_nodes.items():
-            # Initialize
-            node.node_initialized()
-        self.sp_nodes.update(sp_nodes)
-        self.launch_nodes.update(launch_nodes)
-        wait_for_node_initialization(self.is_initialized, self.backend)
-        return state_params, sp_nodes, launch_nodes
 
     def pre_reset_cb(self, **kwargs):
         keys_to_pop = []
@@ -1592,7 +1534,7 @@ class EngineState(Entity):
         self.color = "grey"
         #: Responsible for all I/O communication within this process.
         self.backend = backend
-        from eagerx.core.specs import EngineStateSpec, ObjectSpec
+        from eagerx.core.specs import EngineStateSpec
 
         self.initialize(EngineStateSpec(params), simulator)
 

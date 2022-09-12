@@ -69,6 +69,7 @@ class BaseEnv(gym.Env):
         # todo: [OPTIONAL] Add legend to dag graphs.
         # todo: [OPTIONAL] Add engine: EngineSpec as argument object engine methods.
         # todo: [OPTIONAL] check arguments of engine_spec.add_object(...) are arguments of engine.add_object(...).
+        # todo: [OPTIONAL] No dynamic pipeline initialization bridge
         # todo: [DONE] graph._add_engine(..) --> allow only a single engine
         # todo: [DONE] graph._substitute_all_objects()
         # todo: [DONE] graph._substitute_object(name="obj_name")
@@ -87,8 +88,9 @@ class BaseEnv(gym.Env):
         # todo: [DONE] rx_operators.get_object_params --> get params from engine spec instead of object spec
         # todo: [DONE] EngineNode.__init__ --> remove `object_name` argument
         # todo: [DONE] Engine nodes must be launched by Engine as an EngineNode (to get reference to simulator).
-        # todo: No dynamic pipeline initialization bridge
-        # todo: update docs (object naming conventions, object_spec, add_object, engine.objects)
+        # todo: remove dead code (ActionsNode, ObservationsNode, Graph.gui(), Graph._substitute_environment_node())
+        # todo: remove dead code (EngineGraph.gui())
+        # todo: update docs (object naming conventions, object_spec, add_object, engine.objects, external launching object name)
         # todo: update colab notebooks (engine states, engine nodes)
         # todo: Allow gui to visualize with environment node.
 
@@ -168,7 +170,7 @@ class BaseEnv(gym.Env):
                 space = state["space"].to_dict()
 
                 assert (
-                        name not in supervisor.params["states"]
+                    name not in supervisor.params["states"]
                 ), f'Cannot have duplicate states. State "{name}" is defined multiple times.'
 
                 mapping = dict(address=address, processor=processor, space=space)
@@ -215,7 +217,7 @@ class BaseEnv(gym.Env):
         node_names = ["environment", "env/supervisor"]
         target_addresses = []
         for i in nodes:
-            node_names.append(i.params['config']['name'])
+            node_names.append(i.params["config"]["name"])
             if "targets" in i.params["config"]:
                 for cname in i.params["config"]["targets"]:
                     address = i.params["targets"][cname]["address"]

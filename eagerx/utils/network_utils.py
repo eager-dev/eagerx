@@ -165,7 +165,7 @@ def is_stale(G, exclude_skip=False):
 
         # Then, loop over new stale nodes of prev. iteration and set all out-going edges to stale
         for n in stale_nodes:
-            for u, v, _key, data_e in G.out_edges(n, data=True, keys=True):
+            for _u, v, _key, data_e in G.out_edges(n, data=True, keys=True):
                 data_e["is_stale"] = True
                 skip = data_e["skip"] if exclude_skip else False
                 if not G.nodes[v]["is_stale"] and not skip:

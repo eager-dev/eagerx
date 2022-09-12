@@ -171,20 +171,11 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--loglevel", nargs=1, help="The log level for the environment.", type=int, default=30)
     parser.add_argument("-e", "--env", nargs=1, help="The environment name.", type=str)
     parser.add_argument("-n", "--name", nargs=1, help="The node name.", type=str)
-    parser.add_argument(
-        "-o",
-        "--object",
-        nargs=1,
-        help="The object name if the node is part of an engine-specific implementation.",
-        type=str,
-        default=[""],
-    )
     args, unknown = parser.parse_known_args()
     backend_id = args.backend[0]
     log_level = args.loglevel[0]
     ns = f"/{args.env[0]}"
     name = args.name[0]
-    object_name = args.object[0]
 
     backend = Backend.from_cmd(ns, backend_id, log_level)
 
@@ -193,7 +184,7 @@ if __name__ == "__main__":
     pnode = None
 
     try:
-        pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker, object_name=f"{ns}/{object_name}")
+        pnode = RxNode(name=f"{ns}/{name}", message_broker=message_broker)
 
         message_broker.connect_io()
 

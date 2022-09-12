@@ -37,13 +37,13 @@ class ObservationSensor(EngineNode):
         spec.config.outputs = outputs if isinstance(outputs, list) else ["observation"]
         return spec
 
-    def initialize(self, spec,  simulator):
+    def initialize(self, spec, simulator):
         # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
-        self.id = spec.config.env_id
+        self.id = simulator["env_id"]
         self.last_obs = None
 
     @register.states()
@@ -92,7 +92,7 @@ class RewardSensor(EngineNode):
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
-        self.id = spec.config.env_id
+        self.id = simulator["env_id"]
         self.last_reward = None
 
     @register.states()
@@ -138,13 +138,13 @@ class DoneSensor(EngineNode):
         spec.config.outputs = outputs if isinstance(outputs, list) else ["done"]
         return spec
 
-    def initialize(self, spec,  simulator):
+    def initialize(self, spec, simulator):
         # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
-        self.id = spec.config.env_id
+        self.id = simulator["env_id"]
         self.last_done = None
 
     @register.states()
@@ -199,12 +199,9 @@ class ActionActuator(EngineNode):
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.obj_name = simulator["name"]
         self.simulator = simulator
         self.simulator["env"]: gym.Env
-        self.is_discrete = (
-            True if isinstance(self.simulator["env"].action_space, gym.spaces.Discrete) else False
-        )
+        self.is_discrete = True if isinstance(self.simulator["env"].action_space, gym.spaces.Discrete) else False
         if spec.config.zero_action is None:
             self.zero_action = self.simulator["env"].action_space.sample()
         else:
@@ -286,8 +283,7 @@ class GymImage(EngineNode):
         self.shape = tuple(spec.config.shape)
         self.always_render = spec.config.always_render
         self.render_toggle = False
-        self.id = spec.config.env_id
-        self.obj_name = object_spec.config.name
+        self.id = simulator["env_id"]
         self._cond = threading.Condition()
         self.sub_toggle = self.backend.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
 

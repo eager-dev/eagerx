@@ -84,6 +84,6 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
 if __name__ == "__main__":
     # for _ in range(100):
     #     test_integration_openai_engine("Pendulum-v1", 20, True, 0, 0)
+    test_integration_openai_engine("Pendulum-v1", 2, True, 0, NP)
     test_integration_openai_engine("Acrobot-v1", 2, True, 0, ENV)
     test_integration_openai_engine("Pendulum-v1", 2, True, 0, ENV)
-    test_integration_openai_engine("Pendulum-v1", 2, True, 0, NP)

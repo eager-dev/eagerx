@@ -109,7 +109,7 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
 
 
 if __name__ == "__main__":
-    test_integration_test_engine(3, 3, True, 0, ENV)
     test_integration_test_engine(20, 40, True, 0, NP)
+    test_integration_test_engine(3, 3, True, 0, ENV)
     test_integration_test_engine(20, 40, False, 4, NP)
     test_integration_test_engine(3, 3, False, 4, ENV)

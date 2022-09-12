@@ -47,6 +47,7 @@ class GymEngine(Engine):
 
         # Create new env, and add to simulator
         self.simulator[name].update(
+            env_id=env_id,
             env=gym.make(env_id),
             buffer_obs=[],
             buffer_reward=None,

@@ -7,7 +7,6 @@ from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
 import eagerx.utils.utils
-from eagerx.core.specs import RxInput
 from eagerx.core.constants import (  # noqa
     SILENT,
     DEBUG,
@@ -17,7 +16,6 @@ from eagerx.core.constants import (  # noqa
     FATAL,
 )
 from eagerx.utils.utils import (
-    initialize_processor,
     Info,
     Msg,
     Stamp,
@@ -891,103 +889,6 @@ def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
         inputs=[],
         state_inputs=[],
         node_flags=[],  # [nf],
-        sp_nodes=sp_nodes,
-        launch_nodes=launch_nodes,
-    )
-
-
-def get_object_params(node, obj_name):
-    obj_params = eagerx.utils.utils.get_param_with_blocking(obj_name, node.backend)
-    if obj_params is None:
-        raise ValueError(
-            "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
-            % (obj_name, obj_name)
-        )
-
-    # Get state parameters from ROS param server
-    state_params = obj_params["engine"]["states"]
-    obj_params["engine"]["states"] = {s["name"]: s for s in state_params}
-
-    # Get parameters from ROS param server
-    node_params = []
-    for node_name in obj_params["node_names"]:
-        params = eagerx.utils.utils.get_param_with_blocking(node_name, node.backend)
-        node_params.append(params)
-    return obj_params, node_params, state_params
-
-
-def extract_inputs(ns, node_params, state_params, sp_nodes, launch_nodes):
-    inputs = []
-    state_inputs = []
-    node_flags = []
-
-    # Process states
-    for i in state_params:
-        # Convert to classes
-        if "processor" in i and isinstance(i["processor"], dict):
-            from eagerx.core.specs import ProcessorSpec
-
-            i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
-
-        # Initialize rx objects
-        i["msg"] = Subject()  # S
-        i["done"] = Subject()  # D
-
-        # Create a new state
-        s = dict()
-        s.update(i)
-        state_inputs.append(s)
-
-    # Process nodes
-    has_output = False
-    num_outputs = sum([len(params["outputs"]) for params in node_params])
-    count = 0
-    for params in node_params:
-        name = params["config"]["name"]
-
-        # Process node flags
-        nf = dict(
-            name=name,
-            address=f"{ns}/{name}/end_reset",
-            msg=Subject(),
-            dtype="bool",
-        )
-        node_flags.append(nf)
-
-        # Only add output if tick is an input
-        must_sync = len([i["name"] for i in params["inputs"] if i["name"] == "tick"]) > 0
-        for i in params["outputs"]:
-            count += 1
-            # Only add output as input to engine if:
-            #  1. `tick` is an input to the engine node (ie, we require input-output synchronization).
-            #  2. It is the final output of the object, and no other output was added to the engine yet.
-            #     This is required, else the engine might not have any output.
-            if not (must_sync or ((not has_output) and count == num_outputs)):
-                continue
-
-            # Create a new input topic for each EngineNode output topic
-            n = RxInput(
-                name=i["address"],
-                address=i["address"],
-                processor=None,
-                window=0,
-                space=i["space"],
-                dtype=i["dtype"],
-            ).build()
-
-            # initialize space
-            if "space" in n and isinstance(n["space"], dict):
-                n["space"] = eagerx.Space.from_dict(i["space"])
-
-            # Initialize rx objects
-            n["msg"] = Subject()  # Ir
-            n["reset"] = Subject()  # Is
-            inputs.append(n)
-
-    return dict(
-        inputs=inputs,
-        state_inputs=state_inputs,
-        node_flags=node_flags,
         sp_nodes=sp_nodes,
         launch_nodes=launch_nodes,
     )

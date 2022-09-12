@@ -25,8 +25,6 @@ from eagerx.core.rx_operators import (
     init_state_inputs_channel,
     init_state_resets,
     init_callback_pipeline,
-    get_object_params,
-    extract_inputs,
     switch_with_check_pipeline,
     node_reset_flags,
     filter_dict_on_key,
@@ -512,7 +510,7 @@ def init_engine(
     # Initialization ##########################################################
     ###########################################################################
     # Prepare scheduler
-    tp_scheduler = ThreadPoolScheduler(max_workers=len(engine_state_inputs))
+    tp_scheduler = ThreadPoolScheduler(max_workers=max(1, len(engine_state_inputs)))
     event_scheduler = EventLoopScheduler()
     eps_disp = CompositeDisposable()
     reset_disp = CompositeDisposable(eps_disp)
@@ -626,12 +624,11 @@ def init_engine(
     node_inputs.append(object_registry)
 
     # Object registry pipeline
-    w_get_object_params = functools.partial(get_object_params, node)
     object_params = OR.pipe(
-        ops.map(w_get_object_params),
-        ops.filter(lambda params: params is not None),
-        ops.map(lambda params: (params[1],) + node.register_object(*params)),
-        ops.map(lambda i: extract_inputs(ns, *i)),
+        # ops.map(w_get_object_params),
+        # ops.filter(lambda params: params is not None),
+        # ops.map(lambda params: (params[1],) + node.register_object(*params)),
+        # ops.map(lambda i: extract_inputs(ns, *i)),
         ops.share(),
     )
 

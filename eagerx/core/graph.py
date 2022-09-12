@@ -91,7 +91,7 @@ class Graph:
 
         # Add action & observation node to list
         from eagerx.core.nodes import EnvNode
-        
+
         environment = EnvNode.make("Environment")
         nodes += [environment]
 
@@ -104,7 +104,10 @@ class Graph:
 
     def add(
         self,
-        entities: Union[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec], List[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec]]],
+        entities: Union[
+            Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec],
+            List[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec]],
+        ],
     ) -> None:
         """Add nodes/objects to the graph.
 
@@ -115,7 +118,10 @@ class Graph:
     @staticmethod
     def _add(
         state: Dict,
-        entities: Union[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec], List[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec]]],
+        entities: Union[
+            Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec],
+            List[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec]],
+        ],
     ) -> None:
         """Add nodes/objects to the graph.
 
@@ -813,14 +819,16 @@ class Graph:
         else:
             return entry
 
-    def register(self, engine: Optional[EngineSpec] = None) -> Tuple[
-        "Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
+    def register(
+        self, engine: Optional[EngineSpec] = None
+    ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
         state = deepcopy(self._state)
         return self._register(state, engine)
 
     @staticmethod
-    def _register(state, engine: Optional[EngineSpec] = None) -> Tuple[
-        "Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
+    def _register(
+        state, engine: Optional[EngineSpec] = None
+    ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
         # Add engine
         if engine:
             Graph._add_engine(state, engine)
@@ -848,6 +856,7 @@ class Graph:
                 context = {"config": default}
                 cname_params = state["nodes"][source_name][source_comp][source_cname]
                 substitute_args(cname_params, context, only=["config", "ns"])
+                cname_params["rate"] = "$(config rate)"  # Do not copy the rate.
                 address = "%s/%s/%s" % ("environment", source_comp, source_cname)
             elif target_name == "environment":
                 default = state["nodes"][source_name]["config"]
@@ -983,7 +992,7 @@ class Graph:
             try:
                 state = yaml.safe_load(stream)
                 if "engine_id" not in state:
-                    warnings.warn(f"Old graph fromat. Adding `engine` key to state.")
+                    warnings.warn("Old graph fromat. Adding `engine` key to state.")
                     state["engine_id"] = None
             except yaml.YAMLError as exc:
                 must_raise = True
@@ -1033,6 +1042,12 @@ class Graph:
                          If `interactive` is `True`, this argument is ignored.
         :return: RGB render of the GUI if `interactive` is `False`.
         """
+        # Make a copy of the state
+        state = deepcopy(self._state)
+
+        # Replace environment node with environment node
+        Graph._substitute_environment_node(state)
+
         try:
             from eagerx_gui import launch_gui, render_gui
         except ImportError as e:
@@ -1041,30 +1056,13 @@ class Graph:
             )
             return
 
-        # Make a copy of the state
-        state = deepcopy(self._state)
-
-        # Replace environment node with environment node
-        Graph._substitute_environment_node(state)
-
         # Launch gui
         if interactive:
-            if resolution is not None:
-                log.logwarn("Resolution argument is ignored when launching GUI with interactive is True.")
-            if filename is not None:
-                log.logwarn("Filename argument is ignored when launching GUI with interactive is True.")
-            state = launch_gui(state)
             # Only overwrite gui_state (node locations, etc...)
             # Note: `gui_state` may have info on nodes 'env/actions' and 'env/observations',
             #       while the graph state actually only includes node `environment`.
-            self._state["gui_state"] = state["gui_state"]
-            return None
+            self._state["gui_state"] = launch_gui(state)["gui_state"]
         else:
-            if resolution is not None:
-                assert (
-                    type(resolution) is list or type(resolution) is np.ndarray
-                ), f"Invalid type for argument resolution. Should be list or ndarray, but is {type(resolution)}."
-                assert len(resolution) == 2, f"Invalid length argument resolution. Should be 2, but is {len(resolution)}."
             return render_gui(state, resolution=resolution, filename=filename)
 
     @staticmethod
@@ -1262,7 +1260,7 @@ class Graph:
             else:  # node
                 for cname in default["outputs"]:
                     name = "%s/%s" % (node, cname)
-                    label_mapping[name] = str(len(label_mapping)) #if node not in ["environment", "engine"] else name
+                    label_mapping[name] = str(len(label_mapping))  # if node not in ["environment", "engine"] else name
                     G.add_node(
                         name,
                         remain_active=True if "tick" in default["inputs"] else False,
@@ -1442,6 +1440,7 @@ class Graph:
 
         # Add action & observation node.
         from eagerx.core.nodes import ActionsNode, ObservationsNode
+
         actions = ActionsNode.make()
         observations = ObservationsNode.make()
         Graph._add(state, [actions, observations])
