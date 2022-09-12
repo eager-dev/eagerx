@@ -615,7 +615,7 @@ def init_engine(
         ops.map(w_get_node_params),
         ops.filter(lambda params: params is not None),
         ops.map(node.register_node),
-        ops.map(lambda args: extract_node_reset(ns, *args)),  # todo does nothing...
+        ops.map(lambda args: extract_node_reset(ns, *args)),  # todo: remove, because does nothing...
         ops.share(),
     )
 
@@ -875,7 +875,7 @@ def init_engine(
     reset_disp.add(d)
 
     rx_objects = dict(
-        inputs=tuple(),  # inputs_init,
+        inputs=inputs_init,
         outputs=outputs,
         node_inputs=node_inputs,
         node_outputs=node_outputs,
