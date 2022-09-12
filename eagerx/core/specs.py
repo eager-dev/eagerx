@@ -35,7 +35,7 @@ class EntitySpec(object):
 
 
 class BackendSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
 
     def initialize(self, spec_cls):
         pass
@@ -50,7 +50,7 @@ class BackendSpec(EntitySpec):
 
 
 class ProcessorSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the processor."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the processor."""
 
     def initialize(self, spec_cls):
         pass
@@ -65,7 +65,7 @@ class ProcessorSpec(EntitySpec):
 
 
 class EngineStateSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
 
     def initialize(self, spec_cls):
         pass
@@ -403,31 +403,13 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
-
-    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
-               also affect the coupled parameter value.
-
-              For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
-              `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`.
-    """
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node."""
 
     pass
 
 
 class ResetNodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
-
-    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
-               also affect the coupled parameter value.
-
-              For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
-              `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`
-    """
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node."""
 
     @property
     def targets(self) -> SpecView:
@@ -471,16 +453,7 @@ class ResetNodeSpec(BaseNodeSpec):
 
 
 class ObjectSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
-
-    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
-               also affect the coupled parameter value.
-
-              For example, setting `spec.sensors.in_1.space.low = "$(config low)"` will set the value of
-              `spec.sensors.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`
-    """
+    """A parameter specification of an object."""
 
     def __init__(self, params):
         super().__init__(params)
@@ -693,7 +666,7 @@ class ObjectSpec(EntitySpec):
 
 
 class EngineSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
 
     @property
     def config(self) -> SpecView:
@@ -742,6 +715,8 @@ class EngineSpec(BaseNodeSpec):
     @property
     def objects(self) -> SpecView:
         """Provides an API to set/get the parameters to add an object to the engine.
+
+        To add a new object, please use :func:`~eagerx.core.specs.Enginespec.add_object`.
 
         Arguments correspond to the signature of :func:`~eagerx.core.entities.Engine.add_object`.
 
