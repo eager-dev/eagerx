@@ -1,12 +1,11 @@
 import os
-
 import numpy as np
 import yaml
 from copy import deepcopy
 import warnings
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing import List, Union, Dict, Optional, Any, Type
+from typing import List, Union, Dict, Optional, Any, Type, Tuple
 import eagerx.core.log as log
 from eagerx.utils.utils import (
     load,
@@ -23,11 +22,13 @@ from eagerx.utils.network_utils import (
     is_stale,
 )
 import eagerx
+from eagerx.core.space import Space
 from eagerx.core.entities import Node
 from eagerx.core.view import SpecView
 from eagerx.core.specs import (
     ResetNodeSpec,
     ObjectSpec,
+    EngineSpec,
     ProcessorSpec,
     EntitySpec,
     NodeSpec,
@@ -89,14 +90,13 @@ class Graph:
             objects = [objects]
 
         # Add action & observation node to list
-        from eagerx.core.nodes import ActionsNode, ObservationsNode
+        from eagerx.core.nodes import EnvNode
 
-        actions = ActionsNode.make("Actions")
-        observations = ObservationsNode.make("Observations")
-        nodes += [actions, observations]
+        environment = EnvNode.make("Environment")
+        nodes += [environment]
 
         # Create a state
-        state = dict(nodes=dict(), connects=list(), backup=dict(), gui_state=dict())
+        state = dict(nodes=dict(), connects=list(), backup=dict(), gui_state=dict(), engine_id=None)
         graph = cls(state)
         graph.add(nodes)
         graph.add(objects)
@@ -104,7 +104,24 @@ class Graph:
 
     def add(
         self,
-        entities: Union[Union[NodeSpec, ResetNodeSpec, ObjectSpec], List[Union[NodeSpec, ResetNodeSpec, ObjectSpec]]],
+        entities: Union[
+            Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec],
+            List[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec]],
+        ],
+    ) -> None:
+        """Add nodes/objects to the graph.
+
+        :param entities: Nodes/objects to add.
+        """
+        Graph._add(self._state, entities)
+
+    @staticmethod
+    def _add(
+        state: Dict,
+        entities: Union[
+            Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec],
+            List[Union[NodeSpec, ResetNodeSpec, ObjectSpec, EngineSpec]],
+        ],
     ) -> None:
         """Add nodes/objects to the graph.
 
@@ -115,18 +132,18 @@ class Graph:
 
         for entity in entities:
             # Check spec validity
-            self._check_spec(entity)
+            Graph._check_spec(entity)
 
             name = entity.config.name
             assert (
-                name not in self._state["nodes"]
+                name not in state["nodes"]
             ), f'There is already a node or object registered in this graph with name "{name}".'
 
             # Add node to state
-            self._state["nodes"][name] = entity._params
-            self._state["backup"][name] = entity.params
+            state["nodes"][name] = entity._params
+            state["backup"][name] = entity.params
 
-    def remove(self, names: Union[str, EntitySpec, List[Union[str, EntitySpec]]], remove: bool = False) -> None:
+    def remove(self, names: Union[str, EntitySpec, List[Union[str, EntitySpec]]], remove: bool = False) -> List:
         """Removes nodes/objects from the graph.
 
         - First, all associated connections are disconnected.
@@ -136,29 +153,33 @@ class Graph:
         :param names: Either the name or spec of the node/object that is to be removed.
         :param remove: Flag to also remove observations/actions if they are left disconnected after the node/object was removed.
                        Actions are only removed if they are completely disconnected.
+        :return: list of disconnected connections.
         """
         if not isinstance(names, list):
             names = [names]
+        disconnected = []
         for name in names:
             if isinstance(name, EntitySpec):
                 name = name.params["config"]["name"]
                 assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
             for source, target in deepcopy(self._state["connects"]):
                 if name in [source[0], target[0]]:
-                    if source[0] == "env/actions":
+                    if source[0] == "environment":
                         action = source[2]
                         source = None
                     else:
                         action = None
                         source = self.get_view(source[0], source[1:])
-                    if target[0] == "env/observations":
+                    if target[0] == "environment":
                         observation = target[2]
                         target = None
                     else:
                         observation = None
                         target = self.get_view(target[0], target[1:])
                     self.disconnect(source, target, action, observation, remove=remove)
+                    disconnected.append([source, target])
             self._state["nodes"].pop(name)
+            return disconnected
 
     def get_spec(self, name: str) -> EntitySpec:
         """Get Spec from the graph
@@ -166,8 +187,12 @@ class Graph:
         :param name: Name
         :return: The specification of the entity.
         """
-        assert name in self._state["nodes"], f" No entity with name '{name}' in graph."
-        params = self._state["nodes"][name]
+        return Graph._get_spec(self._state, name)
+
+    @staticmethod
+    def _get_spec(state, name: str) -> EntitySpec:
+        assert name in state["nodes"], f" No entity with name '{name}' in graph."
+        params = state["nodes"][name]
         if "node_type" in params:  # Either Node or ResetNode
             if "targets" in params:  # == ResetNode
                 spec = ResetNodeSpec(params)
@@ -175,7 +200,6 @@ class Graph:
                 spec = NodeSpec(params)
         else:  # == Object
             spec = ObjectSpec(params)
-        # spec.set_graph(self)
         return spec
 
     def add_component(
@@ -218,23 +242,23 @@ class Graph:
     def _add_action(self, action: str):
         """Adds disconnected action entry to 'env/actions' node in self._state."""
         assert action != "set", 'Cannot define an action with the reserved name "set".'
-        params_action = self._state["nodes"]["env/actions"]
+        params_action = self._state["nodes"]["environment"]
         if action not in params_action["outputs"]:  # Action already registered
             params_action["outputs"][action] = dict()
-            view = self.get_view("env/actions", ["outputs", action])
+            view = self.get_view("environment", ["outputs", action])
             self._add_component(view)
 
     def _add_observation(self, observation: str):
         """Adds disconnected observation entry to 'env/observations' node in self._state."""
         assert observation != "actions_set", 'Cannot define an observations with the reserved name "actions_set".'
-        params_obs = self._state["nodes"]["env/observations"]
+        params_obs = self._state["nodes"]["environment"]
         if observation in params_obs["inputs"]:
             assert len(params_obs["inputs"][observation]) == 0, (
                 'Observation "%s" already exists' " and is connected." % observation
             )
         else:
             params_obs["inputs"][observation] = dict()
-            view = self.get_view("env/observations", ["inputs", observation])
+            view = self.get_view("environment", ["inputs", observation])
             self._add_component(view)
 
     def remove_component(
@@ -283,10 +307,10 @@ class Graph:
 
     def _remove_action(self, action: str):
         """Method to remove an action. It will first disconnect all connections in connect."""
-        view = self.get_view("env/actions", ["outputs", action])
+        view = self.get_view("environment", ["outputs", action])
         self._remove_component(view, remove=False)
-        params_action = self._state["nodes"]["env/actions"]
-        source = ["env/actions", "outputs", action]
+        params_action = self._state["nodes"]["environment"]
+        source = ["environment", "outputs", action]
         connect_exists = False
         for c in self._state["connects"]:
             if source == c[0]:
@@ -300,10 +324,10 @@ class Graph:
 
     def _remove_observation(self, observation: str):
         """Method to remove an observation. It will first disconnect all connections in connect."""
-        view = self.get_view("env/observations", ["inputs", observation])
+        view = self.get_view("environment", ["inputs", observation])
         self._remove_component(view, remove=False)
-        params_obs = self._state["nodes"]["env/observations"]
-        target = ["env/observations", "inputs", observation]
+        params_obs = self._state["nodes"]["environment"]
+        target = ["environment", "inputs", observation]
         connect_exists = False
         for c in self._state["connects"]:
             if target == c[1]:
@@ -369,11 +393,11 @@ class Graph:
         if action:  # source = action
             self.add_component(action=action)
             self._connect_action(action, target)
-            source = self.get_view("env/actions", ["outputs", action])
+            source = self.get_view("environment", ["outputs", action])
         elif observation:  # target = observation
             self.add_component(observation=observation)
             self._connect_observation(source, observation)
-            target = self.get_view("env/observations", ["inputs", observation])
+            target = self.get_view("environment", ["inputs", observation])
         self._connect(source, target, window, delay, skip)
 
     def _connect(
@@ -426,7 +450,7 @@ class Graph:
 
     def _connect_action(self, action, target):
         """Method to connect a (previously added) action, that *precedes* self._connect(source, target)."""
-        params_action = self._state["nodes"]["env/actions"]
+        params_action = self._state["nodes"]["environment"]
         assert action in params_action["outputs"], f'Action "{action}" must be added, before you can connect it.'
         name, component, cname = target()
         if component == "feedthroughs":
@@ -462,7 +486,7 @@ class Graph:
     def _connect_observation(self, source, observation):
         """Method to connect a (previously added & disconnected) observation, that *precedes* self._connect(source, target)."""
 
-        params_obs = self._state["nodes"]["env/observations"]
+        params_obs = self._state["nodes"]["environment"]
         assert observation in params_obs["inputs"], f'Observation "{observation}" must be added, before you can connect it.'
         name, component, cname = source()
 
@@ -511,7 +535,7 @@ class Graph:
         if remove:
             if action:
                 connect_exists = False
-                source = ["env/actions", "outputs", action]
+                source = ["environment", "outputs", action]
                 for c in self._state["connects"]:
                     if source == c[0]:
                         connect_exists = True
@@ -547,13 +571,13 @@ class Graph:
                 f"If you want to disconnect action {action}, " f"please also specify the corresponding target."
             )
 
-            source = self.get_view("env/actions", ["outputs", action])
+            source = self.get_view("environment", ["outputs", action])
         if observation:
             assert source is not None, (
                 f"If you want to disconnect observation {observation}," f" please also specify the corresponding source."
             )
 
-            target = self.get_view("env/observations", ["inputs", observation])
+            target = self.get_view("environment", ["inputs", observation])
 
         # Check if connection exists
         self._is_selected(self._state, source)
@@ -602,13 +626,13 @@ class Graph:
             self._is_selected(self._state, target)
             source_name, source_comp, source_cname = source()
             target_name, target_comp, target_cname = target()
-            if source_name == "env/actions":
+            if source_name == "environment":
                 action = source_cname
                 source = None
             else:
                 action = None
                 source = source
-            if target_name == "env/observations":
+            if target_name == "environment":
                 observation = target_cname
                 target = None
             else:
@@ -625,9 +649,9 @@ class Graph:
     def _disconnect_action(self, action: str):
         """Returns the action entry back to its disconnected state.
         That is, remove space if it is not connected to any other targets."""
-        params_action = self._state["nodes"]["env/actions"]
+        params_action = self._state["nodes"]["environment"]
         assert action in params_action["outputs"], 'Cannot disconnect action "%s", as it does not exist.' % action
-        source = ["env/actions", "outputs", action]
+        source = ["environment", "outputs", action]
         connect_exists = False
         for c in self._state["connects"]:
             if source == c[0]:
@@ -638,7 +662,7 @@ class Graph:
 
     def _disconnect_observation(self, observation: str):
         """Returns the observation entry back to its disconnected state (i.e. empty dict)."""
-        params_obs = self._state["nodes"]["env/observations"]
+        params_obs = self._state["nodes"]["environment"]
         assert observation in params_obs["inputs"], 'Cannot disconnect observation "%s", as it does not exist.' % observation
         params_obs["inputs"][observation] = dict()
 
@@ -656,11 +680,11 @@ class Graph:
         """
         if action:
             assert observation is None, "Cannot supply both an action and observation."
-            entry = self.get_view("env/actions", ["outputs", action])
+            entry = self.get_view("environment", ["outputs", action])
         if observation:
             assert action is None, "Cannot supply both an action and observation."
             assert observation is not None, "Either an action or observation must be supplied."
-            entry = self.get_view("env/observations", ["inputs", observation])
+            entry = self.get_view("environment", ["inputs", observation])
         self._rename_component(entry, new_cname=new)
 
     def _rename_component(self, entry: SpecView, new_cname: str):
@@ -673,7 +697,7 @@ class Graph:
         params = self._state["nodes"][name]
 
         # For now, we only support changing action/observation cnames
-        assert name in ["env/observations", "env/actions"], (
+        assert name in ["environment", "environment"], (
             f'Cannot change "{old_cname}" of "{name}". Only name ' "changes to observations and actions are supported."
         )
         assert new_cname not in params[component], f'"{new_cname}" already defined in "{name}" under {component}.'
@@ -718,9 +742,9 @@ class Graph:
         """
         self._correct_signature(entry, action, observation)
         if action:
-            entry = self.get_view("env/actions", ["outputs", action])
+            entry = self.get_view("environment", ["outputs", action])
         if observation:
-            entry = self.get_view("env/observations", ["inputs", observation])
+            entry = self.get_view("environment", ["inputs", observation])
         if parameter is None:
             if isinstance(mapping, SpecView):
                 mapping = mapping.to_dict()
@@ -787,18 +811,39 @@ class Graph:
             return self._state["nodes"][name]
         self._correct_signature(entry, action, observation)
         if action:
-            entry = self.get_view("env/actions", ["outputs", action])
+            entry = self.get_view("environment", ["outputs", action])
         if observation:
-            entry = self.get_view("env/observations", ["inputs", observation])
+            entry = self.get_view("environment", ["inputs", observation])
         if parameter:
             return getattr(entry, parameter)
         else:
             return entry
 
-    def register(self):
-        # Check if valid graph.
-        assert self.is_valid(plot=False), "Graph not valid."
+    def register(
+        self, engine: Optional[EngineSpec] = None
+    ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
         state = deepcopy(self._state)
+        return self._register(state, engine)
+
+    @staticmethod
+    def _register(
+        state, engine: Optional[EngineSpec] = None
+    ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
+        # Add engine
+        if engine:
+            Graph._add_engine(state, engine)
+
+        # Check that there is an engine specified.
+        assert state["engine_id"] is not None, "Cannot register graph. There was no engine specified."
+
+        # Substitute all objects
+        Graph._substitute_all_objects(state)
+
+        # Check if valid graph.
+        assert Graph._is_valid(state, plot=False), "Graph not valid."
+
+        # Reload all entities
+        Graph._reload(state)
 
         # Add addresses based on connections
         for source, target in state["connects"]:
@@ -806,13 +851,14 @@ class Graph:
             target_name, target_comp, target_cname = target
 
             # For actions & observations, replace default args
-            if source_name == "env/actions":
+            if source_name == "environment":
                 default = state["nodes"][target_name]["config"]
                 context = {"config": default}
                 cname_params = state["nodes"][source_name][source_comp][source_cname]
                 substitute_args(cname_params, context, only=["config", "ns"])
+                cname_params["rate"] = "$(config rate)"  # Do not copy the rate.
                 address = "%s/%s/%s" % ("environment", source_comp, source_cname)
-            elif target_name == "env/observations":
+            elif target_name == "environment":
                 default = state["nodes"][source_name]["config"]
                 context = {"config": default}
                 cname_params = state["nodes"][target_name][target_comp][target_cname]
@@ -823,34 +869,31 @@ class Graph:
             state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
             # check if dtypes match
-            s = self.get_view(source[0], source[1:])
-            t = self.get_view(target[0], target[1:])
-            self._is_compatible(state, s, t)
+            s = Graph._get_view(state, source[0], source[1:])
+            t = Graph._get_view(state, target[0], target[1:])
+            Graph._is_compatible(state, s, t)
             source_dtype = state["nodes"][source_name][source_comp][source_cname]["space"]["dtype"]
             state["nodes"][target_name][target_comp][target_cname]["dtype"] = source_dtype
 
         # Initialize param objects
         nodes = []
-        objects = []
-        render = None
-        actions = None
-        observations = None
+        render: Optional[NodeSpec] = None
+        environment: NodeSpec = None
+        engine: EngineSpec = None
         for name, params in state["nodes"].items():
-            if "node_type" in params:
-                if name == "env/actions":
-                    actions = NodeSpec(params)
-                elif name == "env/observations":
-                    observations = NodeSpec(params)
-                elif name == "env/render":
-                    render = NodeSpec(params)
-                else:
-                    nodes.append(NodeSpec(params))
+            assert "node_type" in params, f"Node `{name}` is not a valid node. have all Objects been replaced by nodes?"
+            if name == "environment":
+                environment = NodeSpec(params)
+            elif name == "env/render":
+                render = NodeSpec(params)
+            elif name == "engine":
+                engine = EngineSpec(params)
             else:
-                objects.append(ObjectSpec(params))
+                nodes.append(NodeSpec(params))
 
-        assert actions, "No action node defined in the graph."
-        assert observations, "No observation node defined in the graph."
-        return nodes, objects, actions, observations, render
+        assert environment, "No environment node defined in the graph."
+        assert engine, "No engine node defined in the graph."
+        return Graph(state), environment, engine, nodes, render
 
     def render(
         self,
@@ -944,12 +987,13 @@ class Graph:
 
         :param file: A string giving the name (and the file if the file isn't in the current working directory).
         """
-        # todo: load all objects (to register default bridge implementations).
         must_raise = False
         with open(file, "r") as stream:
             try:
                 state = yaml.safe_load(stream)
-                # self._state = yaml.load(file)
+                if "engine_id" not in state:
+                    warnings.warn("Old graph fromat. Adding `engine` key to state.")
+                    state["engine_id"] = None
             except yaml.YAMLError as exc:
                 must_raise = True
                 print(exc)
@@ -966,7 +1010,12 @@ class Graph:
 
     def reload(self):
         """Reloads (ie imports) all entities in the graph."""
-        for key, params in self._state["nodes"].items():
+        Graph._reload(self._state)
+
+    @staticmethod
+    def _reload(state: Dict):
+        """Reloads (ie imports) all entities in the graph."""
+        for key, params in state["nodes"].items():
             try:
                 load(params["config"]["entity_id"])
             except AttributeError as e:
@@ -993,6 +1042,12 @@ class Graph:
                          If `interactive` is `True`, this argument is ignored.
         :return: RGB render of the GUI if `interactive` is `False`.
         """
+        # Make a copy of the state
+        state = deepcopy(self._state)
+
+        # Replace environment node with environment node
+        Graph._substitute_environment_node(state)
+
         try:
             from eagerx_gui import launch_gui, render_gui
         except ImportError as e:
@@ -1001,20 +1056,14 @@ class Graph:
             )
             return
 
+        # Launch gui
         if interactive:
-            if resolution is not None:
-                log.logwarn("Resolution argument is ignored when launching GUI with interactive is True.")
-            if filename is not None:
-                log.logwarn("Filename argument is ignored when launching GUI with interactive is True.")
-            self._state = launch_gui(deepcopy(self._state))
-            return None
+            # Only overwrite gui_state (node locations, etc...)
+            # Note: `gui_state` may have info on nodes 'env/actions' and 'env/observations',
+            #       while the graph state actually only includes node `environment`.
+            self._state["gui_state"] = launch_gui(state)["gui_state"]
         else:
-            if resolution is not None:
-                assert (
-                    type(resolution) is list or type(resolution) is np.ndarray
-                ), f"Invalid type for argument resolution. Should be list or ndarray, but is {type(resolution)}."
-                assert len(resolution) == 2, f"Invalid length argument resolution. Should be 2, but is {len(resolution)}."
-            return render_gui(deepcopy(self._state), resolution=resolution, filename=filename)
+            return render_gui(state, resolution=resolution, filename=filename)
 
     @staticmethod
     def _is_selected(state: Dict, entry: SpecView):
@@ -1175,10 +1224,10 @@ class Graph:
     def check_graph_is_acyclic(state, plot=True):
         # Add nodes
         G = nx.MultiDiGraph()
-        label_mapping = {
-            "env/observations/set": "observations",
-            "env/render/done": "render",
-        }
+        # label_mapping = {
+        #     "env/render/done": "render",
+        # }
+        label_mapping = dict()
         for node, params in state["nodes"].items():
             default = params["config"]
             if "node_type" not in state["nodes"][node]:  # Object
@@ -1186,63 +1235,49 @@ class Graph:
                     for cname in default["sensors"]:
                         name = "%s/sensors/%s" % (node, cname)
                         G.add_node(
-                            "%s/sensors/%s" % (node, cname),
+                            name,
                             remain_active=False,
                             always_active=True,
                             is_stale=False,
                             has_tick=False,
                         )
                         if not ("actuators" in default and cname in default["actuators"]):
-                            label_mapping[name] = "%s/%s" % (node, cname)
+                            # label_mapping[name] = "%s/%s" % (node, cname)
+                            label_mapping[name] = str(len(label_mapping))
                 if "actuators" in default:
                     for cname in default["actuators"]:
                         name = "%s/actuators/%s" % (node, cname)
                         G.add_node(
-                            "%s/actuators/%s" % (node, cname),
+                            name,
                             remain_active=True,
                             always_active=False,
                             is_stale=False,
                             has_tick=False,
                         )
                         if not ("sensors" in default and cname in default["sensors"]):
-                            label_mapping[name] = "%s/%s" % (node, cname)
+                            # label_mapping[name] = "%s/%s" % (node, cname)
+                            label_mapping[name] = str(len(label_mapping))
             else:  # node
-                if "outputs" in default:
-                    for cname in default["outputs"]:
-                        name = "%s/%s" % (node, cname)
-                        if name == "env/actions/set":
-                            continue
-                        G.add_node(
-                            name,
-                            remain_active=False,
-                            always_active=False,
-                            is_stale=False,
-                            has_tick=False,
-                        )
+                for cname in default["outputs"]:
+                    name = "%s/%s" % (node, cname)
+                    label_mapping[name] = str(len(label_mapping))  # if node not in ["environment", "engine"] else name
+                    G.add_node(
+                        name,
+                        remain_active=True if "tick" in default["inputs"] else False,
+                        always_active=True if node == "engine" and cname == "tick" else False,
+                        is_stale=False,
+                        has_tick=False,
+                    )
 
         # Add edges
-        for cname in state["nodes"]["env/actions"]["config"]["outputs"]:
-            if cname == "set":
-                continue
-            name = "env/actions/%s" % cname
-            label_mapping[name] = "actions/%s" % cname
-            G.add_edge(
-                "env/observations/set",
-                name,  # key='%s/%s' % ('inputs', 'observations_set'),
-                feedthrough=False,
-                style="solid",
-                color="black",
-                alpha=1.0,
-                is_stale=False,
-                skip=False,
-                source=("env/observations", "outputs", "set"),
-                target=("env/actions", "inputs", "observations_set"),
-            )
         target_comps = ["inputs", "actuators", "feedthroughs"]
         source_comps = ["outputs", "sensors"]
         for source, target in state["connects"]:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
+            # Do not consider engine inputs for DAG check.
+            if target_name == "engine":
+                continue
             if source_comp in source_comps and target_comp in target_comps:
                 # Determine source node name
                 if "node_type" in state["nodes"][source_name]:
@@ -1292,7 +1327,7 @@ class Graph:
         color_edges(G)
 
         # Remap action & observation labels to more readable form
-        G = nx.relabel_nodes(G, label_mapping)
+        # G = nx.relabel_nodes(G, label_mapping)
 
         # Check if graph is acyclic (excluding 'skip' edges)
         H, cycles = episode_graph(G)
@@ -1302,11 +1337,13 @@ class Graph:
         if plot:
             fig_env, ax_env = plt.subplots(nrows=1, ncols=1)
             ax_env.set_title("Communication graph (episode)")
-            _, _, _, pos = plot_graph(G, k=2, ax=ax_env)
+            # Remap action & observation labels to more readable form
+            G_plot = nx.relabel_nodes(deepcopy(G), label_mapping)
+            _, _, _, pos = plot_graph(G_plot, k=2, ax=ax_env)
             plt.show()
 
         # Assert if graph is a directed-acyclical graph (DAG)
-        cycle_strs = ["Algebraic loops detected: "]
+        cycle_strs = ["Circular dependency detected: "]
         for idx, connect in enumerate(cycles):
             connect.append(connect[0])
             s = " Loop %s: " % idx
@@ -1343,7 +1380,8 @@ class Graph:
         if plot:
             fig_reset, ax_reset = plt.subplots(nrows=1, ncols=1)
             ax_reset.set_title("Communication graph (reset)")
-            _, _, _, pos = plot_graph(F, pos=pos, ax=ax_reset)
+            F_plot = nx.relabel_nodes(deepcopy(F), label_mapping)
+            _, _, _, pos = plot_graph(F_plot, pos=pos, ax=ax_reset)
             plt.show()
 
         # Assert if reset graph is not stale
@@ -1360,13 +1398,13 @@ class Graph:
         merge(state, mapping)
 
     @staticmethod
-    def _get_view(spec, name: str, depth: Optional[List[str]] = None):
+    def _get_view(state: Dict, name: str, depth: Optional[List[str]] = None):
+        spec = Graph._get_spec(state, name)
         depth = depth if depth else []
-        # depth = [name] + depth
         return SpecView(spec, depth=depth, name=name)
 
     def get_view(self, name: str, depth: Optional[List[str]] = None):
-        return self._get_view(self.get_spec(name), name, depth)
+        return self._get_view(self._state, name, depth)
 
     @staticmethod
     def _check_spec(spec):
@@ -1382,3 +1420,279 @@ class Graph:
             from eagerx.core.entities import Object
 
             Object.check_spec(spec)
+
+    def add_engine(self, engine: EngineSpec):
+        Graph._add_engine(self._state, engine)
+
+    @staticmethod
+    def _add_engine(state, engine: EngineSpec):
+        if state["engine_id"] is None:
+            state["engine_id"] = engine.config.entity_id
+            Graph._add(state, engine)
+        else:
+            raise ValueError("Cannot add engine. The graph already has an engine.")
+
+    @staticmethod
+    def _substitute_environment_node(state: Dict):
+        """Substitute `environment` node with separate `env/actions` and `env/observations` node for improved visualization."""
+        # Prepare environment spec
+        environment = NodeSpec(state["nodes"]["environment"])
+
+        # Add action & observation node.
+        from eagerx.core.nodes import ActionsNode, ObservationsNode
+
+        actions = ActionsNode.make()
+        observations = ObservationsNode.make()
+        Graph._add(state, [actions, observations])
+
+        # Copy outputs to actions
+        actions.config.outputs = environment.config.outputs
+        with actions.outputs as a:
+            a.update(environment.outputs.to_dict())
+
+        # Copy inputs to observations
+        observations.config.inputs = environment.config.inputs
+        with observations.inputs as o:
+            o.update(environment.inputs.to_dict())
+
+        # Replace connections
+        for s, t in state["connects"]:
+            if s[:2] == ["environment", "outputs"]:
+                s[0] = "env/actions"
+            elif t[:2] == ["environment", "inputs"]:
+                t[0] = "env/observations"
+
+        # Remove environment node
+        state["nodes"].pop("environment")
+        state["backup"].pop("environment")
+
+    @staticmethod
+    def _substitute_all_objects(state: Dict):
+        """state must already have an engine (ie _add_engine must be called first)."""
+        assert state["engine_id"] is not None, "The graph state must have an engine, before objects can be substituted."
+        for name in list(state["nodes"].keys()):
+            # Skip if node
+            if "node_type" in state["nodes"][name]:
+                continue
+            # Substitute object graph
+            Graph._substitute_object(state, name)
+
+    @staticmethod
+    def _substitute_object(state: Dict, name: str):
+        """state must already have an engine (ie _add_engine must be called first)."""
+        assert state["engine_id"] is not None, "The graph state must have an engine, before objects can be substituted."
+
+        # Get graph
+        graph = Graph(state)
+
+        # Get engine spec
+        engine = EngineSpec(state["nodes"]["engine"])
+
+        # Get object parameters
+        params = state["nodes"][name]
+        spec = ObjectSpec(params)
+
+        # Register object's engine graph
+        engine_graph = engine._register_object(spec)
+        nodes, actuators, sensors, connects = engine_graph.register(name)
+
+        # Construct context
+        context = {"ns": {"obj_name": name}}
+        substitute_args(params["config"], context, only=["ns"])  # First resolve args within the context
+        substitute_args(params, context, only=["ns"])  # Resolve rest of params
+
+        # Resolve namespaces
+        substitute_args(nodes, context, only=["ns"])  # Resolve rest of params
+        substitute_args(actuators, context, only=["ns"])  # Resolve rest of params
+        substitute_args(sensors, context, only=["ns"])  # Resolve rest of params
+        substitute_args(connects, context, only=["ns"])  # Resolve rest of params
+
+        # Get agnostic & engine-specific definition
+        agnostic = dict(actuators=params["actuators"], sensors=params["sensors"], states=params["states"])
+        specific = dict(actuators=actuators, sensors=sensors)
+
+        # Replace node names
+        for key in list(nodes.keys()):
+            key_sub = substitute_args(key, context, only=["ns"])
+            nodes[key_sub] = nodes.pop(key)
+
+        # Sensors & actuators
+        dependencies = []
+        for obj_comp in ["actuators", "sensors"]:
+            for obj_cname in params["config"][obj_comp]:
+                try:
+                    entry_lst = specific[obj_comp][obj_cname]
+                except KeyError:
+                    raise KeyError(
+                        f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{state["engine_id"]}".'
+                    )
+
+                for entry in reversed(entry_lst):
+                    node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
+                    obj_comp_params = agnostic[obj_comp][obj_cname]
+                    node_params = nodes[node_name]
+
+                    # Determine node dependency
+                    dependencies += entry["dependency"]
+
+                    # Set rate
+                    rate = obj_comp_params["rate"]
+                    msg_start = f'Different rate specified for {obj_comp[:-1]} "{obj_cname}" and enginenode "{node_name}": '
+                    msg_end = "If an enginenode implements a sensor/actuator, their specified rates must be equal."
+                    msg_mid = f'{node_params["config"]["rate"]} vs {rate}. '
+                    assert node_params["config"]["rate"] == rate, msg_start + msg_mid + msg_end
+                    for o in node_params["config"]["outputs"]:
+                        msg_mid = f'{node_params["outputs"][o]["rate"]} vs {rate}. '
+                        assert node_params["outputs"][o]["rate"] == rate, msg_start + msg_mid + msg_end
+
+                    # Set component params
+                    node_comp_params = nodes[node_name][node_comp][node_cname]
+                    if obj_comp == "sensors":
+                        # Make sure that space of node is contained within agnostic space.
+                        agnostic_space = Space.from_dict(obj_comp_params["space"])
+                        node_space = Space.from_dict(node_comp_params["space"])
+                        msg = (
+                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
+                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
+                            f"{node_name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
+                        )
+                        assert agnostic_space.contains_space(node_space), msg
+                        node_comp_params.update(obj_comp_params)
+                        # node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}" # todo: set to None?
+                        # sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
+                    else:  # Actuators
+                        agnostic_space = Space.from_dict(obj_comp_params["space"])
+                        node_space = Space.from_dict(node_comp_params["space"])
+                        msg = (
+                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
+                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
+                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
+                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
+                        )
+                        assert agnostic_space.contains_space(node_space), msg
+
+                        agnostic_processor = obj_comp_params.pop("processor")
+                        node_comp_params.update(obj_comp_params)
+
+                        if agnostic_processor is not None:
+                            msg = (
+                                f"A processor was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
+                                "implementation also has a processor defined. You can only have one processor."
+                            )
+                            assert node_comp_params["processor"] is None, msg
+                            node_comp_params["processor"] = agnostic_processor
+
+                        # Pop rate. Actuators are more-or-less inputs so have no rate?
+                        node_comp_params.pop("rate")
+                        # Reassign converter in case a node provides the implementation for multiple actuators
+                        obj_comp_params["processor"] = agnostic_processor
+
+        # Get set of node we are required to launch
+        dependencies = list(set(dependencies))
+
+        # Verify that no dependency is an unlisted actuator node.
+        not_selected = [cname for cname in agnostic["actuators"] if cname not in params["config"]["actuators"]]
+        for cname in not_selected:
+            try:
+                for entry in specific["actuators"][cname]:
+                    node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
+                    msg = (
+                        f'There appears to be a dependency on enginenode "{node_name}" for the implementation of '
+                        f'engine "{state["engine_id"]}" for object "{name}" to work. However, enginenode "{node_name}" is '
+                        f'directly tied to an unselected actuator "{cname}". '
+                        "The actuator must be selected to resolve the graph."
+                    )
+                    assert node_name not in dependencies, msg
+            except KeyError:
+                # We pass here, because if cname is not selected, but also not implemented,
+                # we are sure that there is no dependency.
+                pass
+
+        # Add relevant nodes
+        nodes = {name: NodeSpec(params) for name, params in nodes.items() if name in dependencies}
+        engine.objects[name].nodes = list(nodes.keys())
+        graph.add([n for _, n in nodes.items()])
+
+        # Connect tick to engine
+        for node_name, n in nodes.items():
+            if "tick" not in n.config.inputs:
+                continue
+            graph.connect(source=engine.outputs.tick, target=n.inputs.tick)
+            for cname, o in n.outputs.items():
+                mapping = dict(
+                    delay=0.0,
+                    window=0,
+                    skip=False,
+                    processor=None,
+                    space=o.space.to_dict(),
+                    address=None,
+                )
+                cname = f"{node_name}/{cname}"
+                engine.config.inputs.append(cname)
+                with engine.inputs as i:
+                    i[cname] = mapping
+                graph.connect(source=o, target=engine.inputs[cname])
+                break  # We only need 1 output per node.
+
+        # Interconnect nodes
+        for source, target in connects:
+            source_name, source_comp, source_cname = source
+            target_name, target_comp, target_cname = target
+            if not (source_name in dependencies or target_name in dependencies):
+                continue  # Continue if both source and target are not included as dependencies
+            # If both source and target are included as dependencies
+            if source_name in dependencies and target_name in dependencies:
+                state["connects"].append([source, target])
+
+        # Replace agnostic connections
+        for s, t in deepcopy(state["connects"]):
+            s_name, s_comp, s_cname = s
+            t_name, t_comp, t_cname = t
+            if name not in [s_name, t_name]:
+                continue
+            if t_comp == "actuators":
+                assert t_cname in actuators, f"Actuator `{s_cname}` of object `{name}` has no implementation in this engine."
+                s = graph.get_view(s[0], s[1:])
+                t = graph.get_view(t[0], t[1:])
+                window, delay, skip = t.window, t.delay, t.skip
+                # Disconnect "agnostic" connection
+                if s_name == "environment":
+                    action = s_cname
+                    s = None
+                else:
+                    action = None
+                    s = s
+                graph.disconnect(source=s, target=t, action=action)
+                # Connect node with engine node
+                for p in actuators[t_cname]:
+                    _name, _comp, _cname = p["name"], p["component"], p["cname"]
+                    new_target = getattr(nodes[_name], _comp)[_cname]
+                    graph.connect(source=s, target=new_target, action=action, window=window, delay=delay, skip=skip)
+            elif s_comp == "sensors":
+                assert s_cname in sensors, f"Sensor `{s_cname}` of object `{name}` has no implementation in this engine."
+                s = graph.get_view(s[0], s[1:])
+                t = graph.get_view(t[0], t[1:])
+                window, delay, skip = t.window, t.delay, t.skip
+                # Disconnect "agnostic" connection
+                if t_name == "environment":
+                    observation = t_cname
+                    t = None
+                else:
+                    observation = None
+                    t = t
+                graph.disconnect(source=s, target=t, observation=observation)
+                # Connect node with engine node
+                for p in sensors[s_cname]:
+                    _name, _comp, _cname = p["name"], p["component"], p["cname"]
+                    new_source = getattr(nodes[_name], _comp)[_cname]
+                    graph.connect(source=new_source, target=t, observation=observation, window=window, delay=delay, skip=skip)
+            elif s_comp == "states":
+                s = graph.get_view(s[0], s[1:])
+                t = graph.get_view(t[0], t[1:])
+                graph.disconnect(source=s, target=t)
+                t.address = "%s/%s/%s" % s()
+
+        # Remove disconnected object from graph
+        d = graph.remove(name)
+        assert len(d) == 0, f"Object {name} not fully disconnected."

@@ -25,7 +25,7 @@ if __name__ == "__main__":
     # graph.render(source=obj.sensors.image, rate=10, encoding="rgb")
 
     # Open gui
-    # graph.gui()
+    graph.gui()
 
     # Test save & load functionality
     graph.save("./test.graph")

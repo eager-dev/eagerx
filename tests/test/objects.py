@@ -196,7 +196,7 @@ class Arm(eagerx.Object):
         try:
             graph.is_valid(plot=True)
         except AssertionError as e:
-            if "Algebraic" in e.args[0]:
+            if "Circular" in e.args[0]:
                 pass
             else:
                 raise

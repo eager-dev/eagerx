@@ -170,7 +170,7 @@ def engine(engine_cls: "Engine", entity=None) -> Callable:
     from eagerx.utils.utils import get_default_params
 
     engine_config = get_default_params(engine_cls.add_object)
-    engine_config.pop("spec")
+    assert "name" in engine_config, "The object `name` must be an argument to engine.add_object()"
     engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
 
     def _register(func, engine_id=engine_id):
@@ -192,16 +192,19 @@ def engine(engine_cls: "Engine", entity=None) -> Callable:
         log.logdebug(f"[{cls_name}][{fn_name}]: entry={entry}")
 
         @functools.wraps(func)
-        def _engine(spec):
+        def _engine(spec, engine) -> "EngineGraph":
             """First, initialize spec with object_info, then call the engine function"""
             # Add default engine_config parameters
-            spec._initialize_engine_config(copy.deepcopy(engine_config))
+            engine._initialize_engine_config(spec, copy.deepcopy(engine_config))
             # Initialize engine graph
             graph = spec._initialize_object_graph()
             # Modify engine_config with user-defined engine implementation
             func(spec, graph)
-            # Add graph to spec & remove redundant states
-            spec._add_graph(graph)
+            # Add engine-specific parameters to engine.objects
+            engine_params = {key: value for key, value in spec.engine.items() if key != "states"}
+            engine.add_object(**engine_params)
+            # Add engine-specific states to engine.objects
+            engine._add_engine_states(engine_params["name"], spec)
             return graph
 
         msg = f"Cannot register engine '{entry}' for object '{entity_id}'. "
@@ -220,12 +223,13 @@ def engine(engine_cls: "Engine", entity=None) -> Callable:
     return _register
 
 
-def add_engine(spec, engine_id):
+def add_engine(spec, engine):
     """Add engine based on registered entity_id"""
     entity_id = spec.config.entity_id
+    engine_id = engine.config.entity_id
 
     msg = f"Cannot add engine implementation '{engine_id}' for object '{entity_id}'. "
     assert entity_id in REGISTRY, msg + "Object does not have any engine implementation registered."
     assert engine_id in REGISTRY[entity_id], msg + "This engine implementation was not registered."
-    graph = REGISTRY[entity_id][engine_id](spec)
+    graph = REGISTRY[entity_id][engine_id](spec, engine)
     return graph

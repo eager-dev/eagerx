@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from eagerx.core.entities import Backend
 
 
-def get_launch_cmd(executable: str, bnd: "Backend", ns: str, name: str, object_name: str, external: bool = False):
+def get_launch_cmd(executable: str, bnd: "Backend", ns: str, name: str, external: bool = False):
     node_type, file = executable.split(":=")
     if "python" in node_type:
         if ".py" not in file:
@@ -31,10 +31,6 @@ def get_launch_cmd(executable: str, bnd: "Backend", ns: str, name: str, object_n
         "--name",
         f"{name}",
     ]
-
-    if len(object_name) > 0:
-        cmd_args += ["--object", f"{object_name}"]
-
     return cmd_args
 
 
@@ -48,7 +44,6 @@ def initialize_nodes(
     launch_nodes: Dict,
     rxnode_cls: Any = None,
     node_args: Dict = None,
-    object_name: str = "",
 ):
     if rxnode_cls is None:
         from eagerx.core.executable_node import RxNode
@@ -60,7 +55,7 @@ def initialize_nodes(
     if isinstance(nodes, (BaseNodeSpec, dict)):
         nodes = [nodes]
 
-    bnd = message_broker.bnd
+    bnd = message_broker.backend
 
     for node in nodes:
         # Check if we still need to upload params to param server (env)
@@ -69,7 +64,7 @@ def initialize_nodes(
 
             # Check if node name is unique
             name = node.config.name
-            assert message_broker.bnd.get_param(f"{ns}/{name}/rate", None) is None, (
+            assert message_broker.backend.get_param(f"{ns}/{name}/rate", None) is None, (
                 f"Node name '{ns + '/' + name}' already exists. " "Node names must be unique."
             )
 
@@ -88,7 +83,7 @@ def initialize_nodes(
                 )
 
             # Upload params to param server
-            message_broker.bnd.upload_params(ns, params)
+            message_broker.backend.upload_params(ns, params)
 
             # Make params consistent when directly grabbing params from param server
             params = params[name]
@@ -108,7 +103,7 @@ def initialize_nodes(
         def initialized(msg, name):
             is_initialized[name] = True
 
-        sub = message_broker.bnd.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
+        sub = message_broker.backend.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
         message_broker.subscribers.append(sub)
 
         # Initialize node
@@ -124,12 +119,12 @@ def initialize_nodes(
                 'No executable defined. Node "%s" can only be launched as a separate process if an executable is specified.'
                 % name
             )
-            cmd = get_launch_cmd(params["config"]["executable"], bnd, ns, name, object_name, external=False)
+            cmd = get_launch_cmd(params["config"]["executable"], bnd, ns, name, external=False)
             launch_nodes[node_address] = subprocess.Popen(cmd)
         elif params["config"]["process"] == process.EXTERNAL:
-            cmd = get_launch_cmd(params["config"]["executable"], bnd, ns, name, object_name, external=True)
+            cmd = get_launch_cmd(params["config"]["executable"], bnd, ns, name, external=True)
             cmd_joined = " ".join(cmd).replace("\n", "\\n")
-            message_broker.bnd.loginfo(f'Launch node "{name}" externally with: python3 {cmd_joined}')
+            message_broker.backend.loginfo(f'Launch node "{name}" externally with: python3 {cmd_joined}')
         # else: node is launched in another (already launched) node's process (e.g. engine process).
 
 

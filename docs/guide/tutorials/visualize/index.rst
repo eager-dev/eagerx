@@ -71,16 +71,9 @@ when nodes are interconnected within the same process. Therefore, we can leverag
 ``rqt_plot`` provides a GUI plugin visualizing numeric values in a 2D plot using different plotting backends.
 See `here <http://wiki.ros.org/rqt_plot>`_ for more details on this tool.
 
-Topic addresses for outputs/sensors/actuators follow the naming convention:
+Topic addresses for outputs follow the naming convention:
 
-- ``<env_name>/<node_name>/<component>/<cname>``: (e.g. `env_1/controller/inputs/reference`).
-
-- ``<env_name>/<object_name>/<component>/<cname>``: (e.g. `env_1/manipulator/sensors/joint_positions`).
-
-Suppose you would like to visualize the end effector position with ROS message type
-``Float32MultiArray`` that are produced by a sensor ``ee_pos`` of an  object called ``viper`` in an environment called
-``rx``. To start a live-plot of the sensor messages, you can run the following command in a separate terminal while your
-environment is running:
+- ``<env_name>/<node_name>/outputs/<cname>``: (e.g. `/rx/controller/outputs/reference`).
 
 .. code-block::
 

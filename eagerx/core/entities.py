@@ -28,7 +28,6 @@ from eagerx.utils.utils import (
     Msg,
     load,
     initialize_processor,
-    get_param_with_blocking,
 )
 
 from typing import TYPE_CHECKING
@@ -398,7 +397,7 @@ class BaseNode(Entity):
         self.message_broker: RxMessageBroker = message_broker
         #: Responsible for all I/O communication within this process.
         #: Nodes inside the same process share the same message broker. Cannot be modified.
-        self.backend: Backend = message_broker.bnd
+        self.backend: Backend = message_broker.backend
         #: A unique entity_id with the structure <module>/<classname>.
         self.entity_id: str = params["config"]["entity_id"]
         #: Rate (Hz) at which the callback is called.
@@ -483,7 +482,7 @@ class BaseNode(Entity):
             for cname in spec.config[component]:
                 c = getattr(spec, component)
                 msg = (
-                    f'"{cname}" was selected as {component[:-1]}'
+                    f'"{cname}" was selected as {component[:-1]} '
                     f'but it is not a registered {component[:-1]} of node "{name}". Check the spec of "{entity_id}".'
                 )
                 assert cname in c, msg
@@ -550,7 +549,6 @@ class Node(BaseNode):
         real_time_factor: float,
         simulate_delays: bool,
         params: Dict,
-        object_name: Optional[str] = None,  # Required when launching in a separate process.
         call_init: bool = True,
     ):
 
@@ -936,28 +934,23 @@ class EngineNode(Node):
         self,
         params: Dict,
         *args,
-        object_name: str = None,
         simulator: Any = None,
         message_broker: RxMessageBroker = None,
         **kwargs: Any,
     ):
-        obj_params = get_param_with_blocking(object_name, message_broker.bnd)
-        obj_params["engine"]["states"] = {s["name"]: s for s in obj_params["engine"]["states"]}
-
         # Call baseclass constructor
         super().__init__(*args, message_broker=message_broker, params=params, call_init=False, **kwargs)
 
         # Call initialize with spec
-        from eagerx.core.specs import NodeSpec, ObjectSpec
+        from eagerx.core.specs import NodeSpec
 
-        self.initialize(spec=NodeSpec(params), object_spec=ObjectSpec(obj_params), simulator=simulator)
+        self.initialize(spec=NodeSpec(params), simulator=simulator)
 
     @abc.abstractmethod
-    def initialize(self, spec: "NodeSpec", object_spec: "ObjectSpec", simulator: Any) -> None:
+    def initialize(self, spec: "NodeSpec", simulator: Any) -> None:
         """An abstract method that initializes the node at run-time.
 
         :param spec: Specification of the engine node.
-        :param object_spec: Specification of the object that uses this engine node in its engine-specific implementation.
         :param simulator: A reference to the :attr:`~eagerx.core.entities.Engine.simulator`. The simulator type depends
                           on the engine. Only available if the node was launched inside the engine process.
         """
@@ -1058,7 +1051,7 @@ class Engine(BaseNode):
         #: to this simulator object to simulate (e.g. apply an action, extract a sensor measurement).
         #: Engine nodes only have this reference if the node was launched inside the engine process.
         #: See :class:`~eagerx.core.constants.process` for more info.
-        self.simulator: Any = None
+        self.simulator: Any = dict()
         self.target_addresses = target_addresses
         self.node_names = node_names
 
@@ -1108,72 +1101,51 @@ class Engine(BaseNode):
 
         self.initialize(EngineSpec(params))
 
+        #: Parameters for all objects.
+        self.objects: dict = params["objects"]
+
+        # Add objects to simulator
+        for name, obj in params["objects"].items():
+            assert name not in self.simulator, f"There already exists an object called `{name}`."
+            self.simulator[name] = dict(name=name)
+            self.add_object(**obj["add_object"])
+
+        # Prepare engine states
+        for name, obj in params["objects"].items():
+            if "engine_states" not in obj:
+                continue
+            for _cname, i in obj["engine_states"].items():
+                if isinstance(i["processor"], dict):
+                    from eagerx.core.specs import ProcessorSpec
+
+                    i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+                if isinstance(i["space"], dict):
+                    i["space"] = eagerx.Space.from_dict(i["space"])
+                state_cls = load(i["state"]["state_type"])
+                i["state"] = state_cls(
+                    ns=self.ns, name=i["name"], simulator=self.simulator[name], backend=self.backend, params=i["state"]
+                )
+
     def register_node(self, node_params):
+        # If engine node, find out what object name
+        if issubclass(load(node_params["node_type"]), EngineNode):
+            name = node_params["config"]["name"]
+            name_split = name.split("/")
+            assert len(name_split) == 2, f"Cannot infer object name from the engine node's name '{name}'."
+            node_args = {"simulator": self.simulator[name_split[0]]}
+        else:
+            node_args = dict()
+
         # Initialize nodes
         sp_nodes = dict()
         launch_nodes = dict()
         initialize_nodes(
-            node_params,
-            ENGINE,
-            self.ns,
-            self.message_broker,
-            self.is_initialized,
-            sp_nodes,
-            launch_nodes,
+            node_params, ENGINE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args
         )
         wait_for_node_initialization(self.is_initialized, self.backend)
         self.sp_nodes.update(sp_nodes)
         self.launch_nodes.update(launch_nodes)
         return node_params, sp_nodes, launch_nodes
-
-    def register_object(self, object_params, node_params, state_params):
-        # Use obj_params to initialize object in simulator --> object info parameter dict is optionally added to simulation nodes
-        engine_params = {key: value for key, value in object_params["engine"].items() if key != "states"}
-
-        self.add_object(ObjectSpec(object_params), **engine_params)
-
-        # Initialize states
-        for i in state_params:
-            state_cls = load(i["state"]["state_type"])
-            i["state"] = state_cls(
-                ns=self.ns,
-                name=i["name"],
-                simulator=self.simulator,
-                backend=self.backend,
-                params=i["state"],
-                object_params=object_params,
-            )
-            if isinstance(i["processor"], dict):
-                from eagerx.core.specs import ProcessorSpec
-
-                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
-            if isinstance(i["space"], dict):
-                i["space"] = eagerx.Space.from_dict(i["space"])
-
-        # Initialize nodes
-        sp_nodes = dict()
-        launch_nodes = dict()
-        node_args = dict(
-            object_name=f"{self.ns}/{object_params['config']['name']}",
-            simulator=self.simulator,
-        )
-        initialize_nodes(
-            node_params,
-            ENGINE,
-            self.ns,
-            self.message_broker,
-            self.is_initialized,
-            sp_nodes,
-            launch_nodes,
-            node_args=node_args,
-        )
-        for _name, node in sp_nodes.items():
-            # Initialize
-            node.node_initialized()
-        self.sp_nodes.update(sp_nodes)
-        self.launch_nodes.update(launch_nodes)
-        wait_for_node_initialization(self.is_initialized, self.backend)
-        return state_params, sp_nodes, launch_nodes
 
     def pre_reset_cb(self, **kwargs):
         keys_to_pop = []
@@ -1257,7 +1229,7 @@ class Engine(BaseNode):
                         ]
                     )
                 self.backend.get_log_fn(self.log_level)("\n" + tabulate(self.history, headers=self.headers))
-                # bnd.loginfo("\n" + tabulate(self.history, headers=self.headers))
+                # backend.loginfo("\n" + tabulate(self.history, headers=self.headers))
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
@@ -1270,6 +1242,14 @@ class Engine(BaseNode):
     @classmethod
     def pre_make(cls, entity_id, entity_type):
         spec = super().pre_make(entity_id, entity_type)
+
+        # Add objects key
+        from eagerx.core.specs import EngineSpec  # noqa: F811
+
+        params = spec.params
+        params["objects"] = dict()
+        spec = EngineSpec(params)
+
         # Set default engine params
         with spec.config as d:
             d.name = "engine"
@@ -1282,8 +1262,6 @@ class Engine(BaseNode):
         space = eagerx.Space(shape=(), dtype="int64")
         spec.add_output("tick", space=space)
         spec.config.outputs.append("tick")
-        from eagerx.core.specs import EngineSpec  # noqa: F811
-
         return EngineSpec(spec.params)
 
     @classmethod
@@ -1293,13 +1271,13 @@ class Engine(BaseNode):
     @abc.abstractmethod
     def add_object(
         self,
-        spec: "ObjectSpec",
+        name: str,
         *args: Union[bool, int, float, str, List, Dict],
         **kwargs: Union[bool, int, float, str, List, Dict],
     ) -> None:
         """Adds an object to the simulator that is interfaced by the engine.
 
-        :param spec: The spec of the :class:`~eagerx.core.entities.Object` that is to be added.
+        :param name: The name of the :class:`~eagerx.core.entities.Object` that is to be added.
         :param args: The engine-specific parameters that are required to add the :class:`~eagerx.core.entities.Object`.
         :param kwargs: The engine-specific parameters that are optional to add the :class:`~eagerx.core.entities.Object`.
         """
@@ -1548,7 +1526,6 @@ class EngineState(Entity):
         simulator,
         backend,
         params,
-        object_params,
     ):
         #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
         self.ns = ns
@@ -1557,9 +1534,9 @@ class EngineState(Entity):
         self.color = "grey"
         #: Responsible for all I/O communication within this process.
         self.backend = backend
-        from eagerx.core.specs import EngineStateSpec, ObjectSpec
+        from eagerx.core.specs import EngineStateSpec
 
-        self.initialize(EngineStateSpec(params), ObjectSpec(object_params), simulator)
+        self.initialize(EngineStateSpec(params), simulator)
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
@@ -1577,11 +1554,10 @@ class EngineState(Entity):
         return
 
     @abc.abstractmethod
-    def initialize(self, spec: "EngineStateSpec", object_spec: "ObjectSpec", simulator: Any) -> None:
+    def initialize(self, spec: "EngineStateSpec", simulator: Any) -> None:
         """An abstract method to initialize the engine state.
 
         :param spec: The engine state specification.
-        :param object_spec: The object specification to which the engine state belongs.
         :param simulator: A reference to the engine's simulator.
         """
         pass

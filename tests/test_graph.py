@@ -215,12 +215,12 @@ def test_graph():
     class TestEnv(eagerx.BaseEnv):
         def __init__(self, name, rate, graph, engine, backend):
             super().__init__(name, rate, graph, engine, backend, force_start=True)
-            self.bnd.logdebug_once("logdebug_once", 'TestEnv')
-            self.bnd.loginfo_once("loginfo_once", 'TestEnv')
-            self.bnd.logerr_once("logerr_once", 'TestEnv')
-            self.bnd.logfatal_once("logfatal_once", 'TestEnv')
+            self.backend.logdebug_once("logdebug_once", 'TestEnv')
+            self.backend.loginfo_once("loginfo_once", 'TestEnv')
+            self.backend.logerr_once("logerr_once", 'TestEnv')
+            self.backend.logfatal_once("logfatal_once", 'TestEnv')
             for i in [eagerx.SILENT, eagerx.DEBUG, eagerx.INFO, eagerx.WARN, eagerx.ERROR, eagerx.FATAL]:
-                _ = self.bnd.get_log_fn(i)
+                _ = self.backend.get_log_fn(i)
 
         def step(self, action):
             obs = self._step(action)

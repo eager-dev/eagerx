@@ -41,12 +41,12 @@ class TestEngine(Engine):
 
     def initialize(self, spec: EngineSpec):
         # Initialize any simulator here, that is passed as reference to each enginenode
-        self.simulator = None
+        self.simulator = dict()
         self.num_substeps = spec.config.num_substeps
 
-    def add_object(self, spec, req_arg: int, xacro: str):
+    def add_object(self, name, req_arg: int, xacro: str):
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        self.backend.loginfo(f'Adding object "{spec.config.name}" of type "{spec.config.entity_id}" to the simulator.')
+        self.backend.loginfo(f'Adding object "{name}" to the simulator.')
 
     def pre_reset(self, param_1=None):
         return "PRE RESET RETURN VALUE"

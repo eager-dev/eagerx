@@ -27,8 +27,8 @@ def get_info(cls, methods=None, no_cls=False, return_msg=False):
     msg += indent(f"module: `{cls.__module__}`\n", tab)
     try:
         msg += indent(f"file: `{inspect.getfile(cls)}`\n", tab)
-    except TypeError as e:
-        msg += indent(f"file: <unknown>\n", tab)
+    except TypeError:
+        msg += indent("file: <unknown>\n", tab)
     msg += "\n"
 
     # Objects: Add supported engines

@@ -12,7 +12,7 @@ class TestEngineState(EngineState):
         spec.config.test_arg = spec.config.test_arg
         return spec
 
-    def initialize(self, spec, object_spec, simulator):
+    def initialize(self, spec, simulator):
         self.test_arg = spec.config.test_arg
         self.simulator = simulator
 

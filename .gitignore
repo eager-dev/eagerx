@@ -11,3 +11,4 @@ log/
 dist/
 docs/_build/*
 .vscode/
+.run/

@@ -12,12 +12,12 @@ def reset_graph(G):
             F.remove_edge(u, v, key=key)
 
     # Set actions node to stale
-    if "observations" in F.nodes:
-        F.nodes["observations"]["is_stale"] = True
-    elif "env/observations" in F.nodes:
-        F.nodes["env/observations"]["is_stale"] = True
-    else:
-        raise KeyError("Observation node not in graph.")
+    has_env = False
+    for n in F.nodes.keys():
+        if n.split("/")[0] == "environment":
+            has_env = True
+            F.nodes[n]["is_stale"] = True
+    assert has_env, "Environment node not in graph, or it does not have any output."
     return F
 
 
@@ -77,7 +77,7 @@ def plot_graph(G, ax=None, k=2, pos=None):
     colors = [data["color"] for u, v, data in G.edges(data=True)]
     styles = [data["style"] for u, v, data in G.edges(data=True)]
     alphas = [data["alpha"] for u, v, data in G.edges(data=True)]
-    lines = nx.draw_networkx_edges(G, pos, arrows=True, edge_color=colors, width=2, ax=ax)
+    lines = nx.draw_networkx_edges(G, pos, arrows=True, edge_color=colors, width=0.75, ax=ax)
     for style, alpha, line in zip(styles, alphas, lines):
         line.set_linestyle(style)
         line.set_alpha(alpha)
@@ -123,7 +123,9 @@ def color_nodes(G):
         else:
             in_edges = G.in_degree(n)
             out_edges = G.out_degree(n)
-            if in_edges == 0 and out_edges == 0:
+            if data["always_active"]:
+                facecolor = "skyblue"
+            elif in_edges == 0 and out_edges == 0:
                 facecolor = "lightgrey"
             elif in_edges > 0 and out_edges == 0:
                 facecolor = "lightgreen"
@@ -163,11 +165,9 @@ def is_stale(G, exclude_skip=False):
 
         # Then, loop over new stale nodes of prev. iteration and set all out-going edges to stale
         for n in stale_nodes:
-            for u, v, _key, data_e in G.out_edges(n, data=True, keys=True):
+            for _u, v, _key, data_e in G.out_edges(n, data=True, keys=True):
                 data_e["is_stale"] = True
                 skip = data_e["skip"] if exclude_skip else False
-                if u == "N8/out_1" and v == "N7/out_1":
-                    print("wait")
                 if not G.nodes[v]["is_stale"] and not skip:
                     if not G.nodes[v]["always_active"]:
                         new_stale_nodes.append(v)

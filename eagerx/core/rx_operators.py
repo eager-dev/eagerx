@@ -7,7 +7,6 @@ from rx.internal.concurrency import synchronized
 
 # EAGERX IMPORTS
 import eagerx.utils.utils
-from eagerx.core.specs import RxInput
 from eagerx.core.constants import (  # noqa
     SILENT,
     DEBUG,
@@ -17,7 +16,6 @@ from eagerx.core.constants import (  # noqa
     FATAL,
 )
 from eagerx.utils.utils import (
-    initialize_processor,
     Info,
     Msg,
     Stamp,
@@ -569,8 +567,9 @@ def create_channel(
     # Readable format
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
+        # todo: test: input message is moved to event loop AFTER conversion.
+        convert(inpt["space"], inpt["processor"], name, "inputs", node, direction="in"),
         ops.observe_on(scheduler),
-        convert(inpt["space"], inpt["processor"], name, node, direction="in"),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),
     )
@@ -727,7 +726,7 @@ def init_target_channel(states, scheduler, node):
     channels = []
     for s in states:
         c = s["msg"].pipe(
-            convert(s["space"], s["processor"], s["name"], node, direction="in"),
+            convert(s["space"], s["processor"], s["name"], "targets", node, direction="in"),
             ops.share(),
             ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
             remap_target(s["name"], node.sync, node.real_time_factor),
@@ -752,7 +751,7 @@ def init_state_inputs_channel(ns, state_inputs, scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                convert(s["space"], s["processor"], s["name"], node, direction="in"),
+                convert(s["space"], s["processor"], s["name"], "states", node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -780,7 +779,7 @@ def call_state_reset(state):
     return _call_state_reset
 
 
-def init_state_resets(ns, state_inputs, trigger, scheduler, node):
+def init_state_resets(ns, state_inputs, trigger, scheduler, tp_scheduler, node):
     if len(state_inputs) > 0:
         channels = []
 
@@ -789,7 +788,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.scan(lambda acc, x: x if x else acc, False),
             )
             c = s["msg"].pipe(
-                convert(s["space"], s["processor"], s["name"], node, direction="in"),
+                convert(s["space"], s["processor"], s["name"], "states", node, direction="in"),
                 ops.share(),
                 ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
                 ops.start_with((-1, None)),
@@ -805,7 +804,7 @@ def init_state_resets(ns, state_inputs, trigger, scheduler, node):
                 ops.map(lambda x: x[1]),
                 ops.partition(lambda x: x.info.done),
             )
-            reset = reset.pipe(call_state_reset(s["state"]))
+            reset = reset.pipe(ops.observe_on(tp_scheduler), call_state_reset(s["state"]), ops.observe_on(scheduler))
             rs = rx.merge(
                 done.pipe(spy("done [%s]" % s["name"].split("/")[-1][:12].ljust(4), node)),
                 reset.pipe(spy("reset [%s]" % s["name"].split("/")[-1][:12].ljust(4), node)),
@@ -884,109 +883,12 @@ def get_node_params(node, node_name):
 
 
 def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
-    name = node_params["config"]["name"]
-    nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
+    # name = node_params["config"]["name"]
+    # nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
     return dict(
         inputs=[],
         state_inputs=[],
-        node_flags=[nf],
-        sp_nodes=sp_nodes,
-        launch_nodes=launch_nodes,
-    )
-
-
-def get_object_params(node, obj_name):
-    obj_params = eagerx.utils.utils.get_param_with_blocking(obj_name, node.backend)
-    if obj_params is None:
-        raise ValueError(
-            "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
-            % (obj_name, obj_name)
-        )
-
-    # Get state parameters from ROS param server
-    state_params = obj_params["engine"]["states"]
-    obj_params["engine"]["states"] = {s["name"]: s for s in state_params}
-
-    # Get parameters from ROS param server
-    node_params = []
-    for node_name in obj_params["node_names"]:
-        params = eagerx.utils.utils.get_param_with_blocking(node_name, node.backend)
-        node_params.append(params)
-    return obj_params, node_params, state_params
-
-
-def extract_inputs(ns, node_params, state_params, sp_nodes, launch_nodes):
-    inputs = []
-    state_inputs = []
-    node_flags = []
-
-    # Process states
-    for i in state_params:
-        # Convert to classes
-        if "processor" in i and isinstance(i["processor"], dict):
-            from eagerx.core.specs import ProcessorSpec
-
-            i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
-
-        # Initialize rx objects
-        i["msg"] = Subject()  # S
-        i["done"] = Subject()  # D
-
-        # Create a new state
-        s = dict()
-        s.update(i)
-        state_inputs.append(s)
-
-    # Process nodes
-    has_output = False
-    num_outputs = sum([len(params["outputs"]) for params in node_params])
-    count = 0
-    for params in node_params:
-        name = params["config"]["name"]
-
-        # Process node flags
-        nf = dict(
-            name=name,
-            address=f"{ns}/{name}/end_reset",
-            msg=Subject(),
-            dtype="bool",
-        )
-        node_flags.append(nf)
-
-        # Only add output if tick is an input
-        must_sync = len([i["name"] for i in params["inputs"] if i["name"] == "tick"]) > 0
-        for i in params["outputs"]:
-            count += 1
-            # Only add output as input to engine if:
-            #  1. `tick` is an input to the engine node (ie, we require input-output synchronization).
-            #  2. It is the final output of the object, and no other output was added to the engine yet.
-            #     This is required, else the engine might not have any output.
-            if not (must_sync or ((not has_output) and count == num_outputs)):
-                continue
-
-            # Create a new input topic for each EngineNode output topic
-            n = RxInput(
-                name=i["address"],
-                address=i["address"],
-                processor=None,
-                window=0,
-                space=i["space"],
-                dtype=i["dtype"],
-            ).build()
-
-            # initialize space
-            if "space" in n and isinstance(n["space"], dict):
-                n["space"] = eagerx.Space.from_dict(i["space"])
-
-            # Initialize rx objects
-            n["msg"] = Subject()  # Ir
-            n["reset"] = Subject()  # Is
-            inputs.append(n)
-
-    return dict(
-        inputs=inputs,
-        state_inputs=state_inputs,
-        node_flags=node_flags,
+        node_flags=[],  # [nf],
         sp_nodes=sp_nodes,
         launch_nodes=launch_nodes,
     )
@@ -1205,7 +1107,7 @@ class NotSet:
         return "NotSet"
 
 
-def convert(space: eagerx.Space, processor, name, node, direction="out"):
+def convert(space: eagerx.Space, processor, name, component, node, direction="out"):
     OUTPUT = True if direction == "out" else False
     INPUT = True if direction == "in" else False
     space_checked = [False]
@@ -1227,7 +1129,7 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                             shape_msg = f"(msg.shape={recv.shape} vs space.shape={space.shape})"
                             dtype_msg = f"(msg.dtype={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
-                                f"[subscriber][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
+                                f"[subscriber][{node.ns_name}][{component}][{name}]: Message{p_msg} does not match the defined space. "
                                 f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
                             )
                             node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")
@@ -1253,7 +1155,7 @@ def convert(space: eagerx.Space, processor, name, node, direction="out"):
                             shape_msg = f"(msg.shape={recv.shape} vs space.shape={space.shape})"
                             dtype_msg = f"(msg.dtype={recv.dtype} vs space.dtype={space.dtype})"
                             msg = (
-                                f"[publisher][{node.ns_name}][{name}]: Message{p_msg} does not match the defined space. "
+                                f"[publisher][{node.ns_name}][{component}][{name}]: Message{p_msg} does not match the defined space. "
                                 f"Either a mismatch in expected shape {shape_msg}, dtype {dtype_msg}, and/or the value is out of bounds (low/high)."
                             )
                             node.backend.logwarn_once(msg, identifier=f"[{node.ns_name}][{name}]")

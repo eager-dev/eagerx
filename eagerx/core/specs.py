@@ -1,10 +1,10 @@
+import copy
 from typing import Dict, Optional, Union, Type, TYPE_CHECKING, List
 import gym
 from yaml import dump
 import numpy as np
 
 import eagerx
-from eagerx.core.space import Space
 from eagerx.core.view import SpecView
 from eagerx.utils.utils import (
     replace_None,
@@ -15,6 +15,7 @@ from eagerx.utils.utils_sub import substitute_args
 
 if TYPE_CHECKING:
     from eagerx.core.entities import Engine
+    from eagerx import EngineGraph
 
 
 class EntitySpec(object):
@@ -34,7 +35,7 @@ class EntitySpec(object):
 
 
 class BackendSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the selected backend."""
 
     def initialize(self, spec_cls):
         pass
@@ -49,7 +50,7 @@ class BackendSpec(EntitySpec):
 
 
 class ProcessorSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the processor."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the processor."""
 
     def initialize(self, spec_cls):
         pass
@@ -64,7 +65,7 @@ class ProcessorSpec(EntitySpec):
 
 
 class EngineStateSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine state."""
 
     def initialize(self, spec_cls):
         pass
@@ -117,8 +118,6 @@ class BaseNodeSpec(EntitySpec):
 
             Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("config", unlocked=True)
@@ -161,8 +160,6 @@ class BaseNodeSpec(EntitySpec):
             Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.Node.callback`.
             May be necessary to ensure that the connected graph is directed and acyclic.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("inputs")
@@ -195,8 +192,6 @@ class BaseNodeSpec(EntitySpec):
         - .. py:attribute:: Spec.states.<name>.space: dict = None
 
             This space defines the format of valid messages.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -249,7 +244,6 @@ class BaseNodeSpec(EntitySpec):
                 elif component == "inputs":
                     if cname not in self.config.inputs:
                         self.config.inputs.append(cname)
-                    address = "engine/outputs/tick" if cname == "tick" else None
                     space = eagerx.Space(shape=(), dtype="int64") if cname == "tick" else space
                     mapping = dict(
                         delay=0.0,
@@ -257,7 +251,7 @@ class BaseNodeSpec(EntitySpec):
                         skip=False,
                         processor=None,
                         space=space,
-                        address=address,
+                        address=None,
                     )
                 elif component == "targets":
                     if cname not in self.config.targets:
@@ -409,31 +403,13 @@ class BaseNodeSpec(EntitySpec):
 
 
 class NodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
-
-    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
-               also affect the coupled parameter value.
-
-              For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
-              `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`.
-    """
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node."""
 
     pass
 
 
 class ResetNodeSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node.
-
-    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
-               also affect the coupled parameter value.
-
-              For example, setting `spec.inputs.in_1.space.low = "$(config low)"` will set the value of
-              `spec.inputs.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`
-    """
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the node."""
 
     @property
     def targets(self) -> SpecView:
@@ -445,8 +421,6 @@ class ResetNodeSpec(BaseNodeSpec):
 
             A processor that preprocesses the received state message before passing it
             to the node's :func:`~eagerx.core.entities.ResetNode.callback`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -473,74 +447,13 @@ class ResetNodeSpec(BaseNodeSpec):
             :attr:`~eagerx.core.entities.Engine.simulate_delays` = True
             in the engine's :func:`~eagerx.core.entities.Engine.spec`.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("feedthroughs")
 
 
-class EngineSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
-
-    @property
-    def config(self) -> SpecView:
-        """Provides an API to set/get the parameters to initialize.
-
-        The default parameters are:
-
-        - .. py:attribute:: Spec.config.rate: float
-
-            Rate (Hz) at which the :func:`~eagerx.core.entities.Engine.callback` is called.
-
-        - .. py:attribute:: Spec.config.process: int = 0
-
-            Process in which the engine is launched. See :class:`~eagerx.core.constants.process` for all options.
-
-        - .. py:attribute:: Spec.config.sync: bool = True
-
-            Flag that specifies whether we run reactive or asynchronous.
-
-        - .. py:attribute:: Spec.config.real_time_factor: float = 0
-
-            A specified upper bound on the real-time factor. `Wall-clock-rate`=`real_time_factor`*`rate`.
-            If `real_time_factor` < 1 the simulation is slower than real time.
-
-        - .. py:attribute:: Spec.config.simulate_delays: bool = True
-
-            Flag that specifies whether input delays are simulated.
-            You probably want to set this to `False` when running in the real-world.
-
-        - .. py:attribute:: Spec.config.color: str = grey
-
-            Specifies the color of logged messages. Check-out the termcolor documentation for the supported colors.
-
-        - .. py:attribute:: Spec.config.print_mode: int = 1
-
-            Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
-
-        - .. py:attribute:: Spec.config.log_level: int = 30
-
-            Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
-        :return: API to get/set parameters.
-        """
-        return self._lookup("config", unlocked=True)
-
-
 class ObjectSpec(EntitySpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
-
-    .. note:: You may encounter (or use) the syntax "`$(config [parameter_name])`" to couple the values of several parameters
-              in the spec. This creates a coupling between parameters so that modifications to the value of one parameter
-               also affect the coupled parameter value.
-
-              For example, setting `spec.sensors.in_1.space.low = "$(config low)"` will set the value of
-              `spec.sensors.in_1.space.low=spec.config.low` when the node is initialized. Hence, any change to
-              `low` will also be reflected in the space parameter `low`
-    """
+    """A parameter specification of an object."""
 
     def __init__(self, params):
         super().__init__(params)
@@ -578,9 +491,9 @@ class ObjectSpec(EntitySpec):
         import eagerx.core.register as register
 
         spec_copy = ObjectSpec(self.params)
-        engine_id = engine_cls.__module__ + "/" + engine_cls.__qualname__
         spec_copy._params["engine"] = {}
-        graph = register.add_engine(spec_copy, engine_id)
+        engine = engine_cls.get_specification()
+        graph = register.add_engine(spec_copy, engine)
         return graph.gui(interactive=interactive, resolution=resolution, filename=filename)
 
     @property
@@ -612,8 +525,6 @@ class ObjectSpec(EntitySpec):
         - .. py:attribute:: Spec.sensors.<name>.space: dict = None
 
             This space defines the format of valid messages.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -659,8 +570,6 @@ class ObjectSpec(EntitySpec):
             Skip the dependency on this input during the first call to the node's :func:`~eagerx.core.entities.EngineNode.callback`.
             May be necessary to ensure that the connected graph is directed and acyclic.
 
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
-
         :return: API to get/set parameters.
         """
         return self._lookup("actuators")
@@ -674,8 +583,6 @@ class ObjectSpec(EntitySpec):
         - .. py:attribute:: Spec.states.<name>.space: dict = None
 
             This space defines the format of valid messages.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -704,8 +611,6 @@ class ObjectSpec(EntitySpec):
         - .. py:attribute:: Spec.config.states: list
 
             List with selected engine_states. Must be a subset of the registered :func:`eagerx.core.register.engine_states`.
-
-        The API becomes **read-only** once the entity is added to :class:`~eagerx.core.graph.Graph`.
 
         :return: API to get/set parameters.
         """
@@ -746,32 +651,6 @@ class ObjectSpec(EntitySpec):
                 if cname not in getattr(self.config, component):
                     getattr(self.config, component).append(cname)
 
-    def _initialize_engine_config(self, engine_config):
-        # Add default config
-        with self.engine as d:
-            d.update(engine_config)
-            d["states"] = {}
-            # Add all states to engine-specific params
-            with d.states as s:
-                for cname in self.states.keys():
-                    s[cname] = None
-
-    def _add_graph(self, graph):
-        # Register EngineGraph
-        nodes, actuators, sensors = graph.register()
-
-        # Pop states that were not implemented.
-        with self.engine.states as d:
-            for cname in list(self.engine.states.keys()):
-                if d[cname] is None:
-                    d.pop(cname)
-
-        # Set engine_spec
-        with self.engine as d:
-            d.actuators = actuators
-            d.sensors = sensors
-            d.nodes = nodes
-
     def _initialize_object_graph(self):
         mapping = dict()
         for component in ["sensors", "actuators"]:
@@ -785,183 +664,124 @@ class ObjectSpec(EntitySpec):
         graph = EngineGraph.create(**mapping)
         return graph
 
-    def add_engine(self, engine_id):
+
+class EngineSpec(BaseNodeSpec):
+    """A parameter specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
+
+    @property
+    def config(self) -> SpecView:
+        """Provides an API to set/get the parameters to initialize.
+
+        The default parameters are:
+
+        - .. py:attribute:: Spec.config.rate: float
+
+            Rate (Hz) at which the :func:`~eagerx.core.entities.Engine.callback` is called.
+
+        - .. py:attribute:: Spec.config.process: int = 0
+
+            Process in which the engine is launched. See :class:`~eagerx.core.constants.process` for all options.
+
+        - .. py:attribute:: Spec.config.sync: bool = True
+
+            Flag that specifies whether we run reactive or asynchronous.
+
+        - .. py:attribute:: Spec.config.real_time_factor: float = 0
+
+            A specified upper bound on the real-time factor. `Wall-clock-rate`=`real_time_factor`*`rate`.
+            If `real_time_factor` < 1 the simulation is slower than real time.
+
+        - .. py:attribute:: Spec.config.simulate_delays: bool = True
+
+            Flag that specifies whether input delays are simulated.
+            You probably want to set this to `False` when running in the real-world.
+
+        - .. py:attribute:: Spec.config.color: str = grey
+
+            Specifies the color of logged messages. Check-out the termcolor documentation for the supported colors.
+
+        - .. py:attribute:: Spec.config.print_mode: int = 1
+
+            Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
+
+        - .. py:attribute:: Spec.config.log_level: int = 30
+
+            Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("config", unlocked=True)
+
+    @property
+    def objects(self) -> SpecView:
+        """Provides an API to set/get the parameters to add an object to the engine.
+
+        To add a new object, please use :func:`~eagerx.core.specs.Enginespec.add_object`.
+
+        Arguments correspond to the signature of :func:`~eagerx.core.entities.Engine.add_object`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("objects", unlocked=True)
+
+    def add_object(
+        self,
+        name: str,
+        **kwargs: Union[bool, int, float, str, List, Dict],
+    ) -> None:
+        """Adds an object to the simulator that is interfaced by the engine.
+
+        :param kwargs: Other arguments of :func:`~eagerx.core.entities.Engine.add_object`.
+        """
+        # todo: check arguments of engine_spec.add_object(...) are arguments of engine.add_object(...).
+        with self.objects as d:
+            assert name not in d, f"There is already an object called `{name}` added. Names must be unique."
+            d[name] = dict(engine_states=dict(), nodes=dict(), add_object=dict())
+            with d[name].add_object as s:
+                s["name"] = name
+                s.update(kwargs)
+
+    def _add_engine_states(self, name: str, spec: ObjectSpec):
+        # Pop states that were not implemented.
+        assert name in self.objects, f"There is no Object called `{name}' in engine.objects. First add the Object."
+        states = spec.engine.states
+        for cname in list(states.keys()):
+            if states[cname] is not None:
+                self._add_engine_state(
+                    name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"]
+                )
+
+    def _add_engine_state(self, name, cname, engine_state, space, processor=None):
+        with self.objects[name].engine_states as s:
+            s[cname] = dict(state=None, space=None, processor=None)
+            s[cname]["state"] = engine_state
+            s[cname]["space"] = space
+            s[cname]["processor"] = processor
+
+    def _initialize_engine_config(self, spec, engine_config):
+        # Add default config
+        with spec.engine as d:
+            d.update(engine_config)
+            d["name"] = spec.config.name
+            d["states"] = {}
+            # Add all states to engine-specific params
+            with d.states as s:
+                for cname in spec.states.keys():
+                    s[cname] = None
+
+    def _register_object(self, spec: ObjectSpec) -> "EngineGraph":
+        spec = copy.deepcopy(spec)
+
         # Construct context & replace placeholders
-        context = {"config": self.config.to_dict()}
-        substitute_args(self._params["config"], context, only=["config"])  # First resolve args within the context
-        substitute_args(self._params, context, only=["config"])  # Resolve rest of params
+        context = {"config": spec.config.to_dict()}
+        substitute_args(spec._params["config"], context, only=["config"])  # First resolve args within the context
+        substitute_args(spec._params, context, only=["config"])  # Resolve rest of params
 
         # Add engine entry
         import eagerx.core.register as register
 
-        self._params["engine"] = {}
-        register.add_engine(self, engine_id)
-
-    def build(self, ns, engine_id):
-        params = self.params  # Creates a deepcopy
-        name = self.config.name
-
-        # Construct context
-        context = {"ns": {"env_name": ns, "obj_name": name}}
-        substitute_args(params["config"], context, only=["ns"])  # First resolve args within the context
-        substitute_args(params, context, only=["ns"])  # Resolve rest of params
-
-        # Get agnostic definition
-        agnostic = dict()
-        for key in list(params.keys()):
-            if key not in ["actuators", "sensors", "states"]:
-                if key not in ["config", engine_id]:
-                    params.pop(key)
-                continue
-            agnostic[key] = params.pop(key)
-
-        # Get engine definition
-        engine = params.pop(engine_id)
-        nodes = engine.pop("nodes")
-        specific = dict()
-        for key in list(engine.keys()):
-            if key not in ["actuators", "sensors", "states"]:
-                continue
-            specific[key] = engine.pop(key)
-
-        # Replace node names
-        for key in list(nodes.keys()):
-            key_sub = substitute_args(key, context, only=["ns"])
-            nodes[key_sub] = nodes.pop(key)
-
-        # Sensors & actuators
-        sensor_addresses = dict()
-        dependencies = []
-        for obj_comp in ["actuators", "sensors"]:
-            for obj_cname in params["config"][obj_comp]:
-                try:
-                    entry_lst = specific[obj_comp][obj_cname]
-                except KeyError:
-                    raise KeyError(
-                        f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
-                    )
-
-                for entry in reversed(entry_lst):
-                    node_name, node_comp, node_cname = entry["name"], entry["component"], entry["cname"]
-                    obj_comp_params = agnostic[obj_comp][obj_cname]
-                    node_params = nodes[node_name]
-
-                    # Determine node dependency
-                    dependencies += entry["dependency"]
-
-                    # Set rate
-                    rate = obj_comp_params["rate"]
-                    msg_start = f'Different rate specified for {obj_comp[:-1]} "{obj_cname}" and enginenode "{node_name}": '
-                    msg_end = "If an enginenode implements a sensor/actuator, their specified rates must be equal."
-                    msg_mid = f'{node_params["config"]["rate"]} vs {rate}. '
-                    assert node_params["config"]["rate"] == rate, msg_start + msg_mid + msg_end
-                    for o in node_params["config"]["outputs"]:
-                        msg_mid = f'{node_params["outputs"][o]["rate"]} vs {rate}. '
-                        assert node_params["outputs"][o]["rate"] == rate, msg_start + msg_mid + msg_end
-
-                    # Set component params
-                    node_comp_params = nodes[node_name][node_comp][node_cname]
-                    if obj_comp == "sensors":
-                        # Make sure that space of node is contained within agnostic space.
-                        agnostic_space = Space.from_dict(obj_comp_params["space"])
-                        node_space = Space.from_dict(node_comp_params["space"])
-                        msg = (
-                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
-                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
-                            f"{node_name}.{node_comp}.{node_cname}.space={node_space} \n\n"
-                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
-                        )
-                        assert agnostic_space.contains_space(node_space), msg
-                        node_comp_params.update(obj_comp_params)
-                        node_comp_params["address"] = f"{name}/{obj_comp}/{obj_cname}"
-                        sensor_addresses[f"{node_name}/{node_comp}/{node_cname}"] = f"{name}/{obj_comp}/{obj_cname}"
-                    else:  # Actuators
-                        agnostic_space = Space.from_dict(obj_comp_params["space"])
-                        node_space = Space.from_dict(node_comp_params["space"])
-                        msg = (
-                            f"The space of EngineNode `{node_name}.{node_comp}.{node_cname}` is different "
-                            f"(dtype, shape, low, or high) from the space of `{name}.{obj_comp}.{obj_cname}`: \n\n"
-                            f"{name}.{node_comp}.{node_cname}.space={node_space} \n\n"
-                            f"{name}.{obj_comp}.{obj_cname}.space={agnostic_space} \n\n"
-                        )
-                        assert agnostic_space.contains_space(node_space), msg
-
-                        agnostic_processor = obj_comp_params.pop("processor")
-                        node_comp_params.update(obj_comp_params)
-
-                        if agnostic_processor is not None:
-                            msg = (
-                                f"A processor was defined for {node_name}.{node_comp}.{node_cname}, however the engine "
-                                "implementation also has a processor defined. You can only have one processor."
-                            )
-                            assert node_comp_params["processor"] is None, msg
-                            node_comp_params["processor"] = agnostic_processor
-
-                        # Pop rate. Actuators are more-or-less inputs so have no rate?
-                        node_comp_params.pop("rate")
-                        # Reassign converter in case a node provides the implementation for multiple actuators
-                        obj_comp_params["processor"] = agnostic_processor
-
-        # Get set of node we are required to launch
-        dependencies = list(set(dependencies))
-
-        # Verify that no dependency is an unlisted actuator node.
-        not_selected = [cname for cname in agnostic["actuators"] if cname not in params["config"]["actuators"]]
-        for cname in not_selected:
-            try:
-                for entry in specific["actuators"][cname]:
-                    node_name, node_comp, node_cname = (entry["name"], entry["component"], entry["cname"])
-                    msg = (
-                        f'There appears to be a dependency on enginenode "{node_name}" for the implementation of '
-                        f'engine "{engine_id}" for object "{name}" to work. However, enginenode "{node_name}" is '
-                        f'directly tied to an unselected actuator "{cname}". '
-                        "The actuator must be selected to resolve the graph."
-                    )
-                    assert node_name not in dependencies, msg
-            except KeyError:
-                # We pass here, because if cname is not selected, but also not implemented,
-                # we are sure that there is no dependency.
-                pass
-
-        # Replace enginenode outputs that have been renamed to sensor outputs
-        for node_address, sensor_address in sensor_addresses.items():
-            for _, node_params in nodes.items():
-                for _cname, comp_params in node_params["inputs"].items():
-                    if node_address == comp_params["address"]:
-                        comp_params["address"] = sensor_address
-
-        # Create states
-        states = []
-        state_names = []
-        obj_comp = "states"
-        for obj_cname in params["config"]["states"]:
-            args = agnostic[obj_comp][obj_cname]
-            args["name"] = f"{name}/{obj_comp}/{obj_cname}"
-            args["address"] = f"{name}/{obj_comp}/{obj_cname}"
-            try:
-                args["state"] = specific[obj_comp][obj_cname]
-            except KeyError:
-                raise KeyError(
-                    f'"{obj_cname}" was selected in {obj_comp} of "{name}", but there is no implementation for it in engine "{engine_id}".'
-                )
-            states.append(RxEngineState(**args))
-            state_names.append(f'{ns}/{args["name"]}')
-
-        # Gather node names
-        params["node_names"] = [f"{ns}/{node_name}" for node_name in list(nodes.keys()) if node_name in dependencies]
-        params["state_names"] = state_names
-
-        # Add engine
-        params["engine"] = engine
-
-        # Add agnostic definition
-        params.update(**agnostic)
-
-        # Add states
-        assert "states" not in params["engine"], "The keyword `states` is reserved."
-        params["engine"]["states"] = [s.build(ns) for s in states]
-        nodes = [NodeSpec(params) for name, params in nodes.items() if name in dependencies]
-        return {name: replace_None(params)}, nodes
+        spec._params["engine"] = {}
+        return register.add_engine(spec, self)
 
 
 # REQUIRED FOR BUILDING SPECS

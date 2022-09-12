@@ -25,8 +25,6 @@ from eagerx.core.rx_operators import (
     init_state_inputs_channel,
     init_state_resets,
     init_callback_pipeline,
-    get_object_params,
-    extract_inputs,
     switch_with_check_pipeline,
     node_reset_flags,
     filter_dict_on_key,
@@ -142,7 +140,7 @@ def init_node_pipeline(
             ops.filter(lambda x: x is not None),
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            convert(o["space"], o["processor"], o["name"], node, direction="out"),
+            convert(o["space"], o["processor"], o["name"], "outputs", node, direction="out"),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -465,7 +463,7 @@ def init_engine_pipeline(
         d = output_stream.pipe(
             ops.pluck(o["name"]),
             ops.filter(lambda x: x is not None),
-            convert(o["space"], o["processor"], o["name"], node, direction="out"),
+            convert(o["space"], o["processor"], o["name"], "outputs", node, direction="out"),
             ops.share(),
         ).subscribe(o["msg"])
         # Add disposable
@@ -503,6 +501,7 @@ def init_engine(
     inputs_init,
     outputs,
     state_inputs,
+    engine_state_inputs,
     node_names,
     target_addresses,
     message_broker,
@@ -511,6 +510,7 @@ def init_engine(
     # Initialization ##########################################################
     ###########################################################################
     # Prepare scheduler
+    tp_scheduler = ThreadPoolScheduler(max_workers=max(1, len(engine_state_inputs)))
     event_scheduler = EventLoopScheduler()
     eps_disp = CompositeDisposable()
     reset_disp = CompositeDisposable(eps_disp)
@@ -520,6 +520,16 @@ def init_engine(
     real_time_factor = node.real_time_factor
     simulate_delays = node.simulate_delays
 
+    # Prepare input topics
+    for i in inputs_init:
+        # Subscribe to input topic
+        Ir = Subject()
+        i["msg"] = Ir
+
+        # Subscribe to input reset topic
+        Is = Subject()
+        i["reset"] = Is
+
     # Prepare output topics
     for i in outputs:
         # Prepare output topic
@@ -528,11 +538,17 @@ def init_engine(
         # Initialize reset topic
         i["reset"] = Subject()
 
-    # Prepare input topics
-    assert len(inputs_init) == 0, "The inputs to engines are dynamically added."
-
     # Prepare state topics
     for i in state_inputs:
+        # Initialize desired state message
+        S = Subject()
+        i["msg"] = S
+
+        D = Subject()
+        i["done"] = D
+
+    # Prepare engine state topics
+    for i in engine_state_inputs:
         # Initialize desired state message
         S = Subject()
         i["msg"] = S
@@ -597,22 +613,22 @@ def init_engine(
         ops.map(w_get_node_params),
         ops.filter(lambda params: params is not None),
         ops.map(node.register_node),
-        ops.map(lambda args: extract_node_reset(ns, *args)),
+        ops.map(lambda args: extract_node_reset(ns, *args)),  # todo: remove, because does nothing...
         ops.share(),
     )
 
     # Object register (to dynamically add input reset flags to F for reset)
+    # todo: remove object registry.
     OR = Subject()
     object_registry = dict(name="register_object", address=ns + "/register_object", msg=OR, dtype="str")
     node_inputs.append(object_registry)
 
     # Object registry pipeline
-    w_get_object_params = functools.partial(get_object_params, node)
     object_params = OR.pipe(
-        ops.map(w_get_object_params),
-        ops.filter(lambda params: params is not None),
-        ops.map(lambda params: (params[1],) + node.register_object(*params)),
-        ops.map(lambda i: extract_inputs(ns, *i)),
+        # ops.map(w_get_object_params),
+        # ops.filter(lambda params: params is not None),
+        # ops.map(lambda params: (params[1],) + node.register_object(*params)),
+        # ops.map(lambda i: extract_inputs(ns, *i)),
         ops.share(),
     )
 
@@ -632,11 +648,11 @@ def init_engine(
         ops.scan(
             combine_dict,
             dict(
-                inputs=list(inputs_init),
+                inputs=list(inputs_init),  # todo: add all inputs with tick here.
                 sp_nodes=[],
                 launch_nodes=[],
-                state_inputs=[],
-                node_flags=init_node_flags,
+                state_inputs=list(engine_state_inputs),  # todo: [DONE] add engine_states here.
+                node_flags=init_node_flags,  # todo: [DONE] add engine node flags here.
             ),
         ),
         ops.share(),
@@ -693,7 +709,7 @@ def init_engine(
     # Dynamically initialize new state pipeline
     ResetTrigger = Subject()
     ss_flags = simstate_inputs.pipe(
-        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, node)),
+        ops.map(lambda s: init_state_resets(ns, s, ResetTrigger, event_scheduler, tp_scheduler, node)),
         ops.share(),
     )
     check_simSS, simSS, simSS_ho = switch_with_check_pipeline()
@@ -860,7 +876,7 @@ def init_engine(
         outputs=outputs,
         node_inputs=node_inputs,
         node_outputs=node_outputs,
-        state_inputs=list(state_inputs) + df_inputs,
+        state_inputs=list(state_inputs) + df_inputs + list(engine_state_inputs),
         disposable=reset_disp,
     )
     return rx_objects
@@ -920,7 +936,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         d = msgs.pipe(
             filter_dict_on_key(s["name"]),
             ops.filter(lambda msg: msg is not None),
-            convert(s["space"], s["processor"], s["name"], node, direction="out"),
+            convert(s["space"], s["processor"], s["name"], "states", node, direction="out"),
             ops.share(),
         ).subscribe(s["msg"])
         reset_disp.add(d)
@@ -981,7 +997,7 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
         end_reset["msg"]
         .pipe(
             spy("RESET END", node, log_level=DEBUG),
-            convert(space, None, "tick", node, direction="out"),
+            convert(space, None, "tick", "outputs", node, direction="out"),
         )
         .subscribe(tick["msg"])
     )

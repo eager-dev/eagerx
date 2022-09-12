@@ -428,20 +428,6 @@ class EngineGraph:
                     p = self._state["nodes"][name][component][cname]
                 self._set(p, {parameter: value})
 
-    def _set_processor(self, entry: SpecView, processor: Dict):
-        """Replaces the processor specified for a node's input."""
-        if isinstance(processor, ProcessorSpec):
-            processor = processor.params
-        elif isinstance(processor, SpecView):
-            processor = processor.to_dict()
-
-        _ = entry.processor  # Check if parameter exists
-
-        # Replace processor
-        name, component, cname = entry()
-        params = self._state["nodes"][name]
-        params[component][cname]["processor"] = processor
-
     def get(
         self,
         entry: Optional[Union[SpecView, EntitySpec]] = None,
@@ -532,9 +518,11 @@ class EngineGraph:
             dependencies["actuators"][cname] = list(set(dependencies["actuators"].pop(cname)))
         return dependencies
 
-    def register(self):
+    def register(self, name: str):
         """Set the addresses in all incoming components. Validate the graph.
         Create params that can be uploaded to the ROS param server.
+
+        :param name: object name
         """
 
         # Check if valid graph.
@@ -549,10 +537,11 @@ class EngineGraph:
         # Add addresses based on connections
         actuators = dict()
         sensors = dict()
-        for source, target in state["connects"]:
+        connects = state["connects"]
+        for source, target in connects:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
-            address = EngineGraph._get_address(source, target)
+            # address = EngineGraph._get_address(source, target)
             if source_name == "actuators":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["actuators"][source_cname]]
                 if source_cname not in actuators:
@@ -577,7 +566,7 @@ class EngineGraph:
                 }
                 sensors[target_cname].append(entry)
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
-            state["nodes"][target_name][target_comp][target_cname]["address"] = address
+            # state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
             # Determine if dtypes match
             s = self.get_view(source[0], source[1:])
@@ -585,6 +574,13 @@ class EngineGraph:
             self._is_compatible(state, s, t)
             source_dtype = state["nodes"][source_name][source_comp][source_cname]["space"]["dtype"]
             state["nodes"][target_name][target_comp][target_cname]["dtype"] = source_dtype
+
+        # Prepend object name to source & target name
+        for source, target in connects:
+            if source[0] != "actuators":
+                source[0] = f"$(ns obj_name)/{source[0]}"
+            if target[0] != "sensors":
+                target[0] = f"$(ns obj_name)/{target[0]}"
 
         # Initialize param objects
         nodes = dict()
@@ -608,7 +604,7 @@ class EngineGraph:
                     substitute_args(params, context, only=["config", "ns"])
                     nodes[name] = params
 
-        return nodes, actuators, sensors
+        return nodes, actuators, sensors, connects
 
     def gui(
         self, interactive: Optional[bool] = True, resolution: Optional[List[int]] = None, filename: Optional[str] = None
@@ -640,18 +636,8 @@ class EngineGraph:
             return
 
         if interactive:
-            if resolution is not None:
-                log.logwarn("Resolution argument is ignored when launching GUI with interactive is True.")
-            if filename is not None:
-                log.logwarn("Filename argument is ignored when launching GUI with interactive is True.")
             self._state = launch_gui(deepcopy(self._state), is_engine=True)
-            return None
         else:
-            if resolution is not None:
-                assert (
-                    type(resolution) is list or type(resolution) is np.ndarray
-                ), f"Invalid type for argument resolution. Should be list or ndarray, but is {type(resolution)}."
-                assert len(resolution) == 2, f"Invalid length argument resolution. Should be 2, but is {len(resolution)}."
             return render_gui(deepcopy(self._state), resolution=resolution, filename=filename, is_engine=True)
 
     @staticmethod
@@ -801,6 +787,9 @@ class EngineGraph:
                         continue
                     if name in ["sensors", "actuators"]:
                         continue
+                    # Skip if tick
+                    if cname == "tick" and component == "inputs":
+                        continue
                     flag = params[component][cname]["address"] is not None
                     assert flag, (
                         f'"{cname}" was selected in {component} of "{name}", but no address was specified. '
@@ -830,7 +819,7 @@ class EngineGraph:
             plt.show()
 
         # Assert if graph is a directed-acyclical graph (DAG)
-        cycle_strs = ["Algebraic loops detected: "]
+        cycle_strs = ["Circular loops detected: "]
         for idx, connect in enumerate(cycles):
             connect.append(connect[0])
             s = " Loop %s: " % idx
