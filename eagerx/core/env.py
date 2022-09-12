@@ -63,37 +63,6 @@ class BaseEnv(gym.Env):
         self.initialized = False
         self.has_shutdown = False
 
-        # todo: [OPTIONAL]graph._remove_engine(..) --> resubstitute all objects from backup (how to reconnect targets to engine_states?).
-        # todo: [OPTIONAL] graph._agnostic_object(name="obj_name") --> keep track of nodes added
-        # todo: [OPTIONAL] Add engine to EngineGraph & automatically connect tick if EngineNode is added.
-        # todo: [OPTIONAL] Add legend to dag graphs.
-        # todo: [OPTIONAL] Add engine: EngineSpec as argument object engine methods.
-        # todo: [OPTIONAL] check arguments of engine_spec.add_object(...) are arguments of engine.add_object(...).
-        # todo: [OPTIONAL] No dynamic pipeline initialization bridge
-        # todo: [DONE] graph._add_engine(..) --> allow only a single engine
-        # todo: [DONE] graph._substitute_all_objects()
-        # todo: [DONE] graph._substitute_object(name="obj_name")
-        # todo: [DONE] add engine.objects.obj_name.engine_states
-        # todo: [DONE] add engine.objects.obj_name.add_object
-        # todo: [DONE] add engine.objects.obj_name.nodes
-        # todo: [DONE] update graph.check_valid_graph --> substitute environment for env/actions, env/observations.
-        # todo: [DONE] remove object_spec from EngineNode.initialize, EngineState.initialize signatures.
-        # todo: [DONE] only pass simulator[object_name] and add key simulator[object_name][name] = object_name
-        # todo: [DONE] refactor all pybullet engine
-        # todo: [DONE] Refactor EngineODE
-        # todo: [DONE] Add to engine.build() a stage where engine_states are converted to RxEngineState (aka Object.build()).
-        # todo: [DONE] Refactor RealEngine, eagerx_reality.enginenodes.py
-        # todo: [DONE] add objects before launching nodes.
-        # todo: [DONE] launch engine states before launching nodes.
-        # todo: [DONE] rx_operators.get_object_params --> get params from engine spec instead of object spec
-        # todo: [DONE] EngineNode.__init__ --> remove `object_name` argument
-        # todo: [DONE] Engine nodes must be launched by Engine as an EngineNode (to get reference to simulator).
-        # todo: remove dead code (ActionsNode, ObservationsNode, Graph.gui(), Graph._substitute_environment_node())
-        # todo: remove dead code (EngineGraph.gui())
-        # todo: update docs (object naming conventions, object_spec, add_object, engine.objects, external launching object name)
-        # todo: update colab notebooks (engine states, engine nodes)
-        # todo: Allow gui to visualize with environment node.
-
         # Register graph (unlinks the specs, reloads entities) .
         self.graph, environment, engine, nodes, self.render_node = graph.register(engine)
 
