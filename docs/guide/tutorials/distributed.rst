@@ -27,13 +27,11 @@ You will have to pass the following arguments
 -   ``--name``: The name of the node/engine. For engines, the name is always ``engine``.
     If the node is part of an engine-specific implementation of an object, the node name is ``<object_name>/<node_name>``.
 
--   ``--object``: If the node is part of an engine-specific implementation of an object, please provide the object name.
-
 For nodes, an example would look like:
 
 .. code::
 
-    python3 <path>/<to>/<package>/eagerx/core/executable_node.py --backend eagerx.backends.ros1/Ros1 --loglevel 20 --env CamEnv --name obj/camera_api --object obj
+    python3 <path>/<to>/<package>/eagerx/core/executable_node.py --backend eagerx.backends.ros1/Ros1 --loglevel 20 --env CamEnv --name obj/camera_api
 
 For an engine, an example would look like:
 
