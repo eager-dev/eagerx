@@ -42,7 +42,7 @@ class BaseEnv(gym.Env):
     def __init__(
         self, name: str, rate: float, graph: Graph, engine: EngineSpec, backend: BackendSpec, force_start: bool
     ) -> None:
-        """Initializes an environment with EAGERx dynamics.
+        """Initializes  an environment with EAGERx dynamics.
 
         :param name: The name of the environment. Everything related to this environment
                      (parameters, topics, nodes, etc...) will be registered under namespace: "`/name`".
