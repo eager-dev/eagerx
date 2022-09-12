@@ -29,7 +29,7 @@ def thread_safe_wrapper(func, condition):
 class RxMessageBroker(object):
     def __init__(self, owner, backend: "Backend"):
         self.owner = owner
-        self.bnd = backend
+        self.backend = backend
 
         # Determine log_level
         self.effective_log_level = backend.log_level
@@ -164,14 +164,14 @@ class RxMessageBroker(object):
             }
 
             # Create publisher
-            i["msg_pub"] = self.bnd.Publisher(i["address"], i["dtype"])
+            i["msg_pub"] = self.backend.Publisher(i["address"], i["dtype"])
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
             )
             self.disposables.append(d)
             self._publishers.append(i["msg_pub"])
-            i["reset_pub"] = self.bnd.Publisher(i["address"] + "/reset", n["outputs"][cname_address + "/reset"]["dtype"])
+            i["reset_pub"] = self.backend.Publisher(i["address"] + "/reset", n["outputs"][cname_address + "/reset"]["dtype"])
             d = i["reset"].subscribe(
                 on_next=i["reset_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -215,7 +215,7 @@ class RxMessageBroker(object):
                 n["state_outputs"][cname_address]["processor"] = i["processor"]
 
             # Create publisher
-            i["msg_pub"] = self.bnd.Publisher(i["address"], i["dtype"])
+            i["msg_pub"] = self.backend.Publisher(i["address"], i["dtype"])
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -289,7 +289,7 @@ class RxMessageBroker(object):
             }
 
             # Create publisher: (latched: register, node_reset, start_reset, reset, real_reset)
-            i["msg_pub"] = self.bnd.Publisher(i["address"], i["dtype"])
+            i["msg_pub"] = self.backend.Publisher(i["address"], i["dtype"])
             d = i["msg"].subscribe(
                 on_next=i["msg_pub"].publish,
                 on_error=lambda e: print("Error : {0}".format(e)),
@@ -420,11 +420,11 @@ class RxMessageBroker(object):
                         T = self.rx_connectable[address]["rx"]
                     else:
                         color = "blue"
-                        status = f"{self.bnd.BACKEND} |".ljust(5, " ")
+                        status = f"{self.backend.BACKEND} |".ljust(5, " ")
                         rate_str = "|" + "".center(3, " ")
                         dtype = entry["dtype"]
                         self.connected_bnd[node_name][key][cname_address] = entry
-                        T = from_topic(self.bnd, dtype, address, node_name, self.subscribers)
+                        T = from_topic(self.backend, dtype, address, node_name, self.subscribers)
 
                     # Subscribe and change status
                     entry["disposable"] = T.subscribe(entry["rx"])
@@ -466,7 +466,7 @@ class RxMessageBroker(object):
         assert name not in d[component], f'Cannot re-register the same address ({name}) twice as "{component}".'
 
     def shutdown(self):
-        self.bnd.logdebug(f"[{self.owner}] RxMessageBroker.shutdown() called.")
+        self.backend.logdebug(f"[{self.owner}] RxMessageBroker.shutdown() called.")
         [d.dispose() for d in self.disposables]
         [pub.unregister() for pub in self._publishers]
         [sub.unregister() for sub in self.subscribers]

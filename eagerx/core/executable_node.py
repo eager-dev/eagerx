@@ -27,12 +27,11 @@ class RxNode(object):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
-        self.backend = message_broker.bnd
+        self.backend = message_broker.backend
         self.initialized = False
         self.has_shutdown = False
 
         # Prepare input & output topics
-        # todo: what is inside kwargs? Simulator?
         (
             rate,
             inputs,

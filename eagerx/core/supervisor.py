@@ -103,38 +103,38 @@ class SupervisorNode(BaseNode):
         )
         self.subjects["register_node"].on_next(self.ns + "/" + node_name)
 
-    def register_object(self, object: ObjectSpec, engine_name: str):
-        # Increase cumulative registered counter. Is send as '/start_reset' message.
-        self.cum_registered += 1
-
-        # Check if object name is unique
-        obj_name = object.config.name
-        assert (
-            self.backend.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
-        ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
-
-        # Upload object params to param server
-        params, nodes = object.build(ns=self.ns, engine_id=engine_name)
-        self.backend.upload_params(self.ns, params)
-
-        # Set node args
-        node_args = dict(
-            object_name=f"{self.ns}/{obj_name}",
-        )
-
-        # Upload node parameters to ROS param server
-        initialize_nodes(
-            nodes,
-            process.ENVIRONMENT,
-            self.ns,
-            message_broker=self.message_broker,
-            is_initialized=self.is_initialized,
-            sp_nodes=self.sp_nodes,
-            launch_nodes=self.launch_nodes,
-            node_args=node_args,
-            object_name=obj_name,
-        )
-        self.subjects["register_object"].on_next(f"{self.ns}/{obj_name}")
+    # def register_object(self, object: ObjectSpec, engine_name: str):
+    #     # Increase cumulative registered counter. Is send as '/start_reset' message.
+    #     self.cum_registered += 1
+    #
+    #     # Check if object name is unique
+    #     obj_name = object.config.name
+    #     assert (
+    #         self.backend.get_param(self.ns + "/" + obj_name + "/nodes", None) is None
+    #     ), f'Object name "{self.ns}/{obj_name}" already exists. Object names must be unique.'
+    #
+    #     # Upload object params to param server
+    #     params, nodes = object.build(ns=self.ns, engine_id=engine_name)
+    #     self.backend.upload_params(self.ns, params)
+    #
+    #     # Set node args
+    #     node_args = dict(
+    #         object_name=f"{self.ns}/{obj_name}",
+    #     )
+    #
+    #     # Upload node parameters to ROS param server
+    #     initialize_nodes(
+    #         nodes,
+    #         process.ENVIRONMENT,
+    #         self.ns,
+    #         message_broker=self.message_broker,
+    #         is_initialized=self.is_initialized,
+    #         sp_nodes=self.sp_nodes,
+    #         launch_nodes=self.launch_nodes,
+    #         node_args=node_args,
+    #         object_name=obj_name,
+    #     )
+    #     self.subjects["register_object"].on_next(f"{self.ns}/{obj_name}")
 
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states
@@ -188,7 +188,7 @@ class Supervisor(object):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
-        self.backend = message_broker.bnd
+        self.backend = message_broker.backend
         self.initialized = False
         self.sync = sync
         self.has_shutdown = False

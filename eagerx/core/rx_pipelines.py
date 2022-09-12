@@ -503,6 +503,7 @@ def init_engine(
     inputs_init,
     outputs,
     state_inputs,
+    engine_state_inputs,
     node_names,
     target_addresses,
     message_broker,
@@ -511,7 +512,7 @@ def init_engine(
     # Initialization ##########################################################
     ###########################################################################
     # Prepare scheduler
-    tp_scheduler = ThreadPoolScheduler(max_workers=5)
+    tp_scheduler = ThreadPoolScheduler(max_workers=len(engine_state_inputs))
     event_scheduler = EventLoopScheduler()
     eps_disp = CompositeDisposable()
     reset_disp = CompositeDisposable(eps_disp)
@@ -521,6 +522,16 @@ def init_engine(
     real_time_factor = node.real_time_factor
     simulate_delays = node.simulate_delays
 
+    # Prepare input topics
+    for i in inputs_init:
+        # Subscribe to input topic
+        Ir = Subject()
+        i["msg"] = Ir
+
+        # Subscribe to input reset topic
+        Is = Subject()
+        i["reset"] = Is
+
     # Prepare output topics
     for i in outputs:
         # Prepare output topic
@@ -529,11 +540,17 @@ def init_engine(
         # Initialize reset topic
         i["reset"] = Subject()
 
-    # Prepare input topics
-    assert len(inputs_init) == 0, "The inputs to engines are dynamically added."
-
     # Prepare state topics
     for i in state_inputs:
+        # Initialize desired state message
+        S = Subject()
+        i["msg"] = S
+
+        D = Subject()
+        i["done"] = D
+
+    # Prepare engine state topics
+    for i in engine_state_inputs:
         # Initialize desired state message
         S = Subject()
         i["msg"] = S
@@ -598,11 +615,12 @@ def init_engine(
         ops.map(w_get_node_params),
         ops.filter(lambda params: params is not None),
         ops.map(node.register_node),
-        ops.map(lambda args: extract_node_reset(ns, *args)),
+        ops.map(lambda args: extract_node_reset(ns, *args)),  # todo does nothing...
         ops.share(),
     )
 
     # Object register (to dynamically add input reset flags to F for reset)
+    # todo: remove object registry.
     OR = Subject()
     object_registry = dict(name="register_object", address=ns + "/register_object", msg=OR, dtype="str")
     node_inputs.append(object_registry)
@@ -633,11 +651,11 @@ def init_engine(
         ops.scan(
             combine_dict,
             dict(
-                inputs=list(inputs_init),
+                inputs=list(inputs_init),  # todo: add all inputs with tick here.
                 sp_nodes=[],
                 launch_nodes=[],
-                state_inputs=[],
-                node_flags=init_node_flags,
+                state_inputs=list(engine_state_inputs),  # todo: [DONE] add engine_states here.
+                node_flags=init_node_flags,  # todo: [DONE] add engine node flags here.
             ),
         ),
         ops.share(),
@@ -857,11 +875,11 @@ def init_engine(
     reset_disp.add(d)
 
     rx_objects = dict(
-        inputs=inputs_init,
+        inputs=tuple(),  # inputs_init,
         outputs=outputs,
         node_inputs=node_inputs,
         node_outputs=node_outputs,
-        state_inputs=list(state_inputs) + df_inputs,
+        state_inputs=list(state_inputs) + df_inputs + list(engine_state_inputs),
         disposable=reset_disp,
     )
     return rx_objects

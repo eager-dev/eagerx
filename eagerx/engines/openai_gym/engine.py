@@ -35,32 +35,19 @@ class GymEngine(Engine):
     def initialize(self, spec):
         self.simulator = dict()
 
-    def add_object(self, spec, env_id: str):
+    def add_object(self, name: str, env_id: str):
         """
         Adds an object whose dynamics are governed by a registered OpenAI gym environment.
 
-        :param config: The (agnostic) config of the :class:`~eagerx.core.entities.Object` that is to be added.
-        :param engine_config: The engine-specific config of the :class:`~eagerx.core.entities.Object` that is to be added.
-                              This dict contains the registered parameters:
-
-                              - **env_id**: A string ID of the OpenAI gym environment.
-                                            See https://gym.openai.com/envs/#classic_control for all available flags.
-
-        :param node_params: A list containing the config of every :class:`~eagerx.core.entities.EngineNode` that represents
-                            an :class:`~eagerx.core.entities.Object`'s sensor or actuator that is to be added.
-        :param state_params: A list containing the parameters of every the :class:`~eagerx.core.entities.Object`'s
-                             :class:`~eagerx.core.entities.EngineState` that is to be added.
+        :param name: Name of the :class:`~eagerx.core.entities.Object` that is to be added.
+        :param env_id: Gym id of the environment.
         """
         # add object to simulator (we have a ref to the simulator with self.simulator)
-        self.backend.loginfo(f'Adding object "{spec.config.name}" of type "{spec.config.entity_id}" to the simulator.')
-
-        # Extract relevant object_params
-        obj_name = spec.config.name
-        id = spec.engine.env_id
+        self.backend.loginfo(f'Adding object "{name}" to the simulator.')
 
         # Create new env, and add to simulator
-        self.simulator[obj_name] = dict(
-            env=gym.make(id),
+        self.simulator[name].update(
+            env=gym.make(env_id),
             buffer_obs=[],
             buffer_reward=None,
             buffer_done=None,

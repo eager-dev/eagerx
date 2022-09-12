@@ -222,7 +222,7 @@ class KalmanNode(TestNode):
 
 
 class TestEngineNode(EngineNode):
-    def initialize(self, spec, object_spec, simulator):
+    def initialize(self, spec, simulator):
         pass
 
     @register.states(state_1=Space(low=0, high=100, shape=(1,), dtype="uint64"),

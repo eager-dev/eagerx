@@ -37,14 +37,13 @@ class ObservationSensor(EngineNode):
         spec.config.outputs = outputs if isinstance(outputs, list) else ["observation"]
         return spec
 
-    def initialize(self, spec, object_spec, simulator):
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
+    def initialize(self, spec,  simulator):
+        # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
-        self.id = object_spec.engine.env_id
-        self.obj_name = object_spec.config.name
+        self.id = spec.config.env_id
         self.last_obs = None
 
     @register.states()
@@ -54,11 +53,11 @@ class ObservationSensor(EngineNode):
     @register.inputs(tick=Space(shape=(), dtype="int64"))
     @register.outputs(observation=Space(dtype="float32"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
-        assert isinstance(self.simulator[self.obj_name], dict), (
-            'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
+        assert isinstance(self.simulator, dict), (
+            'Simulator object "%s" is not compatible with this engine node.' % self.simulator
         )
-        obs = self.simulator[self.obj_name]["buffer_obs"]
-        self.simulator[self.obj_name]["buffer_obs"] = []
+        obs = self.simulator["buffer_obs"]
+        self.simulator["buffer_obs"] = []
         obs = self.last_obs if len(obs) == 0 else obs[-1]
         self.last_obs = obs
         return dict(observation=obs)
@@ -87,14 +86,13 @@ class RewardSensor(EngineNode):
         spec.config.outputs = outputs if isinstance(outputs, list) else ["reward"]
         return spec
 
-    def initialize(self, spec, object_spec, simulator):
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
+    def initialize(self, spec, simulator):
+        # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
-        self.id = object_spec.engine.env_id
-        self.obj_name = object_spec.config.name
+        self.id = spec.config.env_id
         self.last_reward = None
 
     @register.states()
@@ -104,11 +102,11 @@ class RewardSensor(EngineNode):
     @register.inputs(tick=Space(shape=(), dtype="int64"))
     @register.outputs(reward=Space(dtype="float32"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
-        assert isinstance(self.simulator[self.obj_name], dict), (
-            'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
+        assert isinstance(self.simulator, dict), (
+            'Simulator object "%s" is not compatible with this engine node.' % self.simulator
         )
-        reward = self.simulator[self.obj_name]["buffer_reward"]
-        self.simulator[self.obj_name]["buffer_reward"] = []
+        reward = self.simulator["buffer_reward"]
+        self.simulator["buffer_reward"] = []
         if len(reward) == 0:
             reward = self.last_reward
         else:
@@ -140,14 +138,13 @@ class DoneSensor(EngineNode):
         spec.config.outputs = outputs if isinstance(outputs, list) else ["done"]
         return spec
 
-    def initialize(self, spec, object_spec, simulator):
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
+    def initialize(self, spec,  simulator):
+        # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
-        self.id = object_spec.engine.env_id
-        self.obj_name = object_spec.config.name
+        self.id = spec.config.env_id
         self.last_done = None
 
     @register.states()
@@ -157,11 +154,11 @@ class DoneSensor(EngineNode):
     @register.inputs(tick=Space(shape=(), dtype="int64"))
     @register.outputs(done=Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
-        assert isinstance(self.simulator[self.obj_name], dict), (
-            'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
+        assert isinstance(self.simulator, dict), (
+            'Simulator object "%s" is not compatible with this engine node.' % self.simulator
         )
-        done = self.simulator[self.obj_name]["buffer_done"]
-        self.simulator[self.obj_name]["buffer_done"] = []
+        done = self.simulator["buffer_done"]
+        self.simulator["buffer_done"] = []
         if len(done) == 0:
             done = self.last_done
         else:
@@ -197,33 +194,33 @@ class ActionActuator(EngineNode):
         spec.config.zero_action = zero_action
         return spec
 
-    def initialize(self, spec, object_spec, simulator):
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
+    def initialize(self, spec, simulator):
+        # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
-        self.obj_name = object_spec.config.name
+        self.obj_name = simulator["name"]
         self.simulator = simulator
-        self.simulator[self.obj_name]["env"]: gym.Env
+        self.simulator["env"]: gym.Env
         self.is_discrete = (
-            True if isinstance(self.simulator[self.obj_name]["env"].action_space, gym.spaces.Discrete) else False
+            True if isinstance(self.simulator["env"].action_space, gym.spaces.Discrete) else False
         )
         if spec.config.zero_action is None:
-            self.zero_action = self.simulator[self.obj_name]["env"].action_space.sample()
+            self.zero_action = self.simulator["env"].action_space.sample()
         else:
             if isinstance(spec.config.zero_action, list):
-                dtype = self.simulator[self.obj_name]["env"].action_space.dtype
+                dtype = self.simulator["env"].action_space.dtype
                 self.zero_action = np.array(spec.config.zero_action, dtype=dtype)
             else:
                 self.zero_action = spec.config.zero_action
-            assert self.simulator[self.obj_name]["env"].action_space.contains(
+            assert self.simulator["env"].action_space.contains(
                 self.zero_action
-            ), f'The zero action provided for "{self.obj_name}" is not contained in the action space of this environment.'
+            ), f'The zero action provided for "{self.simulator["name"]}" is not contained in the action space of this environment.'
 
     @register.states()
     def reset(self):
         # This controller is stateless (in contrast to e.g. a PID controller).
-        self.simulator[self.obj_name]["next_action"] = self.zero_action
+        self.simulator["next_action"] = self.zero_action
 
     @register.inputs(tick=Space(shape=(), dtype="int64"), action=Space(dtype="float32"))
     @register.outputs(action_applied=Space(dtype="float32"))
@@ -233,18 +230,18 @@ class ActionActuator(EngineNode):
         tick: Optional[Msg] = None,
         action: Optional[Msg] = None,
     ):
-        assert isinstance(self.simulator[self.obj_name], dict), (
-            'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
+        assert isinstance(self.simulator, dict), (
+            'Simulator object "%s" is not compatible with this engine node.' % self.simulator
         )
 
         # Set action in simulator for next step.
         if len(action.msgs) > 0:
-            self.simulator[self.obj_name]["next_action"] = int(action.msgs[-1].item()) if self.is_discrete else action.msgs[-1]
+            self.simulator["next_action"] = int(action.msgs[-1].item()) if self.is_discrete else action.msgs[-1]
         else:
-            self.simulator[self.obj_name]["next_action"] = self.zero_action
+            self.simulator["next_action"] = self.zero_action
 
         # Prepare output message
-        action_applied = self.simulator[self.obj_name]["next_action"]
+        action_applied = self.simulator["next_action"]
 
         # Send action that has been applied.
         return dict(action_applied=action_applied)
@@ -280,8 +277,8 @@ class GymImage(EngineNode):
         spec.outputs.image.space = Space(low=0, high=255, shape=tuple(spec.config.shape + [3]), dtype="uint8")
         return spec
 
-    def initialize(self, spec, object_spec, simulator):
-        # We will probably use self.simulator[self.obj_name] in callback & reset.
+    def initialize(self, spec, simulator):
+        # We will probably use self.simulator in callback & reset.
         assert (
             self.process == process.ENGINE
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
@@ -289,7 +286,7 @@ class GymImage(EngineNode):
         self.shape = tuple(spec.config.shape)
         self.always_render = spec.config.always_render
         self.render_toggle = False
-        self.id = object_spec.engine.env_id
+        self.id = spec.config.env_id
         self.obj_name = object_spec.config.name
         self._cond = threading.Condition()
         self.sub_toggle = self.backend.Subscriber("%s/env/render/toggle" % self.ns, "bool", self._set_render_toggle)
@@ -309,14 +306,14 @@ class GymImage(EngineNode):
     @register.inputs(tick=Space(shape=(), dtype="int64"))
     @register.outputs(image=Space(dtype="uint8"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
-        assert isinstance(self.simulator[self.obj_name], dict), (
-            'Simulator object "%s" is not compatible with this engine node.' % self.simulator[self.obj_name]
+        assert isinstance(self.simulator, dict), (
+            'Simulator object "%s" is not compatible with this engine node.' % self.simulator
         )
         with self._cond:
             if self.always_render or self.render_toggle:
                 os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
                 try:
-                    rgb = self.simulator[self.obj_name]["env"].render(mode="rgb_array")
+                    rgb = self.simulator["env"].render(mode="rgb_array")
                 except Exception as e:
                     self.backend.logwarn(e)
                     raise e
@@ -347,6 +344,6 @@ class GymImage(EngineNode):
             if msg:
                 self.backend.logdebug("[%s] START RENDERING!" % self.name)
             else:
-                self.simulator[self.obj_name]["env"].close()
+                self.simulator["env"].close()
                 self.backend.logdebug("[%s] STOPPED RENDERING!" % self.name)
             self.render_toggle = msg

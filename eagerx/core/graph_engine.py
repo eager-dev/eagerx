@@ -532,9 +532,11 @@ class EngineGraph:
             dependencies["actuators"][cname] = list(set(dependencies["actuators"].pop(cname)))
         return dependencies
 
-    def register(self):
+    def register(self, name: str):
         """Set the addresses in all incoming components. Validate the graph.
         Create params that can be uploaded to the ROS param server.
+
+        :param name: object name
         """
 
         # Check if valid graph.
@@ -549,10 +551,11 @@ class EngineGraph:
         # Add addresses based on connections
         actuators = dict()
         sensors = dict()
-        for source, target in state["connects"]:
+        connects = state["connects"]
+        for source, target in connects:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
-            address = EngineGraph._get_address(source, target)
+            # address = EngineGraph._get_address(source, target)
             if source_name == "actuators":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["actuators"][source_cname]]
                 if source_cname not in actuators:
@@ -577,7 +580,7 @@ class EngineGraph:
                 }
                 sensors[target_cname].append(entry)
                 continue  # we continue here, because the address for actuators is determined by an output from the agnostic graph.
-            state["nodes"][target_name][target_comp][target_cname]["address"] = address
+            # state["nodes"][target_name][target_comp][target_cname]["address"] = address
 
             # Determine if dtypes match
             s = self.get_view(source[0], source[1:])
@@ -585,6 +588,13 @@ class EngineGraph:
             self._is_compatible(state, s, t)
             source_dtype = state["nodes"][source_name][source_comp][source_cname]["space"]["dtype"]
             state["nodes"][target_name][target_comp][target_cname]["dtype"] = source_dtype
+
+        # Prepend object name to source & target name
+        for source, target in connects:
+            if source[0] != "actuators":
+                source[0] = f"$(ns obj_name)/{source[0]}"
+            if target[0] != "sensors":
+                target[0] = f"$(ns obj_name)/{target[0]}"
 
         # Initialize param objects
         nodes = dict()
@@ -608,7 +618,7 @@ class EngineGraph:
                     substitute_args(params, context, only=["config", "ns"])
                     nodes[name] = params
 
-        return nodes, actuators, sensors
+        return nodes, actuators, sensors, connects
 
     def gui(
         self, interactive: Optional[bool] = True, resolution: Optional[List[int]] = None, filename: Optional[str] = None
@@ -800,6 +810,9 @@ class EngineGraph:
                     if component not in ["inputs", "targets", "feedthroughs"]:
                         continue
                     if name in ["sensors", "actuators"]:
+                        continue
+                    # Skip if tick
+                    if cname == "tick" and component == "inputs":
                         continue
                     flag = params[component][cname]["address"] is not None
                     assert flag, (

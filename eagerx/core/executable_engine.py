@@ -30,7 +30,7 @@ class RxEngine(object):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
-        self.backend = message_broker.bnd
+        self.backend = message_broker.backend
         self.initialized = False
         self.has_shutdown = False
 
@@ -40,6 +40,7 @@ class RxEngine(object):
             inputs,
             outputs,
             states,
+            engine_states,
             node_names,
             target_addresses,
             self.engine,
@@ -53,6 +54,7 @@ class RxEngine(object):
             inputs,
             outputs,
             states,
+            engine_states,
             node_names,
             target_addresses,
             self.mb,
@@ -83,7 +85,13 @@ class RxEngine(object):
         rate = params["config"]["rate"]
 
         # Prepare input topics
-        assert len(params["inputs"]) == 0, "Engine inputs are dynamically added."
+        for i in params["inputs"]:
+            if isinstance(i["processor"], dict):
+                from eagerx.core.specs import ProcessorSpec
+
+                i["processor"] = initialize_processor(ProcessorSpec(i["processor"]))
+            if isinstance(i["space"], dict):
+                i["space"] = eagerx.Space.from_dict(i["space"])
 
         # Prepare output topics
         for i in params["outputs"]:
@@ -126,7 +134,14 @@ class RxEngine(object):
         outputs = tuple([value for key, value in params["outputs"].items()])
         states = tuple([value for key, value in params["states"].items()])
 
-        return rate, inputs, outputs, states, node_names, target_addresses, node
+        # Prepare
+        engine_states = []
+        for name, obj in params["objects"].items():
+            for cname, s in obj["engine_states"].items():
+                engine_states.append(s)
+        engine_states = tuple(engine_states)
+
+        return rate, inputs, outputs, states, engine_states, node_names, target_addresses, node
 
     def _shutdown(self):
         self.backend.logdebug(f"[{self.name}] RxEngine._shutdown() called.")

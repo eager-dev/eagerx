@@ -60,7 +60,7 @@ def initialize_nodes(
     if isinstance(nodes, (BaseNodeSpec, dict)):
         nodes = [nodes]
 
-    bnd = message_broker.bnd
+    bnd = message_broker.backend
 
     for node in nodes:
         # Check if we still need to upload params to param server (env)
@@ -69,7 +69,7 @@ def initialize_nodes(
 
             # Check if node name is unique
             name = node.config.name
-            assert message_broker.bnd.get_param(f"{ns}/{name}/rate", None) is None, (
+            assert message_broker.backend.get_param(f"{ns}/{name}/rate", None) is None, (
                 f"Node name '{ns + '/' + name}' already exists. " "Node names must be unique."
             )
 
@@ -88,7 +88,7 @@ def initialize_nodes(
                 )
 
             # Upload params to param server
-            message_broker.bnd.upload_params(ns, params)
+            message_broker.backend.upload_params(ns, params)
 
             # Make params consistent when directly grabbing params from param server
             params = params[name]
@@ -108,7 +108,7 @@ def initialize_nodes(
         def initialized(msg, name):
             is_initialized[name] = True
 
-        sub = message_broker.bnd.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
+        sub = message_broker.backend.Subscriber(node_address + "/initialized", "int64", partial(initialized, name=name))
         message_broker.subscribers.append(sub)
 
         # Initialize node
@@ -129,7 +129,7 @@ def initialize_nodes(
         elif params["config"]["process"] == process.EXTERNAL:
             cmd = get_launch_cmd(params["config"]["executable"], bnd, ns, name, object_name, external=True)
             cmd_joined = " ".join(cmd).replace("\n", "\\n")
-            message_broker.bnd.loginfo(f'Launch node "{name}" externally with: python3 {cmd_joined}')
+            message_broker.backend.loginfo(f'Launch node "{name}" externally with: python3 {cmd_joined}')
         # else: node is launched in another (already launched) node's process (e.g. engine process).
 
 

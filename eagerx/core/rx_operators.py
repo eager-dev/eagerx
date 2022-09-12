@@ -885,12 +885,12 @@ def get_node_params(node, node_name):
 
 
 def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
-    name = node_params["config"]["name"]
-    nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
+    # name = node_params["config"]["name"]
+    # nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
     return dict(
         inputs=[],
         state_inputs=[],
-        node_flags=[nf],
+        node_flags=[],  # [nf],
         sp_nodes=sp_nodes,
         launch_nodes=launch_nodes,
     )

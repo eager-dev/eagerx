@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, Optional, Union, Type, TYPE_CHECKING, List
 import gym
 from yaml import dump
@@ -15,6 +16,7 @@ from eagerx.utils.utils_sub import substitute_args
 
 if TYPE_CHECKING:
     from eagerx.core.entities import Engine
+    from eagerx import EngineGraph
 
 
 class EntitySpec(object):
@@ -243,7 +245,6 @@ class BaseNodeSpec(EntitySpec):
                 elif component == "inputs":
                     if cname not in self.config.inputs:
                         self.config.inputs.append(cname)
-                    address = "engine/outputs/tick" if cname == "tick" else None
                     space = eagerx.Space(shape=(), dtype="int64") if cname == "tick" else space
                     mapping = dict(
                         delay=0.0,
@@ -251,7 +252,7 @@ class BaseNodeSpec(EntitySpec):
                         skip=False,
                         processor=None,
                         space=space,
-                        address=address,
+                        address=None,
                     )
                 elif component == "targets":
                     if cname not in self.config.targets:
@@ -470,54 +471,6 @@ class ResetNodeSpec(BaseNodeSpec):
         return self._lookup("feedthroughs")
 
 
-class EngineSpec(BaseNodeSpec):
-    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
-
-    @property
-    def config(self) -> SpecView:
-        """Provides an API to set/get the parameters to initialize.
-
-        The default parameters are:
-
-        - .. py:attribute:: Spec.config.rate: float
-
-            Rate (Hz) at which the :func:`~eagerx.core.entities.Engine.callback` is called.
-
-        - .. py:attribute:: Spec.config.process: int = 0
-
-            Process in which the engine is launched. See :class:`~eagerx.core.constants.process` for all options.
-
-        - .. py:attribute:: Spec.config.sync: bool = True
-
-            Flag that specifies whether we run reactive or asynchronous.
-
-        - .. py:attribute:: Spec.config.real_time_factor: float = 0
-
-            A specified upper bound on the real-time factor. `Wall-clock-rate`=`real_time_factor`*`rate`.
-            If `real_time_factor` < 1 the simulation is slower than real time.
-
-        - .. py:attribute:: Spec.config.simulate_delays: bool = True
-
-            Flag that specifies whether input delays are simulated.
-            You probably want to set this to `False` when running in the real-world.
-
-        - .. py:attribute:: Spec.config.color: str = grey
-
-            Specifies the color of logged messages. Check-out the termcolor documentation for the supported colors.
-
-        - .. py:attribute:: Spec.config.print_mode: int = 1
-
-            Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
-
-        - .. py:attribute:: Spec.config.log_level: int = 30
-
-            Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
-
-        :return: API to get/set parameters.
-        """
-        return self._lookup("config", unlocked=True)
-
-
 class ObjectSpec(EntitySpec):
     """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the object.
 
@@ -730,27 +683,12 @@ class ObjectSpec(EntitySpec):
         # Add default config
         with self.engine as d:
             d.update(engine_config)
+            d["name"] = self.config.name
             d["states"] = {}
             # Add all states to engine-specific params
             with d.states as s:
                 for cname in self.states.keys():
                     s[cname] = None
-
-    def _add_graph(self, graph):
-        # Register EngineGraph
-        nodes, actuators, sensors = graph.register()
-
-        # Pop states that were not implemented.
-        with self.engine.states as d:
-            for cname in list(self.engine.states.keys()):
-                if d[cname] is None:
-                    d.pop(cname)
-
-        # Set engine_spec
-        with self.engine as d:
-            d.actuators = actuators
-            d.sensors = sensors
-            d.nodes = nodes
 
     def _initialize_object_graph(self):
         mapping = dict()
@@ -765,19 +703,7 @@ class ObjectSpec(EntitySpec):
         graph = EngineGraph.create(**mapping)
         return graph
 
-    def add_engine(self, engine_id):
-        # Construct context & replace placeholders
-        context = {"config": self.config.to_dict()}
-        substitute_args(self._params["config"], context, only=["config"])  # First resolve args within the context
-        substitute_args(self._params, context, only=["config"])  # Resolve rest of params
-
-        # Add engine entry
-        import eagerx.core.register as register
-
-        self._params["engine"] = {}
-        register.add_engine(self, engine_id)
-
-    def build(self, ns, engine_id):
+    def build(self, ns, engine_id):  # engine_id="engine"
         params = self.params  # Creates a deepcopy
         name = self.config.name
 
@@ -793,7 +719,7 @@ class ObjectSpec(EntitySpec):
                 if key not in ["config", engine_id]:
                     params.pop(key)
                 continue
-            agnostic[key] = params.pop(key)
+            agnostic[key] = params.pop(key)  # agnostic.keys() = ["actuators", "sensors", "states"]
 
         # Get engine definition
         engine = params.pop(engine_id)
@@ -942,6 +868,121 @@ class ObjectSpec(EntitySpec):
         params["engine"]["states"] = [s.build(ns) for s in states]
         nodes = [NodeSpec(params) for name, params in nodes.items() if name in dependencies]
         return {name: replace_None(params)}, nodes
+
+
+class EngineSpec(BaseNodeSpec):
+    """A specification that specifies how :class:`~eagerx.core.env.BaseEnv` should initialize the engine."""
+
+    @property
+    def config(self) -> SpecView:
+        """Provides an API to set/get the parameters to initialize.
+
+        The default parameters are:
+
+        - .. py:attribute:: Spec.config.rate: float
+
+            Rate (Hz) at which the :func:`~eagerx.core.entities.Engine.callback` is called.
+
+        - .. py:attribute:: Spec.config.process: int = 0
+
+            Process in which the engine is launched. See :class:`~eagerx.core.constants.process` for all options.
+
+        - .. py:attribute:: Spec.config.sync: bool = True
+
+            Flag that specifies whether we run reactive or asynchronous.
+
+        - .. py:attribute:: Spec.config.real_time_factor: float = 0
+
+            A specified upper bound on the real-time factor. `Wall-clock-rate`=`real_time_factor`*`rate`.
+            If `real_time_factor` < 1 the simulation is slower than real time.
+
+        - .. py:attribute:: Spec.config.simulate_delays: bool = True
+
+            Flag that specifies whether input delays are simulated.
+            You probably want to set this to `False` when running in the real-world.
+
+        - .. py:attribute:: Spec.config.color: str = grey
+
+            Specifies the color of logged messages. Check-out the termcolor documentation for the supported colors.
+
+        - .. py:attribute:: Spec.config.print_mode: int = 1
+
+            Specifies the different modes for printing: `{1: TERMCOLOR, 2: ROS}`.
+
+        - .. py:attribute:: Spec.config.log_level: int = 30
+
+            Specifies the log level for the engine: `{0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("config", unlocked=True)
+
+    @property
+    def objects(self) -> SpecView:
+        """Provides an API to set/get the parameters to add an object to the engine.
+
+        Arguments correspond to the signature of :func:`~eagerx.core.entities.Engine.add_object`.
+
+        :return: API to get/set parameters.
+        """
+        return self._lookup("objects", unlocked=True)
+
+    def add_object(
+        self,
+        name: str,
+        **kwargs: Union[bool, int, float, str, List, Dict],
+    ) -> None:
+        """Adds an object to the simulator that is interfaced by the engine.
+
+        :param kwargs: Other arguments of :func:`~eagerx.core.entities.Engine.add_object`.
+        """
+        # todo: check arguments of engine_spec.add_object(...) are arguments of engine.add_object(...).
+        with self.objects as d:
+            assert name not in d, f"There is already an object called `{name}` added. Names must be unique."
+            d[name] = dict(engine_states=dict(), nodes=dict(), add_object=dict())
+            with d[name].add_object as s:
+                s["name"] = name
+                s.update(kwargs)
+
+    def _add_engine_states(self, name: str, spec: ObjectSpec):
+        # Pop states that were not implemented.
+        assert name in self.objects, f"There is no Object called `{name}' in engine.objects. First add the Object."
+        states = spec.engine.states
+        for cname in list(states.keys()):
+            if states[cname] is not None:
+                self._add_engine_state(name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"])
+
+    def _add_engine_state(self, name, cname, engine_state, space, processor=None):
+        with self.objects[name].engine_states as s:
+            s[cname] = dict(state=None, space=None, processor=None)
+            s[cname]["state"] = engine_state
+            s[cname]["space"] = space
+            s[cname]["processor"] = processor
+
+    def _initialize_engine_config(self, spec, engine_config):
+        # Add default config
+        with spec.engine as d:
+            d.update(engine_config)
+            d["name"] = spec.config.name
+            d["states"] = {}
+            # Add all states to engine-specific params
+            with d.states as s:
+                for cname in spec.states.keys():
+                    s[cname] = None
+
+    def _register_object(self, spec: ObjectSpec) -> "EngineGraph":
+            spec = copy.deepcopy(spec)
+
+            # Construct context & replace placeholders
+            context = {"config": spec.config.to_dict()}
+            substitute_args(spec._params["config"], context, only=["config"])  # First resolve args within the context
+            substitute_args(spec._params, context, only=["config"])  # Resolve rest of params
+
+            # Add engine entry
+            import eagerx.core.register as register
+
+            spec._params["engine"] = {}
+            return register.add_engine(spec, self)
 
 
 # REQUIRED FOR BUILDING SPECS
