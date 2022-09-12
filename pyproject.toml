@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "eagerx"
-version = "0.1.30"
+version = "0.1.31"
 description = "Engine Angostic Graph Environments for Robotics"
 authors = ["Bas van der Heijden <d.s.vanderheijden@tudelft.nl>", "Jelle Luijkx <j.d.luijkx@tudelft.nl>"]
 license = "Apache2.0"
