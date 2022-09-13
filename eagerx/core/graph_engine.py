@@ -468,7 +468,7 @@ class EngineGraph:
         spec = NodeSpec(params)
         return spec
 
-    def _node_depenencies(self, state):
+    def _node_dependencies(self, state):
         import networkx as nx
 
         state = deepcopy(state)
@@ -515,21 +515,24 @@ class EngineGraph:
                     if node_name in ["actuators", "sensors"]:
                         continue
                     dependencies["actuators"][cname].append(node_name)
+            # Always add all nodes that are directly connected to actuator (even if they do not have an output)
+            for source, target in state["connects"]:
+                source_name, source_comp, source_cname = source
+                target_name, target_comp, target_cname = target
+                if source_name == "actuators" and cname == source_cname:
+                    dependencies["actuators"][cname].append(target_name)
             dependencies["actuators"][cname] = list(set(dependencies["actuators"].pop(cname)))
         return dependencies
 
-    def register(self, name: str):
-        """Set the addresses in all incoming components. Validate the graph.
-        Create params that can be uploaded to the ROS param server.
-
-        :param name: object name
-        """
+    def register(self):
+        """Returns the nodes that make up this subgraph,
+         and their relation to the registered actuators and sensors."""
 
         # Check if valid graph.
         assert self.is_valid(plot=False), "Graph not valid."
 
         # Find dependencies
-        dependencies = self._node_depenencies(self._state)
+        dependencies = self._node_dependencies(self._state)
 
         # Copy state
         state = deepcopy(self._state)
@@ -541,7 +544,6 @@ class EngineGraph:
         for source, target in connects:
             source_name, source_comp, source_cname = source
             target_name, target_comp, target_cname = target
-            # address = EngineGraph._get_address(source, target)
             if source_name == "actuators":
                 dependency = [f"$(ns obj_name)/{d}" for d in dependencies["actuators"][source_cname]]
                 if source_cname not in actuators:
@@ -593,11 +595,16 @@ class EngineGraph:
                 elif name == "sensors":
                     pass
                 else:
-                    # Put node name into object namespace
                     spec = NodeSpec(params)
+                    flag = True if "tick" not in spec.config.inputs else len(spec.config.outputs) > 0
+                    assert flag, f"If Node `{spec.config.name}` must run synchronized with the Engine, " \
+                                 f"it must have at least 1 (dummy?) output."
+
+                    # Put node name into object namespace
                     name = f"$(ns obj_name)/{spec.config.name}"
                     spec.config.name = name
                     params = spec.params
+
 
                     # Substitute placeholder args of simnode
                     context = {"ns": {"node_name": name}, "config": params["config"]}
