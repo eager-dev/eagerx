@@ -526,7 +526,7 @@ class EngineGraph:
 
     def register(self):
         """Returns the nodes that make up this subgraph,
-         and their relation to the registered actuators and sensors."""
+        and their relation to the registered actuators and sensors."""
 
         # Check if valid graph.
         assert self.is_valid(plot=False), "Graph not valid."
@@ -597,14 +597,15 @@ class EngineGraph:
                 else:
                     spec = NodeSpec(params)
                     flag = True if "tick" not in spec.config.inputs else len(spec.config.outputs) > 0
-                    assert flag, f"If Node `{spec.config.name}` must run synchronized with the Engine, " \
-                                 f"it must have at least 1 (dummy?) output."
+                    assert flag, (
+                        f"If Node `{spec.config.name}` must run synchronized with the Engine, "
+                        f"it must have at least 1 (dummy?) output."
+                    )
 
                     # Put node name into object namespace
                     name = f"$(ns obj_name)/{spec.config.name}"
                     spec.config.name = name
                     params = spec.params
-
 
                     # Substitute placeholder args of simnode
                     context = {"ns": {"node_name": name}, "config": params["config"]}
