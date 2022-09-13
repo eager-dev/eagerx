@@ -823,6 +823,7 @@ class Graph:
         self, engine: Optional[EngineSpec] = None
     ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
         state = deepcopy(self._state)
+        engine = deepcopy(engine)
         return self._register(state, engine)
 
     @staticmethod
