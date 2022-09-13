@@ -1,3 +1,4 @@
+from warnings import warn
 import copy
 from typing import Dict, Optional, Union, Type, TYPE_CHECKING, List
 import gym
@@ -746,10 +747,14 @@ class EngineSpec(BaseNodeSpec):
         assert name in self.objects, f"There is no Object called `{name}' in engine.objects. First add the Object."
         states = spec.engine.states
         for cname in list(states.keys()):
-            if states[cname] is not None:
-                self._add_engine_state(
-                    name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"]
-                )
+            if cname in spec.config.states:
+                if states[cname] is not None:
+                    self._add_engine_state(
+                        name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"]
+                    )
+                else:
+                    warn(f"Engine state `{cname}` for object `{name}` will be ignored. "
+                         f"There is no implementation provided for it in Engine `{self.config.entity_id}`.")
 
     def _add_engine_state(self, name, cname, engine_state, space, processor=None):
         with self.objects[name].engine_states as s:
