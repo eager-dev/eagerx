@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.32 (2022-09-13)
+### Fix
+* Deepcopy engine, list `EngineNodes` without outputs as dependency ([#215](https://github.com/eager-dev/eagerx/issues/215)) ([`ae6a23a`](https://github.com/eager-dev/eagerx/commit/ae6a23a8e237a9a33906fea760c5805b3830b982))
+
 ## v0.1.31 (2022-09-12)
 ### Fix
 * Substitute `Object` graphs into the agnostic `Graph`. ([#210](https://github.com/eager-dev/eagerx/issues/210)) ([`cb61dfa`](https://github.com/eager-dev/eagerx/commit/cb61dfa212ad5ccec45152677666df952132b740))
