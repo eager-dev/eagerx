@@ -823,6 +823,7 @@ class Graph:
         self, engine: Optional[EngineSpec] = None
     ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
         state = deepcopy(self._state)
+        engine = deepcopy(engine)
         return self._register(state, engine)
 
     @staticmethod
@@ -1494,7 +1495,7 @@ class Graph:
 
         # Register object's engine graph
         engine_graph = engine._register_object(spec)
-        nodes, actuators, sensors, connects = engine_graph.register(name)
+        nodes, actuators, sensors, connects = engine_graph.register()
 
         # Construct context
         context = {"ns": {"obj_name": name}}
