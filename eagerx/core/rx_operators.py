@@ -769,7 +769,10 @@ def call_state_reset(state):
     def _call_state_reset(source):
         def subscribe(observer, scheduler=None):
             def on_next(state_msg):
-                state.reset(state=state_msg.msgs[0])
+                try:
+                    state.reset(state=state_msg.msgs[0])
+                except Exception as e:
+                    observer.on_error(e)
                 observer.on_next(state_msg)
 
             return source.subscribe(on_next, observer.on_error, observer.on_completed, scheduler)
