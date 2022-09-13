@@ -1495,7 +1495,7 @@ class Graph:
 
         # Register object's engine graph
         engine_graph = engine._register_object(spec)
-        nodes, actuators, sensors, connects = engine_graph.register(name)
+        nodes, actuators, sensors, connects = engine_graph.register()
 
         # Construct context
         context = {"ns": {"obj_name": name}}
