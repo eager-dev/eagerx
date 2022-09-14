@@ -996,7 +996,7 @@ class Graph:
             skip=skip,
         )
 
-    def save(self, file: str):
+    def save(self, file: str) -> None:
         """Saves the graph state.
 
         The state is saved in *.yaml* format and contains the state of every added node, object, action, and observation
@@ -1006,7 +1006,6 @@ class Graph:
         """
         with open(file, "w") as outfile:
             yaml.dump(self._state, outfile, default_flow_style=False)
-        pass
 
     @classmethod
     def load(cls, file: str):

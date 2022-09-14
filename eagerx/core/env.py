@@ -1,4 +1,6 @@
 # EAGERX
+import copy
+
 from eagerx.core.space import Space
 from eagerx.core.entities import Backend
 from eagerx.core.specs import NodeSpec, EngineSpec, BackendSpec, BaseNodeSpec
@@ -89,7 +91,12 @@ class BaseEnv(gym.Env):
         self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.backend)
 
         # Register graph (returns unlinked specs with original graph & reloads entities).
-        self.graph, environment, engine, nodes, self.render_node = graph.register(rate, engine)
+        if engine is None:
+            environment, engine, nodes, render = Graph._get_all_node_specs(graph._state)
+            self.graph = graph
+        else:
+            self.graph, environment, engine, nodes, self.render_node = graph.register(rate, engine)
+        self.rate = rate if rate else environment.config.rate
 
         # Create supervisor spec (adds addresses of (engine)states to supervisor)
         supervisor = self._create_supervisor(environment, engine, nodes)
@@ -98,9 +105,9 @@ class BaseEnv(gym.Env):
         self._upload_params(self.ns, self.backend, [supervisor, environment, engine] + nodes)
 
         # Initialize environment
-        self.env = RxNode(name="%s/%s" % (self.ns, environment.config.name), message_broker=self.mb)
-        self.env.node_initialized()
-        self.env_node = self.env.node
+        self.environment_node = RxNode(name="%s/%s" % (self.ns, environment.config.name), message_broker=self.mb)
+        self.environment_node.node_initialized()
+        self.environment = self.environment_node.node
 
         # Initialize nodes
         initialize_nodes(nodes, ENVIRONMENT, self.ns, self.mb, self._is_initialized, self._sp_nodes, self._launch_nodes)
@@ -118,9 +125,9 @@ class BaseEnv(gym.Env):
         )
 
         # Initialize supervisor node
-        self.supervisor = Supervisor("%s/%s" % (self.ns, supervisor.config.name), self.mb, self.env_node)
-        self.supervisor.node_initialized()
-        self.supervisor_node = self.supervisor.node
+        self.supervisor_node = Supervisor("%s/%s" % (self.ns, supervisor.config.name), self.mb, self.environment)
+        self.supervisor_node.node_initialized()
+        self.supervisor = self.supervisor_node.node
         self.mb.connect_io()
 
         # Implement clean up
@@ -133,7 +140,7 @@ class BaseEnv(gym.Env):
         spec.add_output("step", space=Space(shape=(), dtype="int64"))
 
         spec.config.rate = environment.config.rate
-        spec.config.name = "env/supervisor"
+        spec.config.name = "env/supervisor_node"
         spec.config.color = "yellow"
         spec.config.process = process.ENVIRONMENT
         spec.config.outputs = ["step"]
@@ -223,7 +230,7 @@ class BaseEnv(gym.Env):
         :returns: A dictionary with *key* = *state* and *value* = :class:`Space`.
         """
         state_space = dict()
-        for name, buffer in self.supervisor_node.state_buffer.items():
+        for name, buffer in self.supervisor.state_buffer.items():
             state_space[name] = buffer["space"]
         return gym.spaces.Dict(spaces=state_space)
 
@@ -241,7 +248,7 @@ class BaseEnv(gym.Env):
         """
         assert not self.has_shutdown, "This environment has been shutdown."
         observation_space = dict()
-        for name, buffer in self.env_node.observation_buffer.items():
+        for name, buffer in self.environment.observation_buffer.items():
             space = buffer["space"]
             if not buffer["window"] > 0:
                 continue
@@ -264,14 +271,14 @@ class BaseEnv(gym.Env):
         """
         assert not self.has_shutdown, "This environment has been shutdown."
         action_space = dict()
-        for name, buffer in self.env_node.action_buffer.items():
+        for name, buffer in self.environment.action_buffer.items():
             action_space[name] = buffer["space"]
         return gym.spaces.Dict(spaces=action_space)
 
     def _set_action(self, action) -> None:
         # Set actions in buffer
-        for name, buffer in self.env_node.action_buffer.items():
-            assert not self.supervisor_node.sync or name in action, (
+        for name, buffer in self.environment.action_buffer.items():
+            assert not self.supervisor.sync or name in action, (
                 'Action "%s" not specified. Must specify all actions in action_space if running reactive.' % name
             )
             if name in action:
@@ -280,13 +287,13 @@ class BaseEnv(gym.Env):
     def _set_state(self, state) -> None:
         # Set states in buffer
         for name, msg in state.items():
-            assert name in self.supervisor_node.state_buffer, 'Cannot set unknown state "%s".' % name
-            self.supervisor_node.state_buffer[name]["msg"] = msg
+            assert name in self.supervisor.state_buffer, 'Cannot set unknown state "%s".' % name
+            self.supervisor.state_buffer[name]["msg"] = msg
 
     def _get_observation(self) -> Dict:
         # Get observations from buffer
         observation = dict()
-        for name, buffer in self.env_node.observation_buffer.items():
+        for name, buffer in self.environment.observation_buffer.items():
             observation[name] = buffer["msgs"]
         return observation
 
@@ -306,7 +313,7 @@ class BaseEnv(gym.Env):
         self.backend.logdebug("Nodes initialized.")
 
         # Perform first reset
-        self.supervisor_node.reset()
+        self.supervisor.reset()
 
         # Nodes initialized
         self.initialized = True
@@ -323,10 +330,10 @@ class BaseEnv(gym.Env):
                 if not rxnode.has_shutdown:
                     self.backend.logdebug(f"[{self.name}][{rxnode.name}] Shutting down.")
                     rxnode.node_shutdown()
-            if not self.supervisor.has_shutdown:
-                self.supervisor.node_shutdown()
-            if not self.env.has_shutdown:
-                self.env.node_shutdown()
+            if not self.supervisor_node.has_shutdown:
+                self.supervisor_node.node_shutdown()
+            if not self.environment_node.has_shutdown:
+                self.environment_node.node_shutdown()
             self.mb.shutdown()
             self.backend.delete_param(f"/{self.name}", level=1)
             self.backend.shutdown()
@@ -348,7 +355,7 @@ class BaseEnv(gym.Env):
         self._set_state(states)
 
         # Perform reset
-        self.supervisor_node.reset()
+        self.supervisor.reset()
         obs = self._get_observation()
         return obs
 
@@ -379,7 +386,7 @@ class BaseEnv(gym.Env):
         self._set_action(action)
 
         # Call step
-        self.supervisor_node.step()
+        self.supervisor.step()
         return self._get_observation()
 
     @abc.abstractmethod
@@ -412,6 +419,33 @@ class BaseEnv(gym.Env):
         """Opens the gui of the graph that was used to initialize this environment."""
         self.graph.gui()
 
+    def save(self, file: str) -> None:
+        """Saves the (engine-specific) graph state, that includes the engine & environment nodes.
+
+        The state is saved in *.yaml* format and contains the state of every added node, action, and observation
+        and the connections between them.
+
+        :param file: A string giving the name (and the file if the file isn't in the current working directory).
+        """
+        return self.graph.save(file)
+
+    @classmethod
+    def load(cls, name: str, file: str, backend: BackendSpec = None, force_start: bool = True):
+        """Loads an environment corresponding to the graph state.
+
+        :param name: The name of the environment. Everything related to this environment
+             (parameters, topics, nodes, etc...) will be registered under namespace: "`/name`".
+        :param file: A string giving the name (and the file if the file isn't in the current working directory).
+        :param backend: The backend that will govern the communication for this environment.
+                        Per default, the :class:`~eagerx.backends.single_process.SingleProcess` backend is used.
+        :param force_start: If there already exists an environment with the same name, the existing environment is
+                            first shutdown by calling the :func:`~eagerx.core.env.BaseEnv` method before initializing this
+                            environment.
+        """
+        graph = Graph.load(file)
+        graph = copy.deepcopy(graph)
+        return cls(name=name, rate=None, graph=graph, engine=None, backend=backend, force_start=force_start)
+
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         """A method to start rendering (i.e. open the render window).
 
@@ -427,10 +461,10 @@ class BaseEnv(gym.Env):
         assert not self.has_shutdown, "This environment has been shutdown."
         if self.render_node:
             if mode == "human":
-                self.supervisor_node.start_render()
+                self.supervisor.start_render()
             elif mode == "rgb_array":
-                self.supervisor_node.start_render()
-                img = self.supervisor_node.get_last_image()
+                self.supervisor.start_render()
+                img = self.supervisor.get_last_image()
                 return img
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)
@@ -455,7 +489,7 @@ class BaseEnv(gym.Env):
                   in the node that is producing the images to stop the production and output empty images instead.
         """
         assert not self.has_shutdown, "This environment has been shutdown."
-        self.supervisor_node.stop_render()
+        self.supervisor.stop_render()
 
     def shutdown(self):
         """A method to shutdown the environment.

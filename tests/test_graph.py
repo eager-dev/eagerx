@@ -275,6 +275,13 @@ def test_graph():
 
     # Shutdown test
     env.shutdown()
+
+    # Save/load full environment
+    env.save("./full.graph")
+    loaded_env = eagerx.BaseEnv.load(name="load", file="./full.graph")
+    sampled = loaded_env.state_space.sample()
+    loaded_env._reset(sampled)
+    loaded_env.shutdown()
     print("\n[Shutdown]")
 
 
