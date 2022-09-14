@@ -4,7 +4,7 @@ coverage.xml
 *.pyc
 *.idea
 calibrate.launch
-test.graph
+*.graph
 *.zip
 log/
 *.egg-info
