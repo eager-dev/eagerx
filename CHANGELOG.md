@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.33 (2022-09-14)
+### Fix
+* Save/load API, target_channel bug, static node initialization, selected engine state bug ([#218](https://github.com/eager-dev/eagerx/issues/218)) ([`b3fb5c2`](https://github.com/eager-dev/eagerx/commit/b3fb5c24f3b7d8ce9a609a6b8575bedb8d31c66f))
+
 ## v0.1.32 (2022-09-13)
 ### Fix
 * Deepcopy engine, list `EngineNodes` without outputs as dependency ([#215](https://github.com/eager-dev/eagerx/issues/215)) ([`ae6a23a`](https://github.com/eager-dev/eagerx/commit/ae6a23a8e237a9a33906fea760c5805b3830b982))
