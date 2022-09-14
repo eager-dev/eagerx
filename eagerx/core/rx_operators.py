@@ -726,7 +726,9 @@ def init_target_channel(states, scheduler, node):
             remap_target(s["name"], node.sync, node.real_time_factor),
         )
         channels.append(c)
-    return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False))
+    # HACK!: Why do we sometimes receive the targets twice? And is the first received the new target or the old one?
+    #        In this way, we risk reusing a target twice.
+    return rx.zip(*channels).pipe(regroup_inputs(node, is_input=False), ops.take(1))
 
 
 def merge_dicts(dict_1, dict_2):
