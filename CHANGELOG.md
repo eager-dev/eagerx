@@ -2,6 +2,22 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.32 (2022-09-13)
+### Fix
+* Deepcopy engine, list `EngineNodes` without outputs as dependency ([#215](https://github.com/eager-dev/eagerx/issues/215)) ([`ae6a23a`](https://github.com/eager-dev/eagerx/commit/ae6a23a8e237a9a33906fea760c5805b3830b982))
+
+## v0.1.31 (2022-09-12)
+### Fix
+* Substitute `Object` graphs into the agnostic `Graph`. ([#210](https://github.com/eager-dev/eagerx/issues/210)) ([`cb61dfa`](https://github.com/eager-dev/eagerx/commit/cb61dfa212ad5ccec45152677666df952132b740))
+
+### Documentation
+* Remove clutter from readme ([`378b599`](https://github.com/eager-dev/eagerx/commit/378b599651655d9cce13bf909b0337e8616b8561))
+* Increase size gui image ([`f630e80`](https://github.com/eager-dev/eagerx/commit/f630e80441b93ee4881681113b41d3a2d3475477))
+* Make readme less wordy ([`4ea2655`](https://github.com/eager-dev/eagerx/commit/4ea26550dcccac4aec79fad0845c49d3b1d2fcf1))
+* Fix links ([`8e60dc7`](https://github.com/eager-dev/eagerx/commit/8e60dc7adeddb858a19e4410849c4580dab5034d))
+* Fix broken link ([`6781f86`](https://github.com/eager-dev/eagerx/commit/6781f86482b55dad8d0bad978b8221f5090622f7))
+* Readme from rst to md and added gifs, code example and available engines ([`8a44cdb`](https://github.com/eager-dev/eagerx/commit/8a44cdb519a2f172ba7572a0def01963edf45a1d))
+
 ## v0.1.30 (2022-08-02)
 ### Fix
 * Filename argument now passed to gui render function ([`9344240`](https://github.com/eager-dev/eagerx/commit/934424018b59122094c49c3fcb2c83b43c9b2dc5))
