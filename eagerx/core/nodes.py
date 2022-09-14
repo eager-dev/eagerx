@@ -20,7 +20,7 @@ from eagerx.utils.utils import initialize_processor, Msg
 
 class EnvNode(eagerx.Node):
     @classmethod
-    def make(cls, rate=1, log_level=eagerx.log.WARN, color="yellow"):
+    def make(cls, rate=None, log_level=eagerx.log.WARN, color="yellow"):
         """EnvNode Spec"""
         spec = cls.get_specification()
 
@@ -292,14 +292,15 @@ class RenderNode(eagerx.Node):
     @register.inputs(image=eagerx.Space(dtype="uint8"))
     @register.outputs(done=eagerx.Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, image: Optional[Msg] = None):
-        self.last_image = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
-        empty = len(image.msgs[-1]) == 0
-        if not empty and self.display and self.render_toggle.value:
-            img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
-            if self.p is None:
-                self._start_render_process(img.shape)  # Start rendering in separate process
-            np.copyto(self.shared_array_np, img)
-        self.img_event.set()  # Signal async_imshow thread
+        if image.msgs[-1].ndim >= 3:
+            self.last_image = image.msgs[-1] if self.encoding == "rgb" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_BGR2RGB)
+            empty = len(image.msgs[-1]) == 0
+            if not empty and self.display and self.render_toggle.value:
+                img = image.msgs[-1] if self.encoding == "bgr" else cv2.cvtColor(image.msgs[-1], cv2.COLOR_RGB2BGR)
+                if self.p is None:
+                    self._start_render_process(img.shape)  # Start rendering in separate process
+                np.copyto(self.shared_array_np, img)
+            self.img_event.set()  # Signal async_imshow thread
         # Fill output_msg with 'done' output --> signals that we are done rendering
         output_msgs = dict(done=1)
         return output_msgs

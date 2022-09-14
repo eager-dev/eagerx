@@ -308,7 +308,7 @@ class BaseNodeSpec(EntitySpec):
         with self.outputs as d:
             d[cname] = mapping
 
-    def build(self, ns):
+    def build(self, ns: str):
         params = self.params  # Creates a deepcopy
         name = self.config.name
         entity_id = self.config.entity_id
@@ -742,6 +742,18 @@ class EngineSpec(BaseNodeSpec):
                 s["name"] = name
                 s.update(kwargs)
 
+    def build(self, ns: str):
+        params = super().build(ns)
+
+        # Convert engine states
+        for name, obj in params[self.config.name]["objects"].items():
+            for cname, view in obj["engine_states"].items():
+                address = f"{name}/states/{cname}"
+                processor = view["processor"] if view["processor"] != "null" else None
+                spec = RxEngineState(cname, address, view["state"], processor, view["space"])
+                obj["engine_states"][cname] = spec.build(ns=ns)
+        return replace_None(params)
+
     def _add_engine_states(self, name: str, spec: ObjectSpec):
         # Pop states that were not implemented.
         assert name in self.objects, f"There is no Object called `{name}' in engine.objects. First add the Object."
@@ -753,8 +765,10 @@ class EngineSpec(BaseNodeSpec):
                         name, cname, states[cname], spec.states[cname]["space"], spec.states[cname]["processor"]
                     )
                 else:
-                    warn(f"Engine state `{cname}` for object `{name}` will be ignored. "
-                         f"There is no implementation provided for it in Engine `{self.config.entity_id}`.")
+                    warn(
+                        f"Engine state `{cname}` for object `{name}` will be ignored. "
+                        f"There is no implementation provided for it in Engine `{self.config.entity_id}`."
+                    )
 
     def _add_engine_state(self, name, cname, engine_state, space, processor=None):
         with self.objects[name].engine_states as s:

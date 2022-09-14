@@ -262,12 +262,6 @@ def switch_to_reset():
     return _switch_to_reset
 
 
-def combine_dict(acc, x):
-    for key, item in acc.items():
-        item += x[key]
-    return acc
-
-
 def create_msg_tuple(name: str, node_tick: int, msg: List[Any], stamp: List[Stamp], done: bool = None):
     info = Info(name=name, node_tick=node_tick, t_in=stamp, done=done)
     return Msg(info, msg)
@@ -873,28 +867,6 @@ def init_callback_pipeline(
             ops.share(),
         )
     return d_msg, output_stream
-
-
-def get_node_params(node, node_name):
-    node_params = eagerx.utils.utils.get_param_with_blocking(node_name, node.backend)
-    if node_params is None:
-        raise ValueError(
-            "Parameters for object registry request (%s) not found on parameter server. Timeout: object (%s) not registered."
-            % (node_name, node_name)
-        )
-    return node_params
-
-
-def extract_node_reset(ns, node_params, sp_nodes, launch_nodes):
-    # name = node_params["config"]["name"]
-    # nf = dict(name=name, address="%s/%s/end_reset" % (ns, name), msg=Subject(), dtype="bool")
-    return dict(
-        inputs=[],
-        state_inputs=[],
-        node_flags=[],  # [nf],
-        sp_nodes=sp_nodes,
-        launch_nodes=launch_nodes,
-    )
 
 
 def switch_with_check_pipeline(init_ho=None):

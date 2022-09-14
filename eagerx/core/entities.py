@@ -1097,7 +1097,7 @@ class Engine(BaseNode):
         super().__init__(*args, sync=sync, real_time_factor=real_time_factor, params=params, **kwargs)
 
         # Call initialize with spec
-        from eagerx.core.specs import EngineSpec
+        from eagerx.core.specs import EngineSpec, NodeSpec
 
         self.initialize(EngineSpec(params))
 
@@ -1126,26 +1126,58 @@ class Engine(BaseNode):
                     ns=self.ns, name=i["name"], simulator=self.simulator[name], backend=self.backend, params=i["state"]
                 )
 
-    def register_node(self, node_params):
-        # If engine node, find out what object name
-        if issubclass(load(node_params["node_type"]), EngineNode):
-            name = node_params["config"]["name"]
-            name_split = name.split("/")
-            assert len(name_split) == 2, f"Cannot infer object name from the engine node's name '{name}'."
-            node_args = {"simulator": self.simulator[name_split[0]]}
-        else:
-            node_args = dict()
-
         # Initialize nodes
-        sp_nodes = dict()
-        launch_nodes = dict()
-        initialize_nodes(
-            node_params, ENGINE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args
-        )
+        for node in params["config"]["node_names"]:
+            if node in ["environment", "env/supervisor", "engine"]:
+                continue
+            ns_node = f"{self.ns}/{node}"
+            node_params = eagerx.utils.utils.get_param_with_blocking(ns_node, self.backend)
+            spec = NodeSpec(node_params)
+            if not spec.config.process == eagerx.ENGINE:
+                continue
+            # If engine node, find out what object name
+            if issubclass(load(node_params["node_type"]), EngineNode):
+                name = spec.config.name
+                name_split = name.split("/")
+                assert len(name_split) == 2, f"Cannot infer object name from the engine node's name '{name}'."
+                node_args = {"simulator": self.simulator[name_split[0]]}
+            else:
+                node_args = dict()
+
+            initialize_nodes(
+                spec,
+                ENGINE,
+                self.ns,
+                self.message_broker,
+                self.is_initialized,
+                self.sp_nodes,
+                self.launch_nodes,
+                node_args=node_args,
+            )
+        # Wait for all engine nodes to be initialized.
         wait_for_node_initialization(self.is_initialized, self.backend)
-        self.sp_nodes.update(sp_nodes)
-        self.launch_nodes.update(launch_nodes)
-        return node_params, sp_nodes, launch_nodes
+
+    # def register_node(self, node_params):
+    #     # If engine node, find out what object name
+    #     if issubclass(load(node_params["node_type"]), EngineNode):
+    #         name = node_params["config"]["name"]
+    #         name_split = name.split("/")
+    #         assert len(name_split) == 2, f"Cannot infer object name from the engine node's name '{name}'."
+    #         node_args = {"simulator": self.simulator[name_split[0]]}
+    #     else:
+    #         node_args = dict()
+    #
+    #     # Initialize nodes
+    #     sp_nodes = dict()
+    #     launch_nodes = dict()
+    #     initialize_nodes(
+    #         node_params, ENGINE, self.ns, self.message_broker, self.is_initialized, sp_nodes, launch_nodes, node_args=node_args
+    #     )
+    #     # todo: move this to end of initialization.
+    #     wait_for_node_initialization(self.is_initialized, self.backend)
+    #     self.sp_nodes.update(sp_nodes)
+    #     self.launch_nodes.update(launch_nodes)
+    #     return node_params, sp_nodes, launch_nodes
 
     def pre_reset_cb(self, **kwargs):
         keys_to_pop = []

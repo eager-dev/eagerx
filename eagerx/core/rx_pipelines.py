@@ -1,6 +1,3 @@
-# OTHER
-import functools
-
 # RX IMPORTS
 import rx
 from rx import operators as ops
@@ -18,7 +15,6 @@ from eagerx.core.rx_operators import (
     trace_observable,
     flag_dict,
     switch_to_reset,
-    combine_dict,
     init_channels,
     init_real_reset,
     merge_dicts,
@@ -28,8 +24,6 @@ from eagerx.core.rx_operators import (
     switch_with_check_pipeline,
     node_reset_flags,
     filter_dict_on_key,
-    get_node_params,
-    extract_node_reset,
     throttle_callback_trigger,
     with_latest_from,
     convert,
@@ -599,70 +593,6 @@ def init_engine(
     DF = rx.combine_latest(RRr, *dfs)
 
     ###########################################################################
-    # Registry ################################################################
-    ###########################################################################
-    # Object register (to dynamically add input reset flags to F for reset)
-    NR = Subject()
-    node_registry = dict(name="register_node", address=ns + "/register_node", msg=NR, dtype="str")
-    node_inputs.append(node_registry)
-
-    # Node registry pipeline
-    w_get_node_params = functools.partial(get_node_params, node)
-    node_params = NR.pipe(
-        spy("nodes", node, log_level=DEBUG),
-        ops.map(w_get_node_params),
-        ops.filter(lambda params: params is not None),
-        ops.map(node.register_node),
-        ops.map(lambda args: extract_node_reset(ns, *args)),  # todo: remove, because does nothing...
-        ops.share(),
-    )
-
-    # Object register (to dynamically add input reset flags to F for reset)
-    # todo: remove object registry.
-    OR = Subject()
-    object_registry = dict(name="register_object", address=ns + "/register_object", msg=OR, dtype="str")
-    node_inputs.append(object_registry)
-
-    # Object registry pipeline
-    object_params = OR.pipe(
-        # ops.map(w_get_object_params),
-        # ops.filter(lambda params: params is not None),
-        # ops.map(lambda params: (params[1],) + node.register_object(*params)),
-        # ops.map(lambda i: extract_inputs(ns, *i)),
-        ops.share(),
-    )
-
-    rx_objects = rx.merge(object_params, node_params).pipe(
-        ops.map(
-            lambda i: (
-                i,
-                message_broker.add_rx_objects(
-                    node.ns_name,
-                    inputs=i["inputs"],
-                    state_inputs=i["state_inputs"],
-                    node_inputs=i["node_flags"],
-                ),
-            )
-        ),
-        ops.map(lambda i: i[0]),
-        ops.scan(
-            combine_dict,
-            dict(
-                inputs=list(inputs_init),  # todo: add all inputs with tick here.
-                sp_nodes=[],
-                launch_nodes=[],
-                state_inputs=list(engine_state_inputs),  # todo: [DONE] add engine_states here.
-                node_flags=init_node_flags,  # todo: [DONE] add engine node flags here.
-            ),
-        ),
-        ops.share(),
-    )
-
-    # Make sure that all nodes are initialized, before passing it to start_reset_input
-    REG_cum = rx.merge(OR, NR).pipe(ops.scan(lambda acc, x: acc + 1, 0))
-    rx_objects = rx.zip(rx_objects, REG_cum)
-
-    ###########################################################################
     # Start reset #############################################################
     ###########################################################################
     # Prepare start_reset input
@@ -671,13 +601,18 @@ def init_engine(
     node_inputs.append(start_reset_input)
 
     # Latch on '/rx/start_reset' event
+    # todo: do not dynamically initialize
     rx_objects = SR.pipe(
-        ops.combine_latest(REG_cum),
-        ops.filter(lambda x: x[0] == x[1]),  # cum_registered == REG_cum
-        ops.combine_latest(rx_objects),
-        spy("SR", node, log_level=DEBUG, mapper=lambda x: (x[0][0], x[0][1], x[1][1])),
-        ops.filter(lambda x: x[0][1] == x[1][1]),  # cum_registered == REG_cum && REG_cum == rx_objects[1]
-        ops.map(lambda i: i[1][0]),  # rx_objects
+        spy("SR", node, log_level=DEBUG),
+        ops.map(
+            lambda x: dict(
+                inputs=list(inputs_init),
+                sp_nodes=[],
+                launch_nodes=[],
+                state_inputs=list(engine_state_inputs),
+                node_flags=init_node_flags,
+            )
+        ),
         ops.share(),
     )
     inputs = rx_objects.pipe(ops.pluck("inputs"))
@@ -854,7 +789,6 @@ def init_engine(
     d = reset_obs.pipe(
         ops.pluck("dispose"),
         ops.buffer_with_count(2, skip=1),
-        # ops.map(lambda x: x[0].dispose()),
         ops.start_with(None),
         ops.zip(
             ss_cl.pipe(spy("ER-ss_cl", node)),
@@ -962,30 +896,6 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     reset_disp.add(d)
 
     ###########################################################################
-    # Register ################################################################
-    ###########################################################################
-    REG_OBJECT = Subject()  # ---> Not a node output, but used in node.register_object() to kickstart register pipeline.
-    register_object = dict(
-        name="register_object",
-        address=ns + "/register_object",
-        msg=Subject(),
-        dtype="str",
-    )
-    REG_NODE = Subject()  # ---> Not a node output, but used in node.register_node() to kickstart register pipeline.
-    register_node = dict(
-        name="register_node",
-        address=ns + "/register_node",
-        msg=Subject(),
-        dtype="str",
-    )
-
-    # Register pipeline
-    d = REG_OBJECT.subscribe(register_object["msg"], scheduler=tp_scheduler)
-    reset_disp.add(d)
-    d = REG_NODE.subscribe(register_node["msg"], scheduler=tp_scheduler)
-    reset_disp.add(d)
-
-    ###########################################################################
     # End reset ###############################################################
     ###########################################################################
     # Define tick attributes
@@ -1006,11 +916,13 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
 
     # Create node inputs & outputs
     node_inputs = [reset, end_reset, end_register]
-    node_outputs = [register_object, register_node, start_reset, tick, node_reset, real_reset]
+    # node_outputs = [register_object, register_node, start_reset, tick, node_reset, real_reset]
+    node_outputs = [start_reset, tick, node_reset, real_reset]
     outputs = []
 
     # Create return objects
-    env_subjects = dict(register_object=REG_OBJECT, register_node=REG_NODE, start_reset=SR)
+    # env_subjects = dict(register_object=REG_OBJECT, register_node=REG_NODE, start_reset=SR)
+    env_subjects = dict(start_reset=SR)
     rx_objects = dict(
         node_inputs=node_inputs,
         node_outputs=node_outputs,
