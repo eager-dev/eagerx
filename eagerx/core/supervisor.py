@@ -1,18 +1,14 @@
 # Rx imports
 import eagerx.utils.utils
-from eagerx.core.constants import process
-from eagerx.core.executable_node import RxNode
 import eagerx.core.rx_message_broker
 import eagerx.core.rx_operators
 import eagerx.core.rx_pipelines
 from eagerx.core.entities import BaseNode
-from eagerx.core.specs import NodeSpec
 from eagerx.utils.utils import (
     load,
     initialize_processor,
     get_param_with_blocking,
 )
-from eagerx.utils.node_utils import initialize_nodes
 from eagerx.core.nodes import EnvNode
 import eagerx
 
@@ -21,11 +17,11 @@ from threading import Event
 
 
 class SupervisorNode(BaseNode):
-    def __init__(self, **kwargs):
+    def __init__(self, env_node: EnvNode, **kwargs):
         super().__init__(**kwargs)
 
         self.subjects = None
-        self.env_node: EnvNode = None
+        self.env_node = env_node
 
         # Render
         self.last_image = None
@@ -36,12 +32,6 @@ class SupervisorNode(BaseNode):
             f"{self.ns}/env/render/set_last_image", "uint8", self._last_image_callback
         )
         self.render_toggle_pub = self.backend.Publisher(f"{self.ns}/env/render/toggle", "bool")
-
-        # Initialize nodes
-        self.cum_registered = 0
-        self.is_initialized = dict()
-        self.launch_nodes = dict()
-        self.sp_nodes = dict()
 
         # Initialize buffer to hold desired reset states
         self.state_buffer = dict()
@@ -58,9 +48,6 @@ class SupervisorNode(BaseNode):
 
         # Required for reset
         self._step_counter = 0
-
-    def set_environment(self, env_node: EnvNode):
-        self.env_node = env_node
 
     def _set_subjects(self, subjects):
         self.subjects = subjects
@@ -85,24 +72,6 @@ class SupervisorNode(BaseNode):
         self.last_image = msg
         self._image_event.set()
 
-    def register_node(self, node: NodeSpec):
-        # Increase cumulative registered counter. Is send as '/start_reset' message.
-        self.cum_registered += 1
-
-        # Initialize node
-        node_name = node.config.name
-        initialize_nodes(
-            node,
-            process.ENVIRONMENT,
-            self.ns,
-            self.message_broker,
-            self.is_initialized,
-            self.sp_nodes,
-            self.launch_nodes,
-            rxnode_cls=RxNode,
-        )
-        self.subjects["register_node"].on_next(self.ns + "/" + node_name)
-
     def _get_states(self, reset_msg):
         # Fill output_msg with buffered states
         msgs = dict()
@@ -119,7 +88,7 @@ class SupervisorNode(BaseNode):
         self.env_node.obs_event.clear()
         self.env_node.must_reset = True
         self.env_node.action_event.set()
-        self.subjects["start_reset"].on_next(self.cum_registered)
+        self.subjects["start_reset"].on_next(0)
         self._step_counter = 0
         try:
             flag = self.env_node.obs_event.wait()
@@ -151,17 +120,17 @@ class SupervisorNode(BaseNode):
 
 
 class Supervisor(object):
-    def __init__(self, name, message_broker, sync, real_time_factor, simulate_delays):
+    def __init__(self, name, message_broker, env_node: EnvNode):
         self.name = name
         self.ns = "/".join(name.split("/")[:2])
         self.mb = message_broker
         self.backend = message_broker.backend
         self.initialized = False
-        self.sync = sync
+        # self.sync = sync # todo: needed?
         self.has_shutdown = False
 
         # Prepare input & output topics
-        outputs, states, self.node = self._prepare_io_topics(self.name, sync, real_time_factor, simulate_delays)
+        outputs, states, self.node = self._prepare_io_topics(self.name, env_node)
 
         # Initialize reactive pipeline
         rx_objects, env_subjects = eagerx.core.rx_pipelines.init_supervisor(
@@ -179,8 +148,13 @@ class Supervisor(object):
             self.backend.loginfo('Node "%s" initialized.' % self.name)
         self.initialized = True
 
-    def _prepare_io_topics(self, name, sync, real_time_factor, simulate_delays):
+    def _prepare_io_topics(self, name: str, env_node: EnvNode):
         params = get_param_with_blocking(name, self.backend)
+
+        # Get info from engine on reactive properties
+        sync = get_param_with_blocking(self.ns + "/engine/config/sync", self.backend)
+        real_time_factor = get_param_with_blocking(self.ns + "/engine/config/real_time_factor", self.backend)
+        simulate_delays = get_param_with_blocking(self.ns + "/engine/config/simulate_delays", self.backend)
 
         # Prepare output topics
         for i in params["outputs"]:
@@ -212,6 +186,7 @@ class Supervisor(object):
             sync=sync,
             real_time_factor=real_time_factor,
             simulate_delays=simulate_delays,
+            env_node=env_node,
             params=params,
         )
 

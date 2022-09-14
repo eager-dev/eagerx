@@ -92,7 +92,7 @@ class Graph:
         # Add action & observation node to list
         from eagerx.core.nodes import EnvNode
 
-        environment = EnvNode.make("Environment")
+        environment = EnvNode.make()
         nodes += [environment]
 
         # Create a state
@@ -820,16 +820,18 @@ class Graph:
             return entry
 
     def register(
-        self, engine: Optional[EngineSpec] = None
+        self, rate: float, engine: Optional[EngineSpec] = None
     ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
         state = deepcopy(self._state)
         engine = deepcopy(engine)
-        return self._register(state, engine)
+        return self._register(state, rate, engine)
 
     @staticmethod
     def _register(
-        state, engine: Optional[EngineSpec] = None
+        state, rate: float, engine: Optional[EngineSpec] = None
     ) -> Tuple["Graph", NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
+        assert rate >= 0, f"The rate must be non-negative ('{rate}' !=> 0)."
+
         # Add engine
         if engine:
             Graph._add_engine(state, engine)
@@ -876,25 +878,52 @@ class Graph:
             source_dtype = state["nodes"][source_name][source_comp][source_cname]["space"]["dtype"]
             state["nodes"][target_name][target_comp][target_cname]["dtype"] = source_dtype
 
-        # Initialize param objects
+        # Extract node_names
+        node_names = ["env/supervisor"]
+        target_addresses = []
+        for _i, params in state["nodes"].items():
+            if params["config"]["name"] == "engine":
+                continue
+            node_names.append(params["config"]["name"])
+            if "targets" in params["config"]:
+                for cname in params["config"]["targets"]:
+                    address = params["targets"][cname]["address"]
+                    target_addresses.append(address)
+        assert "node_names" not in engine.config, f'Keyword "{"node_names"}" is a reserved keyword.'
+        assert "target_addresses" not in engine.config, f'Keyword "{"target_addresses"}" is a reserved keyword.'
+        msg = "An Engine can only be launched with the options {ENVIRONMENT, EXTERNAL, NEW_PROCESS}."
+        assert not engine.config.process == eagerx.ENGINE, msg
+        with engine.config as d:
+            d.node_names = node_names
+            d.target_addresses = target_addresses
+
+        # Get specs
+        environment, engine, nodes, render = Graph._get_all_node_specs(state)
+
+        # Set environment rate
+        environment.config.rate = rate
+        return Graph(deepcopy(state)), environment, engine, nodes, render
+
+    @staticmethod
+    def _get_all_node_specs(state: Dict) -> Tuple[NodeSpec, EngineSpec, List[NodeSpec], Optional[NodeSpec]]:
+        # Get specs
         nodes = []
         render: Optional[NodeSpec] = None
-        environment: NodeSpec = None
         engine: EngineSpec = None
+        environment: NodeSpec = None
         for name, params in state["nodes"].items():
-            assert "node_type" in params, f"Node `{name}` is not a valid node. have all Objects been replaced by nodes?"
+            assert "node_type" in params, f"Node `{name}` is not a valid node. Have all Objects been replaced by nodes?"
             if name == "environment":
                 environment = NodeSpec(params)
             elif name == "env/render":
                 render = NodeSpec(params)
+                nodes.append(render)
             elif name == "engine":
                 engine = EngineSpec(params)
             else:
                 nodes.append(NodeSpec(params))
-
         assert environment, "No environment node defined in the graph."
-        assert engine, "No engine node defined in the graph."
-        return Graph(state), environment, engine, nodes, render
+        return environment, engine, nodes, render
 
     def render(
         self,
@@ -967,7 +996,7 @@ class Graph:
             skip=skip,
         )
 
-    def save(self, file: str):
+    def save(self, file: str) -> None:
         """Saves the graph state.
 
         The state is saved in *.yaml* format and contains the state of every added node, object, action, and observation
@@ -977,7 +1006,6 @@ class Graph:
         """
         with open(file, "w") as outfile:
             yaml.dump(self._state, outfile, default_flow_style=False)
-        pass
 
     @classmethod
     def load(cls, file: str):
