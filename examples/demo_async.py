@@ -1,67 +1,72 @@
-# ROS packages required
-from eagerx import Object, Engine, initialize, log, process
-
-initialize("eagerx_core", anonymous=True, log_level=log.INFO)
-
-# Environment
-from eagerx.core.graph import Graph
-
-
-# Implementation specific
-import eagerx.engines.openai_gym as eagerx_gym
-
-
-# OTHER
+import eagerx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from time import time
 
 
-def run(LOG_DIR, sync, rtf, num_eps, num_steps, actions):
-    # Define rate (depends on rate of gym env)
-    rate = 20
-    real_time_factor = rtf
+def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
+    eagerx.set_log_level(eagerx.WARN)
+
+    # Initialize empty graph
+    graph = eagerx.Graph.create()
 
     # Define object
+    from eagerx.engines.openai_gym.objects import GymObject
     # todo: Important!!! For this demo to work, make sure to set the env reset state is the same every time.
     gym_id = "Pendulum-v1"  # 'Pendulum-v1', 'Acrobot-v1', 'CartPole-v1', 'MountainCarContinuous-v0'
     name = gym_id.split("-")[0]
-    obj = Object.make("GymObject", name, env_id=gym_id, rate=rate, default_action=[0.0], render_shape=[300, 300])
+    obj = GymObject.make(name, env_id=gym_id, rate=30, default_action=[0.0], render_shape=[300, 300])
+    graph.add(obj)
 
     # Define graph
-    graph = Graph.create(objects=[obj])
     graph.connect(source=obj.sensors.observation, observation="observation", window=1)
     graph.connect(source=obj.sensors.reward, observation="reward", window=1)
     graph.connect(source=obj.sensors.done, observation="done", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
-    # Add rendering
-    # graph.add_component(name, 'sensors', 'image')
-    # graph.render(source=(name, 'sensors', 'image'), rate=10, display=True)
-
     # Open gui
     # graph.gui()
 
-    # Test save & load functionality
-    graph.save("./test.graph")
-    graph.load("./test.graph")
+    # Define environment
+    class Env(eagerx.BaseEnv):
+        def __init__(self, name, rate, graph, engine, backend):
+            self.steps = 0
+            super().__init__(name, rate, graph, engine, backend=backend)
+
+        def step(self, action):
+            obs = self._step(action)
+            return obs, obs["reward"][0], self.steps >= 200, dict()
+
+        def reset(self):
+            # Reset steps counter
+            self.steps = 0
+
+            # Sample states
+            states = self.state_space.sample()
+            # states["pendulum/model_state"] = np.array([0, 0], dtype="float32")
+
+            # Perform reset
+            obs = self._reset(states)
+            return obs
+
+    # Define backend
+    # from eagerx.backends.ros1 import Ros1
+    # backend = Ros1.make()
+    from eagerx.backends.single_process import SingleProcess
+    backend = SingleProcess.make()
 
     # Define engine
-    engine = Engine.make("GymEngine", rate=rate, sync=sync, real_time_factor=real_time_factor,
-                         process=process.NEW_PROCESS)
-
-    # Define step function
-    def step_fn(prev_obs, obs, action, steps):
-        return obs, obs["reward"][0], steps >= 200, dict()
+    from eagerx.engines.openai_gym.engine import GymEngine
+    engine = GymEngine.make(rate=rate, sync=sync, real_time_factor=rtf, process=eagerx.NEW_PROCESS)
 
     # Initialize Environment
-    env = eagerx_gym.EagerxGym(name="rx", rate=rate, graph=graph, engine=engine, step_fn=step_fn)
+    from eagerx.wrappers import Flatten
+    env = Env("Env", rate, graph, engine, backend)
+    # env.gui()
+    env = Flatten(env)
 
-    # Turn on rendering
-    env.render(mode="human")
-
-    # Use stable-baselines
+    # Create fixed action sequence
     t = np.linspace(0, (num_steps - 1) / rate, num=num_steps)
     observations = np.zeros((num_eps, num_steps, env.observation_space.shape[0] + env.action_space.shape[0]))
 
@@ -93,6 +98,15 @@ def run(LOG_DIR, sync, rtf, num_eps, num_steps, actions):
         color = colors[i]
         mean = mean_obs[:, i]
         std = std_obs[:, i]
+        std_idx = np.where(std > 1e-7)[0]
+        if len(std_idx) > 0:
+            d = 2
+            for j in std_idx:
+                obs = observations[:, max(0, j-d):min(num_steps, j+d+1), i]
+                print(f"sync={sync} | rtf={rtf} | ratio={len(std_idx)}/{num_steps} | idx={j} | std={std[j]} | set={len(set(observations[:, j, i]))}")
+                print(obs)
+        else:
+            print(f"sync={sync} | rtf={rtf} | ratio={len(std_idx)}/{num_steps}")
         line = ax[idx].plot(t, mean, color=color, label=label)
         handles.append(line[0])
         ax[idx].fill_between(t, mean + std, mean - std, color=color, alpha=0.3)
@@ -111,27 +125,27 @@ def run(LOG_DIR, sync, rtf, num_eps, num_steps, actions):
     # ax[-1].legend(handles=all_handles, ncol=6, prop={'size': 8}, loc='lower left', fancybox=True, shadow=True)
     ax[-1].set(xlabel="$t (s)$")
     sync = "Sync" if sync else "Async"
-    real_time_str = real_time_factor if real_time_factor > 0 else '"fast-as-possible"'
+    real_time_str = rtf if rtf > 0 else '"fast-as-possible"'
 
     fig.suptitle(
         f"{sync} with factor={real_time_str} (vs {round(actual_rt_rate, 2)} achieved)",
         fontsize=12,
     )
-    fig.savefig(f"{LOG_DIR}/{sync}_{real_time_factor}.png")
-    plt.show()
+    # fig.savefig(f"{LOG_DIR}/{sync}_{rtf}.png")
+    # plt.show()
     print("\n[Finished]")
 
 
 if __name__ == "__main__":
     num_eps = 5
-    num_steps = 100
+    num_steps = 10
     # sync = True
     rtf = 0
     LOG_DIR = "/home/r2ci/Documents/project/EAGERx/ICRA/async"
     actions = [[np.random.random_sample()*4-2] for _ in range(num_steps)]
 
     for sync in [True, False]:
-        for rtf in [0, 0.5, 1.0, 1.5, 2.0, 4.0, 6.0]:
+        for rtf in reversed([0.5, 1.0, 1.5, 2.0, 4.0, 6.0, 0]):
             if rtf == 0 and not sync:
                 continue
-            run(LOG_DIR, sync, rtf, num_eps, num_steps, actions)
+            run(LOG_DIR, 20, sync, rtf, num_eps, num_steps, actions)

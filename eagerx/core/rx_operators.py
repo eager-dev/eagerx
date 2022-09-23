@@ -402,28 +402,20 @@ def regroup_inputs(node, rate_node=1, is_input=True, perform_checks=True):
     return _regroup_inputs
 
 
-def expected_inputs(idx_n, rate_in, rate_node, delay):
-    if idx_n < 0:
-        return 0
-    elif idx_n == 0:
-        return 1
-    else:
-        # N = idx_n + 1, because idx_n starts at 0
-        N_t_min_1 = idx_n
-        N_t = idx_n + 1
-        # Note: idx_n=1 after initial tick, corresponding to T=0
-        # Hence, T_t=dt_n * (idx_n-1), T_t+1=dt_n * idx_n
-        sum_t_min_1 = calculate_inputs(N_t_min_1, rate_in, rate_node, delay)
-        sum_t = calculate_inputs(N_t, rate_in, rate_node, delay)
-        return sum_t - sum_t_min_1
+def expected_inputs(N_out, rate_in, rate_out, delay, skip: bool):
+    # To make skip_double_out work, we need to add a slight offset
+    eps = 1e-9  # todo: skip_double_out, skip_triple_out only works with this offset...
 
+    # Constants
+    offset = int(skip) * (int((rate_out - eps) / rate_in) if rate_out > rate_in else -1)
 
-def calculate_inputs(N_node, rate_in, rate_node, delay):
-    N_in = max(0, int((rate_in * (N_node - 1) - rate_node * rate_in * delay) // rate_node))  # Current timestep
-    # N_in = max(0, int(((rate_in * (N_node - 1) - rate_node * rate_in * delay) / rate_node)))  # Current timestep
-    # N_in = max(0, int(round(((dt_n * (N_node - 1) - delay) / dt_i), 11)))  # Current timestep
-    # N_in = max(0, int(((dt_n * (N_node - 1) - delay) / dt_i)))  # Current timestep
-    return N_in
+    # Numerically stable implementation
+    N_in_prev = int((rate_in * (N_out + offset - 1) - rate_out * rate_in * delay) // rate_out)
+    N_in = int((rate_in * (N_out + offset) - rate_out * rate_in * delay) // rate_out)
+
+    # Overwrite t=0 dependencies, because there are none when skipping.
+    num_est = N_in - N_in_prev if N_out > 0 else int(not skip)
+    return num_est
 
 
 def generate_msgs(
@@ -504,7 +496,7 @@ def generate_msgs(
                 if sync:
                     # Calculate expected number of message to be received
                     delay = params["delay"] if simulate_delays else 0.0
-                    num_msgs = expected_inputs(x - skip, rate_in, rate_node, delay)
+                    num_msgs = expected_inputs(x, rate_in, rate_node, delay, bool(skip))
                     num_queue.append(num_msgs)
                 tick_queue.append(x)
                 next(x)
@@ -561,8 +553,9 @@ def create_channel(
     # Readable format
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
-        # todo: test: input message is moved to event loop AFTER conversion.
         convert(inpt["space"], inpt["processor"], name, "inputs", node, direction="in"),
+        # ops.combine_latest(E),  # Throttle with end_reset
+        # ops.map(lambda x: x[0]),  # Only pass through message
         ops.observe_on(scheduler),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),

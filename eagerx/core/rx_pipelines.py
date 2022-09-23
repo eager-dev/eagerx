@@ -688,9 +688,8 @@ def init_engine(
     )
 
     d = pre_reset_trigger.pipe(
-        ops.map(lambda x: x[0][0]),
-        ops.map(lambda x: x[0] + 1),
-        ops.share(),  # x[0][0]=Nc
+        ops.map(lambda x: x[0][0][0]),  # x[0][0][0]=Nc
+        ops.share(),
     ).subscribe(RM)
     reset_disp.add(d)
     ss_cl = pre_reset_trigger.pipe(ops.map(lambda x: x[0][-1]))  # x[0][-1]=ss_cl
@@ -903,19 +902,19 @@ def init_supervisor(ns, node, outputs=tuple(), state_outputs=tuple()):
     dtype = space.to_dict()["dtype"]
     tick = dict(name="tick", address=ns + "/engine/outputs/tick", msg=Subject(), dtype=dtype)
 
-    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="int64")
-    d = (
-        end_reset["msg"]
-        .pipe(
-            spy("RESET END", node, log_level=DEBUG),
-            convert(space, None, "tick", "outputs", node, direction="out"),
-        )
-        .subscribe(tick["msg"])
-    )
-    reset_disp.add(d)
+    # end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="int64")
+    # d = (
+    #     end_reset["msg"]
+    #     .pipe(
+    #         spy("RESET END", node, log_level=DEBUG),
+    #         convert(space, None, "tick", "outputs", node, direction="out"),
+    #     )
+    #     .subscribe(tick["msg"])
+    # )
+    # reset_disp.add(d)
 
     # Create node inputs & outputs
-    node_inputs = [reset, end_reset, end_register]
+    node_inputs = [reset, end_register]
     # node_outputs = [register_object, register_node, start_reset, tick, node_reset, real_reset]
     node_outputs = [start_reset, tick, node_reset, real_reset]
     outputs = []

@@ -1661,7 +1661,7 @@ class Graph:
                 engine.config.inputs.append(cname)
                 with engine.inputs as i:
                     i[cname] = mapping
-                graph.connect(source=o, target=engine.inputs[cname])
+                graph.connect(source=o, target=engine.inputs[cname], skip=True)
                 break  # We only need 1 output per node.
 
         # Interconnect nodes

@@ -1265,11 +1265,11 @@ class Engine(BaseNode):
             self.iter_start = time.time()
         # Only apply the callback after all pipelines have been initialized
         # Only then, the initial state has been set.
-        if self.num_resets >= 1:
+        if self.num_resets >= 1 and node_tick > 0:
             self.callback(t_n)
         # Fill output msg with number of node ticks
         self.num_ticks += 1
-        return dict(tick=np.array(node_tick + 1, dtype=self.dtype_tick))
+        return dict(tick=np.array(node_tick, dtype=self.dtype_tick))
 
     @classmethod
     def pre_make(cls, entity_id, entity_type):
