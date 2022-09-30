@@ -23,6 +23,7 @@ from eagerx.utils.utils import (
 
 # OTHER IMPORTS
 import time
+from math import floor
 from collections import deque
 from termcolor import colored
 import datetime
@@ -403,18 +404,47 @@ def regroup_inputs(node, rate_node=1, is_input=True, perform_checks=True):
 
 
 def expected_inputs(N_out, rate_in, rate_out, delay, skip: bool):
-    # To make skip_double_out work, we need to add a slight offset
-    eps = 1e-9  # todo: skip_double_out, skip_triple_out only works with this offset...
+    # In case of skip=True and the output rate is an exact multiple of the input rate, we need to add a slight offset
+    eps = 1e-9
 
     # Constants
     offset = int(skip) * (int((rate_out - eps) / rate_in) if rate_out > rate_in else -1)
+
+    # Alternative numerically unstable implementation
+    # dt_out, dt_in = 1 / rate_out, 1 / rate_in
+    # t_prev = dt_out * (N_out - 1 + offset) - delay
+    # t = dt_out * (N_out + offset) - delay
+    # N_in_prev = int(t_prev / dt_in)
+    # N_in = int(t / dt_in)
+    # delta = N_in - N_in_prev
+    # j = (delta - 1 + int(not skip))
+    # T = dt_out * N_out - delay - j * dt_in
+    # correction = ceil(-T / dt_in)
 
     # Numerically stable implementation
     N_in_prev = int((rate_in * (N_out + offset - 1) - rate_out * rate_in * delay) // rate_out)
     N_in = int((rate_in * (N_out + offset) - rate_out * rate_in * delay) // rate_out)
 
+    # Alternative (iterative) delay correction
+    # delta = N_in - N_in_prev
+    # for i in range(int(not skip), delta + int(not skip)):
+    #     # Alternative numerically unstable implementation
+    #     # t_in_delayed = dt_out * N_out - delay - i * dt_in
+    #     # Numerically stable implementation
+    #     t_in_delayed = (N_out * rate_in - delay * rate_out * rate_in - i * rate_out) / rate_in
+    #     if t_in_delayed < 0:
+    #         delta -= 1
+
+    # Alternative delay correction
+    delta = N_in - N_in_prev
+    j = (delta - 1 + int(not skip))
+    # Numerically stable implementation
+    T = (rate_in * N_out - rate_out * rate_in * delay - rate_out * j) / (rate_out * rate_in)
+    correction = -floor(T * rate_in)
+    corrected = delta - min(delta, max(0, correction))  # limits as follows: 0 < correction < delta
+
     # Overwrite t=0 dependencies, because there are none when skipping.
-    num_est = N_in - N_in_prev if N_out > 0 else int(not skip)
+    num_est = corrected if N_out > 0 else int(not skip)
     return num_est
 
 
