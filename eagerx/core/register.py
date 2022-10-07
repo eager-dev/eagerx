@@ -228,8 +228,10 @@ def add_engine(spec, engine):
     entity_id = spec.config.entity_id
     engine_id = engine.config.entity_id
 
-    msg = f"Cannot add engine implementation '{engine_id}' for object '{entity_id}'. "
-    assert entity_id in REGISTRY, msg + "Object does not have any engine implementation registered."
-    assert engine_id in REGISTRY[entity_id], msg + "This engine implementation was not registered."
+    msg = f"Cannot add object '{entity_id}' to engine '{engine_id}'. "
+    assert entity_id in REGISTRY, msg + f"The Object '{entity_id}' has not been registered yet."
+    msg_2 = "If launching the environment as a subprocess, " \
+            "make sure to reload (i.e. import) the engine implementations in each subprocess."
+    assert engine_id in REGISTRY[entity_id], msg + "No engine implementation was registered. " + msg_2
     graph = REGISTRY[entity_id][engine_id](spec, engine)
     return graph
