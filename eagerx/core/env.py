@@ -21,6 +21,7 @@ from eagerx.core.constants import ENVIRONMENT, NEW_PROCESS, EXTERNAL, BackendExc
 import atexit
 import abc
 import numpy as np
+import functools
 from typing import List, Union, Dict, Tuple, Optional
 import gym
 
@@ -415,9 +416,27 @@ class BaseEnv(gym.Env):
         """
         pass
 
-    def gui(self):
-        """Opens the gui of the graph that was used to initialize this environment."""
-        self.graph.gui()
+    @functools.wraps(Graph.gui)
+    def gui(self, *args, interactive: Optional[bool] = True, resolution: Optional[List[int]] = None, filename: Optional[str] = None, **kwargs) -> Union[None, np.ndarray]:
+        """Opens a graphical user interface of the graph that was used to initialize this environment.
+
+        .. note:: Requires `eagerx-gui`:
+
+                .. highlight:: python
+                .. code-block:: python
+
+                    pip3 install eagerx-gui
+
+        :param interactive: If `True`, an interactive application is launched.
+                            Otherwise, an RGB render of the GUI is returned.
+                            This could be useful when using a headless machine.
+        :param resolution: Specifies the resolution of the returned render when `interactive` is `False`.
+                           If `interactive` is `True`, this argument is ignored.
+        :param filename: If provided, the GUI is rendered to an svg file with this name.
+                         If `interactive` is `True`, this argument is ignored.
+        :return: RGB render of the GUI if `interactive` is `False`.
+        """
+        return self.graph.gui(*args, interactive=interactive, resolution=resolution, filename=filename, **kwargs)
 
     def save(self, file: str) -> None:
         """Saves the (engine-specific) graph state, that includes the engine & environment nodes.
