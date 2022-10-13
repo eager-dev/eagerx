@@ -28,6 +28,7 @@ from eagerx.utils.utils import (
     Msg,
     load,
     initialize_processor,
+    get_param_with_blocking
 )
 
 from typing import TYPE_CHECKING
@@ -142,7 +143,11 @@ class Backend(Entity):
         ns: str,
         backend_type: str,
         entity_id: str,
-        log_level: int = WARN,
+        log_level: int,
+        main: bool = False,
+        sync: Optional[bool] = None,
+        real_time_factor: Optional[float] = None,
+        simulate_delays: Optional[bool] = None,
         **kwargs: Union[bool, int, float, str, List, Dict],
     ):
         #: Namespace of the environment. Can be set with the `name` argument to :class:`~eagerx.core.env.BaseEnv`.
@@ -152,6 +157,8 @@ class Backend(Entity):
         #: The class definition of the subclass. Follows naming convention *<module>/<BackendClassName>*.
         #: Cannot be modified.
         self.backend_type: str = backend_type
+        #: If True, the backend is the 'main` backend that corresponds to the environment process.
+        self.main: bool = main
         #: Specifies the effective log level:
         #: {0: SILENT, 10: DEBUG, 20: INFO, 30: WARN, 40: ERROR, 50: FATAL}.
         #: Can be set in the subclass' :func:`~eagerx.core.entities.Backend.spec`.
@@ -165,6 +172,26 @@ class Backend(Entity):
 
         # Call subclass' initialize method
         self.initialize(**kwargs)
+
+        if main:
+            self.ts_init = time.time()
+            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.ts_init))
+            self.loginfo(f"Environment '{self.ns}' initialized at {t_str}")
+            self.sync = sync
+            self.real_time_factor = real_time_factor
+            self.simulate_delays = simulate_delays
+        else:
+            # Happens *after* initialization, else param server not yet online.
+            #: Timestamp of when the environment was initialized.
+            self.ts_init: float = get_param_with_blocking(f"{ns}/ts_init", self, None)
+            #: Flag that specifies whether we run synchronous or asynchronous.
+            self.sync: bool = get_param_with_blocking(f"{ns}/sync", self, None)
+            #: A specified upper bound on the real_time factor. Wall-clock rate=real_time_factor*rate.
+            #: If real_time_factor < 1 the simulation is slower than real time.
+            self.real_time_factor: float = get_param_with_blocking(f"{ns}/real_time_factor", self, None)
+            #: Flag that specifies whether input delays are simulated.
+            #: You probably want to set this to False when running in the real-world.
+            self.simulate_delays: bool = get_param_with_blocking(f"{ns}/real_time_factor", self, None)
 
     @abc.abstractmethod
     def initialize(self, spec: "BackendSpec") -> None:

@@ -65,7 +65,7 @@ class Stamp(NamedTuple):
 
     #: Sequence number of received message since the last reset.
     seq: int
-    #: Timestamp according to the simulated clock (seconds).
+    #: Timestamp according to the simulated clock (seconds). This time is scaled by the real-time factor if > 0.
     sc: float
     #: Timestamp according to the wall clock (seconds).
     wc: float

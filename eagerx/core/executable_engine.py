@@ -84,6 +84,11 @@ class RxEngine(object):
         target_addresses = params["config"]["target_addresses"]
         rate = params["config"]["rate"]
 
+        # Get info on run-time settings
+        sync = get_param_with_blocking(self.ns + "/sync", self.backend)
+        real_time_factor = get_param_with_blocking(self.ns + "/real_time_factor", self.backend)
+        simulate_delays = get_param_with_blocking(self.ns + "/simulate_delays", self.backend)
+
         # Prepare input topics
         for i in params["inputs"]:
             if isinstance(i["processor"], dict):
@@ -121,9 +126,9 @@ class RxEngine(object):
         node = node_cls(
             ns=self.ns,
             message_broker=self.mb,
-            sync=params["config"]["sync"],
-            real_time_factor=params["config"]["real_time_factor"],
-            simulate_delays=params["config"]["simulate_delays"],
+            sync=sync,
+            real_time_factor=real_time_factor,
+            simulate_delays=simulate_delays,
             params=params,
             target_addresses=target_addresses,
             node_names=node_names,

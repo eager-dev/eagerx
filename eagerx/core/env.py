@@ -1,6 +1,3 @@
-# EAGERX
-import copy
-
 from eagerx.core.space import Space
 from eagerx.core.entities import Backend
 from eagerx.core.specs import NodeSpec, EngineSpec, BackendSpec, BaseNodeSpec
@@ -18,6 +15,7 @@ from eagerx.core.constants import process
 from eagerx.core.constants import ENVIRONMENT, NEW_PROCESS, EXTERNAL, BackendException
 
 # OTHER IMPORTS
+import copy
 import atexit
 import abc
 import numpy as np
@@ -77,7 +75,11 @@ class BaseEnv(gym.Env):
             from eagerx.backends.single_process import SingleProcess
 
             backend = SingleProcess.make()
-        self.backend = Backend.from_cmd(self.ns, backend.config.entity_id, backend.config.log_level)
+        self.backend = Backend.from_cmd(self.ns, backend.config.entity_id, backend.config.log_level,
+                                        main=True,
+                                        real_time_factor=engine.config.real_time_factor,
+                                        sync=engine.config.sync,
+                                        simulate_delays=engine.config.sync)
 
         # Check if there already exists an environment
         self._shutdown_srv = self.backend.register_environment(self.ns, force_start, self.shutdown)
@@ -85,8 +87,12 @@ class BaseEnv(gym.Env):
         # Delete pre-existing parameters
         self.backend.delete_param(f"/{self.name}", level=2)
 
-        # Upload log_level
-        self.backend.upload_params(self.ns, {"log_level": self.backend.log_level})
+        # Upload relevant run-time settings
+        self.backend.upload_params(self.ns, {"log_level": self.backend.log_level,
+                                             "ts_init": self.backend.ts_init,
+                                             "real_time_factor": self.backend.real_time_factor,
+                                             "sync": self.backend.sync,
+                                             "simulate_delays": self.backend.simulate_delays})
 
         # Initialize message broker
         self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.backend)
