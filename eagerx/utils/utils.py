@@ -10,47 +10,6 @@ import json
 from eagerx.core.constants import BackendException, Unspecified
 
 
-# def space_to_dict(space):
-#     msg = f"Invalid space provided that is not supported ({type(space)}). Supported spaces are ({SUPPORTED_SPACES})"
-#     assert isinstance(space, SUPPORTED_SPACES), msg
-#     if isinstance(space, gym.spaces.box.Box):
-#         low = np.nan_to_num(space.low)
-#         high = np.nan_to_num(space.high)
-#         if np.all(low == low.reshape(-1)[0]):
-#             low = low.reshape(-1)[0].item()
-#         if np.all(high == high.reshape(-1)[0]):
-#             high = high.reshape(-1)[0].item()
-#         if isinstance(low, np.ndarray):
-#             low = low.tolist()
-#         if isinstance(high, np.ndarray):
-#             high = high.tolist()
-#         d = dict(low=low, high=high, shape=list(space.shape), dtype=space.dtype.name)
-#     elif isinstance(space, gym.spaces.discrete.Discrete):
-#         d = dict(n=space.n, shape=list(space.shape), dtype=space.dtype.name)
-#     else:
-#         raise NotImplementedError(f"Provided space has not yet been implemented ({type(space)}).")
-#     return d
-
-
-# def dict_to_space(d: Dict):
-#     assert isinstance(d, dict), f"Invalid input provided that is not supported ({type(d)}). Argument should be a dict."
-#     if "n" in d:
-#         space = gym.spaces.discrete.Discrete(n=d["n"])
-#     elif all([arg in d for arg in ["low", "high", "shape", "dtype"]]):
-#         if isinstance(d["low"], list):
-#             low = np.array(d["low"], dtype=d["dtype"])
-#         else:
-#             low = d["low"]
-#         if isinstance(d["high"], list):
-#             high = np.array(d["high"], dtype=d["dtype"])
-#         else:
-#             high = d["high"]
-#         space = gym.spaces.box.Box(low=low, high=high, shape=d["shape"], dtype=d["dtype"])
-#     else:
-#         raise NotImplementedError(f"Cannot infer type of space to initialize with the provided dict ({d}).")
-#     return space
-
-
 def dict_null(items):
     result = {}
     for key, value in items:
@@ -107,9 +66,9 @@ class Stamp(NamedTuple):
     #: Sequence number of received message since the last reset.
     seq: int
     #: Timestamp according to the simulated clock (seconds).
-    sim_stamp: float
+    sc: float
     #: Timestamp according to the wall clock (seconds).
-    wc_stamp: float
+    wc: float
 
 
 class Info(NamedTuple):
@@ -127,7 +86,7 @@ class Info(NamedTuple):
     #: Simulated timestamp that states at what time the message was received
     #: according to :attr:`~eagerx.utils.utils.Info.rate_in` and :attr:`~eagerx.utils.utils.Stamp.seq`.
     t_in: List[Stamp]
-    #: Only concerns states. A flag that states if it must be reset.
+    #: Only concerns states. False if a state has not yet been reset.
     done: bool
 
 
@@ -143,25 +102,6 @@ class Msg(NamedTuple):
 # Set default values
 Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
-
-
-# def check_valid_rosparam_type(param):
-#     valid_types = (str, int, list, float, bool, dict)
-#     if isinstance(param, valid_types) or param is None:
-#         if isinstance(param, dict):
-#             for key, value in param.items():
-#                 assert isinstance(
-#                     key, str
-#                 ), 'Only keys of type "str" are supported in dictionaries that are uploaded to the rosparam server.'
-#                 check_valid_rosparam_type(value)
-#         if isinstance(param, list):
-#             for value in param:
-#                 check_valid_rosparam_type(value)
-#     else:
-#         raise ValueError(
-#             'Type "%s" of a specified param with value "%s" is not supported by the rosparam server.'
-#             % (type(param), param.__name__)
-#         )
 
 
 def deepcopy(func):

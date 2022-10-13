@@ -76,7 +76,7 @@ class RealResetNode(ResetNode):
         for cname, i in self.inputs.items():
             if cname in inputs:
                 t_i = inputs[cname].info.t_in
-                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
+                if len(t_i) > 0 and not all((t.sc - t_n) <= 1e-7 for t in t_i if t is not None):
                     self.backend.logerr(f"[{self.name}][{cname}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks
@@ -137,7 +137,7 @@ class TestNode(Node):
         for cname, i in self.inputs.items():
             if cname in inputs:
                 t_i = inputs[cname].info.t_in
-                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
+                if len(t_i) > 0 and not all((t.sc - t_n) <= 1e-7 for t in t_i if t is not None):
                     self.backend.logerr(f"[{self.name}][{cname}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks
@@ -264,7 +264,7 @@ class TestEngineNode(EngineNode):
         for cname, i in self.inputs.items():
             if cname in inputs:
                 t_i = inputs[cname].info.t_in
-                if len(t_i) > 0 and not all((t.sim_stamp - t_n) <= 1e-7 for t in t_i if t is not None):
+                if len(t_i) > 0 and not all((t.sc - t_n) <= 1e-7 for t in t_i if t is not None):
                     self.backend.logerr(f"[{self.name}][{cname}]: Not all t_i are smaller or equal to t_n.")
 
         # Fill output msg with number of node ticks

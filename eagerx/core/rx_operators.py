@@ -278,12 +278,12 @@ def remap_state(name, sync, real_time_factor):
                 node_tick = value[0][0]
                 msg = value[0][1]
                 done = value[1]
-                wc_stamp = time.time()
+                wc = time.time()
                 if sync:
-                    sim_stamp = None
+                    sc = None
                 else:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                    sc = (wc - start) / real_time_factor
+                stamp = Stamp(seq[0], sc, wc)
                 res = create_msg_tuple(name, node_tick, [msg], [stamp], done=done)
                 seq[0] += 1
                 observer.on_next(res)
@@ -304,12 +304,12 @@ def remap_target(name, sync, real_time_factor):
             def on_next(value):
                 node_tick = value[0]
                 msg = value[1]
-                wc_stamp = time.time()
+                wc = time.time()
                 if sync:
-                    sim_stamp = None
+                    sc = None
                 else:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                    sc = (wc - start) / real_time_factor
+                stamp = Stamp(seq[0], sc, wc)
                 res = create_msg_tuple(name, node_tick, [msg], [stamp])
                 seq[0] += 1
                 observer.on_next(res)
@@ -325,9 +325,9 @@ def filter_info_for_printing(info):
     info_dict = dict()
     if info.rate_in:
         info_dict["rate_in"] = info.rate_in
-    info_dict["t_in"] = [t.sim_stamp for t in info.t_in]
+    info_dict["t_in"] = [t.sc for t in info.t_in]
     if info.t_node:
-        info_dict["t_node"] = [t.sim_stamp for t in info.t_node]
+        info_dict["t_node"] = [t.sc for t in info.t_node]
     if info.done:
         info_dict["done"] = info.done
     return info_dict
@@ -499,13 +499,13 @@ def generate_msgs(
                             return
 
                         # Determine t_n stamp
-                        wc_stamp = time.time()
+                        wc = time.time()
                         seq = tick
                         if sync:
-                            sim_stamp = round(tick / rate_node, 12)
+                            sc = round(tick / rate_node, 12)
                         else:
-                            sim_stamp = (wc_stamp - start) / real_time_factor
-                        t_n = Stamp(seq, sim_stamp, wc_stamp)
+                            sc = (wc - start) / real_time_factor
+                        t_n = Stamp(seq, sc, wc)
 
                         if window > 0:
                             msgs_window.extend(msgs)
@@ -538,13 +538,13 @@ def generate_msgs(
 
             def on_next_msg(x):
                 msgs_queue.append(x[1])
-                wc_stamp = time.time()
+                wc = time.time()
                 seq = x[0]
                 if sync:
-                    sim_stamp = round(x[0] * dt_i, 12)
+                    sc = round(x[0] * dt_i, 12)
                 else:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                t_i_queue.append(Stamp(seq, sim_stamp, wc_stamp))
+                    sc = (wc - start) / real_time_factor
+                t_i_queue.append(Stamp(seq, sc, wc))
                 next(x)
 
             sad = SingleAssignmentDisposable()
