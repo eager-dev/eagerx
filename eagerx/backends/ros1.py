@@ -19,6 +19,7 @@ from functools import wraps
 
 # EAGERx
 import eagerx
+from eagerx.utils.utils import Header
 from eagerx.core.pubsub import Publisher, Subscriber, ShutdownService
 from eagerx.core.constants import (
     SILENT,
@@ -50,6 +51,7 @@ class Ros1(eagerx.Backend):
         return spec
 
     def initialize(self):
+        self._bnd = self
         _initialize("eagerx_backend_ros1", anonymous=True, log_level=INFO)
 
         # Set log level
@@ -57,10 +59,10 @@ class Ros1(eagerx.Backend):
         logger.setLevel(self.log_level)
 
     def Publisher(self, address: str, dtype: str):
-        return _Publisher(address, dtype)
+        return _Publisher(self._bnd, address, dtype)
 
-    def Subscriber(self, address: str, dtype: str, callback, callback_args=tuple()):
-        return _Subscriber(address, dtype, callback, callback_args=callback_args)
+    def Subscriber(self, address: str, dtype: str, callback, header: bool = False, callback_args=tuple()):
+        return _Subscriber(self._bnd, address, dtype, callback, header, callback_args=callback_args)
 
     @staticmethod
     def logdebug(msg, *args, **kwargs):
@@ -132,12 +134,6 @@ class Ros1(eagerx.Backend):
     def spin(self):
         return rospy.spin()
 
-    # def on_shutdown(self, fn):
-    #     return rospy.core.add_client_shutdown_hook(fn)
-    #
-    # def signal_shutdown(self, reason):
-    #     return rospy.signal_shutdown(reason)
-
 
 # Private
 _LOG_FNS = {
@@ -159,8 +155,8 @@ _LOG_LEVELS = {
 }
 
 _NUMPY_TO_ROS = {key: None for key in COMPATIBLE_DTYPES}
-_NUMPY_TO_ROS["str"] = std_msgs.msg.String
-_NUMPY_TO_ROS["bool"] = std_msgs.msg.Bool
+_NUMPY_TO_ROS["str"] = std_msgs.msg.UInt8MultiArray
+_NUMPY_TO_ROS["bool"] = std_msgs.msg.Int8MultiArray
 _NUMPY_TO_ROS["float32"] = std_msgs.msg.Float32MultiArray
 _NUMPY_TO_ROS["float64"] = std_msgs.msg.Float64MultiArray
 _NUMPY_TO_ROS["int8"] = std_msgs.msg.Int8MultiArray
@@ -230,14 +226,15 @@ def _dtype_to_ros1_msg_type(dtype: str):
 
 
 class _Publisher(Publisher):
-    def __init__(self, address: str, dtype: str):
+    def __init__(self, backend: eagerx.Backend, address: str, dtype: str):
+        super().__init__(backend)
         self._address = address
         self._dtype = dtype
         self._msg_type = _dtype_to_ros1_msg_type(dtype)
         self._pub = rospy.Publisher(address, self._msg_type, queue_size=0, latch=True)
         self._name = f"{self._address}"
 
-    def publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number]):
+    def _publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number], header: Header) -> None:
         # Convert python native types to numpy arrays.
         if isinstance(msg, float):
             msg = np.array(msg, dtype="float32")
@@ -266,11 +263,22 @@ class _Publisher(Publisher):
         if msg_dtype == "uint8":
             msg = self._msg_type(data=msg.tobytes("C"))
         elif msg_dtype == "bool":
-            msg = self._msg_type(data=msg.item())
+            msg = self._msg_type(data=[int(msg.item())])
         elif msg_dtype == "str":
-            msg = self._msg_type(data=msg)
+            msg = self._msg_type(data=msg.encode("utf-8"))
         else:
             msg = self._msg_type(data=msg.reshape(-1))
+
+        # HACK! Abuse MultiArrayDimension to encode header information
+        seq, sc, wc = header
+        secs, nsecs = self._backend.serialize_time(sc)
+        sc_header = std_msgs.msg.MultiArrayDimension(label=str(seq), size=secs, stride=nsecs)
+        msg.layout.dim.append(sc_header)
+        secs, nsecs = self._backend.serialize_time(wc)
+        wc_header = std_msgs.msg.MultiArrayDimension(label=str(seq), size=secs, stride=nsecs)
+        msg.layout.dim.append(wc_header)
+
+        # Add dimension information
         for i, d in enumerate(shape):
             dim = std_msgs.msg.MultiArrayDimension(label=str(i), size=d, stride=sum(shape[i:]))
             msg.layout.dim.append(dim)
@@ -285,7 +293,8 @@ class _Publisher(Publisher):
 
 
 class _Subscriber(Subscriber):
-    def __init__(self, address: str, dtype: str, callback, callback_args=tuple()):
+    def __init__(self, backend: eagerx.Backend, address: str, dtype: str, callback, header: bool, callback_args=tuple()):
+        super().__init__(backend, header)
         self._address = address
         self._dtype = dtype
         self._msg_type = _dtype_to_ros1_msg_type(dtype)
@@ -299,14 +308,24 @@ class _Subscriber(Subscriber):
             Ros1.logerr(f"[subscriber][{self._name}]: type(recv)={type(msg)}")
             time.sleep(10000000)
 
+        if self._header:
+            seq = int(msg.layout.dim[0].label)
+            sc_secs, sc_nsecs = msg.layout.dim[0].size, msg.layout.dim[0].stride
+            wc_secs, wc_nsecs = msg.layout.dim[1].size, msg.layout.dim[1].stride
+            sc, wc = self._backend.deserialize_time(sc_secs, sc_nsecs), self._backend.deserialize_time(wc_secs, wc_nsecs)
+            header = Header(seq=seq, sc=sc, wc=wc)
+
         # Convert input message to numpy array
-        if isinstance(msg, (std_msgs.msg.Bool, std_msgs.msg.String)):
-            msg = msg.data
+        if isinstance(msg, std_msgs.msg.Int8MultiArray) and self._dtype == "bool":
+            msg = bool(msg.data[0])
         elif isinstance(msg, std_msgs.msg.UInt8MultiArray):
-            s = [d.size for d in msg.layout.dim]
-            msg = np.frombuffer(bytes(msg.data), dtype="uint8").reshape(s)
+            if self._dtype == "str":
+                msg = msg.data.decode("utf-8")
+            else:
+                s = [d.size for d in msg.layout.dim[2:]]
+                msg = np.frombuffer(bytes(msg.data), dtype="uint8").reshape(s)
         else:
-            s = [d.size for d in msg.layout.dim]
+            s = [d.size for d in msg.layout.dim[2:]]
             msg = np.array(msg.data, dtype=_ROS_TO_NUMPY[type(msg)]).reshape(s)
 
         try:
@@ -315,7 +334,8 @@ class _Subscriber(Subscriber):
             #     print(f"[subscriber][{self._name}]: N9 received={msg}!")
             # elif self._address == "/rx/obj/states/N9/done":
             #     print(f"[subscriber][{self._name}]: N9/done received={msg}!")
-            self._cb_wrapped(msg, *self._cb_args)
+            # Extract header information
+            self._cb_wrapped(msg, header, *self._cb_args) if self._header else self._cb_wrapped(msg, *self._cb_args)
         except rospy.exceptions.ROSException as e:
             self.unregister()
             Ros1.logdebug(f"[subscriber][{self._name}]: Unregistered this subscription because of exception: {e}")

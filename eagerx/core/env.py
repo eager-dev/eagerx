@@ -88,8 +88,10 @@ class BaseEnv(gym.Env):
         self.backend.delete_param(f"/{self.name}", level=2)
 
         # Upload relevant run-time settings
+        secs, nsecs = self.backend.serialize_time(self.backend.ts_init)
         self.backend.upload_params(self.ns, {"log_level": self.backend.log_level,
-                                             "ts_init": self.backend.ts_init,
+                                             "ts_init_secs": secs,
+                                             "ts_init_nsecs": nsecs,
                                              "real_time_factor": self.backend.real_time_factor,
                                              "sync": self.backend.sync,
                                              "simulate_delays": self.backend.simulate_delays})

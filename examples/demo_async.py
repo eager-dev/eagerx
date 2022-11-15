@@ -6,7 +6,7 @@ from time import time
 
 
 def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
-    eagerx.set_log_level(eagerx.WARN)
+    eagerx.set_log_level(eagerx.DEBUG)
 
     # Initialize empty graph
     graph = eagerx.Graph.create()
@@ -44,17 +44,17 @@ def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
 
             # Sample states
             states = self.state_space.sample()
-            # states["pendulum/model_state"] = np.array([0, 0], dtype="float32")
+            states["pendulum/model_state"] = np.array([0, 0], dtype="float32")
 
             # Perform reset
             obs = self._reset(states)
             return obs
 
     # Define backend
-    # from eagerx.backends.ros1 import Ros1
-    # backend = Ros1.make()
-    from eagerx.backends.single_process import SingleProcess
-    backend = SingleProcess.make()
+    from eagerx.backends.ros1 import Ros1
+    backend = Ros1.make()
+    # from eagerx.backends.single_process import SingleProcess
+    # backend = SingleProcess.make()
 
     # Define engine
     from eagerx.engines.openai_gym.engine import GymEngine

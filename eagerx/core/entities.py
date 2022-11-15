@@ -175,7 +175,7 @@ class Backend(Entity):
 
         if main:
             self.ts_init = time.time()
-            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.ts_init))
+            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.ts_init/1e9))
             self.loginfo(f"Environment '{self.ns}' initialized at {t_str}")
             self.sync = sync
             self.real_time_factor = real_time_factor
@@ -183,7 +183,9 @@ class Backend(Entity):
         else:
             # Happens *after* initialization, else param server not yet online.
             #: Timestamp of when the environment was initialized.
-            self.ts_init: float = get_param_with_blocking(f"{ns}/ts_init", self, None)
+            secs = get_param_with_blocking(f"{ns}/ts_init_secs", self, None)
+            nsecs = get_param_with_blocking(f"{ns}/ts_init_nsecs", self, None)
+            self.ts_init: float = self.deserialize_time(secs, nsecs)
             #: Flag that specifies whether we run synchronous or asynchronous.
             self.sync: bool = get_param_with_blocking(f"{ns}/sync", self, None)
             #: A specified upper bound on the real_time factor. Wall-clock rate=real_time_factor*rate.
@@ -258,13 +260,14 @@ class Backend(Entity):
         pass
 
     @abc.abstractmethod
-    def Subscriber(self, address: str, dtype: str, callback, callback_args: Optional[Tuple] = tuple()) -> Subscriber:
+    def Subscriber(self, address: str, dtype: str, callback, header: bool = False, callback_args: Optional[Tuple] = tuple()) -> Subscriber:
         """Creates a subscriber.
 
         :param address: Topic name.
         :param dtype: Dtype of message in string format (e.g. `float32`).
         :param callback: Function to call ( fn(data)) when data is received. If callback_args is set, the function
-                         must accept the callback_args as positional args, i.e. fn(data, *callback_args).
+                         must accept the callback_args as positional args, i.e. fn(data, header, *callback_args).
+        :param header: Set to True if the callback accepts the header as the second positional argument.
         :param callback_args: Additional arguments to pass to the callback.
         """
         pass
@@ -320,6 +323,33 @@ class Backend(Entity):
     def spin(self) -> None:
         """Blocks until node is shutdown. Yields activity to other threads."""
         pass
+
+    def now(self) -> Tuple[float, float]:
+        """Get the current times according to the simulated and wall clock"""
+        wc = time.time()
+        _passed = wc - self.ts_init
+        sc = wc if self.real_time_factor == 0 else self.ts_init + _passed * self.real_time_factor
+        return sc, wc
+
+    @staticmethod
+    def serialize_time(t: float) -> Tuple[int, int]:
+        """
+        Convert a float time instance (in seconds) into secs and nsecs.
+
+        Should be used when manually setting secs/nsecs slot values for serialization.
+        """
+        secs = int(t)
+        nsecs = int((t - secs) * 1e9)
+        return secs, nsecs
+
+    @staticmethod
+    def deserialize_time(secs: int, nsecs: int) -> float:
+        """
+        Convert a secs and nsecs time instance into float time in seconds .
+
+        Should be used when manually setting secs/nsecs slot values for deserialization.
+        """
+        return float(secs) + float(nsecs) / 1e9
 
     def shutdown(self) -> None:
         """Shuts down the backend"""

@@ -60,10 +60,21 @@ def is_compatible(dtype_source, dtype_target):
     assert dtype_target == dtype_source, msg
 
 
+class Header(NamedTuple):
+    """A dataclass for meta data of sent messages."""
+
+    #: Sequence number of received message since the last reset.
+    seq: int
+    #: Timestamp according to the simulated clock (seconds). This time is scaled by the real-time factor if > 0.
+    sc: float
+    #: Timestamp according to the wall clock (seconds).
+    wc: float
+
+
 class Stamp(NamedTuple):
     """A dataclass for timestamping received messages."""
 
-    #: Sequence number of received message since the last reset.
+    #: Sequence number of received message.
     seq: int
     #: Timestamp according to the simulated clock (seconds). This time is scaled by the real-time factor if > 0.
     sc: float
@@ -74,7 +85,7 @@ class Stamp(NamedTuple):
 class Info(NamedTuple):
     """A dataclass containing info about the received messages in :attr:`~eagerx.utils.utils.Msg.msgs`."""
 
-    #: name of the registered input.
+    #: Name of the registered input.
     name: str
     #: Number of times :func:`~eagerx.core.entities.Node.callback` has been called since the last reset.
     node_tick: int
@@ -100,6 +111,7 @@ class Msg(NamedTuple):
 
 
 # Set default values
+Header.__new__.__defaults__ = (None,) * len(Header._fields)
 Stamp.__new__.__defaults__ = (None,) * len(Stamp._fields)
 Info.__new__.__defaults__ = (None,) * len(Info._fields)
 
