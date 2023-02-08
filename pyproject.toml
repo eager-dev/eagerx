@@ -9,10 +9,10 @@ repository = "https://github.com/eager-dev/eagerx"
 documentation = "https://eagerx.readthedocs.io/en/master/"
 
 [tool.poetry.dependencies]
-python = "^3.6.2"
+python = ">=3.7,<4.0.0"
 opencv-python = "^4.3.0.36"
 networkx = "^2.5.1"
-gym = "^0.21.0"
+gym = ">=0.22.0, <=0.23.1"
 tabulate = "^0.8.9"
 PyYAML = "^6.0"
 rospkg = "^1.3.0"
