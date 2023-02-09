@@ -9,7 +9,7 @@ repository = "https://github.com/eager-dev/eagerx"
 documentation = "https://eagerx.readthedocs.io/en/master/"
 
 [tool.poetry.dependencies]
-python = ">=3.7,<4.0.0"
+python = "^3.6.2"
 opencv-python = "^4.3.0.36"
 networkx = "^2.5.1"
 gym = {version = ">=0.21, <=0.23.1", extras = ["classic-control"]}
