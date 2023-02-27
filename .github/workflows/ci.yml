@@ -58,8 +58,9 @@ jobs:
       - name: Install gym
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
-          poetry run pip install --upgrade pip && pip install --upgrade wheel && pip install --upgrade setuptools
-          poetry run pip install gym==0.21.0
+          poetry run pip install --upgrade pip
+          source .venv/bin/activate
+          python -m pip install gym==0.21.0
       #----------------------------------------------
       # install dependencies if cache does not exist
       #----------------------------------------------
