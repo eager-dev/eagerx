@@ -58,7 +58,7 @@ jobs:
       - name: Install gym
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
-          poetry run pip install --user --upgrade setuptools
+          poetry run pip install --upgrade setuptools
           source .venv/bin/activate
           python -m pip install gym==0.21.0
       #----------------------------------------------
