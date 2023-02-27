@@ -56,9 +56,10 @@ jobs:
       #    Install gym separately due to bug
       #----------------------------------------------
       - name: Install gym
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
-          source .venv/bin/activate
-          python -m pip install gym==0.21.0
+          poetry shell
+          pip install gym==0.21.0
       #----------------------------------------------
       # install dependencies if cache does not exist
       #----------------------------------------------
