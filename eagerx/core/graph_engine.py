@@ -485,6 +485,10 @@ class EngineGraph:
         # _, _, _, _ = plot_graph(G_rev, k=2, ax=ax_env, pos=pos)
         # plt.show()
 
+        # check if node is synced
+        def is_synced(node_name):
+            return True if "tick" in state["nodes"][node_name]["config"]["inputs"] else False
+
         # Determine sensor dependencies
         dependencies = dict(sensors=dict(), actuators=dict())
         for cname in state["nodes"]["sensors"]["inputs"]:
@@ -502,11 +506,17 @@ class EngineGraph:
             dependencies["actuators"][cname] = []
             source_name = f"actuators/{cname}"
             descendants = nx.descendants(G, source_name)
-            for target in descendants:
+            for target in list(descendants):
                 node_name, target_cname = target.split("/")
                 if node_name in ["actuators", "sensors"]:
                     continue
-                dependencies["actuators"][cname].append(node_name)
+                sync = is_synced(node_name)
+                if sync:  # Only add downstream dependency if it is synced with the engine
+                    dependencies["actuators"][cname].append(node_name)
+                else:
+                    # Pop from descendants list so that we only add reversed dependencies of synced engine nodes
+                    # Node might still be added later-on as a dependency, if synced node requires output of async node.
+                    descendants.remove(target)
             # Also add dependencies of all targets
             for target in descendants:
                 nx.descendants(G_rev, target)

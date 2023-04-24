@@ -16,7 +16,15 @@ ENV = eagerx.ENVIRONMENT
     [("Pendulum-v1", 2, True, 0, ENV), ("Pendulum-v1", 2, True, 0, NP), ("Acrobot-v1", 2, True, 0, ENV)],
 )
 def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
-    eagerx.set_log_level(eagerx.WARN)
+    # todo: engine: refactor sync, simulate_delays, real_time_factor settings to backend? Not saved then...
+    # todo: utils: Modify Stamp to be used in backend.
+    # todo: pubsub:  Timestamp messages with timestamp(clock="sc" or "wc")
+    # todo: backend: Throttle(clock="sc") method. Throttle w.r.t. simulated or wall clock.
+    # todo: backend: record topics
+    # todo: backend: record timings (publish timing, received timing)
+    # todo: nodes: log timing analytics (communication + computation delays). Over sliding window?
+
+    eagerx.set_log_level(eagerx.INFO)
 
     # Define rate (depends on rate of gym env)
     rate = 20
@@ -33,7 +41,7 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
 
     # Add butterworth filter
     from tests.test.butterworth_filter import ButterworthFilter
-    bf = ButterworthFilter.make(name="bf", rate=rate, N=2, Wn=4, process=eagerx.ENVIRONMENT)
+    bf = ButterworthFilter.make(name="bf", rate=rate, N=2, Wn=4, process=eagerx.NEW_PROCESS)
     from tests.test.processors import GetIndex
     bf.inputs.signal.processor = GetIndex.make(index=0)
     graph.add(bf)
@@ -54,13 +62,24 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     engine = GymEngine.make(rate=rate, sync=sync, real_time_factor=rtf, process=p)
 
     # Define backend
-    from eagerx.backends.ros1 import Ros1
-    backend = Ros1.make()
-    # from eagerx.backends.single_process import SingleProcess
-    # backend = SingleProcess.make()
+    # from eagerx.backends.ros1 import Ros1
+    # backend = Ros1.make()
+    from eagerx.backends.single_process import SingleProcess
+    backend = SingleProcess.make()
 
     # Initialize Environment
     env = eagerx_gym.EagerxGym(name=name, rate=rate, graph=graph, engine=engine, backend=backend)
+
+    # pub_str = env.backend.Publisher("/test_string", "str")
+    # sub_str = env.backend.Subscriber("/test_string", "str", lambda x: print(x), header=False)
+    # pub_bool = env.backend.Publisher("/test_bool", "bool")
+    # sub_bool = env.backend.Subscriber("/test_bool", "bool", lambda x, header: print(x, header), header=True)
+
+    # import rospy
+    # from eagerx.utils.utils import Header
+    # pub_str.publish("Test")
+    # pub_bool.publish(False, header=Header(seq=999, sc=1, wc=float(2)))
+    # rospy.sleep(10000)
 
     # First reset
     _done = False

@@ -23,6 +23,7 @@ from eagerx.utils.utils import (
 
 # OTHER IMPORTS
 import time
+from math import floor
 from collections import deque
 from termcolor import colored
 import datetime
@@ -277,12 +278,12 @@ def remap_state(name, sync, real_time_factor):
                 node_tick = value[0][0]
                 msg = value[0][1]
                 done = value[1]
-                wc_stamp = time.time()
+                wc = time.time()
                 if sync:
-                    sim_stamp = None
+                    sc = None
                 else:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                    sc = (wc - start) / real_time_factor
+                stamp = Stamp(seq[0], sc, wc)
                 res = create_msg_tuple(name, node_tick, [msg], [stamp], done=done)
                 seq[0] += 1
                 observer.on_next(res)
@@ -303,12 +304,12 @@ def remap_target(name, sync, real_time_factor):
             def on_next(value):
                 node_tick = value[0]
                 msg = value[1]
-                wc_stamp = time.time()
+                wc = time.time()
                 if sync:
-                    sim_stamp = None
+                    sc = None
                 else:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                stamp = Stamp(seq[0], sim_stamp, wc_stamp)
+                    sc = (wc - start) / real_time_factor
+                stamp = Stamp(seq[0], sc, wc)
                 res = create_msg_tuple(name, node_tick, [msg], [stamp])
                 seq[0] += 1
                 observer.on_next(res)
@@ -324,9 +325,9 @@ def filter_info_for_printing(info):
     info_dict = dict()
     if info.rate_in:
         info_dict["rate_in"] = info.rate_in
-    info_dict["t_in"] = [t.sim_stamp for t in info.t_in]
+    info_dict["t_in"] = [t.sc for t in info.t_in]
     if info.t_node:
-        info_dict["t_node"] = [t.sim_stamp for t in info.t_node]
+        info_dict["t_node"] = [t.sc for t in info.t_node]
     if info.done:
         info_dict["done"] = info.done
     return info_dict
@@ -402,28 +403,49 @@ def regroup_inputs(node, rate_node=1, is_input=True, perform_checks=True):
     return _regroup_inputs
 
 
-def expected_inputs(idx_n, rate_in, rate_node, delay):
-    if idx_n < 0:
-        return 0
-    elif idx_n == 0:
-        return 1
-    else:
-        # N = idx_n + 1, because idx_n starts at 0
-        N_t_min_1 = idx_n
-        N_t = idx_n + 1
-        # Note: idx_n=1 after initial tick, corresponding to T=0
-        # Hence, T_t=dt_n * (idx_n-1), T_t+1=dt_n * idx_n
-        sum_t_min_1 = calculate_inputs(N_t_min_1, rate_in, rate_node, delay)
-        sum_t = calculate_inputs(N_t, rate_in, rate_node, delay)
-        return sum_t - sum_t_min_1
+def expected_inputs(N_out, rate_in, rate_out, delay, skip: bool):
+    # In case of skip=True and the output rate is an exact multiple of the input rate, we need to add a slight offset
+    eps = 1e-9
 
+    # Constants
+    offset = int(skip) * (int((rate_out - eps) / rate_in) if rate_out > rate_in else -1)
 
-def calculate_inputs(N_node, rate_in, rate_node, delay):
-    N_in = max(0, int((rate_in * (N_node - 1) - rate_node * rate_in * delay) // rate_node))  # Current timestep
-    # N_in = max(0, int(((rate_in * (N_node - 1) - rate_node * rate_in * delay) / rate_node)))  # Current timestep
-    # N_in = max(0, int(round(((dt_n * (N_node - 1) - delay) / dt_i), 11)))  # Current timestep
-    # N_in = max(0, int(((dt_n * (N_node - 1) - delay) / dt_i)))  # Current timestep
-    return N_in
+    # Alternative numerically unstable implementation
+    # dt_out, dt_in = 1 / rate_out, 1 / rate_in
+    # t_prev = dt_out * (N_out - 1 + offset) - delay
+    # t = dt_out * (N_out + offset) - delay
+    # N_in_prev = int(t_prev / dt_in)
+    # N_in = int(t / dt_in)
+    # delta = N_in - N_in_prev
+    # j = (delta - 1 + int(not skip))
+    # T = dt_out * N_out - delay - j * dt_in
+    # correction = ceil(-T / dt_in)
+
+    # Numerically stable implementation
+    N_in_prev = int((rate_in * (N_out + offset - 1) - rate_out * rate_in * delay) // rate_out)
+    N_in = int((rate_in * (N_out + offset) - rate_out * rate_in * delay) // rate_out)
+
+    # Alternative (iterative) delay correction
+    # delta = N_in - N_in_prev
+    # for i in range(int(not skip), delta + int(not skip)):
+    #     # Alternative numerically unstable implementation
+    #     # t_in_delayed = dt_out * N_out - delay - i * dt_in
+    #     # Numerically stable implementation
+    #     t_in_delayed = (N_out * rate_in - delay * rate_out * rate_in - i * rate_out) / rate_in
+    #     if t_in_delayed < 0:
+    #         delta -= 1
+
+    # Alternative delay correction
+    delta = N_in - N_in_prev
+    j = delta - 1 + int(not skip)
+    # Numerically stable implementation
+    T = (rate_in * N_out - rate_out * rate_in * delay - rate_out * j) / (rate_out * rate_in)
+    correction = -floor(T * rate_in)
+    corrected = delta - min(delta, max(0, correction))  # limits as follows: 0 < correction < delta
+
+    # Overwrite t=0 dependencies, because there are none when skipping.
+    num_est = corrected if N_out > 0 else int(not skip)
+    return num_est
 
 
 def generate_msgs(
@@ -477,13 +499,13 @@ def generate_msgs(
                             return
 
                         # Determine t_n stamp
-                        wc_stamp = time.time()
+                        wc = time.time()
                         seq = tick
                         if sync:
-                            sim_stamp = round(tick / rate_node, 12)
+                            sc = round(tick / rate_node, 12)
                         else:
-                            sim_stamp = (wc_stamp - start) / real_time_factor
-                        t_n = Stamp(seq, sim_stamp, wc_stamp)
+                            sc = (wc - start) / real_time_factor
+                        t_n = Stamp(seq, sc, wc)
 
                         if window > 0:
                             msgs_window.extend(msgs)
@@ -504,7 +526,7 @@ def generate_msgs(
                 if sync:
                     # Calculate expected number of message to be received
                     delay = params["delay"] if simulate_delays else 0.0
-                    num_msgs = expected_inputs(x - skip, rate_in, rate_node, delay)
+                    num_msgs = expected_inputs(x, rate_in, rate_node, delay, bool(skip))
                     num_queue.append(num_msgs)
                 tick_queue.append(x)
                 next(x)
@@ -516,13 +538,13 @@ def generate_msgs(
 
             def on_next_msg(x):
                 msgs_queue.append(x[1])
-                wc_stamp = time.time()
+                wc = time.time()
                 seq = x[0]
                 if sync:
-                    sim_stamp = round(x[0] * dt_i, 12)
+                    sc = round(x[0] * dt_i, 12)
                 else:
-                    sim_stamp = (wc_stamp - start) / real_time_factor
-                t_i_queue.append(Stamp(seq, sim_stamp, wc_stamp))
+                    sc = (wc - start) / real_time_factor
+                t_i_queue.append(Stamp(seq, sc, wc))
                 next(x)
 
             sad = SingleAssignmentDisposable()
@@ -561,8 +583,9 @@ def create_channel(
     # Readable format
     Is = inpt["reset"]
     Ir = inpt["msg"].pipe(
-        # todo: test: input message is moved to event loop AFTER conversion.
         convert(inpt["space"], inpt["processor"], name, "inputs", node, direction="in"),
+        # ops.combine_latest(E),  # Throttle with end_reset
+        # ops.map(lambda x: x[0]),  # Only pass through message
         ops.observe_on(scheduler),
         ops.scan(lambda acc, x: (acc[0] + 1, x), (-1, None)),
         ops.share(),

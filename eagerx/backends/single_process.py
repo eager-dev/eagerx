@@ -5,6 +5,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import cpu_count
+from eagerx.utils.utils import Header
 from eagerx.core.pubsub import Publisher, Subscriber, ShutdownService
 import eagerx
 from eagerx.core.constants import (
@@ -66,17 +67,19 @@ class SingleProcess(eagerx.Backend):
         return spec
 
     def initialize(self):
-        self._bnd = self
+        self._backend = self
         self._pserver = dict()
         self._topics = dict()
         self._cond = threading.Condition()
         self._tpool = ThreadPoolExecutor(max_workers=max(self.MIN_THREADS, cpu_count()))
 
     def Publisher(self, address: str, dtype: str):
-        return _Publisher(self._bnd, self._tpool, self._topics, self._cond, address, dtype)
+        return _Publisher(self._backend, self._tpool, self._topics, self._cond, address, dtype)
 
-    def Subscriber(self, address: str, dtype: str, callback, callback_args=tuple()):
-        return _Subscriber(self._bnd, self._topics, self._cond, address, dtype, callback, callback_args=callback_args)
+    def Subscriber(self, address: str, dtype: str, callback, header: bool = False, callback_args=tuple()):
+        return _Subscriber(
+            self._backend, self._topics, self._cond, address, dtype, callback, header, callback_args=callback_args
+        )
 
     def register_environment(self, name: str, force_start: bool, fn: typing.Callable):
         return _ShutdownService()
@@ -138,7 +141,7 @@ class _Publisher(Publisher):
         address: str,
         dtype: str,
     ):
-        self._bnd = backend
+        super().__init__(backend)
         self._tpool = tpool
         self._cond = cond
         self._topics = topics
@@ -158,7 +161,7 @@ class _Publisher(Publisher):
             self._name = f"{self._address}"
             self._unregistered = False
 
-    def publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number]) -> None:
+    def _publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number], header: Header) -> None:
         if not self._unregistered:
             # todo: check if dtype(msg) == self._dtype?
             # Convert python native types to numpy arrays.
@@ -169,13 +172,13 @@ class _Publisher(Publisher):
 
             # Check if message complies with space
             if not isinstance(msg, (np.ndarray, np.number, str, bool)):
-                self._bnd.logerr(f"[publisher][{self._name}]: type(recv)={type(msg)}")
+                self._backend.logerr(f"[publisher][{self._name}]: type(recv)={type(msg)}")
                 time.sleep(10000000)
 
             # with self._cond:  # todo: needed?
             for cb in self._topic["subs"]:
-                self._tpool.submit(cb, msg)
-            self._topic["latched"] = msg
+                self._tpool.submit(cb, msg, header)
+            self._topic["latched"] = msg, header
 
     def unregister(self) -> None:
         if not self._unregistered:
@@ -198,9 +201,10 @@ class _Subscriber(Subscriber):
         address: str,
         dtype: str,
         callback,
+        header: bool,
         callback_args=tuple(),
     ):
-        self._bnd = backend
+        super().__init__(backend, header)
         self._cond = cond
         self._topics = topics
         with self._cond:
@@ -222,16 +226,18 @@ class _Subscriber(Subscriber):
             self._name = f"{self._address}"
 
         if latched is not None:
-            self._bnd.logdebug(f"LATCHED: {self._address}")
-            self.callback(latched)  # todo: inside cond?
+            self._backend.logdebug(f"LATCHED: {self._address}")
+            self.callback(*latched)  # todo: inside cond?
 
-    def callback(self, msg):
+    def callback(self, msg, header):
+        # todo: pass header to callback in publisher
+        # todo: pass header to wrapped callback if self._header
         if not self._unregistered:
             # todo: check if dtype(msg) == self._dtype?
             if not isinstance(msg, (np.ndarray, np.number, str, bool)):
-                self._bnd.logerr(f"[subscriber][{self._name}]: type(recv)={type(msg)}")
+                self._backend.logerr(f"[subscriber][{self._name}]: type(recv)={type(msg)}")
                 time.sleep(10000000)
-            self._cb_wrapped(msg, *self._cb_args)
+            self._cb_wrapped(msg, header, *self._cb_args) if self._header else self._cb_wrapped(msg, *self._cb_args)
 
     def unregister(self) -> None:
         if not self._unregistered:

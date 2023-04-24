@@ -71,10 +71,10 @@ class RxNode(object):
         params = get_param_with_blocking(name, self.backend)
         rate = params["config"]["rate"]
 
-        # Get info from engine on reactive properties
-        sync = get_param_with_blocking(self.ns + "/engine/config/sync", self.backend)
-        real_time_factor = get_param_with_blocking(self.ns + "/engine/config/real_time_factor", self.backend)
-        simulate_delays = get_param_with_blocking(self.ns + "/engine/config/simulate_delays", self.backend)
+        # Get info on run-time settings
+        sync = get_param_with_blocking(self.ns + "/sync", self.backend)
+        real_time_factor = get_param_with_blocking(self.ns + "/real_time_factor", self.backend)
+        simulate_delays = get_param_with_blocking(self.ns + "/simulate_delays", self.backend)
 
         # Prepare input topics
         for i in params["inputs"]:

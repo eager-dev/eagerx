@@ -1,6 +1,3 @@
-# EAGERX
-import copy
-
 from eagerx.core.space import Space
 from eagerx.core.entities import Backend
 from eagerx.core.specs import NodeSpec, EngineSpec, BackendSpec, BaseNodeSpec
@@ -18,9 +15,11 @@ from eagerx.core.constants import process
 from eagerx.core.constants import ENVIRONMENT, NEW_PROCESS, EXTERNAL, BackendException
 
 # OTHER IMPORTS
+import copy
 import atexit
 import abc
 import numpy as np
+import functools
 from typing import List, Union, Dict, Tuple, Optional
 import gym
 
@@ -64,31 +63,11 @@ class BaseEnv(gym.Env):
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = "/" + name
-        self.rate = rate
         self.initialized = False
         self.has_shutdown = False
         self._is_initialized = dict()
         self._launch_nodes = dict()
         self._sp_nodes = dict()
-
-        # Initialize backend
-        if backend is None:
-            from eagerx.backends.single_process import SingleProcess
-
-            backend = SingleProcess.make()
-        self.backend = Backend.from_cmd(self.ns, backend.config.entity_id, backend.config.log_level)
-
-        # Check if there already exists an environment
-        self._shutdown_srv = self.backend.register_environment(self.ns, force_start, self.shutdown)
-
-        # Delete pre-existing parameters
-        self.backend.delete_param(f"/{self.name}", level=2)
-
-        # Upload log_level
-        self.backend.upload_params(self.ns, {"log_level": self.backend.log_level})
-
-        # Initialize message broker
-        self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.backend)
 
         # Register graph (returns unlinked specs with original graph & reloads entities).
         if engine is None:
@@ -97,6 +76,44 @@ class BaseEnv(gym.Env):
         else:
             self.graph, environment, engine, nodes, self.render_node = graph.register(rate, engine)
         self.rate = rate if rate else environment.config.rate
+
+        # Initialize backend
+        if backend is None:
+            from eagerx.backends.single_process import SingleProcess
+
+            backend = SingleProcess.make()
+        self.backend = Backend.from_cmd(
+            self.ns,
+            backend.config.entity_id,
+            backend.config.log_level,
+            main=True,
+            real_time_factor=engine.config.real_time_factor,
+            sync=engine.config.sync,
+            simulate_delays=engine.config.sync,
+        )
+
+        # Check if there already exists an environment
+        self._shutdown_srv = self.backend.register_environment(self.ns, force_start, self.shutdown)
+
+        # Delete pre-existing parameters
+        self.backend.delete_param(f"/{self.name}", level=2)
+
+        # Upload relevant run-time settings
+        secs, nsecs = self.backend.serialize_time(self.backend.ts_init)
+        self.backend.upload_params(
+            self.ns,
+            {
+                "log_level": self.backend.log_level,
+                "ts_init_secs": secs,
+                "ts_init_nsecs": nsecs,
+                "real_time_factor": self.backend.real_time_factor,
+                "sync": self.backend.sync,
+                "simulate_delays": self.backend.simulate_delays,
+            },
+        )
+
+        # Initialize message broker
+        self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.backend)
 
         # Create supervisor spec (adds addresses of (engine)states to supervisor)
         supervisor = self._create_supervisor(environment, engine, nodes)
@@ -415,9 +432,34 @@ class BaseEnv(gym.Env):
         """
         pass
 
-    def gui(self):
-        """Opens the gui of the graph that was used to initialize this environment."""
-        self.graph.gui()
+    @functools.wraps(Graph.gui)
+    def gui(
+        self,
+        *args,
+        interactive: Optional[bool] = True,
+        resolution: Optional[List[int]] = None,
+        filename: Optional[str] = None,
+        **kwargs,
+    ) -> Union[None, np.ndarray]:
+        """Opens a graphical user interface of the graph that was used to initialize this environment.
+
+        .. note:: Requires `eagerx-gui`:
+
+                .. highlight:: python
+                .. code-block:: python
+
+                    pip3 install eagerx-gui
+
+        :param interactive: If `True`, an interactive application is launched.
+                            Otherwise, an RGB render of the GUI is returned.
+                            This could be useful when using a headless machine.
+        :param resolution: Specifies the resolution of the returned render when `interactive` is `False`.
+                           If `interactive` is `True`, this argument is ignored.
+        :param filename: If provided, the GUI is rendered to an svg file with this name.
+                         If `interactive` is `True`, this argument is ignored.
+        :return: RGB render of the GUI if `interactive` is `False`.
+        """
+        return self.graph.gui(*args, interactive=interactive, resolution=resolution, filename=filename, **kwargs)
 
     def save(self, file: str) -> None:
         """Saves the (engine-specific) graph state, that includes the engine & environment nodes.
