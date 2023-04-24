@@ -63,12 +63,19 @@ class BaseEnv(gym.Env):
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = "/" + name
-        self.rate = rate
         self.initialized = False
         self.has_shutdown = False
         self._is_initialized = dict()
         self._launch_nodes = dict()
         self._sp_nodes = dict()
+
+        # Register graph (returns unlinked specs with original graph & reloads entities).
+        if engine is None:
+            environment, engine, nodes, render = Graph._get_all_node_specs(graph._state)
+            self.graph = graph
+        else:
+            self.graph, environment, engine, nodes, self.render_node = graph.register(rate, engine)
+        self.rate = rate if rate else environment.config.rate
 
         # Initialize backend
         if backend is None:
@@ -98,14 +105,6 @@ class BaseEnv(gym.Env):
 
         # Initialize message broker
         self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.backend)
-
-        # Register graph (returns unlinked specs with original graph & reloads entities).
-        if engine is None:
-            environment, engine, nodes, render = Graph._get_all_node_specs(graph._state)
-            self.graph = graph
-        else:
-            self.graph, environment, engine, nodes, self.render_node = graph.register(rate, engine)
-        self.rate = rate if rate else environment.config.rate
 
         # Create supervisor spec (adds addresses of (engine)states to supervisor)
         supervisor = self._create_supervisor(environment, engine, nodes)
