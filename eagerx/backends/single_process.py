@@ -77,7 +77,9 @@ class SingleProcess(eagerx.Backend):
         return _Publisher(self._backend, self._tpool, self._topics, self._cond, address, dtype)
 
     def Subscriber(self, address: str, dtype: str, callback, header: bool = False, callback_args=tuple()):
-        return _Subscriber(self._backend, self._topics, self._cond, address, dtype, callback, header, callback_args=callback_args)
+        return _Subscriber(
+            self._backend, self._topics, self._cond, address, dtype, callback, header, callback_args=callback_args
+        )
 
     def register_environment(self, name: str, force_start: bool, fn: typing.Callable):
         return _ShutdownService()

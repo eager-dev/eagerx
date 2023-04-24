@@ -24,12 +24,7 @@ from eagerx.core.constants import (
 )
 from eagerx.core.rx_message_broker import RxMessageBroker
 from eagerx.utils.node_utils import initialize_nodes, wait_for_node_initialization
-from eagerx.utils.utils import (
-    Msg,
-    load,
-    initialize_processor,
-    get_param_with_blocking
-)
+from eagerx.utils.utils import Msg, load, initialize_processor, get_param_with_blocking
 
 from typing import TYPE_CHECKING
 
@@ -175,7 +170,7 @@ class Backend(Entity):
 
         if main:
             self.ts_init = time.time()
-            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.ts_init/1e9))
+            t_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.ts_init / 1e9))
             self.loginfo(f"Environment '{self.ns}' initialized at {t_str}")
             self.sync = sync
             self.real_time_factor = real_time_factor
@@ -260,7 +255,9 @@ class Backend(Entity):
         pass
 
     @abc.abstractmethod
-    def Subscriber(self, address: str, dtype: str, callback, header: bool = False, callback_args: Optional[Tuple] = tuple()) -> Subscriber:
+    def Subscriber(
+        self, address: str, dtype: str, callback, header: bool = False, callback_args: Optional[Tuple] = tuple()
+    ) -> Subscriber:
         """Creates a subscriber.
 
         :param address: Topic name.

@@ -82,11 +82,15 @@ class BaseEnv(gym.Env):
             from eagerx.backends.single_process import SingleProcess
 
             backend = SingleProcess.make()
-        self.backend = Backend.from_cmd(self.ns, backend.config.entity_id, backend.config.log_level,
-                                        main=True,
-                                        real_time_factor=engine.config.real_time_factor,
-                                        sync=engine.config.sync,
-                                        simulate_delays=engine.config.sync)
+        self.backend = Backend.from_cmd(
+            self.ns,
+            backend.config.entity_id,
+            backend.config.log_level,
+            main=True,
+            real_time_factor=engine.config.real_time_factor,
+            sync=engine.config.sync,
+            simulate_delays=engine.config.sync,
+        )
 
         # Check if there already exists an environment
         self._shutdown_srv = self.backend.register_environment(self.ns, force_start, self.shutdown)
@@ -96,12 +100,17 @@ class BaseEnv(gym.Env):
 
         # Upload relevant run-time settings
         secs, nsecs = self.backend.serialize_time(self.backend.ts_init)
-        self.backend.upload_params(self.ns, {"log_level": self.backend.log_level,
-                                             "ts_init_secs": secs,
-                                             "ts_init_nsecs": nsecs,
-                                             "real_time_factor": self.backend.real_time_factor,
-                                             "sync": self.backend.sync,
-                                             "simulate_delays": self.backend.simulate_delays})
+        self.backend.upload_params(
+            self.ns,
+            {
+                "log_level": self.backend.log_level,
+                "ts_init_secs": secs,
+                "ts_init_nsecs": nsecs,
+                "real_time_factor": self.backend.real_time_factor,
+                "sync": self.backend.sync,
+                "simulate_delays": self.backend.simulate_delays,
+            },
+        )
 
         # Initialize message broker
         self.mb = RxMessageBroker(owner="%s/%s" % (self.ns, "env"), backend=self.backend)
@@ -424,7 +433,14 @@ class BaseEnv(gym.Env):
         pass
 
     @functools.wraps(Graph.gui)
-    def gui(self, *args, interactive: Optional[bool] = True, resolution: Optional[List[int]] = None, filename: Optional[str] = None, **kwargs) -> Union[None, np.ndarray]:
+    def gui(
+        self,
+        *args,
+        interactive: Optional[bool] = True,
+        resolution: Optional[List[int]] = None,
+        filename: Optional[str] = None,
+        **kwargs,
+    ) -> Union[None, np.ndarray]:
         """Opens a graphical user interface of the graph that was used to initialize this environment.
 
         .. note:: Requires `eagerx-gui`:

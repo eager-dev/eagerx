@@ -3,6 +3,7 @@ import numpy as np
 import typing
 
 from eagerx.utils.utils import Header
+
 if typing.TYPE_CHECKING:
     from eagerx.core.entities import Backend
 
@@ -16,7 +17,9 @@ class Publisher(object):
     def _publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number], header: Header) -> None:
         pass
 
-    def publish(self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number], header: typing.Optional[Header] = None) -> None:
+    def publish(
+        self, msg: typing.Union[float, bool, int, str, np.ndarray, np.number], header: typing.Optional[Header] = None
+    ) -> None:
         if header is None:
             sc, wc = self._backend.now()
             header = Header(seq=self._seq, sc=sc, wc=wc)

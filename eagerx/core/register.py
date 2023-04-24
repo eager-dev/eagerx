@@ -230,8 +230,10 @@ def add_engine(spec, engine):
 
     msg = f"Cannot add object '{entity_id}' to engine '{engine_id}'. "
     assert entity_id in REGISTRY, msg + f"The Object '{entity_id}' has not been registered yet."
-    msg_2 = "If launching the environment as a subprocess, " \
-            "make sure to reload (i.e. import) the engine implementations in each subprocess."
+    msg_2 = (
+        "If launching the environment as a subprocess, "
+        "make sure to reload (i.e. import) the engine implementations in each subprocess."
+    )
     assert engine_id in REGISTRY[entity_id], msg + "No engine implementation was registered. " + msg_2
     graph = REGISTRY[entity_id][engine_id](spec, engine)
     return graph

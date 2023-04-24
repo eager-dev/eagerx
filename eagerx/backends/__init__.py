@@ -1,1 +1,1 @@
-from eagerx.backends.single_process import SingleProcess
+from eagerx.backends.single_process import SingleProcess  # noqa

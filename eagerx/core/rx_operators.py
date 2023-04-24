@@ -437,7 +437,7 @@ def expected_inputs(N_out, rate_in, rate_out, delay, skip: bool):
 
     # Alternative delay correction
     delta = N_in - N_in_prev
-    j = (delta - 1 + int(not skip))
+    j = delta - 1 + int(not skip)
     # Numerically stable implementation
     T = (rate_in * N_out - rate_out * rate_in * delay - rate_out * j) / (rate_out * rate_in)
     correction = -floor(T * rate_in)
