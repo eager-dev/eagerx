@@ -2,6 +2,23 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.34 (2023-04-24)
+### Fix
+* Codestyle and lint ([`35b2271`](https://github.com/eager-dev/eagerx/commit/35b2271f9c41c76836dcad0f9abde36c43326010))
+* Place env.graph re-initialization before env.backend. ([`ee44daf`](https://github.com/eager-dev/eagerx/commit/ee44daf7acb2c5b018d0b8c924435df2e9f5260b))
+* Get and set run-time properties via backend ([`179719c`](https://github.com/eager-dev/eagerx/commit/179719ce758c4fa52ed5aa6603450f5fc8b39b6a))
+* Rename sim_stamp, wc_stamp to sc and wc. ([`71f8abc`](https://github.com/eager-dev/eagerx/commit/71f8abcb939aefa142f956195412d86b54e3eec7))
+* Wrap env.gui method with signature of graph.gui ([`ae9d462`](https://github.com/eager-dev/eagerx/commit/ae9d4624a6e256f4cf7d39c407196766b6d8b98d))
+* Reload objects before substituting engine implementations. ([`0126cca`](https://github.com/eager-dev/eagerx/commit/0126cca52bc202b10ccc8bf772ed29a0d12a1bb3))
+* Allow easy import of single process backend ([`10874cf`](https://github.com/eager-dev/eagerx/commit/10874cfec3b7e5070d7f832e2a0b3c83bbea8b48))
+* Sync skipped connections with delays ([`99d7d26`](https://github.com/eager-dev/eagerx/commit/99d7d26a3b6db5a9e227f0596c249ce2bde1af60))
+* Only add synced engine nodes as actuator dependencies ([`40d390c`](https://github.com/eager-dev/eagerx/commit/40d390c9b93a7f0f572837f0a96e997d95910b41))
+* Sync skipped connections [not tested with delays yet] ([`7b5927a`](https://github.com/eager-dev/eagerx/commit/7b5927a3f12bf5926fc2a1b02cde5ef576eb2033))
+
+### Documentation
+* Limit importlib-metadata version ([`8ce7354`](https://github.com/eager-dev/eagerx/commit/8ce7354f0fb1a635952113f498c5f47af1611afe))
+* Add requirements.txt for doc building and limit setuptools version ([`ce8c56f`](https://github.com/eager-dev/eagerx/commit/ce8c56f628d4b15cc40d86bbc98621602a952880))
+
 ## v0.1.33 (2022-09-14)
 ### Fix
 * Save/load API, target_channel bug, static node initialization, selected engine state bug ([#218](https://github.com/eager-dev/eagerx/issues/218)) ([`b3fb5c2`](https://github.com/eager-dev/eagerx/commit/b3fb5c24f3b7d8ce9a609a6b8575bedb8d31c66f))
