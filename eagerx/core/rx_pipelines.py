@@ -1,3 +1,6 @@
+import numpy as np
+import time
+
 # RX IMPORTS
 import rx
 from rx import operators as ops
@@ -212,7 +215,7 @@ def init_node(
 
     # End reset
     E = Subject()
-    end_reset = dict(name="end_reset", address=ns + "/end_reset", dtype="int64", msg=E)
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", dtype="float64", msg=E)
     node_inputs.append(end_reset)
 
     # Prepare node reset topic
@@ -716,7 +719,7 @@ def init_engine(
     # Reset: initialize episode pipeline ######################################
     ###########################################################################
     # Prepare end_reset output
-    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="int64")
+    end_reset = dict(name="end_reset", address=ns + "/end_reset", msg=Subject(), dtype="float64")
     node_outputs.append(end_reset)
 
     # Dynamically initialize new input pipeline
@@ -800,7 +803,7 @@ def init_engine(
         ops.map(lambda x: node.reset_cb(**x[1])),
         spy("POST-RESET", node, log_level=DEBUG),
         trace_observable("cb_post_reset", node),
-        ops.map(lambda x: 0),
+        ops.map(lambda x: np.array(time.monotonic_ns() / 1e9, dtype="float64")),
         ops.share(),
     ).subscribe(end_reset["msg"])
     reset_disp.add(d)

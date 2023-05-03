@@ -941,7 +941,8 @@ def filter_dict_on_key(key):
 
 
 def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG):
-    time_fn = time.perf_counter
+    # time_fn = time.time
+    time_fn = lambda: time.monotonic_ns()/1e9
     node_name = node.ns_name
     color = node.color
     effective_log_level = node.backend.log_level
@@ -962,24 +963,31 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG)
             last_Nc = [0]
             last_time = [None]
 
-            def on_next(Nc):
-                if tic[0] is None:
-                    tic[0] = time_fn()
-                elif last_time[0] is None:
-                    last_time[0] = time_fn()
-                toc = time_fn()
-                sleep_time = dt - (toc - tic[0])
-                if sleep_time > 0:  # sleep if overdue is negative
+            def on_next(value):
+                Nc, start = value
+                if Nc == 0:  # Do not throttle before the first callback
+                    # NOTE: This is the first time we receive a value
+                    sleep_time = 0.
+                else:  # Determine sleep time
+                    assert tic[0] is not None, "tic is None"
+                    toc = time_fn()
+                    dt_comp = toc - tic[0]
+                    sleep_time = dt - dt_comp   # if sleep_time > 0 then we are early, if sleep_time < 0 then we are late
+
+                # Throttle callback
+                if sleep_time > 0:  # Sleep if we are early
                     time.sleep(sleep_time)
                     cum_sleep[0] += sleep_time
-                else:  # If we are overdue, then next tick is shifted by overdue
+                else:  # If we are overdue, the proceeed
                     cum_delay[0] += -sleep_time
                     cum_cbs[0] += 1
-                tic[0] = toc + max(sleep_time, 0)
+                tic[0] = start + Nc/node.rate
+                # node.backend.loginfo(colored(f"[{node_name}] Nc: {Nc} | toc: {toc} | sleep_time: {sleep_time} | tic[0]: {tic[0]}", color))
 
                 # Logging
                 curr = time_fn()
-                if last_time[0] and (curr - last_time[0]) > log_time:
+                last_time[0] = last_time[0] if last_time[0] is not None else curr
+                if (curr - last_time[0]) > log_time:
                     # Calculate statistics since last logged instance
                     log_window = curr - last_time[0]
                     log_cbs = cum_cbs[0] - last_cum_cbs[0]
@@ -1043,6 +1051,7 @@ def throttle_callback_trigger(rate_node, Nc, E, sync, real_time_factor, schedule
         Nct = Nc.pipe(
             ops.scan(lambda acc, x: acc + 1, 0),
             ops.start_with(0),
+            ops.combine_latest(E),
             ops.observe_on(scheduler),
             throttle_with_time(wc_dt, node),
             ops.share(),
