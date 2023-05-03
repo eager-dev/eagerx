@@ -941,7 +941,6 @@ def filter_dict_on_key(key):
 
 
 def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG):
-    # time_fn = time.time
     time_fn = lambda: time.monotonic_ns() / 1e9  # noqa: E731
     node_name = node.ns_name
     color = node.color
@@ -1051,8 +1050,9 @@ def throttle_callback_trigger(rate_node, Nc, E, sync, real_time_factor, schedule
         Nct = Nc.pipe(
             ops.scan(lambda acc, x: acc + 1, 0),
             ops.start_with(0),
-            ops.combine_latest(E),
+            ops.combine_latest(E),  # .pipe(spy("Nct_E", node, log_level=INFO))),
             ops.observe_on(scheduler),
+            # spy("Nct_E_CBL", node, log_level=INFO),
             throttle_with_time(wc_dt, node),
             ops.share(),
         )
