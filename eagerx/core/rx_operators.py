@@ -942,7 +942,7 @@ def filter_dict_on_key(key):
 
 def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG):
     # time_fn = time.time
-    time_fn = lambda: time.monotonic_ns()/1e9
+    time_fn = lambda: time.monotonic_ns() / 1e9  # noqa: E731
     node_name = node.ns_name
     color = node.color
     effective_log_level = node.backend.log_level
@@ -967,12 +967,12 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG)
                 Nc, start = value
                 if Nc == 0:  # Do not throttle before the first callback
                     # NOTE: This is the first time we receive a value
-                    sleep_time = 0.
+                    sleep_time = 0.0
                 else:  # Determine sleep time
                     assert tic[0] is not None, "tic is None"
                     toc = time_fn()
                     dt_comp = toc - tic[0]
-                    sleep_time = dt - dt_comp   # if sleep_time > 0 then we are early, if sleep_time < 0 then we are late
+                    sleep_time = dt - dt_comp  # if sleep_time > 0 then we are early, if sleep_time < 0 then we are late
 
                 # Throttle callback
                 if sleep_time > 0:  # Sleep if we are early
@@ -981,7 +981,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG)
                 else:  # If we are overdue, the proceeed
                     cum_delay[0] += -sleep_time
                     cum_cbs[0] += 1
-                tic[0] = start + Nc/node.rate
+                tic[0] = start + Nc / node.rate
                 # node.backend.loginfo(colored(f"[{node_name}] Nc: {Nc} | toc: {toc} | sleep_time: {sleep_time} | tic[0]: {tic[0]}", color))
 
                 # Logging
