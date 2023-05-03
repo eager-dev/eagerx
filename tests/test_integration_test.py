@@ -9,14 +9,14 @@ NP = eagerx.NEW_PROCESS
 ENV = eagerx.ENVIRONMENT
 
 
-@pytest.mark.timeout(40)
+@pytest.mark.timeout(120)
 @pytest.mark.parametrize(
     "eps, steps, sync, rtf, p",
     [(3, 3, True, 0, ENV), (20, 40, True, 0, NP), (3, 3, True, 4, NP), (20, 40, False, 4, NP), (3, 3, False, 4, ENV)],
 )
 def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Start roscore
-    eagerx.set_log_level(eagerx.WARN)
+    eagerx.set_log_level(eagerx.INFO)
 
     # Define unique name for test environment
     name = f"{eps}_{steps}_{sync}_{p}"

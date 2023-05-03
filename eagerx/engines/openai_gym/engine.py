@@ -35,20 +35,24 @@ class GymEngine(Engine):
     def initialize(self, spec):
         self.simulator = dict()
 
-    def add_object(self, name: str, env_id: str):
+    def add_object(self, name: str, env_id: str, seed: int = None):
         """
         Adds an object whose dynamics are governed by a registered OpenAI gym environment.
 
         :param name: Name of the :class:`~eagerx.core.entities.Object` that is to be added.
         :param env_id: Gym id of the environment.
+        :param seed: Seed for the environment.
         """
         # add object to simulator (we have a ref to the simulator with self.simulator)
         self.backend.loginfo(f'Adding object "{name}" to the simulator.')
 
         # Create new env, and add to simulator
+        env = gym.make(env_id)
+        if seed is not None:
+            env.seed(seed)
         self.simulator[name].update(
             env_id=env_id,
-            env=gym.make(env_id),
+            env=env,
             buffer_obs=[],
             buffer_reward=None,
             buffer_done=None,

@@ -178,6 +178,7 @@ class ActionActuator(EngineNode):
         inputs: Optional[List[str]] = None,
         outputs: Optional[List[str]] = None,
         color: Optional[str] = "green",
+        delay_state: bool = False,
     ):
         """ActionActuator spec"""
         spec = cls.get_specification()
@@ -189,6 +190,7 @@ class ActionActuator(EngineNode):
         spec.config.color = color
         spec.config.inputs = inputs if isinstance(inputs, list) else ["tick", "action"]
         spec.config.outputs = outputs if isinstance(outputs, list) else ["action_applied"]
+        spec.config.states = ["delay"] if delay_state else []
 
         # Modify custom node params
         spec.config.zero_action = zero_action
@@ -214,9 +216,11 @@ class ActionActuator(EngineNode):
                 self.zero_action
             ), f'The zero action provided for "{self.simulator["name"]}" is not contained in the action space of this environment.'
 
-    @register.states()
-    def reset(self):
+    @register.states(delay=Space(shape=(), low=0.0, high=0.0, dtype="float32"))
+    def reset(self, delay=None):
         # This controller is stateless (in contrast to e.g. a PID controller).
+        if delay is not None:
+            self.set_delay(delay, "inputs", "action")
         self.simulator["next_action"] = self.zero_action
 
     @register.inputs(tick=Space(shape=(), dtype="int64"), action=Space(dtype="float32"))
