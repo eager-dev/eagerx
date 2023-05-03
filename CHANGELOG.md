@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.35 (2023-05-03)
+### Fix
+* Allow to seed gym object environment and add delay state to gym ActionActuator ([`0bd6f40`](https://github.com/eager-dev/eagerx/commit/0bd6f40623c1cfed260fe9b0170e90d67faaece4))
+* Throttle (phase synchronized) ([`25d33e8`](https://github.com/eager-dev/eagerx/commit/25d33e8d01a23323a06afece4b4c11f48715e3b2))
+
 ## v0.1.34 (2023-04-24)
 ### Fix
 * Codestyle and lint ([`35b2271`](https://github.com/eager-dev/eagerx/commit/35b2271f9c41c76836dcad0f9abde36c43326010))
