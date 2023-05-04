@@ -58,7 +58,7 @@ jobs:
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: |
-          poetry run pip install setuptools==65.5.0
+          poetry run pip install setuptools==65.5.0 wheel==0.37.1
           poetry run pip install gym==0.21.0
           poetry install --no-interaction --no-root
       #----------------------------------------------
