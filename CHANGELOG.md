@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.37 (2023-06-22)
+
+### Fix
+
+* Render  mode bug ([`4d4d4cc`](https://github.com/eager-dev/eagerx/commit/4d4d4cc8010af71e4e2556f25be114cbb16381f1))
+
 ## v0.1.36 (2023-06-22)
 
 ### Fix
