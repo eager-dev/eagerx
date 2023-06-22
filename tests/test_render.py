@@ -43,6 +43,7 @@ def test_render(colab: bool):
     graph.connect(source=obj.sensors.observation, observation="observation", window=1)
     graph.connect(source=obj.sensors.reward, observation="reward", window=1)
     graph.connect(source=obj.sensors.done, observation="done", window=1)
+    graph.connect(source=obj.sensors.truncated, observation="truncated", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
     # Add rendering
@@ -65,24 +66,22 @@ def test_render(colab: bool):
 
     # Initialize Environment
     import eagerx.engines.openai_gym as eagerx_gym
-    env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine, backend=backend)
+    env = eagerx_gym.EagerxGym(name="test_render", rate=rate, graph=graph, engine=engine, backend=backend, render_mode="human")
 
     # First reset
-    _obs = env.reset()
+    _obs, _info = env.reset()
 
     # Run for several episodes
     for j in range(2):
         print("\n[Episode %s]" % j)
         iter = 0
-        env.render()
         while iter < 30:  # and iter < 10:
             iter += 1
             if iter == 14:  # Close render window
                 env.close()
             print(f"[eps={j}][iter={iter}]")
             action = env.action_space.sample()
-            _obs, _reward, _done, _info = env.step(action)
-        _obs = env.reset()
+            _obs, _reward, _truncated, _done, _info = env.step(action)
 
     print("\n[Finished]")
     env.shutdown()

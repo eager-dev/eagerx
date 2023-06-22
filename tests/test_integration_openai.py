@@ -51,6 +51,7 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
     # Connect gym object
     graph.connect(source=obj.sensors.observation, observation="observation", window=1)
     graph.connect(source=obj.sensors.reward, observation="reward", window=1)
+    graph.connect(source=obj.sensors.truncated, observation="truncated", window=1)
     graph.connect(source=obj.sensors.done, observation="done", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
@@ -83,7 +84,7 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
 
     # First reset
     _done = False
-    _obs = env.reset()
+    _obs, _info = env.reset()
 
     # Run for several episodes
     for j in range(eps):
@@ -92,7 +93,7 @@ def test_integration_openai_engine(gym_id, eps, sync, rtf, p):
         while iter < 30:  # and iter < 10:
             iter += 1
             action = env.action_space.sample()
-            _obs, _reward, _done, _info = env.step(action)
+            _obs, _reward, _truncated, _done, _info = env.step(action)
         _obs = env.reset()
         _done = False
     print("\n[Finished]")

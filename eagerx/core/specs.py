@@ -1,7 +1,7 @@
 from warnings import warn
 import copy
 from typing import Dict, Optional, Union, Type, TYPE_CHECKING, List
-import gym
+import gymnasium as gym
 from yaml import dump
 import numpy as np
 

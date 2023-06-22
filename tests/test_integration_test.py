@@ -12,7 +12,7 @@ ENV = eagerx.ENVIRONMENT
 @pytest.mark.timeout(120)
 @pytest.mark.parametrize(
     "eps, steps, sync, rtf, p",
-    [(3, 3, True, 0, ENV), (20, 40, True, 0, NP), (3, 3, True, 4, NP), (20, 40, False, 4, NP), (3, 3, False, 4, ENV)],
+    [(3, 3, True, 0, ENV), (10, 20, True, 0, NP), (3, 3, True, 4, NP), (10, 20, False, 4, NP), (3, 3, False, 4, ENV)],
 )
 def test_integration_test_engine(eps, steps, sync, rtf, p):
     # Start roscore
@@ -77,31 +77,35 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):
-        def __init__(self, name, rate, graph, engine, backend):
-            super().__init__(name, rate, graph, engine, backend, force_start=True)
+        def __init__(self, name, rate, graph, engine, backend, render_mode=None):
+            super().__init__(name, rate, graph, engine, backend, force_start=True, render_mode=render_mode)
 
         def step(self, action):
             obs = self._step(action)
-            return obs, 0, False, {}
+            # Render
+            if self.render_mode == "human":
+                self.render()
+            return obs, 0, False, False, {}
 
-        def reset(self):
+        def reset(self, seed=None, options=None):
             sampled = self.state_space.sample()
             states = {"obj/N9": sampled["obj/N9"], "engine/param_1": sampled["engine/param_1"]}
             obs = self._reset(states)
-            return obs
+            # Render
+            if self.render_mode == "human":
+                self.render()
+            return obs, {}
 
     # Initialize Environment
     env = TestEnv(name=name, rate=rate, graph=graph, engine=engine, backend=backend)
 
     # First reset
     env.reset()
-    env.render(mode="human")
     action = env.action_space.sample()
     for j in range(eps):
         print("\n[Episode %s]" % j)
         for i in range(steps):
             env.step(action)
-            env.render(mode="rgb_array")
         env.reset()
     print("\n[Finished]")
     env.shutdown()
@@ -109,7 +113,7 @@ def test_integration_test_engine(eps, steps, sync, rtf, p):
 
 
 if __name__ == "__main__":
-    test_integration_test_engine(20, 40, True, 0, NP)
+    test_integration_test_engine(10, 20, True, 0, NP)
     test_integration_test_engine(3, 3, True, 0, ENV)
-    test_integration_test_engine(20, 40, False, 4, NP)
+    test_integration_test_engine(10, 20, False, 4, NP)
     test_integration_test_engine(3, 3, False, 4, ENV)

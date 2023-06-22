@@ -9,10 +9,10 @@ repository = "https://github.com/eager-dev/eagerx"
 documentation = "https://eagerx.readthedocs.io/en/master/"
 
 [tool.poetry.dependencies]
-python = "^3.6.2"
+python = "^3.7"
 opencv-python = "^4.3.0.36"
 networkx = "^2.5.1"
-gym = "^0.21.0"
+gymnasium = {version = "^0.28.1", extras = ["classic-control"]}
 tabulate = "^0.8.9"
 PyYAML = "^6.0"
 rospkg = "^1.3.0"
@@ -29,9 +29,10 @@ PyVirtualDisplay = "^3.0"
 matplotlib = "^3.0"
 Pillow = "^8.0"
 scipy = "^1.0"
-importlib-metadata = "<5.0"
-setuptools = "<=65.5.0"
-wheel = "<=0.38.4"
+#importlib-metadata = "<5.0"
+#setuptools = "<=65.5.0"
+#wheel = "<=0.38.4"
+
 
 [tool.poetry.dev-dependencies]
 black = "^22.1.0"

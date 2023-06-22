@@ -1,5 +1,5 @@
 import typing as t
-import gym.spaces as spaces
+import gymnasium.spaces as spaces
 import numpy as np
 from functools import reduce
 import operator as op
@@ -149,6 +149,11 @@ class Space(spaces.Space):
             if isinstance(high, np.ndarray):
                 high = high.tolist()
             return dict(low=low, high=high, shape=list(self.shape), dtype=self.dtype.name)
+
+    @property
+    def is_np_flattenable(self):
+        """Checks whether this space can be flattened."""
+        return True
 
     @property
     def is_fully_defined(self) -> bool:

@@ -1,6 +1,6 @@
-import gym
-from gym.core import ActionWrapper
-from gym.wrappers import FlattenObservation
+import gymnasium as gym
+from gymnasium.core import ActionWrapper
+from gymnasium.wrappers import FlattenObservation
 
 
 class FlattenAction(ActionWrapper):

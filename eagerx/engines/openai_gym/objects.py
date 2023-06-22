@@ -2,7 +2,7 @@
 from typing import Optional, List
 
 # ROS IMPORTS
-import gym
+import gymnasium as gym
 
 # EAGERx IMPORTS
 from eagerx.core.space import Space
@@ -19,6 +19,7 @@ class GymObject(Object):
         observation=Space(dtype="float32"),
         reward=Space(dtype="float32"),
         done=Space(low=0, high=1, shape=(), dtype="int64"),
+        truncated=Space(low=0, high=1, shape=(), dtype="int64"),
         image=Space(dtype="uint8"),
     )
     @register.actuators(action=Space(dtype="float32"))
@@ -38,7 +39,7 @@ class GymObject(Object):
 
         # Set default node params
         spec.config.name = name
-        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "done"]
+        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "truncated", "done"]
         spec.config.actuators = ["action"]
 
         # Set custom node params
@@ -71,6 +72,7 @@ class GymObject(Object):
         # Set rates
         spec.sensors.observation.rate = rate
         spec.sensors.reward.rate = rate
+        spec.sensors.truncated.rate = rate
         spec.sensors.done.rate = rate
         spec.sensors.image.rate = rate
         spec.actuators.action.rate = rate
@@ -85,11 +87,19 @@ class GymObject(Object):
 
         # Create sensor engine nodes
         # Rate=None, because we will connect them to sensors (thus uses the rate set in the agnostic specification)
-        from eagerx.engines.openai_gym.enginenodes import ObservationSensor, RewardSensor, DoneSensor, ActionActuator, GymImage
+        from eagerx.engines.openai_gym.enginenodes import (
+            ObservationSensor,
+            RewardSensor,
+            TruncatedSensor,
+            DoneSensor,
+            ActionActuator,
+            GymImage,
+        )
 
         obs = ObservationSensor.make("obs", rate=spec.sensors.observation.rate, process=2)
         obs.outputs.observation.space = spec.sensors.observation.space
         rwd = RewardSensor.make("rwd", rate=spec.sensors.reward.rate, process=2)
+        truncated = TruncatedSensor.make("truncated", rate=spec.sensors.truncated.rate, process=2)
         done = DoneSensor.make("done", rate=spec.sensors.done.rate, process=2)
         image = GymImage.make(
             "image",
@@ -108,9 +118,10 @@ class GymObject(Object):
         action.outputs.action_applied.space = spec.actuators.action.space
 
         # Connect all engine nodes
-        graph.add([obs, rwd, done, image, action])
+        graph.add([obs, rwd, truncated, done, image, action])
         graph.connect(source=obs.outputs.observation, sensor="observation")
         graph.connect(source=rwd.outputs.reward, sensor="reward")
+        graph.connect(source=truncated.outputs.truncated, sensor="truncated")
         graph.connect(source=done.outputs.done, sensor="done")
         graph.connect(source=image.outputs.image, sensor="image")
         graph.connect(actuator="action", target=action.inputs.action)
