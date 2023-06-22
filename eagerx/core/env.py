@@ -513,6 +513,8 @@ class BaseEnv(gym.Env):
                 self.supervisor.start_render()
                 img = self.supervisor.get_last_image()
                 return img
+            elif mode is None:
+                return
             else:
                 raise ValueError('Render mode "%s" not recognized.' % mode)
         else:
