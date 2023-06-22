@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.36 (2023-06-22)
+
+### Fix
+
+* Refactor to gymnasium ([`0222006`](https://github.com/eager-dev/eagerx/commit/0222006ebb8e0f7dd24bc12a8aa910784de5a614))
+
 ## v0.1.35 (2023-05-03)
 ### Fix
 * Allow to seed gym object environment and add delay state to gym ActionActuator ([`0bd6f40`](https://github.com/eager-dev/eagerx/commit/0bd6f40623c1cfed260fe9b0170e90d67faaece4))
