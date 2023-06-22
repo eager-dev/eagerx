@@ -1,7 +1,7 @@
 from typing import Optional, List
 import PIL
 import numpy as np
-import gym
+import gymnasium as gym
 from pyvirtualdisplay import Display
 import os
 import threading
@@ -113,6 +113,58 @@ class RewardSensor(EngineNode):
             self.last_reward = reward[-1]
             reward = sum(reward)
         return dict(reward=reward)
+
+
+class TruncatedSensor(EngineNode):
+    @classmethod
+    def make(
+        cls,
+        name: str,
+        rate: float,
+        process: Optional[int] = process.ENGINE,
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
+        color: Optional[str] = "cyan",
+    ):
+        """DoneSensor spec"""
+        spec = cls.get_specification()
+
+        # Set default
+        spec.config.name = name
+        spec.config.rate = rate
+        spec.config.process = process
+        spec.config.color = color
+        spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["truncated"]
+        return spec
+
+    def initialize(self, spec, simulator):
+        # We will probably use self.simulator in callback & reset.
+        assert (
+            self.process == process.ENGINE
+        ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
+        self.simulator = simulator
+        self.id = simulator["env_id"]
+        self.last_truncated = None
+
+    @register.states()
+    def reset(self):
+        self.last_truncated = False
+
+    @register.inputs(tick=Space(shape=(), dtype="int64"))
+    @register.outputs(truncated=Space(low=0, high=1, shape=(), dtype="int64"))
+    def callback(self, t_n: float, tick: Optional[Msg] = None):
+        assert isinstance(self.simulator, dict), (
+            'Simulator object "%s" is not compatible with this engine node.' % self.simulator
+        )
+        truncated = self.simulator["buffer_truncated"]
+        self.simulator["buffer_truncated"] = []
+        if len(truncated) == 0:
+            truncated = self.last_truncated
+        else:
+            truncated = any(truncated) or self.last_truncated
+            self.last_truncated = truncated
+        return dict(truncated=int(truncated))
 
 
 class DoneSensor(EngineNode):
@@ -313,7 +365,7 @@ class GymImage(EngineNode):
             if self.always_render or self.render_toggle:
                 os.environ["DISPLAY"] = self.xvfb_id  # Set virtual display id
                 try:
-                    rgb = self.simulator["env"].render(mode="rgb_array")
+                    rgb = self.simulator["env"].render()
                 except Exception as e:
                     self.backend.logwarn(e)
                     raise e

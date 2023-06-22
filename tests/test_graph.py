@@ -213,8 +213,8 @@ def test_graph():
 
     # Define environment
     class TestEnv(eagerx.BaseEnv):
-        def __init__(self, name, rate, graph, engine, backend):
-            super().__init__(name, rate, graph, engine, backend, force_start=True)
+        def __init__(self, name, rate, graph, engine, backend, render_mode=None):
+            super().__init__(name, rate, graph, engine, backend, force_start=True, render_mode=render_mode)
             self.backend.logdebug_once("logdebug_once", 'TestEnv')
             self.backend.loginfo_once("loginfo_once", 'TestEnv')
             self.backend.logerr_once("logerr_once", 'TestEnv')
@@ -224,17 +224,23 @@ def test_graph():
 
         def step(self, action):
             obs = self._step(action)
-            return obs, 0, False, {}
+            # Render
+            if self.render_mode == "human":
+                self.render()
+            return obs, 0, False, False, {}
 
-        def reset(self):
+        def reset(self, seed=None, options=None):
             sampled = self.state_space.sample()
             states = {"obj/N9": sampled["obj/N9"], "engine/param_1": sampled["engine/param_1"]}
             obs = self._reset(states)
-            return obs
+            # Render
+            if self.render_mode == "human":
+                self.render()
+            return obs, {}
 
     # Initialize Environment
     from eagerx.wrappers.flatten import Flatten
-    env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine, backend=backend)
+    env = TestEnv(name="graph", rate=rate, graph=graph, engine=engine, backend=backend, render_mode="rgb_array")
     env = Flatten(env)
 
     # Get spaces
@@ -248,13 +254,13 @@ def test_graph():
 
     # First reset
     env.reset()
-    env.render(mode="human")
+    _rgb = env.render()
     action = env.action_space.sample()
     for j in range(2):
         print("\n[Episode %s]" % j)
         for i in range(50):
             env.step(action)
-            env.render(mode="rgb_array")
+            _rgb = env.render()
         env.reset()
     print("\n[Finished]")
 

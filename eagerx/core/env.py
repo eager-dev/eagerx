@@ -20,8 +20,8 @@ import atexit
 import abc
 import numpy as np
 import functools
-from typing import List, Union, Dict, Tuple, Optional
-import gym
+from typing import List, Union, Dict, Tuple, Optional, Any
+import gymnasium as gym
 
 
 class BaseEnv(gym.Env):
@@ -43,7 +43,14 @@ class BaseEnv(gym.Env):
     """
 
     def __init__(
-        self, name: str, rate: float, graph: Graph, engine: EngineSpec, backend: BackendSpec = None, force_start: bool = True
+        self,
+        name: str,
+        rate: float,
+        graph: Graph,
+        engine: EngineSpec,
+        backend: BackendSpec = None,
+        force_start: bool = True,
+        render_mode: str = None,
     ) -> None:
         """Initializes  an environment with EAGERx dynamics.
 
@@ -59,12 +66,14 @@ class BaseEnv(gym.Env):
         :param force_start: If there already exists an environment with the same name, the existing environment is
                             first shutdown by calling the :func:`~eagerx.core.env.BaseEnv` method before initializing this
                             environment.
+        :param render_mode: The render mode that will be used for rendering the environment.
         """
         assert "/" not in name, 'Environment name "%s" cannot contain the reserved character "/".' % name
         self.name = name
         self.ns = "/" + name
         self.initialized = False
         self.has_shutdown = False
+        self.render_mode = render_mode
         self._is_initialized = dict()
         self._launch_nodes = dict()
         self._sp_nodes = dict()
@@ -377,7 +386,7 @@ class BaseEnv(gym.Env):
         return obs
 
     @abc.abstractmethod
-    def reset(self) -> Union[Dict, np.ndarray]:
+    def reset(self, seed: int = None, options: Dict[str, Any] = None) -> Tuple[Union[Dict, np.ndarray], Dict]:
         """An abstract method that resets the environment to an initial state and returns an initial observation.
 
         .. note:: To reset the graph, the private method :func:`~eagerx.core.env.BaseEnv._reset` must be called with the
@@ -407,7 +416,7 @@ class BaseEnv(gym.Env):
         return self._get_observation()
 
     @abc.abstractmethod
-    def step(self, action: Union[Dict, np.ndarray]) -> Tuple[Union[Dict, np.ndarray], float, bool, Dict]:
+    def step(self, action: Union[Dict, np.ndarray]) -> Tuple[Union[Dict, np.ndarray], float, bool, bool, Dict]:
         """An abstract method that runs one timestep of the environment's dynamics.
 
         .. note:: To run one timestep of the graph dynamics (that essentially define the environment dynamics),
@@ -488,18 +497,14 @@ class BaseEnv(gym.Env):
         graph = copy.deepcopy(graph)
         return cls(name=name, rate=None, graph=graph, engine=None, backend=backend, force_start=force_start)
 
-    def render(self, mode: str = "human") -> Optional[np.ndarray]:
+    def render(self) -> Optional[np.ndarray]:
         """A method to start rendering (i.e. open the render window).
 
         A bool message to topic address ":attr:`~eagerx.core.env.BaseEnv.name` */env/render/toggle*",
         which toggles the rendering on/off.
-
-        :param mode: - human: render and return nothing. Usually for human consumption.
-                     - rgb_array: Return a numpy.ndarray with shape (x, y, 3),
-                       representing RGB values for an x-by-y pixel image, suitable
-                       for turning into a video.
-        :returns: Optionally, a rgb_array if mode=rgb_array.
+        :returns: Optionally, a rgb_array if env.mode=rgb_array.
         """
+        mode = self.render_mode
         assert not self.has_shutdown, "This environment has been shutdown."
         if self.render_node:
             if mode == "human":
