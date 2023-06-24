@@ -428,7 +428,7 @@ class BaseEnv(gym.Env):
 
         :params action: Actions provided by the agent. Should comply with the :func:`~eagerx.core.env.BaseEnv.action_space`.
 
-        :returns: A tuple (observation, reward, done, info).
+        :returns: A tuple (observation, reward, terminated, truncated, info).
 
                   - observation: Observations of the current timestep that comply with
                                  the :func:`~eagerx.core.env.BaseEnv.observation_space`.
