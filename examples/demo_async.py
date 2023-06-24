@@ -22,7 +22,8 @@ def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
     # Define graph
     graph.connect(source=obj.sensors.observation, observation="observation", window=1)
     graph.connect(source=obj.sensors.reward, observation="reward", window=1)
-    graph.connect(source=obj.sensors.done, observation="done", window=1)
+    graph.connect(source=obj.sensors.terminated, observation="terminated", window=1)
+    graph.connect(source=obj.sensors.truncated, observation="truncated", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
     # Open gui
@@ -36,9 +37,9 @@ def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
 
         def step(self, action):
             obs = self._step(action)
-            return obs, obs["reward"][0], self.steps >= 200, dict()
+            return obs, obs["reward"][0], False, self.steps >= 200, dict()
 
-        def reset(self):
+        def reset(self, seed=None, options=None):
             # Reset steps counter
             self.steps = 0
 
@@ -48,7 +49,7 @@ def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
 
             # Perform reset
             obs = self._reset(states)
-            return obs
+            return obs, info
 
     # Define backend
     from eagerx.backends.ros1 import Ros1
@@ -74,12 +75,12 @@ def run(LOG_DIR, rate, sync, rtf, num_eps, num_steps, actions):
     total_time = 0
     for eps in range(num_eps):
         print("\n[Episode %s]" % eps)
-        obs = env.reset()
+        obs, info = env.reset()
         start = time()
         for step in range(num_steps):
             action = actions[step]
             observations[eps, step] = np.concatenate([obs, action])
-            obs, reward, done, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
         stop = time()
         total_time += stop - start
     actual_rt_rate = ((num_eps * num_steps) / total_time) / rate

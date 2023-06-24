@@ -42,7 +42,7 @@ def test_render(colab: bool):
     # Connect gym object
     graph.connect(source=obj.sensors.observation, observation="observation", window=1)
     graph.connect(source=obj.sensors.reward, observation="reward", window=1)
-    graph.connect(source=obj.sensors.done, observation="done", window=1)
+    graph.connect(source=obj.sensors.terminated, observation="terminated", window=1)
     graph.connect(source=obj.sensors.truncated, observation="truncated", window=1)
     graph.connect(action="action", target=obj.actuators.action, window=1)
 
@@ -81,7 +81,7 @@ def test_render(colab: bool):
                 env.close()
             print(f"[eps={j}][iter={iter}]")
             action = env.action_space.sample()
-            _obs, _reward, _truncated, _done, _info = env.step(action)
+            _obs, _reward, _truncated, _terminated, _info = env.step(action)
 
     print("\n[Finished]")
     env.shutdown()

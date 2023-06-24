@@ -18,7 +18,7 @@ class GymObject(Object):
     @register.sensors(
         observation=Space(dtype="float32"),
         reward=Space(dtype="float32"),
-        done=Space(low=0, high=1, shape=(), dtype="int64"),
+        terminated=Space(low=0, high=1, shape=(), dtype="int64"),
         truncated=Space(low=0, high=1, shape=(), dtype="int64"),
         image=Space(dtype="uint8"),
     )
@@ -39,7 +39,7 @@ class GymObject(Object):
 
         # Set default node params
         spec.config.name = name
-        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "truncated", "done"]
+        spec.config.sensors = sensors if isinstance(sensors, list) else ["observation", "reward", "truncated", "terminated"]
         spec.config.actuators = ["action"]
 
         # Set custom node params
@@ -73,7 +73,7 @@ class GymObject(Object):
         spec.sensors.observation.rate = rate
         spec.sensors.reward.rate = rate
         spec.sensors.truncated.rate = rate
-        spec.sensors.done.rate = rate
+        spec.sensors.terminated.rate = rate
         spec.sensors.image.rate = rate
         spec.actuators.action.rate = rate
         return spec
@@ -91,7 +91,7 @@ class GymObject(Object):
             ObservationSensor,
             RewardSensor,
             TruncatedSensor,
-            DoneSensor,
+            TerminatedSensor,
             ActionActuator,
             GymImage,
         )
@@ -100,7 +100,7 @@ class GymObject(Object):
         obs.outputs.observation.space = spec.sensors.observation.space
         rwd = RewardSensor.make("rwd", rate=spec.sensors.reward.rate, process=2)
         truncated = TruncatedSensor.make("truncated", rate=spec.sensors.truncated.rate, process=2)
-        done = DoneSensor.make("done", rate=spec.sensors.done.rate, process=2)
+        terminated = TerminatedSensor.make("terminated", rate=spec.sensors.terminated.rate, process=2)
         image = GymImage.make(
             "image",
             shape=spec.config.render_shape,
@@ -118,11 +118,11 @@ class GymObject(Object):
         action.outputs.action_applied.space = spec.actuators.action.space
 
         # Connect all engine nodes
-        graph.add([obs, rwd, truncated, done, image, action])
+        graph.add([obs, rwd, truncated, terminated, image, action])
         graph.connect(source=obs.outputs.observation, sensor="observation")
         graph.connect(source=rwd.outputs.reward, sensor="reward")
         graph.connect(source=truncated.outputs.truncated, sensor="truncated")
-        graph.connect(source=done.outputs.done, sensor="done")
+        graph.connect(source=terminated.outputs.terminated, sensor="terminated")
         graph.connect(source=image.outputs.image, sensor="image")
         graph.connect(actuator="action", target=action.inputs.action)
 

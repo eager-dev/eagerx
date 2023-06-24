@@ -167,7 +167,7 @@ class TruncatedSensor(EngineNode):
         return dict(truncated=int(truncated))
 
 
-class DoneSensor(EngineNode):
+class TerminatedSensor(EngineNode):
     @classmethod
     def make(
         cls,
@@ -187,7 +187,7 @@ class DoneSensor(EngineNode):
         spec.config.process = process
         spec.config.color = color
         spec.config.inputs = inputs if isinstance(inputs, list) else ["tick"]
-        spec.config.outputs = outputs if isinstance(outputs, list) else ["done"]
+        spec.config.outputs = outputs if isinstance(outputs, list) else ["terminated"]
         return spec
 
     def initialize(self, spec, simulator):
@@ -197,26 +197,26 @@ class DoneSensor(EngineNode):
         ), "Simulation node requires a reference to the simulator, hence it must be launched in the Engine process"
         self.simulator = simulator
         self.id = simulator["env_id"]
-        self.last_done = None
+        self.last_terminated = None
 
     @register.states()
     def reset(self):
-        self.last_done = False
+        self.last_terminated = False
 
     @register.inputs(tick=Space(shape=(), dtype="int64"))
-    @register.outputs(done=Space(low=0, high=1, shape=(), dtype="int64"))
+    @register.outputs(terminated=Space(low=0, high=1, shape=(), dtype="int64"))
     def callback(self, t_n: float, tick: Optional[Msg] = None):
         assert isinstance(self.simulator, dict), (
             'Simulator object "%s" is not compatible with this engine node.' % self.simulator
         )
-        done = self.simulator["buffer_done"]
-        self.simulator["buffer_done"] = []
-        if len(done) == 0:
-            done = self.last_done
+        terminated = self.simulator["buffer_terminated"]
+        self.simulator["buffer_terminated"] = []
+        if len(terminated) == 0:
+            terminated = self.last_terminated
         else:
-            done = any(done) or self.last_done
-            self.last_done = done
-        return dict(done=int(done))
+            terminated = any(terminated) or self.last_terminated
+            self.last_terminated = terminated
+        return dict(terminated=int(terminated))
 
 
 class ActionActuator(EngineNode):

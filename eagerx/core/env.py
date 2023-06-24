@@ -435,7 +435,11 @@ class BaseEnv(gym.Env):
 
                   - reward: amount of reward returned after previous action
 
-                  - done: whether the episode has ended, in which case further step() calls will return undefined results
+                  - terminated: whether the episode has ended due to a terminal state, in which case further step() calls will
+                                return undefined results
+
+                  - truncated: whether the episode has ended due to a time limit, in which case further step() calls will
+                               return undefined results
 
                   - info: contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """

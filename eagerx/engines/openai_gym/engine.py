@@ -55,8 +55,8 @@ class GymEngine(Engine):
             env=env,
             buffer_obs=[],
             buffer_reward=None,
+            buffer_terminated=None,
             buffer_truncated=None,
-            buffer_done=None,
             next_action=None,
         )
 
@@ -69,14 +69,14 @@ class GymEngine(Engine):
             obs, info = sim["env"].reset()
             sim["buffer_obs"] = [obs]
             sim["buffer_reward"] = []
+            sim["buffer_terminated"] = []
             sim["buffer_truncated"] = []
-            sim["buffer_done"] = []
 
     def callback(self, t_n: float):
         for _obj_name, sim in self.simulator.items():
             next_action = sim["next_action"]
-            obs, reward, truncated, is_done, _ = sim["env"].step(next_action)
+            obs, reward, is_terminated, truncated, _ = sim["env"].step(next_action)
             sim["buffer_obs"].append(obs)
             sim["buffer_reward"].append(reward)
+            sim["buffer_terminated"].append(is_terminated)
             sim["buffer_truncated"].append(truncated)
-            sim["buffer_done"].append(is_done)

@@ -22,8 +22,8 @@ class EagerxGym(BaseEnv):
     def observation_space(self) -> gym.spaces.Dict:
         space = self._observation_space
         space.pop("reward")
+        space.pop("terminated")
         space.pop("truncated")
-        space.pop("done")
         return space
 
     @property
@@ -37,8 +37,8 @@ class EagerxGym(BaseEnv):
         # Perform reset
         obs = self._reset(states)
         obs.pop("reward")
+        obs.pop("terminated")
         obs.pop("truncated")
-        obs.pop("done")
 
         # Render
         if self.render_mode == "human":
@@ -50,4 +50,4 @@ class EagerxGym(BaseEnv):
         # Render
         if self.render_mode == "human":
             self.render()
-        return obs, obs.pop("reward"), bool(obs.pop("truncated")), bool(obs.pop("done")), dict()
+        return obs, obs.pop("reward"), bool(obs.pop("terminated")), bool(obs.pop("truncated")), dict()

@@ -17,7 +17,8 @@ if __name__ == "__main__":
     graph = eagerx.Graph.create(objects=[obj])
     graph.connect(source=obj.sensors.observation,   observation="observation",      window=1)
     graph.connect(source=obj.sensors.reward,        observation="reward",           window=1)
-    graph.connect(source=obj.sensors.done,          observation="done",             window=1)
+    graph.connect(source=obj.sensors.terminated,    observation="terminated",       window=1)
+    graph.connect(source=obj.sensors.truncated,     observation="truncated",        window=1)
     graph.connect(action="action",                  target=obj.actuators.action,    window=1)
 
     # Add rendering
@@ -48,14 +49,15 @@ if __name__ == "__main__":
     import time
     for j in range(50):
         print("\n[Episode %s]" % j)
-        _obs, done = env.reset(), False
-        env.render(mode="human")
+        (_obs, _info), done = env.reset(), False
+        env.render()
         start = time.time()
         N = 0
         while not done:
             N += 1
             action = env.action_space.sample()
-            _obs, reward, done, info = env.step(action)
+            _obs, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
         print(f"FPS: {N / (time.time() - start)}")
     env.shutdown()
 
