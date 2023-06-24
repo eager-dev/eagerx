@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.38 (2023-06-24)
+
+### Fix
+
+* Refactor done to terminated and switch positions with truncated ([`32e6e1e`](https://github.com/eager-dev/eagerx/commit/32e6e1e7405c3938a1fce76ec4663f948a4d8d40))
+
 ## v0.1.37 (2023-06-22)
 
 ### Fix
