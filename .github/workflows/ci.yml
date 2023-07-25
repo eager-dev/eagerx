@@ -129,7 +129,7 @@ jobs:
       #-----------------------------------------------
       - name: Semantic Release
         run: |
-          pip install python-semantic-release
+          pip install python-semantic-release==7.34.6
           git config --global user.name "github-actions"
           git config --global user.email "action@github.com"
           semantic-release publish -D commit_author="github-actions <action@github.com>"
