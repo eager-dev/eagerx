@@ -26,8 +26,18 @@
 
 |
 
+
+
 What is EAGERx
 ==============
+
+
+.. raw:: html
+
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+        <iframe width="100%" height="100%" src="https://www.youtube.com/embed/6t_NRb9iWP0" title="EAGERx: Graph-Based Framework for Sim2real Robot Learning" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+    </div>
+
 
 `EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
