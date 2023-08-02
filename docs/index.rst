@@ -50,16 +50,17 @@ EAGERx explicitly addresses the differences in learning between simulation and r
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
 On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
 
-|all|
+.. image:: _static/gif/all.gif
+   :width: 50%
 
 **Modular:** The modular design of EAGERx allows users to create complex environments easily through composition.
 
 .. image:: _static/img/example_gui.png
-   :width: 100%
+   :width: 50%
 
 **GUI:** Users can visualize their graph environment.
-Here we visualize the graph environment that we built in [this tutorial](https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb).
-See [the documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui) for more information.
+Here we visualize the graph environment that we built in `this tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb>`_.
+See the `documentation <(https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui>`_ for more information.
 
 Video
 =====
@@ -67,7 +68,7 @@ Video
 .. raw:: html
 
     <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto; margin-bottom: 2em;">
-        <iframe src="https://www.youtube.com/embed/6t_NRb9iWP0" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 50%; height: 50%;"></iframe>
+        <iframe src="https://www.youtube.com/embed/6t_NRb9iWP0" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
     </div>
 
 Engines
