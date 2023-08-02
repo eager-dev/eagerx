@@ -29,7 +29,7 @@
 What is EAGERx
 ==============
 
-You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new (`Gymnasium compatible<https://gymnasium.farama.org/>`_) environments with modular robot definitions.
+You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new (`Gymnasium compatible <https://gymnasium.farama.org/>`_) environments with modular robot definitions.
 
 It enables users to:
 
@@ -44,19 +44,30 @@ EAGERx explicitly addresses the differences in learning between simulation and r
 * Real-world reset routines
 * Synchronized parallel computation within a single environment
 
-|box_sim| |pendulum_sim| |crazyfly_sim|
-|box_real| |pendulum_real| |crazyfly_real|
+.. image:: _static/gif/box_pushing_pybullet.gif
+   :width: 22.8%
+.. image:: _static/gif/pendulum_sim.gif
+   :width: 22.8%
+.. image:: _static/gif/crazyfly_sim.gif
+   :width: 50%
+
+.. image:: _static/gif/box_pushing_real.gif
+   :width: 22.8%
+.. image:: _static/gif/pendulum_real.gif
+   :width: 22.8%
+.. image:: _static/gif/crazyfly_real.gif
+   :width: 50%
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
 On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
 
 .. image:: _static/gif/all.gif
-   :width: 50%
+   :width: 80%
 
 **Modular:** The modular design of EAGERx allows users to create complex environments easily through composition.
 
 .. image:: _static/img/example_gui.png
-   :width: 50%
+   :width: 80%
 
 **GUI:** Users can visualize their graph environment.
 Here we visualize the graph environment that we built in `this tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb>`_.
