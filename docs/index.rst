@@ -62,12 +62,12 @@ EAGERx explicitly addresses the differences in learning between simulation and r
 On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
 
 .. image:: _static/gif/all.gif
-   :width: 80%
+   :width: 100%
 
 **Modular:** The modular design of EAGERx allows users to create complex environments easily through composition.
 
-.. image:: _static/img/example_gui.png
-   :width: 80%
+.. image:: _static/img/gui.svg
+   :width: 100%
 
 **GUI:** Users can visualize their graph environment.
 Here we visualize the graph environment that we built in `this tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb>`_.
