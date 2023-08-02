@@ -26,38 +26,61 @@
 
 |
 
+What is EAGERx
+==============
+
+You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new ([Gymnasium compatible](https://gymnasium.farama.org/)) environments with modular robot definitions.
+
+It enables users to:
+
+* Define environments as graphs of nodes
+* Visualize these graph environments interactively in a GUI
+* Use a single graph environment both in reality and with various simulators
+
+EAGERx explicitly addresses the differences in learning between simulation and reality, with native support for essential features such as:
+
+* Safety layers and various other state, action and time-scale abstractions
+* Delay simulation & domain randomization
+* Real-world reset routines
+* Synchronized parallel computation within a single environment
+
+|box_sim| |pendulum_sim| |crazyfly_sim|
+|box_real| |pendulum_real| |crazyfly_real|
+
+**Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
+On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
+
+|all|
+
+**Modular:** The modular design of EAGERx allows users to create complex environments easily through composition.
+
+.. image:: _static/img/example_gui.png
+   :width: 100%
+
+**GUI:** Users can visualize their graph environment.
+Here we visualize the graph environment that we built in [this tutorial](https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb).
+See [the documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui) for more information.
+
 Video
 =====
 
 .. raw:: html
 
     <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto; margin-bottom: 2em;">
-        <iframe src="https://www.youtube.com/embed/6t_NRb9iWP0" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+        <iframe src="https://www.youtube.com/embed/6t_NRb9iWP0" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 50%; height: 50%;"></iframe>
     </div>
 
-What is EAGERx
-==============
+Engines
+=======
 
-`EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
-and switch from simulation to reality with a single line of code by being invariant to the physics engine.
-EAGERx explicitly addresses the differences in learning between simulation and reality,
-with essential features for roboticists such as a safety layer, signal delay simulation, and controller switching for resets.
-A single RL pipeline that works with both the simulated and real robots eliminates the chance for mismatches between the simulation and reality implementation.
-The defined task follows the OpenAI Gym interface, so one can plug in algorithms from established RL libraries
-(e.g., `Stable-baselines3 <https://github.com/DLR-RM/stable-baselines3>`_ ) to solve the task afterward, again minimizing implementation errors.
+EAGERx enables a unified pipeline for real-world and simulated learning across various simulators.
+The following engines/simulators are already available for training and evaluation:
 
-**We are currently working towards a first stable release!**
+* `RealEngine <https://github.com/eager-dev/eagerx_reality>`_ for real-world experiments
+* `PybulletEngine <https://github.com/eager-dev/eagerx_pybullet>`_ for PyBullet simulations
+* `OdeEngine <https://github.com/eager-dev/eagerx_ode>`_ for simulations based on ordinary differential equations (ODEs)
 
-|box_sim| |pendulum_sim| |crazyfly_sim|
-|box_real| |pendulum_real| |crazyfly_real|
-
-|all|
-
-**Top:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
-
-**Bottom:** The modular design of EAGERx allows users to create complex environments easily through composition.
-
+Users can easily add their own engines by implementing the `Engine` interface.
 
 .. toctree::
    :maxdepth: 2
@@ -74,22 +97,6 @@ On the left the successful transfer of a box-pushing policy is shown, in the mid
    guide/troubleshooting/index
 
    guide/contributing/index
-
-Engines
--------
-
-EAGERx allows to create engine agnostic environments such that a single
-environment can be used for simulation and reality. The following
-engines are available for training and evaluation:
-
--   `RealEngine <https://github.com/eager-dev/eagerx_reality>`_ for
-    real-world experiments
--   `PybulletEngine <https://github.com/eager-dev/eagerx_pybullet>`_ for
-    PyBullet simulations
--   `OdeEngine <https://github.com/eager-dev/eagerx_ode>`_ for simulations
-    based on ordinary differential equations (ODEs)
-
-Users can also create their own (custom) engines.
 
 Cite EAGERx
 ===========
