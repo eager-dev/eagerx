@@ -26,18 +26,17 @@
 
 |
 
-
-
-What is EAGERx
-==============
+Video
+=====
 
 .. raw:: html
 
-    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto; margin-bottom: 2em;">
         <iframe src="https://www.youtube.com/embed/6t_NRb9iWP0" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
     </div>
 
-
+What is EAGERx
+==============
 
 `EAGERx <https://github.com/eager-dev/eagerx>`_ (Engine Agnostic Graph Environments for Robotics) enables users to easily define new tasks, switch from one sensor to another,
 and switch from simulation to reality with a single line of code by being invariant to the physics engine.
@@ -49,12 +48,13 @@ The defined task follows the OpenAI Gym interface, so one can plug in algorithms
 
 **We are currently working towards a first stable release!**
 
-|box_sim| |box_real| |pendulum_sim| |pendulum_real|
+|box_sim| |pendulum_sim| |crazyfly_sim|
+|box_real| |pendulum_real| |crazyfly_real|
 
 |all|
 
 **Top:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
+On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
 
 **Bottom:** The modular design of EAGERx allows users to create complex environments easily through composition.
 
@@ -128,16 +128,22 @@ EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
 |delft_logo| |opendr_logo|
 
 .. |box_sim| image:: _static/gif/box_pushing_pybullet.gif
-   :width: 24%
+   :width: 27%
 
 .. |box_real| image:: _static/gif/box_pushing_real.gif
-   :width: 24%
+   :width: 27%
 
 .. |pendulum_sim| image:: _static/gif/pendulum_sim.gif
-   :width: 24%
+   :width: 27%
 
 .. |pendulum_real| image:: _static/gif/pendulum_real.gif
-   :width: 24%
+   :width: 27%
+
+.. |crazyfly_sim| image:: _static/gif/crazyfly_sim.gif
+   :width: 40%
+
+.. |crazyfly_real| image:: _static/gif/crazyfly_real.gif
+   :width: 40%
 
 .. |all| image:: _static/gif/all.gif
    :width: 97.5%
