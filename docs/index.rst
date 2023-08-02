@@ -71,7 +71,7 @@ On the left the successful transfer of a box-pushing policy is shown, in the mid
 
 **GUI:** Users can visualize their graph environment.
 Here we visualize the graph environment that we built in `this tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb>`_.
-See the `documentation <(https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui>`_ for more information.
+See the `documentation <https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui>`_ for more information.
 
 Video
 =====
