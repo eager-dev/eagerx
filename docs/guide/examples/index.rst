@@ -35,21 +35,28 @@ Detailed explanation of the code can be found in `this Colab tutorial <https://c
             observation = self._step(action)
             self.steps += 1
 
+            # Calculate reward and check if the episode is terminated
             th = observation["angle"][0]
             thdot = observation["angular_velocity"][0]
             u = float(action["voltage"])
             th -= 2 * np.pi * np.floor((th + np.pi) / (2 * np.pi))
-
             cost = th ** 2 + 0.1 * thdot ** 2 + 0.01 * u ** 2
-            done = self.steps > self.max_steps
-            info = {"TimeLimit.truncated": self.steps > self.max_steps}
-            return observation, -cost, done, info
+            truncated = self.steps > self.max_steps
+            terminated = False
 
-        def reset(self) -> Dict:
+            # Render
+            if self.render_mode == "human":
+                self.render()
+            return observation, -cost, terminated, truncated, {}
+
+        def reset(self, seed=None, options=None) -> Dict:
             states = self.state_space.sample()
             observation = self._reset(states)
             self.steps = 0
-            return observation
+            # Render
+            if self.render_mode == "human":
+                self.render()
+            return observation, {}
 
     if __name__ == "__main__":
         rate = 30.0

@@ -13,33 +13,36 @@
 What is EAGERx
 --------------
 
-You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new ([OpenAI Gym compatible](https://www.gymlibrary.dev/)) environments with modular robot definitions.
+You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new ([Gymnasium compatible](https://gymnasium.farama.org/)) environments with modular robot definitions.
 
 It enables users to:
-- Define environments as computation graphs of interconnected nodes
-- Visualize these graph environments interactively
-- Use a single graph environment both in simulation and reality
+- Define environments as graphs of nodes
+- Visualize these graph environments interactively in a GUI
+- Use a single graph environment both in reality and with various simulators
 
 EAGERx explicitly addresses the differences in learning between simulation and reality, with native support for essential features such as:
-- Safety layers
-- Signal delay simulation
+- Safety layers and various other state, action and time-scale abstractions
+- Delay simulation & domain randomization
 - Real-world reset routines
-- Synchronized inter-node communication
+- Synchronized parallel computation within a single environment
 
 [Full documentation and tutorials available
 here](https://eagerx.readthedocs.io/en/master/).
 
-**We are currently working towards a first stable release!**
+<p align="center">
+  <img src="docs/_static/gif/box_pushing_pybullet.gif" width="22.8%"  alt="box_sim"/>
+  <img src="docs/_static/gif/pendulum_sim.gif" width="22.8%"  alt="box_real"/>
+  <img src="docs/_static/gif/crazyfly_sim.gif" width="50%"  alt="pendulum_sim"/> 
+</p>
 
 <p align="center">
-  <img src="docs/_static/gif/box_pushing_pybullet.gif" width="24%"  alt="box_sim"/>
-  <img src="docs/_static/gif/box_pushing_real.gif" width="24%"  alt="box_real"/>
-  <img src="docs/_static/gif/pendulum_sim.gif" width="24%"  alt="pendulum_sim"/> 
-  <img src="docs/_static/gif/pendulum_real.gif" width="24%"  alt="pendulum_real"/>
+  <img src="docs/_static/gif/box_pushing_pybullet.gif" width="22.8%"  alt="box_sim"/>
+  <img src="docs/_static/gif/pendulum_real.gif" width="22.8%"  alt="box_real"/>
+  <img src="docs/_static/gif/crazyfly_real.gif" width="50%"  alt="pendulum_sim"/>
 </p>
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
+On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
 
 <p align="center">
     <img src="docs/_static/gif/all.gif" width="98%" />
@@ -51,13 +54,13 @@ On the left the successful transfer of a box-pushing policy is shown, while on t
 
 **GUI:** Users can visualize their graph environment.
 Here we visualize the graph environment that we built in [this tutorial](https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb).
-See [the documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui) for more information.
+See the [documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui) for more information.
 
 <img src="docs/_static/gif/rqt_plot.GIF" width="50%" />
 
 **Live plotting:** In robotics it is crucial to monitor the robot\'s behavior during the learning process.
 Luckily, inter-node communication within EAGERx can be listened to externally, so that any relevant information stream can be trivially monitored on-demand.
-See [the documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-training-visualization) for more information.
+See the [documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-training-visualization) for more information.
 
 Installation
 ------------
@@ -68,7 +71,7 @@ You can do a minimal installation of `EAGERx` with:
 pip3 install eagerx
 ```
 
-We provide other options (Docker, Conda) for installing EAGERx in [the documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#installing-eagerx).
+We provide other options (Docker, Conda) for installing EAGERx in the [documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#installing-eagerx).
 
 
 Tutorials
@@ -105,8 +108,6 @@ The solutions are available
     Rendering](https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/7_rendering.ipynb)
 -   [Tutorial 8: Reset
     Routines](https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/8_reset_routine.ipynb)
--   Tutorial 9: Speeding-up training with multi-processing (coming
-    soon).
 
 The solutions are available
 [here](https://github.com/eager-dev/eagerx_tutorials/tree/master/tutorials/pendulum/solutions/).
@@ -156,21 +157,28 @@ class PendulumEnv(eagerx.BaseEnv):
         observation = self._step(action)
         self.steps += 1
 
+        # Calculate reward and check if the episode is terminated
         th = observation["angle"][0]
         thdot = observation["angular_velocity"][0]
         u = float(action["voltage"])
         th -= 2 * np.pi * np.floor((th + np.pi) / (2 * np.pi))
-
         cost = th ** 2 + 0.1 * thdot ** 2 + 0.01 * u ** 2
-        done = self.steps > self.max_steps
-        info = {"TimeLimit.truncated": self.steps > self.max_steps}
-        return observation, -cost, done, info
+        truncated = self.steps > self.max_steps
+        terminated = False
+        
+        # Render
+        if self.render_mode == "human":
+            self.render()
+        return observation, -cost, terminated, truncated, {}
 
-    def reset(self) -> Dict:
+    def reset(self, seed=None, options=None) -> Dict:
         states = self.state_space.sample()
         observation = self._reset(states)
         self.steps = 0
-        return observation
+        # Render
+        if self.render_mode == "human":
+            self.render()
+        return observation, {}
 
 if __name__ == "__main__":
     rate = 30.0
@@ -217,7 +225,7 @@ Cite EAGERx
 If you are using EAGERx for your scientific publications, please cite:
 
 ``` {.sourceCode .bibtex}
-@article{eagerx,
+@article{heijden2022eagerx,
     author  = {van der Heijden, Bas and Luijkx, Jelle, and Ferranti, Laura and Kober, Jens and Babuska, Robert},
     title = {EAGERx: Engine Agnostic Graph Environments for Robotics},
     year = {2022},
