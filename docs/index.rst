@@ -29,7 +29,7 @@
 What is EAGERx
 ==============
 
-You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new ([Gymnasium compatible](https://gymnasium.farama.org/)) environments with modular robot definitions.
+You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new (`Gymnasium compatible<https://gymnasium.farama.org/>`_) environments with modular robot definitions.
 
 It enables users to:
 
