@@ -42,7 +42,7 @@ here](https://eagerx.readthedocs.io/en/master/).
 </p>
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
+On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
 
 <p align="center">
     <img src="docs/_static/gif/all.gif" width="98%" />

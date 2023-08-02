@@ -59,7 +59,7 @@ EAGERx explicitly addresses the differences in learning between simulation and r
    :width: 50%
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, while on the right this is the case for the classic pendulum swing-up problem.
+On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
 
 .. image:: _static/gif/all.gif
    :width: 80%
