@@ -12,6 +12,7 @@ To run this code, you should install `eagerx_tutorials <https://github.com/eager
 Detailed explanation of the code can be found in `this Colab tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/pendulum/1_environment_creation.ipynb>`_.
 
 .. code-block:: python
+
     import eagerx
     from eagerx.backends.single_process import SingleProcess
     from eagerx.wrappers import Flatten
