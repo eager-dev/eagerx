@@ -36,7 +36,7 @@ here](https://eagerx.readthedocs.io/en/master/).
 </p>
 
 <p align="center">
-  <img src="docs/_static/gif/box_pushing_pybullet.gif" width="22.8%"  alt="box_sim"/>
+  <img src="docs/_static/gif/box_pushing_real.gif" width="22.8%"  alt="box_sim"/>
   <img src="docs/_static/gif/pendulum_real.gif" width="22.8%"  alt="box_real"/>
   <img src="docs/_static/gif/crazyfly_real.gif" width="50%"  alt="pendulum_sim"/>
 </p>
