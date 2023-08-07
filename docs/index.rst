@@ -29,7 +29,7 @@
 What is EAGERx
 ==============
 
-You can use EAGERx (*Engine Agnostic Graph Environments for Robotics*) to easily define new (`Gymnasium compatible <https://gymnasium.farama.org/>`_) environments with modular robot definitions.
+You can use `EAGERx <https://github.com/eager-dev/eagerx>`_ (*Engine Agnostic Graph Environments for Robotics*) to easily define new (`Gymnasium compatible <https://gymnasium.farama.org/>`_) environments with modular robot definitions.
 
 It enables users to:
 
@@ -43,6 +43,8 @@ EAGERx explicitly addresses the differences in learning between simulation and r
 * Delay simulation & domain randomization
 * Real-world reset routines
 * Synchronized parallel computation within a single environment
+
+You can find the open-source code on `Github <https://github.com/eager-dev/eagerx>`_.
 
 .. image:: _static/gif/box_pushing_pybullet.gif
    :width: 22.8%
