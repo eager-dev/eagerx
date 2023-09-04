@@ -767,7 +767,7 @@ class Node(BaseNode):
                     f"The .callback(...) of `{self.name}` did not return an output dict with key"
                     f"`{cname_done}` that communicates the reset status for the registered target."
                 )
-                assert isinstance(output[cname_done], (bool, np.bool, np.bool_)), (
+                assert isinstance(output[cname_done], (bool, np.bool_)), (
                     f"The message type of target {cname_done}` ({type(output[cname_done])}), returned by the .callback(...) of "
                     f"`{self.name}`, should be of type `bool`."
                 )
