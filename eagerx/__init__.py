@@ -1,4 +1,4 @@
-__version__ = "0.1.38"
+__version__ = "0.1.39"
 
 from eagerx.core.space import Space
 from eagerx.core.constants import (  # noqa: F401  # pylint: disable=unused-import

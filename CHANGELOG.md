@@ -2,6 +2,24 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.39 (2023-09-04)
+
+### Fix
+
+* Bug skipped observations of dimension 0. ([`7ed49a2`](https://github.com/eager-dev/eagerx/commit/7ed49a2d3e5e4889e973f0f06e3a5907aa3167bc))
+* Refactor deprecated np.bool ([`cb005af`](https://github.com/eager-dev/eagerx/commit/cb005af200801f995aadb79a42273b09ac61fbb2))
+
+### Documentation
+
+* Add github link ([`cd8eca5`](https://github.com/eager-dev/eagerx/commit/cd8eca59c9fcb61943a3d98cd9e9366ed392a688))
+* Update README.md [ci skip] ([`428283b`](https://github.com/eager-dev/eagerx/commit/428283bd0128cd5c31f11fcbb2eddd1ec5f70477))
+* Update landing page with crazyfly gifs ([`e1493a2`](https://github.com/eager-dev/eagerx/commit/e1493a22923ddcb83ea1e917805b5b9f144bb0b8))
+* Update embedded video size ([`50c7873`](https://github.com/eager-dev/eagerx/commit/50c7873e96deedcaa21fced588aaed4c35bab927))
+* Embed youtube video ([`575526a`](https://github.com/eager-dev/eagerx/commit/575526a1f7222d51fa5122fb6c6f307ac3d9f027))
+* Update pendulum gifs ([`8af5223`](https://github.com/eager-dev/eagerx/commit/8af5223aaa0b0d392f8ce0408fa795a43fcfc754))
+* Update box push gif ([`1c75af0`](https://github.com/eager-dev/eagerx/commit/1c75af038c5e9795d737120a707ed869f7e261c4))
+* Update env.step ([`d2c92d8`](https://github.com/eager-dev/eagerx/commit/d2c92d8c273111c185bf2904b2b3f2a2051ae017))
+
 ## v0.1.38 (2023-06-24)
 
 ### Fix
