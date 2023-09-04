@@ -102,7 +102,10 @@ class EnvNode(eagerx.Node):
                 # Only happens when skip=True && window > 0
                 if len(i.msgs) == 0:
                     initial_obs = np.empty(buffer["space"].shape)
-                    initial_obs[:] = np.NaN
+                    if len(initial_obs.shape) > 0:
+                        initial_obs[:] = np.NaN
+                    else:
+                        initial_obs = np.NaN
                     i.msgs.append(initial_obs)
                     extra -= 1  # Subtract, because we appended the initial_obs
                 msgs = extra * [i.msgs[0]] + i.msgs
