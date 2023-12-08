@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.40 (2023-12-08)
+
+### Fix
+
+* Real_time_factor ([`3667b69`](https://github.com/eager-dev/eagerx/commit/3667b6945da598a0f02a1da437976677ab909aef))
+
 ## v0.1.39 (2023-09-04)
 
 ### Fix
