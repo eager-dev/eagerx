@@ -980,7 +980,7 @@ def throttle_with_time(dt, node, rate_tol: float = 0.95, log_level: int = DEBUG)
                 else:  # If we are overdue, the proceeed
                     cum_delay[0] += -sleep_time
                     cum_cbs[0] += 1
-                tic[0] = start + Nc / node.rate
+                tic[0] = start + Nc * dt
                 # node.backend.loginfo(colored(f"[{node_name}] Nc: {Nc} | toc: {toc} | sleep_time: {sleep_time} | tic[0]: {tic[0]}", color))
 
                 # Logging
