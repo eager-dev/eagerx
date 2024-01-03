@@ -75,6 +75,16 @@ On the left the successful transfer of a box-pushing policy is shown, in the mid
 Here we visualize the graph environment that we built in `this tutorial <https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb>`_.
 See the `documentation <https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui>`_ for more information.
 
+.. image:: _static/gif/use_case.gif
+   :width: 35.5%
+.. image:: _static/gif/swim_sim.gif
+   :width: 25%
+.. image:: _static/gif/swim_real.gif
+   :width: 25%
+
+**Applications beyond RL:** The modular design and unified software pipeline of the framework have utility beyond reinforcement learning.
+We explored two such instances: interactive language-conditioned imitation learning (left) and classical control with deep learning based perception in a swimming pool environment (right).
+
 Video
 =====
 
@@ -165,6 +175,15 @@ EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
 
 .. |crazyfly_real| image:: _static/gif/crazyfly_real.gif
    :width: 40%
+
+.. |use_case| image:: _static/gif/use_case.gif
+   :width: 35.5%
+
+.. |swim_sim| image:: _static/gif/swim_sim.gif
+   :width: 25%
+
+.. |swim_real| image:: _static/gif/swim_real.gif
+   :width: 25%
 
 .. |all| image:: _static/gif/all.gif
    :width: 97.5%

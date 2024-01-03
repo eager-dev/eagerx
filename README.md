@@ -56,11 +56,22 @@ On the left the successful transfer of a box-pushing policy is shown, in the mid
 Here we visualize the graph environment that we built in [this tutorial](https://colab.research.google.com/github/eager-dev/eagerx_tutorials/blob/master/tutorials/icra/advanced_usage.ipynb).
 See the [documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-gui) for more information.
 
-<img src="docs/_static/gif/rqt_plot.GIF" width="50%" />
+<p align="center">
+  <img src="docs/_static/gif/rqt_plot.GIF" width="50%" />
+</p>
 
 **Live plotting:** In robotics it is crucial to monitor the robot\'s behavior during the learning process.
 Luckily, inter-node communication within EAGERx can be listened to externally, so that any relevant information stream can be trivially monitored on-demand.
 See the [documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-training-visualization) for more information.
+
+<p align="center">
+  <img src="docs/_static/gif/use_case.gif" width="35.5%"  alt="use_case"/> 
+  <img src="docs/_static/gif/swim_sim.gif" width="25%"  alt="swim_sim"/>
+  <img src="docs/_static/gif/swim_real.gif" width="25%"  alt="swim_real"/>
+</p>
+
+**Applications beyond RL:** The modular design and unified software pipeline of the framework have utility beyond reinforcement learning.
+We explored two such instances: interactive language-conditioned imitation learning (left) and classical control with deep learning based perception in a swimming pool environment (right).
 
 Installation
 ------------
