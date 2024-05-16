@@ -30,22 +30,22 @@ EAGERx explicitly addresses the differences in learning between simulation and r
 here](https://eagerx.readthedocs.io/en/master/).
 
 <p align="center">
+  <img src="docs/_static/gif/pendulum_sim.gif" width="22.8%"  alt="pendulum_sim"/>
+  <img src="docs/_static/gif/pendulum_real.gif" width="22.8%"  alt="pendulum_real"/>
   <img src="docs/_static/gif/box_pushing_pybullet.gif" width="22.8%"  alt="box_sim"/>
-  <img src="docs/_static/gif/pendulum_sim.gif" width="22.8%"  alt="box_real"/>
-  <img src="docs/_static/gif/crazyfly_sim.gif" width="50%"  alt="pendulum_sim"/> 
+  <img src="docs/_static/gif/box_pushing_real.gif" width="22.8%"  alt="box_real"/>
 </p>
 
 <p align="center">
-  <img src="docs/_static/gif/box_pushing_real.gif" width="22.8%"  alt="box_sim"/>
-  <img src="docs/_static/gif/pendulum_real.gif" width="22.8%"  alt="box_real"/>
-  <img src="docs/_static/gif/crazyfly_real.gif" width="50%"  alt="pendulum_sim"/>
+  <img src="docs/_static/gif/drone_landing.gif" width="66%"  alt="cf_real"/>
 </p>
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
+In the top left the successful transfer of a policy for the classic pendulum swing-up problem is shown and in the top right for a box-pushing task.
+Below that shows a policy to land a quadrotor on a moving inclined platform.
 
 <p align="center">
-    <img src="docs/_static/gif/all.gif" width="98%" />
+    <img src="docs/_static/gif/all.gif" width="66%" />
 </p>
 
 **Modular:** The modular design of EAGERx allows users to create complex environments easily through composition.
@@ -65,7 +65,7 @@ Luckily, inter-node communication within EAGERx can be listened to externally, s
 See the [documentation](https://eagerx.readthedocs.io/en/master/guide/getting_started/index.html#extras-training-visualization) for more information.
 
 <p align="center">
-  <img src="docs/_static/gif/use_case.gif" width="35.5%"  alt="use_case"/> 
+  <img src="docs/_static/gif/use_case.gif" width="35.5%"  alt="use_case"/>
   <img src="docs/_static/gif/swim_sim.gif" width="25%"  alt="swim_sim"/>
   <img src="docs/_static/gif/swim_real.gif" width="25%"  alt="swim_real"/>
 </p>
@@ -176,7 +176,7 @@ class PendulumEnv(eagerx.BaseEnv):
         cost = th ** 2 + 0.1 * thdot ** 2 + 0.01 * u ** 2
         truncated = self.steps > self.max_steps
         terminated = False
-        
+
         # Render
         if self.render_mode == "human":
             self.render()
