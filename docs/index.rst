@@ -57,14 +57,15 @@ You can find the open-source code on `Github <https://github.com/eager-dev/eager
    :width: 22.8%
 
 .. image:: _static/gif/drone_landing.gif
-   :width: 66%
+   :width: 100%
 
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
 In the top left the successful transfer of a policy for the classic pendulum swing-up problem is shown and in the top right for a box-pushing task.
 Below that shows a policy to land a quadrotor on a moving inclined platform.
+
 .. image:: _static/gif/all.gif
-   :width: 66%
+   :width: 100%
 
 **Modular:** The modular design of EAGERx allows users to create complex environments easily through composition.
 
