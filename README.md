@@ -42,7 +42,7 @@ here](https://eagerx.readthedocs.io/en/master/).
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
 In the top left the successful transfer of a policy for the classic pendulum swing-up problem is shown and in the top right for a box-pushing task.
-Below that shows a policy to land a quadrotor on a moving inclined platform.
+Below that a policy to land a quadrotor on a moving inclined platform is shown.
 
 <p align="center">
     <img src="docs/_static/gif/all.gif" width="66%" />
