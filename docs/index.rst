@@ -46,22 +46,23 @@ EAGERx explicitly addresses the differences in learning between simulation and r
 
 You can find the open-source code on `Github <https://github.com/eager-dev/eagerx>`_.
 
-.. image:: _static/gif/box_pushing_pybullet.gif
-   :width: 22.8%
-.. image:: _static/gif/pendulum_sim.gif
-   :width: 22.8%
-.. image:: _static/gif/crazyfly_sim.gif
-   :width: 50%
 
-.. image:: _static/gif/box_pushing_real.gif
+.. image:: _static/gif/pendulum_sim.gif
    :width: 22.8%
 .. image:: _static/gif/pendulum_real.gif
    :width: 22.8%
-.. image:: _static/gif/crazyfly_real.gif
-   :width: 50%
+.. image:: _static/gif/box_pushing_pybullet.gif
+   :width: 22.8%
+.. image:: _static/gif/box_pushing_real.gif
+   :width: 22.8%
+
+.. image:: _static/gif/drone_landing.gif
+   :width: 100%
+
 
 **Sim2Real:** Policies trained in simulation and zero-shot evaluated on real systems using EAGERx.
-On the left the successful transfer of a box-pushing policy is shown, in the middle for the classic pendulum swing-up problem and on the right a task involving the crazyfly drone.
+In the top left the successful transfer of a policy for the classic pendulum swing-up problem is shown and in the top right for a box-pushing task.
+Below that a policy to land a quadrotor on a moving inclined platform is shown.
 
 .. image:: _static/gif/all.gif
    :width: 100%
@@ -176,6 +177,9 @@ EAGERx is funded by the `OpenDR <https://opendr.eu/>`_ Horizon 2020 project.
 
 .. |pendulum_real| image:: _static/gif/pendulum_real.gif
    :width: 27%
+
+.. |drone_landing| image:: _static/gif/drone_landing.gif
+   :width: 66%
 
 .. |crazyfly_sim| image:: _static/gif/crazyfly_sim.gif
    :width: 40%
