@@ -236,7 +236,7 @@ Cite EAGERx
 If you are using EAGERx for your scientific publications, please cite:
 
 ``` {.sourceCode .bibtex}
-@article{van2024eagerx,
+@article{vanderheijden2024eagerx,
   title={EAGERx: Graph-Based Framework for Sim2real Robot Learning},
   author={van der Heijden, Bas and Luijkx, Jelle and Ferranti, Laura and Kober, Jens and Babuska, Robert},
   journal={arXiv preprint arXiv:2407.04328},
