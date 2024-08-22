@@ -237,10 +237,15 @@ If you are using EAGERx for your scientific publications, please cite:
 
 ``` {.sourceCode .bibtex}
 @article{vanderheijden2024eagerx,
-  title={EAGERx: Graph-Based Framework for Sim2real Robot Learning},
   author={van der Heijden, Bas and Luijkx, Jelle and Ferranti, Laura and Kober, Jens and Babuska, Robert},
-  journal={arXiv preprint arXiv:2407.04328},
-  year={2024}
+  journal={IEEE Robotics & Automation Magazine}, 
+  title={Engine Agnostic Graph Environments for Robotics (EAGERx): A Graph-Based Framework for Sim2real Robot Learning}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={2-15},
+  keywords={Robots;Engines;Robot sensing systems;Delays;Robot learning;Physics;Codes},
+  doi={10.1109/MRA.2024.3433172}
 }
 ```
 
