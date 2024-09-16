@@ -238,7 +238,7 @@ If you are using EAGERx for your scientific publications, please cite:
 ``` {.sourceCode .bibtex}
 @article{vanderheijden2024eagerx,
   author={van der Heijden, Bas and Luijkx, Jelle and Ferranti, Laura and Kober, Jens and Babuska, Robert},
-  journal={IEEE Robotics & Automation Magazine}, 
+  journal={IEEE Robotics \& Automation Magazine}, 
   title={Engine Agnostic Graph Environments for Robotics (EAGERx): A Graph-Based Framework for Sim2real Robot Learning}, 
   year={2024},
   volume={},
