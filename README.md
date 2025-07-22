@@ -6,8 +6,9 @@
 [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation Status](https://readthedocs.org/projects/eagerx/badge/?version=master)](https://eagerx.readthedocs.io/en/master/?badge=master)
 [![Continuous Integration](https://github.com/eager-dev/eagerx/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/eager-dev/eagerx/actions/workflows/ci.yml)
-[![Maintainability](https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/maintainability)](https://codeclimate.com/github/eager-dev/eagerx/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/test_coverage)](https://codeclimate.com/github/eager-dev/eagerx/test_coverage)
+[![Test Coverage](coverage.svg)](https://github.com/eager-dev/eagerx/actions/workflows/ci.yml)
+<!-- [![Maintainability](https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/maintainability)](https://codeclimate.com/github/eager-dev/eagerx/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/test_coverage)](https://codeclimate.com/github/eager-dev/eagerx/test_coverage) -->
 
 
 What is EAGERx

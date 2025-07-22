@@ -138,17 +138,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY_USERNAME: ${{ secrets.PYPI_USERNAME }}
           REPOSITORY_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-      #----------------------------------------------
-      # Download coverage and publish to CodeClimate
-      #----------------------------------------------
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: 'coverage'
-          path: .
-      - name: Publish code coverage to CodeClimate
-        uses: paambaati/codeclimate-action@v2.7.5
-        env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
-        with:
-          debug: true
+      # #----------------------------------------------
+      # # Download coverage and publish to CodeClimate
+      # #----------------------------------------------
+      # - name: Download artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: 'coverage'
+      #     path: .
+      # - name: Publish code coverage to CodeClimate
+      #   uses: paambaati/codeclimate-action@v2.7.5
+      #   env:
+      #     CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
+      #   with:
+      #     debug: true
