@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: [ master, develop ]
   schedule:
-    - cron:  '0 8 * * *'
+    - cron: '0 0 1 1 *'
 
 jobs:
   test:
@@ -21,7 +21,7 @@ jobs:
         os: [ "ubuntu-20.04" ]
         #        python-version: [ "3.6.2", "3.7", "3.8", "3.9" ]
         python-version: [ "3.8" ]
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
     timeout-minutes: 40
     steps:
       #----------------------------------------------
@@ -111,7 +111,7 @@ jobs:
     needs: test
     # https://github.community/t/how-do-i-specify-job-dependency-running-in-another-workflow/16482
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, 'chore(release):')
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       #----------------------------------------------
       #       check-out repo and set-up python
