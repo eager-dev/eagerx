@@ -103,7 +103,7 @@ jobs:
       #----------------------------------------------
       # Save code coverage
       #----------------------------------------------
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: 'coverage'
           path: coverage.xml
@@ -142,7 +142,7 @@ jobs:
       # Download coverage and publish to CodeClimate
       #----------------------------------------------
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'coverage'
           path: .
