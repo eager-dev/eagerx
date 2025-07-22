@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: [ master, develop ]
   schedule:
-    - cron:  '0 8 * * *'
+    - cron: '0 0 1 1 *'
 
 jobs:
   test:
@@ -21,7 +21,7 @@ jobs:
         os: [ "ubuntu-20.04" ]
         #        python-version: [ "3.6.2", "3.7", "3.8", "3.9" ]
         python-version: [ "3.8" ]
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
     timeout-minutes: 40
     steps:
       #----------------------------------------------
@@ -48,7 +48,7 @@ jobs:
       #----------------------------------------------
       - name: Load cached venv
         id: cached-poetry-dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
@@ -78,19 +78,19 @@ jobs:
       - name: install ROS
         run: |
           sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-          sudo apt install curl # if you haven't already installed curl
+          sudo apt install -y curl # if you haven't already installed curl
           curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
           sudo apt update
-          sudo apt install ros-noetic-ros-base
+          sudo apt install -y ros-noetic-ros-base
           echo "source /opt/ros/noetic/setup.bash" >> .venv/bin/activate
-          sudo apt-get install ros-noetic-cv-bridge
-          sudo apt-get install freeglut3-dev
+          sudo apt-get install -y ros-noetic-cv-bridge
+          sudo apt-get install -y freeglut3-dev
       #----------------------------------------------
       # Build docs
       #----------------------------------------------
       - name: Build the doc
         run: |
-          sudo apt-get install python3-sphinx
+          sudo apt-get install -y python3-sphinx
           source .venv/bin/activate
           make doc
       #----------------------------------------------
@@ -103,7 +103,7 @@ jobs:
       #----------------------------------------------
       # Save code coverage
       #----------------------------------------------
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: 'coverage'
           path: coverage.xml
@@ -111,7 +111,7 @@ jobs:
     needs: test
     # https://github.community/t/how-do-i-specify-job-dependency-running-in-another-workflow/16482
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !contains(github.event.head_commit.message, 'chore(release):')
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       #----------------------------------------------
       #       check-out repo and set-up python
@@ -142,7 +142,7 @@ jobs:
       # Download coverage and publish to CodeClimate
       #----------------------------------------------
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'coverage'
           path: .
