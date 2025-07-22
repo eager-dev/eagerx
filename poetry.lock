@@ -1208,14 +1208,14 @@ files = [
 
 [[package]]
 name = "pyglet"
-version = "1.5.27"
+version = "2.0.10"
 description = "Cross-platform windowing and multimedia library"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "pyglet-1.5.27-py3-none-any.whl", hash = "sha256:7ce2eb5a299cda92fcc099f533520cdaa2f157a175d6c1442a2ae4d769284d2d"},
-    {file = "pyglet-1.5.27.zip", hash = "sha256:4d00e067451f3b10fd51b69764fddab65444372a2da344ee2b35f0a8e6ebf005"},
+    {file = "pyglet-2.0.10-py3-none-any.whl", hash = "sha256:e10a1f1a6a2dcfbf23155913746ff6fbf8ea18c5ee813b6d0e79d273bb2b3c18"},
+    {file = "pyglet-2.0.10.zip", hash = "sha256:242beb1b3bd67c5bebdfe5ba11ec56b696ad86b50c6e7f2a317f8d783256b9c9"},
 ]
 
 [[package]]
@@ -1849,4 +1849,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.7"
-content-hash = "be9dd73d9e34ee5c644cc72190556a963101627d522b7ce8202ea3d7029e2059"
+content-hash = "d738fc4421a491e11055e47c339a906699f978c213a569ef28a971b81a5edef9"
