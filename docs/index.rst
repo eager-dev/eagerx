@@ -20,8 +20,8 @@
    :target: https://github.com/eager-dev/eagerx/actions/workflows/ci.yml
    :alt: Continuous Integration
 
-.. image:: https://api.codeclimate.com/v1/badges/3146dce3dd4c3537834c/test_coverage
-   :target: https://codeclimate.com/github/eager-dev/eagerx/test_coverage
+.. image:: https://raw.githubusercontent.com/eager-dev/eagerx/refs/heads/master/coverage.svg
+   :target: https://github.com/eager-dev/eagerx/actions
    :alt: Test Coverage
 
 |
