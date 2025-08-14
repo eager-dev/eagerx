@@ -7,7 +7,7 @@ GPU_PARENT=nvidia/cuda:11.3.1-runtime-ubuntu20.04
 
 TAG=eagerx/eagerx
 VERSION="$(poetry version --short)"
-POETRY_VERSION=1.1.3
+POETRY_VERSION=1.5.1
 PYTHON_VERSION=3.8
 
 if [ ${ADD_SB} ]; then
@@ -16,10 +16,10 @@ fi
 
 if [ ${USE_GPU} ]; then
   PARENT=${GPU_PARENT}
-  PYTORCH_DEPS="cudatoolkit=11.3"
+  PYTORCH_DEPS="cu113"
 else
   PARENT=${CPU_PARENT}
-  PYTORCH_DEPS="cpuonly"
+  PYTORCH_DEPS="cpu"
   TAG="${TAG}-cpu"
 fi
 

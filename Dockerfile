@@ -2,8 +2,8 @@
 
 ARG PARENT_IMAGE
 FROM $PARENT_IMAGE
-ARG PYTORCH_DEPS=cpuonly
-ARG POETRY_VERSION=1.0.0
+ARG PYTORCH_DEPS=cu113
+ARG POETRY_VERSION=1.5.1
 ARG ADD_SB=False
 ARG PYTHON_VERSION=3.8
 
@@ -33,7 +33,6 @@ RUN curl -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest
      ~/miniconda.sh -b -p /opt/conda && \
      rm ~/miniconda.sh && \
      /opt/conda/bin/conda install -y python=$PYTHON_VERSION && \
-     if [ ${ADD_SB} ] ; then /opt/conda/bin/conda install -y pytorch $PYTORCH_DEPS -c pytorch; fi && \
      /opt/conda/bin/conda clean -ya
 ENV PATH /opt/conda/bin:$PATH
 
@@ -64,7 +63,8 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
 RUN echo "export ROSLAUNCH_SSH_UNKNOWN=1" >> /root/.bashrc
 
 # Install eagerx-tutorials if ADD_SB, this will also install stable-baselines3
-RUN if [ ${ADD_SB} ] ; then pip install eagerx-tutorials; fi
+RUN if [ ${ADD_SB} ] ; then pip install eagerx-tutorials stable-baselines3==2.0.0; fi
+RUN if [ ${ADD_SB} ] ; then pip3 install --upgrade torch==1.12 --extra-index-url https://download.pytorch.org/whl/${PYTORCH_DEPS}; fi
 
 # Use headless opencv
 RUN pip uninstall -y opencv-python && pip install opencv-python-headless && rm -rf $HOME/.cache/pip
